@@ -1,5 +1,6 @@
 import express from "express";
 import License from "../models/License.js";
+import { PLAN_CONFIG } from "../config/plans.js";
 
 const router = express.Router();
 
@@ -8,7 +9,7 @@ const router = express.Router();
  * @desc Verify license key status and activate devices for Photoshop plugin
  */
 router.post("/verify", async (req, res) => {
-  const { email, licenseKey, deviceId } = req.body;
+  const { email, licenseKey, deviceId, pluginId } = req.body;
 
   if (!email || !licenseKey) {
     return res.status(400).json({ success: false, message: "Missing email or licenseKey." });
@@ -32,6 +33,24 @@ router.post("/verify", async (req, res) => {
       return res.status(403).json({ success: false, message: "This license key does not belong to the provided email address." });
     }
 
+    // Load feature and template configurations for this plan
+    const planDetails = PLAN_CONFIG[license.planId];
+    if (!planDetails) {
+      return res.status(500).json({ success: false, message: "Invalid plan configured on license key." });
+    }
+
+    // Plan and Plugin Security Validation
+    if (pluginId && PLAN_CONFIG[pluginId]) {
+      const requestedPlugin = PLAN_CONFIG[pluginId];
+      // If the license level is lower than the required plugin level, block it.
+      if (planDetails.level < requestedPlugin.level) {
+        return res.status(403).json({
+          success: false,
+          message: `Access denied. A ${planDetails.name} license key is not authorized to unlock the ${requestedPlugin.name} plugin. Please upgrade your plan.`,
+        });
+      }
+    }
+
     // Device activation logic (if deviceId is supplied)
     if (deviceId) {
       const isAlreadyActivated = license.activatedDevices.includes(deviceId);
@@ -41,6 +60,8 @@ router.post("/verify", async (req, res) => {
           success: true,
           message: "License verified successfully (Device already registered).",
           planId: license.planId,
+          features: planDetails.features,
+          templates: planDetails.templates,
           maxDevices: license.maxDevices,
           activeDevicesCount: license.activatedDevices.length,
         });
@@ -64,6 +85,8 @@ router.post("/verify", async (req, res) => {
         success: true,
         message: "New device registered and license activated successfully.",
         planId: license.planId,
+        features: planDetails.features,
+        templates: planDetails.templates,
         maxDevices: license.maxDevices,
         activeDevicesCount: license.activatedDevices.length,
       });
@@ -74,6 +97,8 @@ router.post("/verify", async (req, res) => {
       success: true,
       message: "License key is active and valid.",
       planId: license.planId,
+      features: planDetails.features,
+      templates: planDetails.templates,
       maxDevices: license.maxDevices,
       activeDevicesCount: license.activatedDevices.length,
     });
