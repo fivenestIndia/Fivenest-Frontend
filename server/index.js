@@ -13,7 +13,7 @@ connectDB();
 
 const app = express();
 
-// Configure CORS - Allow localhost and Vercel storefront URLs
+// Configure CORS - Allow localhost, custom domain, and Vercel domains
 const allowedOrigins = [
   "http://localhost:5173", // default vite port
   "http://localhost:3000",
@@ -24,7 +24,11 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      if (
+        !origin ||
+        allowedOrigins.indexOf(origin) !== -1 ||
+        origin.endsWith(".vercel.app")
+      ) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
