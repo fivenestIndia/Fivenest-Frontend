@@ -1,0 +1,67 @@
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import connectDB from "./config/db.js";
+import paymentRoutes from "./routes/payment.js";
+import licenseRoutes from "./routes/license.js";
+
+// Load environment variables
+dotenv.config();
+
+// Connect to MongoDB
+connectDB();
+
+const app = express();
+
+// Configure CORS - Allow localhost and Vercel storefront URLs
+const allowedOrigins = [
+  "http://localhost:5173", // default vite port
+  "http://localhost:3000",
+  "https://www.fivenest.in",
+  "https://fivenest.in",
+];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
+);
+
+// Capture raw body for signature verification (Crucial for Razorpay webhook verification)
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf.toString();
+    },
+  })
+);
+
+// Express urlencoded parser
+app.use(express.urlencoded({ extended: true }));
+
+// Health Check Endpoint
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "healthy", timestamp: new Date() });
+});
+
+// Register API Routes
+app.use("/api/payment", paymentRoutes);
+app.use("/api/license", licenseRoutes);
+
+// Custom Error Handler Middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: "Something went wrong on the server." });
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});

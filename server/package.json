@@ -1,0 +1,22 @@
+{
+  "name": "fivenest-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Fivenest payment processing and licensing",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "@getbrevo/brevo": "^2.2.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongoose": "^8.3.1",
+    "razorpay": "^2.9.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
