@@ -39,14 +39,28 @@ router.post("/verify", async (req, res) => {
       return res.status(500).json({ success: false, message: "Invalid plan configured on license key." });
     }
 
+    // Map Photoshop UXP Plugin IDs to Plan IDs
+    const PLUGIN_ID_TO_PLAN = {
+      "92c18351": "starter",
+      "d8dcad95": "pro",
+      "4355a359": "premium",
+      "dd856c50": "enterprise",
+      "starter": "starter",
+      "pro": "pro",
+      "premium": "premium",
+      "enterprise": "enterprise"
+    };
+
+    const resolvedPluginId = PLUGIN_ID_TO_PLAN[pluginId] || pluginId;
+
     // Plan and Plugin Security Validation
-    if (pluginId && PLAN_CONFIG[pluginId]) {
-      const requestedPlugin = PLAN_CONFIG[pluginId];
-      // If the license level is lower than the required plugin level, block it.
-      if (planDetails.level < requestedPlugin.level) {
+    if (resolvedPluginId && PLAN_CONFIG[resolvedPluginId]) {
+      const requestedPlugin = PLAN_CONFIG[resolvedPluginId];
+      // Enforce strict 1-to-1 matching: key planId must exactly match the UXP plugin resolved ID
+      if (license.planId !== resolvedPluginId) {
         return res.status(403).json({
           success: false,
-          message: `Access denied. A ${planDetails.name} license key is not authorized to unlock the ${requestedPlugin.name} plugin. Please upgrade your plan.`,
+          message: `Access denied. A ${planDetails.name} key is not authorized to unlock the ${requestedPlugin.name} plugin.`,
         });
       }
     }
@@ -64,6 +78,12 @@ router.post("/verify", async (req, res) => {
           templates: planDetails.templates,
           maxDevices: license.maxDevices,
           activeDevicesCount: license.activatedDevices.length,
+          debug: {
+            receivedPluginId: pluginId,
+            resolvedPluginId: resolvedPluginId,
+            licensePlanId: license.planId,
+            hasPlanConfig: !!PLAN_CONFIG[resolvedPluginId]
+          }
         });
       }
 
@@ -89,6 +109,12 @@ router.post("/verify", async (req, res) => {
         templates: planDetails.templates,
         maxDevices: license.maxDevices,
         activeDevicesCount: license.activatedDevices.length,
+        debug: {
+          receivedPluginId: pluginId,
+          resolvedPluginId: resolvedPluginId,
+          licensePlanId: license.planId,
+          hasPlanConfig: !!PLAN_CONFIG[resolvedPluginId]
+        }
       });
     }
 
@@ -101,6 +127,12 @@ router.post("/verify", async (req, res) => {
       templates: planDetails.templates,
       maxDevices: license.maxDevices,
       activeDevicesCount: license.activatedDevices.length,
+      debug: {
+        receivedPluginId: pluginId,
+        resolvedPluginId: resolvedPluginId,
+        licensePlanId: license.planId,
+        hasPlanConfig: !!PLAN_CONFIG[resolvedPluginId]
+      }
     });
   } catch (error) {
     console.error("License Verification Error:", error);

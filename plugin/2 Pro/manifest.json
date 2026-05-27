@@ -1,0 +1,52 @@
+{
+  "id": "d8dcad95",
+  "name": "FN Pro",
+  "version": "52.0.0",
+  "main": "index.html",
+  "manifestVersion": 5,
+  "host": [
+    {
+      "app": "PS",
+      "minVersion": "23.0.0"
+    }
+  ],
+  "icons": [
+    {
+      "width": 23,
+      "height": 23,
+      "path": "icon_23.png",
+      "scale": [ 1, 2 ]
+    },
+    {
+      "width": 48,
+      "height": 48,
+      "path": "icon_48.png",
+      "scale": [ 1, 2 ]
+    }
+  ],
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "main",
+      "minimumSize": { "width": 240, "height": 300 },
+      "maximumSize": { "width": 800, "height": 1200 },
+      "preferredDockedSize": { "width": 280, "height": 600 },
+      "preferredFloatingSize": { "width": 280, "height": 600 },
+      "label": "FN Pro",
+      "icons": [
+        {
+          "width": 23,
+          "height": 23,
+          "path": "icon_23.png",
+          "scale": [ 1, 2 ]
+        }
+      ]
+    }
+  ],
+  "requiredPermissions": {
+    "localFileSystem": "fullAccess",
+    "network": {
+        "domains": "all"
+    }
+  }
+}

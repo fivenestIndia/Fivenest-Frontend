@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="index.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    
+    <div class="top-header">
+        <div class="version-tag">PREMIUM V1.0</div>
+        <button id="btnThemeToggle" class="theme-switch" title="Toggle Dark/Light Mode">☀</button>
+    </div>
+
+    <div class="tabs">
+        <button id="tabRun" class="tab-btn active">Run Engine</button>
+        <button id="tabEdit" class="tab-btn">Size Editor</button>
+    </div>
+
+    <div id="panelRun" class="panel active">
+        
+        <div class="box" id="licensingBox" style="border-left: 3px solid var(--accent-color); padding: 6px 8px; margin-bottom: 5px;">
+            <div class="box-header-row" style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                <div class="header-small">License Registration</div>
+                <div id="licenseStatus" style="font-size: 9px; font-weight: bold; color: #ff3b30;">Checking...</div>
+            </div>
+            <div id="licenseContent">
+                <div class="row-tiny" style="display:flex; flex-direction:column; gap:4px;">
+                    <input type="text" id="txtLicenseEmail" placeholder="Enter Registration Email" style="width: 100%; height:18px; text-align: left; margin-bottom: 3px; background: #222; border: 1px solid #444; color: #fff; padding: 0 4px;">
+                    <div style="display:flex; width:100%; gap:4px;">
+                        <input type="text" id="txtLicenseKey" placeholder="Enter License Key" style="flex: 1; height:18px; text-align: left; background: #222; border: 1px solid #444; color: #fff; padding: 0 4px;">
+                        <button id="btnActivate" class="btn-tiny-action" style="font-size: 10px; padding: 1px 6px;">ACTIVATE</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="box">
+            <div class="box-header-row">
+                <div class="header-small">1. Input Files</div>
+                <button id="btnValidate" class="btn-tiny-action">🔍 CHECK CSV</button>
+            </div>
+            <div class="file-row">
+                <div class="file-item">
+                    <button id="btnCSV" class="picker-btn">Select CSV</button>
+                    <div id="lblCSV" class="status-tiny">None</div>
+                </div>
+                <div class="file-item">
+                    <button id="btnFolder" class="picker-btn">Select Output</button>
+                    <div id="lblFolder" class="status-tiny">None</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="box">
+            <div class="box-header-row">
+                <div style="display:flex; align-items:center;">
+                    <span id="btnToggleConfig" class="toggle-icon">▼</span>
+                    <div class="header-small">2. Configuration</div>
+                </div>
+                <button id="btnSetDefault" class="btn-tiny-action" title="Save current settings as default">SET DEFAULT</button>
+            </div>
+
+            <div id="configContent">
+                <div class="row-tiny">
+                    <span>Format:</span>
+                    <select id="exportFormat">
+                        <option value="jpg">JPG</option>
+                        <option value="png">PNG</option>
+                        <option value="tiff">TIFF</option>
+                    </select>
+                    <span>Res (ppi):</span>
+                    <input type="number" id="resolution" value="300">
+                </div>
+
+                <div class="row-tiny" style="justify-content: flex-start;">
+                    <div class="checkbox-item" id="containerEmbed" style="margin-right: 15px;">
+                        <input type="checkbox" id="chkEmbedProfile" checked>
+                        <span id="lblEmbed">Embed Color Profile</span>
+                    </div>
+                    <div class="checkbox-item hidden-control" id="containerLZW">
+                        <input type="checkbox" id="chkLZW">
+                        <span>LZW Comp.</span>
+                    </div>
+                </div>
+
+                <div class="row-tiny" style="justify-content: flex-start; border-top: 1px solid #444; padding-top: 4px; margin-top: 2px;">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="chkSameFrontBack">
+                        <span style="color: var(--accent-color); font-weight: bold;">No Name & Number</span>
+                    </div>
+                </div>
+
+                <div class="row-tiny" style="justify-content: flex-start;">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="chkNameNum">
+                        <span style="color: #FF9800; font-weight: bold;">Only Name & Number</span>
+                    </div>
+                </div>
+
+                <div class="row-tiny" style="justify-content: flex-start;">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="chkMockup">
+                        <span style="color: #4CAF50; font-weight: bold;">Mockup</span>
+                    </div>
+                </div>
+
+                <div class="row-tiny">
+                    <span>Name Max. Width:</span>
+                    <input type="number" id="limitName" value="11">
+                    <span>Number Max. Width :</span>
+                    <input type="number" id="limitNum" value="9">
+                </div>
+            </div>
+        </div>
+        
+        <button id="btnRun" class="btn-main">▶ RUN AUTOMATION</button>
+
+        <div class="progress-container">
+            <div id="progressBar"></div>
+            <div class="progress-text" id="progressVal">0%</div>
+        </div>
+        <div id="etaDisplay" class="eta-text">Remaining: --:--</div>
+        
+        <div id="workCaption" class="caption-anim hidden-control">Optimizing workflow efficiency...</div>
+
+        <div class="log-header">
+            <div class="log-title">Process Log</div>
+            <button id="btnClearLog" class="btn-tiny-action">Clear Log</button>
+        </div>
+        <div id="logArea">Ready.</div>
+    </div>
+
+    <div id="panelEdit" class="panel">
+        <div class="box">
+            <div class="row-tiny"><span>Size:</span><select id="sizeSelector" style="width: 100%;"></select></div>
+        </div>
+        <div class="box">
+            <div class="header-small">Dimensions (in)</div>
+            <div class="row-tiny"><span>Front:</span> <div><input type="number" id="frontW" style="width:30px;"> x <input type="number" id="frontH" style="width:30px;"></div></div>
+            <div class="row-tiny"><span>Back:</span> <div><input type="number" id="backW" style="width:30px;"> x <input type="number" id="backH" style="width:30px;"></div></div>
+            <div class="row-tiny"><span>Half:</span> <div><input type="number" id="halfW" style="width:30px;"> x <input type="number" id="halfH" style="width:30px;"></div></div>
+            <div class="row-tiny"><span>Full:</span> <div><input type="number" id="fullW" style="width:30px;"> x <input type="number" id="fullH" style="width:30px;"></div></div>
+            <div class="row-tiny"><span>NameNum:</span> <div><input type="number" id="nnW" style="width:30px;"> x <input type="number" id="nnH" style="width:30px;"></div></div>
+            
+            <button id="btnSaveDB" class="btn-save" style="margin-top:8px;">Save Database</button>
+            <div id="saveMsg" class="status-tiny"></div>
+        </div>
+    </div>
+</body>
+</html>

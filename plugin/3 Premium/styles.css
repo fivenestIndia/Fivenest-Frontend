@@ -1,0 +1,149 @@
+:root {
+    --bg-color: #323232;
+    --box-bg: #3a3a3a;
+    --text-color: #ddd;
+    --border-color: #444;
+    --accent-color: #2D8CEB;
+    --input-bg: #222;
+    --btn-hover: #1a7bc9;
+}
+
+body.light-tool {
+    --bg-color: #f0f0f0;
+    --box-bg: #ffffff;
+    --text-color: #333;
+    --border-color: #ccc;
+    --input-bg: #fff;
+    --accent-color: #0078d4;
+}
+
+body { background-color: var(--bg-color); color: var(--text-color); font-family: sans-serif; font-size: 10px; padding: 4px; margin: 0; transition: background-color 0.2s; position: relative; }
+
+/* Theme Switcher */
+.theme-switch { position: absolute; top: 6px; right: 6px; background: none; border: none; cursor: pointer; font-size: 14px; color: var(--text-color); padding: 0; line-height: 1; opacity: 0.7; }
+.theme-switch:hover { opacity: 1; color: var(--accent-color); }
+
+.tabs { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 6px; margin-right: 30px; }
+.tab-btn { background: none; border: none; color: #888; padding: 5px; flex: 1; cursor: pointer; font-weight: 600; font-size: 10px; }
+.tab-btn.active { color: var(--text-color); background: var(--box-bg); border-bottom: 2px solid var(--accent-color); }
+
+.panel { display: none; }
+.panel.active { display: block; }
+
+.box { background: var(--box-bg); padding: 4px; border: 1px solid var(--border-color); border-radius: 2px; margin-bottom: 3px; }
+
+/* 🔥 NEW: Main Title Styling */
+.main-title { font-size: 13px; font-weight: bold; margin: 4px 0 8px 4px; color: var(--text-color); }
+.version-tag { font-size: 9px; font-weight: normal; color: #888; margin-left: 6px; text-transform: uppercase; }
+
+/* Header Layouts */
+.box-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; border-bottom: 1px solid var(--border-color); padding-bottom: 2px; }
+.header-small { font-weight: bold; color: var(--text-color); opacity: 0.7; font-size: 9px; text-transform: uppercase; margin: 0; padding: 0; border: none; }
+
+/* Toggle Icon */
+.toggle-icon { cursor: pointer; font-size: 10px; color: var(--text-color); margin-right: 4px; opacity: 0.7; user-select: none; display: inline-block; transition: transform 0.2s; }
+.toggle-icon:hover { opacity: 1; color: var(--accent-color); }
+.toggle-icon.collapsed { transform: rotate(-90deg); }
+
+/* Tiny Action Buttons */
+.btn-tiny-action { 
+    background: none; 
+    border: none; 
+    color: var(--accent-color); 
+    cursor: pointer; 
+    font-size: 8px; 
+    padding: 0; 
+    font-weight: bold; 
+    opacity: 0.9; 
+    text-transform: uppercase; 
+}
+.btn-tiny-action:hover { color: var(--text-color); text-decoration: underline; }
+
+.file-row { display: flex; margin-bottom: 2px; }
+.file-item { flex: 1; }
+.file-item:first-child { margin-right: 6px; } 
+.picker-btn { background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color); padding: 4px; width: 100%; text-align: center; cursor: pointer; font-size: 10px; border-radius: 2px; }
+.picker-btn:hover { border-color: var(--accent-color); }
+.status-tiny { font-size: 9px; color: #888; margin-top: 1px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 11px; }
+
+.row-tiny { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1px; }
+
+/* Inputs */
+input[type="number"], select { 
+    background: var(--input-bg); 
+    border: 1px solid var(--border-color); 
+    color: var(--text-color); 
+    padding: 0px 3px; 
+    width: 50px; 
+    font-size: 10px; 
+    height: 22px; 
+    text-align: center; 
+}
+
+.checkbox-item { display: flex; align-items: center; margin-right: 12px; }
+.checkbox-item input { margin: 0 4px 0 0; }
+.checkbox-item span { font-size: 10px; color: var(--text-color); }
+
+.hidden-control { display: none !important; }
+.disabled-text { opacity: 0.5; }
+
+.caption-anim { text-align: center; font-style: italic; color: var(--accent-color); margin-bottom: 4px; font-size: 10px; animation: pulse 1.5s infinite; }
+@keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+
+/* Main Button */
+.btn-main { background: var(--accent-color); color: white; border: none; padding: 6px; width: 100%; font-weight: bold; cursor: pointer; border-radius: 3px; font-size: 11px; margin-top: 2px; }
+.btn-main:hover { background: var(--btn-hover); }
+.btn-save { background: #4CAF50; color: white; border: none; padding: 6px; width: 100%; font-weight: bold; font-size: 10px; cursor: pointer; border-radius: 3px; margin-top: 3px; }
+
+/* Progress Bar */
+.progress-container { background: #151515; border: 1px solid var(--border-color); height: 16px; border-radius: 8px; margin: 4px 0 2px 0; position: relative; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.4); }
+#progressBar { background: linear-gradient(90deg, var(--accent-color), #4facfe); width: 0%; height: 100%; transition: width 0.3s cubic-bezier(0.25, 1, 0.5, 1); border-radius: 8px; box-shadow: 0 0 10px rgba(45, 140, 235, 0.4); }
+.progress-text { position: absolute; width: 100%; text-align: center; font-size: 9px; line-height: 16px; color: #fff; font-weight: 700; top: 0; pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
+
+.eta-text { font-size: 9px; color: var(--text-color); opacity: 0.7; text-align: right; margin-bottom: 4px; font-family: monospace; }
+
+.log-header { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; margin-bottom: 1px; }
+.log-title { font-weight: bold; font-size: 10px; text-transform: uppercase; color: var(--text-color); } 
+
+/* LOG AREA - Height Increased to 180px */
+#logArea { 
+    font-family: monospace; 
+    font-size: 9px; 
+    color: #2ecc71; 
+    background: #1a1a1a; 
+    padding: 4px; 
+    height: 180px; /* Increased from 90px to 180px */
+    overflow-y: auto; 
+    border: 1px solid var(--border-color); 
+    margin-top: 1px; 
+}
+body.light-tool #logArea { background: #fff; color: #006400; }
+/* 🔥 NEW: Aligned Top Header Styles */
+/* 🔥 BALANCED TOP HEADER STYLES */
+.top-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    padding: 2px 4px;
+}
+
+.version-tag {
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.theme-switch { 
+    background: none; 
+    border: none; 
+    cursor: pointer; 
+    font-size: 14px; 
+    color: var(--text-color); 
+    padding: 0; 
+    line-height: 1; 
+    opacity: 0.7; 
+}
+.theme-switch:hover { opacity: 1; color: var(--accent-color); }
