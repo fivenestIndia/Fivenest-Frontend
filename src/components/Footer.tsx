@@ -2,7 +2,7 @@ const Footer = () => (
   <footer className="border-t border-border py-12">
     <div className="container mx-auto px-6 text-center">
       <div className="flex items-center justify-center gap-1.5 text-2xl font-bold mb-4">
-        <img src="/logo.png" alt="Fivenest Logo" className="h-8 w-auto object-contain" />
+        <img src="/logo.svg" alt="Fivenest Logo" className="h-8 w-auto object-contain -mr-2.5" />
         <span>Fivenest<span className="text-primary">.</span></span>
       </div>
       <p className="text-sm text-muted-foreground mb-6">
