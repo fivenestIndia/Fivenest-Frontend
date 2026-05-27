@@ -6,6 +6,8 @@ import { CheckCircle2, Mail, Download, ArrowLeft, MessageSquare } from "lucide-r
 
 const Success = () => {
   const [searchParams] = useSearchParams();
+  const paymentId = searchParams.get("razorpay_payment_id");
+  const paymentStatus = searchParams.get("razorpay_payment_link_status");
   const email = searchParams.get("email") || "your email address";
   const planId = searchParams.get("planId") || "starter";
 
@@ -18,6 +20,33 @@ const Success = () => {
       default: return "Subscription";
     }
   };
+
+  const isAccessAuthorized = paymentId || paymentStatus === "paid" || (email !== "your email address" && searchParams.get("planId") !== null);
+
+  if (!isAccessAuthorized) {
+    return (
+      <div className="min-h-screen relative flex flex-col justify-between">
+        <AuroraBackground />
+        <Navbar />
+        <main className="container mx-auto px-6 py-32 flex-1 flex flex-col items-center justify-center relative z-10">
+          <div className="glass-card max-w-md w-full rounded-3xl p-8 text-center border border-red-500/20 glow-sm">
+            <div className="text-4xl text-red-500 mb-4 font-bold">⚠️</div>
+            <h1 className="text-2xl font-bold text-foreground mb-4">Access Denied</h1>
+            <p className="text-muted-foreground mb-6 text-sm">
+              This page is only accessible after a successful transaction. Direct access is restricted.
+            </p>
+            <Link
+              to="/"
+              className="inline-flex px-6 py-2.5 bg-primary text-primary-foreground font-semibold rounded-lg hover:opacity-90 transition-opacity"
+            >
+              Go to Homepage
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen relative flex flex-col justify-between">
