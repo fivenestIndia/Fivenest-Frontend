@@ -31,9 +31,9 @@ const Navbar = () => {
       }`}
     >
       <div className="container mx-auto flex items-center justify-between px-6">
-        <a href="#" className="flex items-center gap-3 text-2xl font-bold tracking-tight z-50">
+        <a href="#" className="flex items-center gap-2 text-2xl font-bold tracking-tight z-50">
           <img src="/logo.svg" alt="Fivenest Logo" className="h-9 w-auto object-contain" />
-          <span>Fivenest</span><span className="text-primary">.</span>
+          <span>Fivenest<span className="text-primary">.</span></span>
         </a>
 
         {/* Desktop */}

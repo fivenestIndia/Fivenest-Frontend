@@ -1,9 +1,9 @@
 const Footer = () => (
   <footer className="border-t border-border py-12">
     <div className="container mx-auto px-6 text-center">
-      <div className="flex items-center justify-center gap-3 text-2xl font-bold mb-4">
+      <div className="flex items-center justify-center gap-2 text-2xl font-bold mb-4">
         <img src="/logo.svg" alt="Fivenest Logo" className="h-8 w-auto object-contain" />
-        <span>Fivenest</span><span className="text-primary">.</span>
+        <span>Fivenest<span className="text-primary">.</span></span>
       </div>
       <p className="text-sm text-muted-foreground mb-6">
         Automating jersey printing production for manufacturers across India.
