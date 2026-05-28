@@ -5,7 +5,11 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <button id="btnThemeToggle" class="theme-switch" title="Toggle Dark/Light Mode">☀</button>
+    
+    <div class="top-header">
+        <div class="version-tag">STARTER V1.0</div>
+        <button id="btnThemeToggle" class="theme-switch" title="Toggle Dark/Light Mode">☀</button>
+    </div>
 
     <div class="tabs">
         <button id="tabRun" class="tab-btn active">Run Engine</button>
@@ -13,7 +17,8 @@
     </div>
 
     <div id="panelRun" class="panel active">
-        <div class="box" id="licensingBox" style="border-left: 3px solid var(--accent-color); padding: 6px 8px; margin-bottom: 5px;">
+        
+        <div class="box" id="licensingBox" style="border-left: 3px solid var(--accent-color); padding: 4px 8px; margin-bottom: 5px;">
             <div class="box-header-row" style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                 <div class="header-small">License Registration</div>
                 <div id="licenseStatus" style="font-size: 9px; font-weight: bold; color: #ff3b30;">Checking...</div>
@@ -28,19 +33,20 @@
                 </div>
             </div>
         </div>
+
         <div class="box">
             <div class="box-header-row">
                 <div class="header-small">1. Input Files</div>
                 <button id="btnValidate" class="btn-tiny-action">🔍 CHECK CSV</button>
             </div>
-            <div class="file-row">
-                <div class="file-item">
-                    <button id="btnCSV" class="picker-btn">Select CSV</button>
-                    <div id="lblCSV" class="status-tiny">None</div>
+            <div style="display: flex; width: 100%; gap: 6px;">
+                <div style="flex: 1; min-width: 0;">
+                    <button id="btnCSV" class="picker-btn" style="width: 100%;">Select CSV</button>
+                    <div id="lblCSV" class="status-tiny" style="margin-top: 2px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px;">None</div>
                 </div>
-                <div class="file-item">
-                    <button id="btnFolder" class="picker-btn">Select Output</button>
-                    <div id="lblFolder" class="status-tiny">None</div>
+                <div style="flex: 1; min-width: 0;">
+                    <button id="btnFolder" class="picker-btn" style="width: 100%;">Select Output</button>
+                    <div id="lblFolder" class="status-tiny" style="margin-top: 2px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px;">None</div>
                 </div>
             </div>
         </div>
@@ -55,21 +61,21 @@
             </div>
 
             <div id="configContent">
-                <div class="row-tiny">
-                    <span>Format:</span>
-                    <select id="exportFormat">
+                <div class="row-tiny" style="margin-bottom: 4px;">
+                    <span style="font-size: 9px;">Format:</span>
+                    <select id="exportFormat" style="width: 50px;">
                         <option value="jpg">JPG</option>
                         <option value="png">PNG</option>
                         <option value="tiff">TIFF</option>
                     </select>
-                    <span>Res (ppi):</span>
-                    <input type="number" id="resolution" value="300">
+                    <span style="margin-left: auto; margin-right: 4px; font-size: 9px;">Res:</span>
+                    <input type="number" id="resolution" value="300" style="width: 36px; padding: 0 2px;">
                 </div>
 
-                <div class="row-tiny" style="justify-content: flex-start;">
+                <div class="row-tiny" style="justify-content: flex-start; margin-bottom: 4px;">
                     <div class="checkbox-item" id="containerEmbed" style="margin-right: 15px;">
                         <input type="checkbox" id="chkEmbedProfile" checked>
-                        <span id="lblEmbed">Embed Color Profile</span>
+                        <span id="lblEmbed">Embed Profile</span>
                     </div>
                     <div class="checkbox-item hidden-control" id="containerLZW">
                         <input type="checkbox" id="chkLZW">
@@ -77,11 +83,15 @@
                     </div>
                 </div>
 
-                <div class="row-tiny">
-                    <span>Name Max Width:</span>
-                    <input type="number" id="limitName" value="11">
-                    <span>Number Max Width :</span>
-                    <input type="number" id="limitNum" value="9">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; border-top: 1px solid #444; padding-top: 4px; width: 100%;">
+                    <div style="display: flex; align-items: center;">
+                        <span style="font-size: 9px; margin-right: 4px;">Name Max:</span>
+                        <input type="number" id="limitName" value="11" style="width: 30px; padding: 0 2px; text-align: center;">
+                    </div>
+                    <div style="display: flex; align-items: center;">
+                        <span style="font-size: 9px; margin-right: 4px;">Num Max:</span>
+                        <input type="number" id="limitNum" value="9" style="width: 30px; padding: 0 2px; text-align: center;">
+                    </div>
                 </div>
             </div>
         </div>
@@ -104,16 +114,17 @@
     </div>
 
     <div id="panelEdit" class="panel">
-        <div class="box">
+        <div class="box" style="margin-bottom: 6px;">
             <div class="row-tiny"><span>Size:</span><select id="sizeSelector" style="width: 100%;"></select></div>
         </div>
         <div class="box">
-            <div class="header-small">Dimensions (in)</div>
-            <div class="row-tiny"><span>Front:</span> <div><input type="number" id="frontW" style="width:30px;"> x <input type="number" id="frontH" style="width:30px;"></div></div>
-            <div class="row-tiny"><span>Back:</span> <div><input type="number" id="backW" style="width:30px;"> x <input type="number" id="backH" style="width:30px;"></div></div>
-            <div class="row-tiny"><span>Half:</span> <div><input type="number" id="halfW" style="width:30px;"> x <input type="number" id="halfH" style="width:30px;"></div></div>
-            <div class="row-tiny"><span>Full:</span> <div><input type="number" id="fullW" style="width:30px;"> x <input type="number" id="fullH" style="width:30px;"></div></div>
-            <button id="btnSaveDB" class="btn-save" style="margin-top:8px;">Save Database</button>
+            <div class="header-small" style="margin-bottom: 8px;">Dimensions (in)</div>
+            <div class="row-tiny"><span style="font-size: 9px;">Front:</span> <div><input type="number" id="frontW" class="size-input"> x <input type="number" id="frontH" class="size-input"></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Back:</span> <div><input type="number" id="backW" class="size-input"> x <input type="number" id="backH" class="size-input"></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Half:</span> <div><input type="number" id="halfW" class="size-input"> x <input type="number" id="halfH" class="size-input"></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Full:</span> <div><input type="number" id="fullW" class="size-input"> x <input type="number" id="fullH" class="size-input"></div></div>
+            
+            <button id="btnSaveDB" class="btn-save">Save Database</button>
             <div id="saveMsg" class="status-tiny"></div>
         </div>
     </div>

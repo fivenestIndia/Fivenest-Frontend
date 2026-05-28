@@ -1,149 +1,399 @@
 :root {
-    --bg-color: #323232;
-    --box-bg: #3a3a3a;
-    --text-color: #ddd;
+    --bg-color: #2b2b2b;
+    --box-bg: #333333;
+    --text-color: #e0e0e0;
     --border-color: #444;
     --accent-color: #2D8CEB;
-    --input-bg: #222;
+    --input-bg: #1e1e1e;
     --btn-hover: #1a7bc9;
 }
 
 body.light-tool {
-    --bg-color: #f0f0f0;
+    --bg-color: #f3f3f3;
     --box-bg: #ffffff;
-    --text-color: #333;
-    --border-color: #ccc;
-    --input-bg: #fff;
+    --text-color: #222;
+    --border-color: #d0d0d0;
+    --input-bg: #ffffff;
     --accent-color: #0078d4;
+    --btn-hover: #005a9e;
 }
 
-body { background-color: var(--bg-color); color: var(--text-color); font-family: sans-serif; font-size: 10px; padding: 4px; margin: 0; transition: background-color 0.2s; position: relative; }
+* {
+    box-sizing: border-box !important;
+}
 
-/* Theme Switcher */
-.theme-switch { position: absolute; top: 6px; right: 6px; background: none; border: none; cursor: pointer; font-size: 14px; color: var(--text-color); padding: 0; line-height: 1; opacity: 0.7; }
-.theme-switch:hover { opacity: 1; color: var(--accent-color); }
-
-.tabs { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 6px; margin-right: 30px; }
-.tab-btn { background: none; border: none; color: #888; padding: 5px; flex: 1; cursor: pointer; font-weight: 600; font-size: 10px; }
-.tab-btn.active { color: var(--text-color); background: var(--box-bg); border-bottom: 2px solid var(--accent-color); }
-
-.panel { display: none; }
-.panel.active { display: block; }
-
-.box { background: var(--box-bg); padding: 4px; border: 1px solid var(--border-color); border-radius: 2px; margin-bottom: 3px; }
-
-/* 🔥 NEW: Main Title Styling */
-.main-title { font-size: 13px; font-weight: bold; margin: 4px 0 8px 4px; color: var(--text-color); }
-.version-tag { font-size: 9px; font-weight: normal; color: #888; margin-left: 6px; text-transform: uppercase; }
+body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 10px;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.2s;
+}
 
 /* Header Layouts */
-.box-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; border-bottom: 1px solid var(--border-color); padding-bottom: 2px; }
-.header-small { font-weight: bold; color: var(--text-color); opacity: 0.7; font-size: 9px; text-transform: uppercase; margin: 0; padding: 0; border: none; }
-
-/* Toggle Icon */
-.toggle-icon { cursor: pointer; font-size: 10px; color: var(--text-color); margin-right: 4px; opacity: 0.7; user-select: none; display: inline-block; transition: transform 0.2s; }
-.toggle-icon:hover { opacity: 1; color: var(--accent-color); }
-.toggle-icon.collapsed { transform: rotate(-90deg); }
-
-/* Tiny Action Buttons */
-.btn-tiny-action { 
-    background: none; 
-    border: none; 
-    color: var(--accent-color); 
-    cursor: pointer; 
-    font-size: 8px; 
-    padding: 0; 
-    font-weight: bold; 
-    opacity: 0.9; 
-    text-transform: uppercase; 
-}
-.btn-tiny-action:hover { color: var(--text-color); text-decoration: underline; }
-
-.file-row { display: flex; margin-bottom: 2px; }
-.file-item { flex: 1; }
-.file-item:first-child { margin-right: 6px; } 
-.picker-btn { background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color); padding: 4px; width: 100%; text-align: center; cursor: pointer; font-size: 10px; border-radius: 2px; }
-.picker-btn:hover { border-color: var(--accent-color); }
-.status-tiny { font-size: 9px; color: #888; margin-top: 1px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 11px; }
-
-.row-tiny { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1px; }
-
-/* Inputs */
-input[type="number"], select { 
-    background: var(--input-bg); 
-    border: 1px solid var(--border-color); 
-    color: var(--text-color); 
-    padding: 0px 3px; 
-    width: 50px; 
-    font-size: 10px; 
-    height: 22px; 
-    text-align: center; 
-}
-
-.checkbox-item { display: flex; align-items: center; margin-right: 12px; }
-.checkbox-item input { margin: 0 4px 0 0; }
-.checkbox-item span { font-size: 10px; color: var(--text-color); }
-
-.hidden-control { display: none !important; }
-.disabled-text { opacity: 0.5; }
-
-.caption-anim { text-align: center; font-style: italic; color: var(--accent-color); margin-bottom: 4px; font-size: 10px; animation: pulse 1.5s infinite; }
-@keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
-
-/* Main Button */
-.btn-main { background: var(--accent-color); color: white; border: none; padding: 6px; width: 100%; font-weight: bold; cursor: pointer; border-radius: 3px; font-size: 11px; margin-top: 2px; }
-.btn-main:hover { background: var(--btn-hover); }
-.btn-save { background: #4CAF50; color: white; border: none; padding: 6px; width: 100%; font-weight: bold; font-size: 10px; cursor: pointer; border-radius: 3px; margin-top: 3px; }
-
-/* Progress Bar */
-.progress-container { background: #151515; border: 1px solid var(--border-color); height: 16px; border-radius: 8px; margin: 4px 0 2px 0; position: relative; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.4); }
-#progressBar { background: linear-gradient(90deg, var(--accent-color), #4facfe); width: 0%; height: 100%; transition: width 0.3s cubic-bezier(0.25, 1, 0.5, 1); border-radius: 8px; box-shadow: 0 0 10px rgba(45, 140, 235, 0.4); }
-.progress-text { position: absolute; width: 100%; text-align: center; font-size: 9px; line-height: 16px; color: #fff; font-weight: 700; top: 0; pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
-
-.eta-text { font-size: 9px; color: var(--text-color); opacity: 0.7; text-align: right; margin-bottom: 4px; font-family: monospace; }
-
-.log-header { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; margin-bottom: 1px; }
-.log-title { font-weight: bold; font-size: 10px; text-transform: uppercase; color: var(--text-color); } 
-
-/* LOG AREA - Height Increased to 180px */
-#logArea { 
-    font-family: monospace; 
-    font-size: 9px; 
-    color: #2ecc71; 
-    background: #1a1a1a; 
-    padding: 4px; 
-    height: 180px; /* Increased from 90px to 180px */
-    overflow-y: auto; 
-    border: 1px solid var(--border-color); 
-    margin-top: 1px; 
-}
-body.light-tool #logArea { background: #fff; color: #006400; }
-/* 🔥 NEW: Aligned Top Header Styles */
-/* 🔥 BALANCED TOP HEADER STYLES */
 .top-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 6px;
-    padding: 2px 4px;
+    padding: 4px 8px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border-color);
+    background-color: #202020;
+}
+body.light-tool .top-header {
+    background-color: #e5e5e5;
 }
 
 .version-tag {
-    font-size: 10px;
-    color: #888;
-    text-transform: uppercase;
-    font-weight: 600;
+    font-size: 9px;
+    color: var(--accent-color);
+    font-weight: bold;
     letter-spacing: 0.5px;
+    text-transform: uppercase;
 }
 
-.theme-switch { 
-    background: none; 
-    border: none; 
-    cursor: pointer; 
-    font-size: 14px; 
-    color: var(--text-color); 
-    padding: 0; 
-    line-height: 1; 
-    opacity: 0.7; 
+/* Theme Switcher */
+.theme-switch {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-color);
+    padding: 0;
+    line-height: 1;
+    opacity: 0.7;
+    transition: color 0.2s, opacity 0.2s;
 }
-.theme-switch:hover { opacity: 1; color: var(--accent-color); }
+.theme-switch:hover {
+    opacity: 1;
+    color: var(--accent-color);
+}
+
+/* Tabs switcher */
+.tabs {
+    display: flex;
+    width: 100%;
+    flex-shrink: 0;
+    background-color: #262626;
+    border-bottom: 1px solid var(--border-color);
+}
+body.light-tool .tabs {
+    background-color: #e8e8e8;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 5px 0;
+    background: none;
+    color: #888;
+    border: none;
+    font-size: 10px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+.tab-btn.active {
+    color: var(--text-color);
+    border-bottom: 2px solid var(--accent-color);
+    background-color: var(--box-bg);
+}
+
+/* Responsive panels container */
+.panel {
+    display: none;
+    padding: 5px 6px;
+    overflow-y: auto;
+    flex-grow: 1;
+    width: 100%;
+}
+.panel.active {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Cards (Boxes) */
+.box {
+    background: var(--box-bg);
+    padding: 5px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    margin-bottom: 5px;
+    flex-shrink: 0;
+    width: 100%;
+}
+
+.box-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 2px;
+}
+
+.header-small {
+    font-weight: bold;
+    color: var(--text-color);
+    opacity: 0.8;
+    font-size: 9px;
+    text-transform: uppercase;
+    margin: 0;
+    padding: 0;
+}
+
+/* Tiny Action Buttons */
+.btn-tiny-action {
+    background: none;
+    border: none;
+    color: var(--accent-color);
+    cursor: pointer;
+    font-size: 8px;
+    padding: 2px 4px;
+    font-weight: bold;
+    text-transform: uppercase;
+    transition: opacity 0.2s;
+}
+.btn-tiny-action:hover {
+    text-decoration: underline;
+    opacity: 0.8;
+}
+
+/* File Picker row styling */
+.picker-btn {
+    background: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    padding: 4px;
+    width: 100%;
+    text-align: center;
+    cursor: pointer;
+    font-size: 10px;
+    border-radius: 3px;
+    transition: border-color 0.2s;
+}
+.picker-btn:hover {
+    border-color: var(--accent-color);
+}
+
+.status-tiny {
+    font-size: 8px;
+    color: #888;
+    margin-top: 2px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    height: 11px;
+}
+
+/* Form layouts */
+.row-tiny {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3px;
+    width: 100%;
+}
+
+input[type="number"], input[type="text"], select {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: 0 4px;
+    font-size: 10px;
+    height: 18px;
+    border-radius: 3px;
+    text-align: center;
+}
+input[type="text"] {
+    text-align: left;
+}
+
+.size-input {
+    width: 32px;
+}
+
+.qty-input {
+    width: 36px;
+    height: 18px;
+    text-align: center;
+    font-size: 10px;
+    background: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 2px;
+}
+
+/* Checkboxes styling */
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    margin: 0;
+}
+.checkbox-item input {
+    margin: 0 4px 0 0;
+    cursor: pointer;
+}
+.checkbox-item span {
+    font-size: 9px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.hidden-control {
+    display: none !important;
+}
+.disabled-text {
+    opacity: 0.5;
+}
+
+/* Toggle Icon */
+.toggle-icon {
+    cursor: pointer;
+    font-size: 9px;
+    color: var(--text-color);
+    margin-right: 4px;
+    opacity: 0.8;
+    user-select: none;
+    display: inline-block;
+    transition: transform 0.2s;
+}
+.toggle-icon.collapsed {
+    transform: rotate(-90deg);
+}
+
+/* Animation info label */
+.caption-anim {
+    text-align: center;
+    font-style: italic;
+    color: var(--accent-color);
+    margin-bottom: 3px;
+    font-size: 9px;
+    animation: pulse 1.5s infinite;
+    flex-shrink: 0;
+}
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
+/* Buttons */
+.btn-main {
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    padding: 6px;
+    width: 100%;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 11px;
+    margin-top: 3px;
+    flex-shrink: 0;
+}
+.btn-main:hover {
+    background: var(--btn-hover);
+}
+.btn-main:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-save {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    padding: 5px;
+    width: 100%;
+    font-weight: bold;
+    font-size: 10px;
+    cursor: pointer;
+    border-radius: 4px;
+    margin-top: 5px;
+}
+.btn-save:hover {
+    background: #43a047;
+}
+
+/* Progress indicator */
+.progress-container {
+    background: #151515;
+    border: 1px solid var(--border-color);
+    height: 10px;
+    border-radius: 5px;
+    margin: 4px 0 2px 0;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+#progressBar {
+    background: linear-gradient(90deg, var(--accent-color), #4facfe);
+    width: 0%;
+    height: 100%;
+    transition: width 0.3s;
+    border-radius: 5px;
+}
+.progress-text {
+    position: absolute;
+    width: 100%;
+    text-align: center;
+    font-size: 8px;
+    line-height: 10px;
+    color: #fff;
+    font-weight: bold;
+    top: 0;
+    pointer-events: none;
+}
+
+.eta-text {
+    font-size: 8px;
+    color: var(--text-color);
+    opacity: 0.7;
+    text-align: right;
+    margin-bottom: 2px;
+    font-family: monospace;
+    flex-shrink: 0;
+}
+
+/* Logging section */
+.log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 3px;
+    margin-bottom: 2px;
+    flex-shrink: 0;
+}
+.log-title {
+    font-weight: bold;
+    font-size: 9px;
+    text-transform: uppercase;
+    color: var(--text-color);
+}
+
+#logArea {
+    font-family: monospace;
+    font-size: 8px;
+    color: #2ecc71;
+    background: #151515;
+    padding: 4px;
+    flex-grow: 1;
+    min-height: 50px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    margin-bottom: 0;
+    flex-shrink: 1;
+}
+body.light-tool #logArea {
+    background: #fff;
+    color: #006400;
+}

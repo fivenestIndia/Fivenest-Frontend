@@ -3,44 +3,12 @@
 <head>
     <script src="index.js"></script>
     <link rel="stylesheet" href="styles.css">
-    
-    <style>
-        * { box-sizing: border-box !important; }
-        body { margin: 0; overflow: hidden; display: flex; flex-direction: column; height: 100vh; font-size: 10px; }
-        .panel { display: none; padding: 6px; overflow-y: auto; flex-grow: 1; width: 100%; }
-        .panel.active { display: flex; flex-direction: column; }
-        
-        /* 🔥 Ultra-Compact Box Margins 🔥 */
-        .box { padding: 6px 8px !important; margin-bottom: 5px !important; flex-shrink: 0 !important; width: 100% !important; border-radius: 3px; }
-        .btn-main, .progress-container, .log-header, #etaDisplay, #workCaption { flex-shrink: 0 !important; width: 100% !important; }
-        
-        .box-header-row { margin-bottom: 4px !important; }
-        .header-small { font-size: 11px !important; }
-        .row-tiny { margin-bottom: 3px !important; display: flex; align-items: center; justify-content: space-between; width: 100%; }
-        
-        .checkbox-item { margin: 0; display: flex; align-items: center; }
-        .checkbox-item span { font-size: 9px; margin-left: 4px; white-space: nowrap; }
-        
-        /* 🔥 Shorter Inputs 🔥 */
-        input[type="number"], input[type="text"], select { height: 18px; padding: 0 4px; font-size: 10px; border-radius: 2px; border: 1px solid #444; background: #222; color: #fff;}
-        .size-input { width: 38px; text-align: center; padding: 0 2px; }
-        .qty-input { width: 40px; height: 18px; text-align: center; font-size: 10px; background: #111; color: #fff; border: 1px solid #555; border-radius: 2px; }
-        
-        .hidden-control { display: none !important; }
-        
-        .tabs { display: flex; width: 100%; flex-shrink: 0; background: #252525; border-bottom: 1px solid #000; }
-        .tab-btn { flex: 1; padding: 4px 0; background: none; color: #888; border: none; font-size: 10px; cursor: pointer; border-bottom: 2px solid transparent; }
-        .tab-btn.active { color: #fff; border-bottom: 2px solid var(--accent-color); font-weight: bold; background: #333; }
-        
-        .btn-tiny-action { padding: 1px 4px; font-size: 9px; }
-        .picker-btn { padding: 4px 2px; font-size: 10px; }
-    </style>
 </head>
 <body>
     
-    <div class="top-header" style="padding: 4px 8px; flex-shrink: 0;">
-        <div class="version-tag" style="font-size: 10px;">ENTERPRISE v5.1 (COMPACT)</div>
-        <button id="btnThemeToggle" class="theme-switch" title="Toggle Dark/Light Mode" style="font-size: 12px; padding: 0;">☀</button>
+    <div class="top-header">
+        <div class="version-tag">ENTERPRISE V5.1 (COMPACT)</div>
+        <button id="btnThemeToggle" class="theme-switch" title="Toggle Dark/Light Mode">☀</button>
     </div>
 
     <div class="tabs">
@@ -50,7 +18,8 @@
     </div>
 
     <div id="panelRun" class="panel active">
-        <div class="box" id="licensingBox" style="border-left: 3px solid var(--accent-color); padding: 6px 8px; margin-bottom: 5px;">
+        
+        <div class="box" id="licensingBox" style="border-left: 3px solid var(--accent-color); padding: 4px 8px; margin-bottom: 5px;">
             <div class="box-header-row" style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                 <div class="header-small">License Registration</div>
                 <div id="licenseStatus" style="font-size: 9px; font-weight: bold; color: #ff3b30;">Checking...</div>
@@ -65,7 +34,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="box">
             <div class="box-header-row">
                 <div class="header-small">1. Job Details</div>
@@ -74,18 +43,18 @@
             
             <div style="display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 6px;">
                 <div style="display: flex; flex: 1; align-items: center; min-width: 0;">
-                    <span style="font-weight:bold; color:var(--accent-color); font-size: 10px; margin-right: 4px; flex-shrink: 0;">Cust:</span>
+                    <span style="font-weight:bold; color:var(--accent-color); font-size: 9px; margin-right: 4px; flex-shrink: 0;">Cust:</span>
                     <input type="text" id="txtCustomerName" placeholder="Name" style="flex: 1; min-width: 0;">
                 </div>
                 <div style="display: flex; align-items: center; flex-shrink: 0;">
-                    <span style="font-weight:bold; color:#FF9800; font-size: 10px; margin-right: 4px;">Ord #:</span>
+                    <span style="font-weight:bold; color:#FF9800; font-size: 9px; margin-right: 4px;">Ord #:</span>
                     <input type="text" id="txtOrderNum" placeholder="01" style="width: 32px; text-align: center; padding: 0 2px;">
                 </div>
             </div>
 
             <div style="display: flex; width: 100%; gap: 6px;">
                 <div id="csvInputContainer" style="flex: 1; min-width: 0;">
-                    <button id="btnCSVInput" class="picker-btn" style="width: 100%;">Select CSV</button>
+                    <button id="btnCSVInput" class="picker-btn" style="width: 100%;">Select CSV File</button>
                     <div id="lblCSVInput" class="status-tiny" style="margin-top: 2px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px;">None</div>
                 </div>
                 <div style="flex: 1; min-width: 0;">
@@ -96,9 +65,9 @@
         </div>
 
         <div class="box">
-            <div class="box-header-row" style="margin-bottom: 4px;">
+            <div class="box-header-row">
                 <div style="display:flex; align-items:center;">
-                    <span id="btnToggleConfig" class="toggle-icon" style="font-size: 9px; margin-right: 4px;">▼</span>
+                    <span id="btnToggleConfig" class="toggle-icon">▼</span>
                     <div class="header-small">2. Configuration</div>
                 </div>
                 <button id="btnSetDefault" class="btn-tiny-action">SAVE DEF</button>
@@ -157,22 +126,21 @@
             </div>
         </div>
         
-        <button id="btnRun" class="btn-main" style="margin: 4px 0; padding: 6px; font-size: 11px;">▶ RUN AUTOMATION</button>
+        <button id="btnRun" class="btn-main">▶ RUN AUTOMATION</button>
 
-        <div class="progress-container" style="margin: 2px 0; height: 10px;">
+        <div class="progress-container">
             <div id="progressBar"></div>
-            <div class="progress-text" id="progressVal" style="font-size: 8px; line-height: 10px;">0%</div>
+            <div class="progress-text" id="progressVal">0%</div>
         </div>
-        <div id="etaDisplay" class="eta-text" style="margin-bottom: 2px; font-size: 9px;">Remaining: --:--</div>
+        <div id="etaDisplay" class="eta-text">Remaining: --:--</div>
         
-        <div id="workCaption" class="caption-anim hidden-control" style="margin-bottom: 2px; font-size: 9px;">Optimizing workflow...</div>
+        <div id="workCaption" class="caption-anim hidden-control">Optimizing workflow efficiency...</div>
 
-        <div class="log-header" style="margin-top: 4px; padding-bottom: 2px;">
-            <div class="log-title" style="font-size: 10px;">Process Log</div>
+        <div class="log-header">
+            <div class="log-title">Process Log</div>
             <button id="btnClearLog" class="btn-tiny-action">Clear</button>
         </div>
-        
-        <div id="logArea" style="flex-grow: 1; min-height: 60px; margin-bottom: 0; flex-shrink: 0; width: 100%; font-size: 9px; padding: 4px;">Ready.</div>
+        <div id="logArea">Ready.</div>
     </div>
 
     <div id="panelEdit" class="panel">
@@ -181,21 +149,21 @@
         </div>
         <div class="box">
             <div class="header-small" style="margin-bottom: 8px;">Dimensions (in)</div>
-            <div class="row-tiny"><span style="font-size:9px;">Front:</span> <div><input type="number" id="frontW" class="size-input"> x <input type="number" id="frontH" class="size-input"></div></div>
-            <div class="row-tiny"><span style="font-size:9px;">Back:</span> <div><input type="number" id="backW" class="size-input"> x <input type="number" id="backH" class="size-input"></div></div>
-            <div class="row-tiny"><span style="font-size:9px;">Half:</span> <div><input type="number" id="halfW" class="size-input"> x <input type="number" id="halfH" class="size-input"></div></div>
-            <div class="row-tiny"><span style="font-size:9px;">Full:</span> <div><input type="number" id="fullW" class="size-input"> x <input type="number" id="fullH" class="size-input"></div></div>
-            <div class="row-tiny"><span style="font-size:9px;">Raglan Half:</span> <div><input type="number" id="rHalfW" class="size-input"> x <input type="number" id="rHalfH" class="size-input"></div></div>
-            <div class="row-tiny"><span style="font-size:9px;">Raglan Full:</span> <div><input type="number" id="rFullW" class="size-input"> x <input type="number" id="rFullH" class="size-input"></div></div>
-            <div class="row-tiny"><span style="font-size:9px;">NameNum:</span> <div><input type="number" id="nnW" class="size-input"> x <input type="number" id="nnH" class="size-input"></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Front:</span> <div><input type="number" id="frontW" class="size-input"> x <input type="number" id="frontH" class="size-input"></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Back:</span> <div><input type="number" id="backW" class="size-input"> x <input type="number" id="backH" class="size-input"></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Half:</span> <div><input type="number" id="halfW" class="size-input"> x <input type="number" id="halfH" class="size-input"></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Full:</span> <div><input type="number" id="fullW" class="size-input"> x <input type="number" id="fullH" class="size-input"></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Raglan Half:</span> <div><input type="number" id="rHalfW" class="size-input"> x <input type="number" id="rHalfH" class="size-input"></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Raglan Full:</span> <div><input type="number" id="rFullW" class="size-input"> x <input type="number" id="rFullH" class="size-input"></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">NameNum:</span> <div><input type="number" id="nnW" class="size-input"> x <input type="number" id="nnH" class="size-input"></div></div>
             
-            <button id="btnSaveDB" class="btn-save" style="margin-top:10px; padding: 4px;">Save Database</button>
+            <button id="btnSaveDB" class="btn-save">Save Database</button>
             <div id="saveMsg" class="status-tiny"></div>
         </div>
     </div>
-
+    
     <div id="panelManual" class="panel">
-        <div class="box" style="display: flex; flex-direction: column; padding: 8px !important; margin-bottom: 0;">
+        <div class="box" style="display: flex; flex-direction: column; padding: 8px !important; margin-bottom: 0; flex-grow: 1;">
             <div class="box-header-row" style="margin-bottom: 6px;">
                 <div class="header-small" style="color: #03A9F4;">Virtual Data Entry</div>
                 <button id="btnClearQty" class="btn-tiny-action">Clear All</button>
@@ -207,14 +175,14 @@
                 <div style="flex: 1.2; text-align: center;">Half Slv</div>
                 <div style="flex: 1.2; text-align: center;">Full Slv</div>
             </div>
-
-            <div id="qtyGrid" style="flex-grow: 1; padding-right: 2px;">
-                </div>
+            
+            <div id="qtyGrid" style="flex-grow: 1; padding-right: 2px; overflow-y: auto;">
+                <!-- Dynamically populated -->
+            </div>
             <div style="margin-top: 6px; font-size: 8px; color: #666; text-align: center; border-top: 1px solid #333; padding-top: 4px;">
                 Blank = 0
             </div>
         </div>
     </div>
-
 </body>
 </html>

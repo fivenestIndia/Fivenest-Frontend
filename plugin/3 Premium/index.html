@@ -14,11 +14,12 @@
     <div class="tabs">
         <button id="tabRun" class="tab-btn active">Run Engine</button>
         <button id="tabEdit" class="tab-btn">Size Editor</button>
+        <button id="tabManual" class="tab-btn hidden-control" style="color: #03A9F4;">Live Size/Qty</button>
     </div>
 
     <div id="panelRun" class="panel active">
         
-        <div class="box" id="licensingBox" style="border-left: 3px solid var(--accent-color); padding: 6px 8px; margin-bottom: 5px;">
+        <div class="box" id="licensingBox" style="border-left: 3px solid var(--accent-color); padding: 4px 8px; margin-bottom: 5px;">
             <div class="box-header-row" style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                 <div class="header-small">License Registration</div>
                 <div id="licenseStatus" style="font-size: 9px; font-weight: bold; color: #ff3b30;">Checking...</div>
@@ -36,17 +37,29 @@
 
         <div class="box">
             <div class="box-header-row">
-                <div class="header-small">1. Input Files</div>
+                <div class="header-small">1. Job Details</div>
                 <button id="btnValidate" class="btn-tiny-action">🔍 CHECK CSV</button>
             </div>
-            <div class="file-row">
-                <div class="file-item">
-                    <button id="btnCSV" class="picker-btn">Select CSV</button>
-                    <div id="lblCSV" class="status-tiny">None</div>
+            
+            <div style="display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 6px;">
+                <div style="display: flex; flex: 1; align-items: center; min-width: 0;">
+                    <span style="font-weight:bold; color:var(--accent-color); font-size: 9px; margin-right: 4px; flex-shrink: 0;">Cust:</span>
+                    <input type="text" id="txtCustomerName" placeholder="Name" style="flex: 1; min-width: 0;">
                 </div>
-                <div class="file-item">
-                    <button id="btnFolder" class="picker-btn">Select Output</button>
-                    <div id="lblFolder" class="status-tiny">None</div>
+                <div style="display: flex; align-items: center; flex-shrink: 0;">
+                    <span style="font-weight:bold; color:#FF9800; font-size: 9px; margin-right: 4px;">Ord #:</span>
+                    <input type="text" id="txtOrderNum" placeholder="01" style="width: 32px; text-align: center; padding: 0 2px;">
+                </div>
+            </div>
+
+            <div style="display: flex; width: 100%; gap: 6px;">
+                <div id="csvInputContainer" style="flex: 1; min-width: 0;">
+                    <button id="btnCSV" class="picker-btn" style="width: 100%;">Select CSV</button>
+                    <div id="lblCSV" class="status-tiny" style="margin-top: 2px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px;">None</div>
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                    <button id="btnFolder" class="picker-btn" style="width: 100%;">Select Output</button>
+                    <div id="lblFolder" class="status-tiny" style="margin-top: 2px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px;">None</div>
                 </div>
             </div>
         </div>
@@ -61,21 +74,21 @@
             </div>
 
             <div id="configContent">
-                <div class="row-tiny">
-                    <span>Format:</span>
-                    <select id="exportFormat">
+                <div class="row-tiny" style="margin-bottom: 4px;">
+                    <span style="font-size: 9px;">Format:</span>
+                    <select id="exportFormat" style="width: 50px;">
                         <option value="jpg">JPG</option>
                         <option value="png">PNG</option>
                         <option value="tiff">TIFF</option>
                     </select>
-                    <span>Res (ppi):</span>
-                    <input type="number" id="resolution" value="300">
+                    <span style="margin-left: auto; margin-right: 4px; font-size: 9px;">Res:</span>
+                    <input type="number" id="resolution" value="300" style="width: 36px; padding: 0 2px;">
                 </div>
 
-                <div class="row-tiny" style="justify-content: flex-start;">
+                <div class="row-tiny" style="justify-content: flex-start; margin-bottom: 4px;">
                     <div class="checkbox-item" id="containerEmbed" style="margin-right: 15px;">
                         <input type="checkbox" id="chkEmbedProfile" checked>
-                        <span id="lblEmbed">Embed Color Profile</span>
+                        <span id="lblEmbed">Embed Profile</span>
                     </div>
                     <div class="checkbox-item hidden-control" id="containerLZW">
                         <input type="checkbox" id="chkLZW">
@@ -83,32 +96,32 @@
                     </div>
                 </div>
 
-                <div class="row-tiny" style="justify-content: flex-start; border-top: 1px solid #444; padding-top: 4px; margin-top: 2px;">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="chkSameFrontBack">
-                        <span style="color: var(--accent-color); font-weight: bold;">No Name & Number</span>
+                <div style="border-top: 1px solid #444; padding-top: 4px; margin-top: 2px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px; width: 100%;">
+                        <div class="checkbox-item" style="width: 48%;"><input type="checkbox" id="chkSameFrontBack"><span style="color: var(--accent-color); font-weight: bold;">No Name/Num</span></div>
+                        <div class="checkbox-item" style="width: 48%;"><input type="checkbox" id="chkMockup"><span style="color: #4CAF50; font-weight: bold;">Mockups</span></div>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px; width: 100%;">
+                        <div class="checkbox-item" style="width: 48%;"><input type="checkbox" id="chkNameNum"><span style="color: #FF9800; font-weight: bold;">Only Name/Num</span></div>
+                        <div class="checkbox-item" style="width: 48%;"><input type="checkbox" id="chkRaglan"><span style="color: #9C27B0; font-weight: bold;">Raglan Sleeves</span></div>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 2px; width: 100%;">
+                        <div class="checkbox-item" style="width: 48%;"><input type="checkbox" id="chkManualMode"><span style="color: #03A9F4; font-weight: bold;">Live Size Input</span></div>
+                        <div style="width: 48%;"></div>
                     </div>
                 </div>
 
-                <div class="row-tiny" style="justify-content: flex-start;">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="chkNameNum">
-                        <span style="color: #FF9800; font-weight: bold;">Only Name & Number</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; border-top: 1px solid #444; padding-top: 4px; width: 100%;">
+                    <div style="display: flex; align-items: center;">
+                        <span style="font-size: 9px; margin-right: 4px;">Name Max:</span>
+                        <input type="number" id="limitName" value="11" style="width: 30px; padding: 0 2px; text-align: center;">
                     </div>
-                </div>
-
-                <div class="row-tiny" style="justify-content: flex-start;">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="chkMockup">
-                        <span style="color: #4CAF50; font-weight: bold;">Mockup</span>
+                    <div style="display: flex; align-items: center;">
+                        <span style="font-size: 9px; margin-right: 4px;">Num Max:</span>
+                        <input type="number" id="limitNum" value="9" style="width: 30px; padding: 0 2px; text-align: center;">
                     </div>
-                </div>
-
-                <div class="row-tiny">
-                    <span>Name Max. Width:</span>
-                    <input type="number" id="limitName" value="11">
-                    <span>Number Max. Width :</span>
-                    <input type="number" id="limitNum" value="9">
                 </div>
             </div>
         </div>
@@ -131,19 +144,44 @@
     </div>
 
     <div id="panelEdit" class="panel">
-        <div class="box">
+        <div class="box" style="margin-bottom: 6px;">
             <div class="row-tiny"><span>Size:</span><select id="sizeSelector" style="width: 100%;"></select></div>
         </div>
         <div class="box">
-            <div class="header-small">Dimensions (in)</div>
-            <div class="row-tiny"><span>Front:</span> <div><input type="number" id="frontW" style="width:30px;"> x <input type="number" id="frontH" style="width:30px;"></div></div>
-            <div class="row-tiny"><span>Back:</span> <div><input type="number" id="backW" style="width:30px;"> x <input type="number" id="backH" style="width:30px;"></div></div>
-            <div class="row-tiny"><span>Half:</span> <div><input type="number" id="halfW" style="width:30px;"> x <input type="number" id="halfH" style="width:30px;"></div></div>
-            <div class="row-tiny"><span>Full:</span> <div><input type="number" id="fullW" style="width:30px;"> x <input type="number" id="fullH" style="width:30px;"></div></div>
-            <div class="row-tiny"><span>NameNum:</span> <div><input type="number" id="nnW" style="width:30px;"> x <input type="number" id="nnH" style="width:30px;"></div></div>
+            <div class="header-small" style="margin-bottom: 8px;">Dimensions (in)</div>
+            <div class="row-tiny"><span style="font-size: 9px;">Front:</span> <div><input type="number" id="frontW" class="size-input"> x <input type="number" id="frontH" class="size-input"></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Back:</span> <div><input type="number" id="backW" class="size-input"> x <input type="number" id="backH" class="size-input"></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Half:</span> <div><input type="number" id="halfW" class="size-input"> x <input type="number" id="halfH" class="size-input"></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Full:</span> <div><input type="number" id="fullW" class="size-input"> x <input type="number" id="fullH" class="size-input"></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Raglan Half:</span> <div><input type="number" id="rHalfW" class="size-input"> x <input type="number" id="rHalfH" class="size-input"></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Raglan Full:</span> <div><input type="number" id="rFullW" class="size-input"> x <input type="number" id="rFullH" class="size-input"></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">NameNum:</span> <div><input type="number" id="nnW" class="size-input"> x <input type="number" id="nnH" class="size-input"></div></div>
             
-            <button id="btnSaveDB" class="btn-save" style="margin-top:8px;">Save Database</button>
+            <button id="btnSaveDB" class="btn-save">Save Database</button>
             <div id="saveMsg" class="status-tiny"></div>
+        </div>
+    </div>
+    
+    <div id="panelManual" class="panel">
+        <div class="box" style="display: flex; flex-direction: column; padding: 8px !important; margin-bottom: 0; flex-grow: 1;">
+            <div class="box-header-row" style="margin-bottom: 6px;">
+                <div class="header-small" style="color: #03A9F4;">Virtual Data Entry</div>
+                <button id="btnClearQty" class="btn-tiny-action">Clear All</button>
+            </div>
+            
+            <div style="display: flex; font-size: 9px; font-weight: bold; color: #aaa; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid #444;">
+                <div style="flex: 1;">Size</div>
+                <div style="flex: 1.2; text-align: center;">F/B Qty</div>
+                <div style="flex: 1.2; text-align: center;">Half Slv</div>
+                <div style="flex: 1.2; text-align: center;">Full Slv</div>
+            </div>
+            
+            <div id="qtyGrid" style="flex-grow: 1; padding-right: 2px; overflow-y: auto;">
+                <!-- Dynamically populated -->
+            </div>
+            <div style="margin-top: 6px; font-size: 8px; color: #666; text-align: center; border-top: 1px solid #333; padding-top: 4px;">
+                Blank = 0
+            </div>
         </div>
     </div>
 </body>

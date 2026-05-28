@@ -11,28 +11,28 @@ const GRACE_PERIOD_DAYS = 3;
 
 // --- DATA ---
 const defaultSizes = {
-    "18":{front:{w:11,h:15}, back:{w:11,h:15}, half:{w:9.5,h:5}, full:{w:9,h:14}, nn:{w:5,h:5}},
-    "20":{front:{w:12,h:16}, back:{w:12,h:16}, half:{w:10,h:5.5}, full:{w:10,h:15}, nn:{w:6,h:6}},
-    "22":{front:{w:13,h:17}, back:{w:13,h:17}, half:{w:11,h:6}, full:{w:11,h:16}, nn:{w:6,h:6}},
-    "24":{front:{w:14,h:20}, back:{w:14,h:20}, half:{w:12,h:6}, full:{w:12,h:17.5}, nn:{w:7,h:7}},
-    "26":{front:{w:15,h:21}, back:{w:15,h:21}, half:{w:12.5,h:7.5}, full:{w:12.5,h:18}, nn:{w:7,h:7}},
-    "28":{front:{w:15.8,h:23}, back:{w:15.8,h:23}, half:{w:14,h:8}, full:{w:14,h:19}, nn:{w:8,h:8}},
-    "30":{front:{w:17,h:25}, back:{w:17,h:25}, half:{w:14.5,h:8.5}, full:{w:14.5,h:20.5}, nn:{w:8,h:8}},
-    "32":{front:{w:18,h:26}, back:{w:18,h:26}, half:{w:15,h:9}, full:{w:15,h:21}, nn:{w:9,h:9}},
-    "34":{front:{w:19,h:27}, back:{w:19,h:27}, half:{w:16,h:9.5}, full:{w:16,h:22.5}, nn:{w:9,h:9}},
-    "36":{front:{w:20,h:28}, back:{w:20,h:28}, half:{w:17,h:10.5}, full:{w:17,h:23.5}, nn:{w:10,h:10}},
-    "38":{front:{w:21,h:29}, back:{w:21,h:29}, half:{w:18,h:10.5}, full:{w:18,h:24}, nn:{w:10,h:10}},
-    "40":{front:{w:22,h:30}, back:{w:22,h:30}, half:{w:19,h:10.5}, full:{w:19,h:25}, nn:{w:11,h:11}},
-    "42":{front:{w:23,h:31}, back:{w:23,h:31}, half:{w:20,h:11.5}, full:{w:20,h:25}, nn:{w:11,h:11}},
-    "44":{front:{w:24,h:31.8}, back:{w:24,h:31.8}, half:{w:21,h:12.5}, full:{w:21,h:26}, nn:{w:11,h:11}},
-    "46":{front:{w:25,h:33}, back:{w:25,h:33}, half:{w:22,h:13}, full:{w:22,h:27}, nn:{w:12,h:12}},
-    "48":{front:{w:26,h:33.5}, back:{w:26,h:33.5}, half:{w:23.5,h:13.5}, full:{w:23.5,h:27.5}, nn:{w:12,h:12}},
-    "50":{front:{w:27,h:34}, back:{w:27,h:34}, half:{w:23,h:14}, full:{w:24,h:28}, nn:{w:12,h:12}},
-    "52":{front:{w:28,h:34.5}, back:{w:28,h:34.5}, half:{w:23,h:14.5}, full:{w:24.5,h:28.5}, nn:{w:13,h:13}},
-    "54":{front:{w:29,h:34.5}, back:{w:29,h:34.5}, half:{w:24,h:15}, full:{w:25.5,h:29}, nn:{w:13,h:13}},
-    "56":{front:{w:30,h:35}, back:{w:30,h:35}, half:{w:25,h:15}, full:{w:26,h:29}, nn:{w:13,h:13}},
-    "58":{front:{w:31,h:36}, back:{w:31,h:36}, half:{w:25.5,h:15.5}, full:{w:26,h:29}, nn:{w:13,h:13}},
-    "60":{front:{w:32,h:37}, back:{w:32,h:37}, half:{w:26,h:16}, full:{w:26,h:29}, nn:{w:13,h:13}}
+    "18":{front:{w:11,h:15}, back:{w:11,h:15}, half:{w:9.5,h:5}, full:{w:9,h:14}, rHalf:{w:11, h:9}, rFull:{w:11, h:17}, nn:{w:5,h:5}},
+    "20":{front:{w:12,h:16}, back:{w:12,h:16}, half:{w:10,h:5.5}, full:{w:10,h:15}, rHalf:{w:12, h:10}, rFull:{w:12, h:18}, nn:{w:6,h:6}},
+    "22":{front:{w:13,h:17}, back:{w:13,h:17}, half:{w:11,h:6}, full:{w:11,h:16}, rHalf:{w:13, h:11}, rFull:{w:13, h:19}, nn:{w:6,h:6}},
+    "24":{front:{w:14,h:20}, back:{w:14,h:20}, half:{w:12,h:6}, full:{w:12,h:17.5}, rHalf:{w:14, h:12}, rFull:{w:14, h:20}, nn:{w:7,h:7}},
+    "26":{front:{w:15,h:21}, back:{w:15,h:21}, half:{w:12.5,h:7.5}, full:{w:12.5,h:18}, rHalf:{w:15, h:13}, rFull:{w:15, h:21}, nn:{w:7,h:7}},
+    "28":{front:{w:15.8,h:23}, back:{w:15.8,h:23}, half:{w:14,h:8}, full:{w:14,h:19}, rHalf:{w:15.5, h:13.5}, rFull:{w:15.5, h:22}, nn:{w:8,h:8}},
+    "30":{front:{w:17,h:25}, back:{w:17,h:25}, half:{w:14.5,h:8.5}, full:{w:14.5,h:20.5}, rHalf:{w:16, h:14}, rFull:{w:16, h:23}, nn:{w:8,h:8}},
+    "32":{front:{w:18,h:26}, back:{w:18,h:26}, half:{w:15,h:9}, full:{w:15,h:21}, rHalf:{w:17, h:14.5}, rFull:{w:17, h:25}, nn:{w:9,h:9}},
+    "34":{front:{w:19,h:27}, back:{w:19,h:27}, half:{w:16,h:9.5}, full:{w:16,h:22.5}, rHalf:{w:17, h:15.5}, rFull:{w:17, h:28}, nn:{w:9,h:9}},
+    "36":{front:{w:20,h:28}, back:{w:20,h:28}, half:{w:17,h:10.5}, full:{w:17,h:23.5}, rHalf:{w:18, h:16.5}, rFull:{w:18, h:31}, nn:{w:10,h:10}},
+    "38":{front:{w:21,h:29}, back:{w:21,h:29}, half:{w:18,h:10.5}, full:{w:18,h:24}, rHalf:{w:18.5, h:16.5}, rFull:{w:18.5, h:31}, nn:{w:10,h:10}},
+    "40":{front:{w:22,h:30}, back:{w:22,h:30}, half:{w:19,h:10.5}, full:{w:19,h:25}, rHalf:{w:19, h:16.5}, rFull:{w:19, h:31}, nn:{w:11,h:11}},
+    "42":{front:{w:23,h:31}, back:{w:23,h:31}, half:{w:20,h:11.5}, full:{w:20,h:25}, rHalf:{w:20, h:17.5}, rFull:{w:20, h:31.5}, nn:{w:11,h:11}},
+    "44":{front:{w:24,h:31.8}, back:{w:24,h:31.8}, half:{w:21,h:12.5}, full:{w:21,h:26}, rHalf:{w:21, h:18}, rFull:{w:21, h:32}, nn:{w:11,h:11}},
+    "46":{front:{w:25,h:33}, back:{w:25,h:33}, half:{w:22,h:13}, full:{w:22,h:27}, rHalf:{w:22, h:18.5}, rFull:{w:22, h:32}, nn:{w:12,h:12}},
+    "48":{front:{w:26,h:33.5}, back:{w:26,h:33.5}, half:{w:23.5,h:13.5}, full:{w:23.5,h:27.5}, rHalf:{w:22.5, h:19}, rFull:{w:22.5, h:33}, nn:{w:12,h:12}},
+    "50":{front:{w:27,h:34}, back:{w:27,h:34}, half:{w:23,h:14}, full:{w:24,h:28}, rHalf:{w:23, h:19.5}, rFull:{w:23, h:33}, nn:{w:12,h:12}},
+    "52":{front:{w:28,h:34.5}, back:{w:28,h:34.5}, half:{w:23,h:14.5}, full:{w:24.5,h:28.5}, rHalf:{w:23.5, h:20}, rFull:{w:23.5, h:33.5}, nn:{w:13,h:13}},
+    "54":{front:{w:29,h:34.5}, back:{w:29,h:34.5}, half:{w:24,h:15}, full:{w:25.5,h:29}, rHalf:{w:24, h:20.5}, rFull:{w:24, h:34}, nn:{w:13,h:13}},
+    "56":{front:{w:30,h:35}, back:{w:30,h:35}, half:{w:25,h:15}, full:{w:26,h:29}, rHalf:{w:24.5, h:21}, rFull:{w:24.5, h:34}, nn:{w:13,h:13}},
+    "58":{front:{w:31,h:36}, back:{w:31,h:36}, half:{w:25.5,h:15.5}, full:{w:26,h:29}, rHalf:{w:25, h:21.5}, rFull:{w:25, h:34.5}, nn:{w:13,h:13}},
+    "60":{front:{w:32,h:37}, back:{w:32,h:37}, half:{w:26,h:16}, full:{w:26,h:29}, rHalf:{w:25.5, h:22}, rFull:{w:25.5, h:34.5}, nn:{w:13,h:13}}
 };
 
 let sizeDB = defaultSizes; 
@@ -59,9 +59,80 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     document.getElementById("exportFormat").addEventListener("change", updateUIOptions);
-    document.getElementById("tabRun").onclick = () => { document.getElementById("panelRun").classList.add("active"); document.getElementById("panelEdit").classList.remove("active"); document.getElementById("tabRun").classList.add("active"); document.getElementById("tabEdit").classList.remove("active"); };
-    document.getElementById("tabEdit").onclick = () => { document.getElementById("panelRun").classList.remove("active"); document.getElementById("panelEdit").classList.add("active"); document.getElementById("tabRun").classList.remove("active"); document.getElementById("tabEdit").classList.add("active"); };
     
+    const tabs = ["Run", "Edit", "Manual"];
+    function switchTab(target) {
+        tabs.forEach(t => {
+            const elTab = document.getElementById("tab" + t);
+            const elPanel = document.getElementById("panel" + t);
+            if (elTab) elTab.classList.remove("active");
+            if (elPanel) elPanel.classList.remove("active");
+        });
+        const targetTab = document.getElementById("tab" + target);
+        const targetPanel = document.getElementById("panel" + target);
+        if (targetTab) targetTab.classList.add("active");
+        if (targetPanel) targetPanel.classList.add("active");
+    }
+    document.getElementById("tabRun").onclick = () => switchTab("Run");
+    document.getElementById("tabEdit").onclick = () => switchTab("Edit");
+    document.getElementById("tabManual").onclick = () => switchTab("Manual");
+
+    // --- Inject Manual Qty Grid ---
+    const qtyGrid = document.getElementById("qtyGrid");
+    if(qtyGrid) {
+        const sizesToRender = ["18","20","22","24","26","28","30","32","34","36","38","40","42","44","46","48","50","52","54","56","58","60"];
+        sizesToRender.forEach(sz => {
+            let row = document.createElement("div");
+            row.style.display = "flex"; row.style.alignItems = "center"; row.style.marginBottom = "3px";
+            
+            let lbl = document.createElement("div");
+            lbl.innerText = sz; lbl.style.flex = "1"; lbl.style.fontWeight = "bold"; lbl.style.color = "#03A9F4"; lbl.style.fontSize = "10px";
+            
+            let wFB = document.createElement("div"); wFB.style.flex="1.2"; wFB.style.textAlign="center";
+            let inpFB = document.createElement("input"); inpFB.type = "number"; inpFB.className = "qty-input"; inpFB.id = "qty_fb_" + sz;
+            wFB.appendChild(inpFB);
+            
+            let wHalf = document.createElement("div"); wHalf.style.flex="1.2"; wHalf.style.textAlign="center";
+            let inpHalf = document.createElement("input"); inpHalf.type = "number"; inpHalf.className = "qty-input"; inpHalf.id = "qty_half_" + sz;
+            wHalf.appendChild(inpHalf);
+            
+            let wFull = document.createElement("div"); wFull.style.flex="1.2"; wFull.style.textAlign="center";
+            let inpFull = document.createElement("input"); inpFull.type = "number"; inpFull.className = "qty-input"; inpFull.id = "qty_full_" + sz;
+            wFull.appendChild(inpFull);
+
+            row.appendChild(lbl); row.appendChild(wFB); row.appendChild(wHalf); row.appendChild(wFull);
+            qtyGrid.appendChild(row);
+        });
+
+        document.getElementById("btnClearQty").onclick = () => {
+            document.querySelectorAll(".qty-input").forEach(inp => inp.value = "");
+        };
+    }
+
+    // --- Toggle Manual Mode Listener ---
+    document.getElementById("chkManualMode").addEventListener("change", (e) => {
+        const tabManual = document.getElementById("tabManual");
+        const csvBtnContainer = document.getElementById("csvInputContainer");
+        const chkSameFB = document.getElementById("chkSameFrontBack");
+        
+        if (e.target.checked) {
+            tabManual.classList.remove("hidden-control");
+            csvBtnContainer.classList.add("hidden-control");
+            chkSameFB.checked = true;
+            chkSameFB.disabled = true;
+
+            selectedCSV = null;
+            document.getElementById("lblCSV").innerText = "None";
+            document.getElementById("lblCSV").style.color = "";
+        } else {
+            tabManual.classList.add("hidden-control");
+            csvBtnContainer.classList.remove("hidden-control");
+            chkSameFB.disabled = false;
+            
+            if(document.getElementById("panelManual").classList.contains("active")) switchTab("Run");
+        }
+    });
+
     document.getElementById("btnCSV").addEventListener("click", async () => {
         const file = await fs.getFileForOpening({ types: ["csv", "txt"] });
         if (file) { selectedCSV = file; document.getElementById("lblCSV").innerText = file.name; document.getElementById("lblCSV").style.color = "#4CAF50"; log("CSV Set."); }
@@ -267,7 +338,11 @@ async function saveDefaults() {
         lzw: document.getElementById("chkLZW").checked,
         mockup: document.getElementById("chkMockup").checked,
         sameFB: document.getElementById("chkSameFrontBack").checked,
-        nameNum: document.getElementById("chkNameNum").checked
+        nameNum: document.getElementById("chkNameNum").checked,
+        raglan: document.getElementById("chkRaglan").checked,
+        manualMode: document.getElementById("chkManualMode").checked,
+        customerName: document.getElementById("txtCustomerName") ? document.getElementById("txtCustomerName").value : "",
+        orderNum: document.getElementById("txtOrderNum") ? document.getElementById("txtOrderNum").value : ""
     };
     try {
         const f = await fs.getDataFolder();
@@ -292,6 +367,13 @@ async function loadDefaults() {
             if(config.mockup !== undefined) document.getElementById("chkMockup").checked = config.mockup;
             if(config.sameFB !== undefined) document.getElementById("chkSameFrontBack").checked = config.sameFB;
             if(config.nameNum !== undefined) document.getElementById("chkNameNum").checked = config.nameNum;
+            if(config.raglan !== undefined) document.getElementById("chkRaglan").checked = config.raglan;
+            if(config.customerName !== undefined && document.getElementById("txtCustomerName")) document.getElementById("txtCustomerName").value = config.customerName;
+            if(config.orderNum !== undefined && document.getElementById("txtOrderNum")) document.getElementById("txtOrderNum").value = config.orderNum;
+            if(config.manualMode !== undefined) {
+                document.getElementById("chkManualMode").checked = config.manualMode;
+                document.getElementById("chkManualMode").dispatchEvent(new Event('change')); 
+            }
             updateUIOptions();
             log("Loaded Default Settings.");
         }
@@ -299,6 +381,8 @@ async function loadDefaults() {
 }
 
 async function validateCSV() {
+    const isManual = document.getElementById("chkManualMode").checked;
+    if (isManual) { log("✅ Live Size Mode Active. CSV is bypassed."); return; }
     if (!selectedCSV) { log("❌ Select a CSV first."); return; }
     const csvText = await selectedCSV.read();
     const rows = parseCSV(csvText);
@@ -350,41 +434,80 @@ async function runEngine() {
         return;
     }
 
-    if (!selectedCSV || !selectedFolder) { log("Error: Select files first."); return; }
+    const sameFB = document.getElementById("chkSameFrontBack").checked;
+    const isManual = document.getElementById("chkManualMode").checked;
+    const globalCustomerName = document.getElementById("txtCustomerName") ? document.getElementById("txtCustomerName").value.trim() : "Unknown Customer";
+    const globalOrderNum = document.getElementById("txtOrderNum") ? document.getElementById("txtOrderNum").value.trim() : "01";
+
+    if (!isManual) {
+        if (!selectedCSV) { await app.showAlert("Please select a CSV File."); return; }
+    }
+    if (!selectedFolder) { await app.showAlert("Please select an Output Folder."); return; }
+    
     const res = parseInt(document.getElementById("resolution").value);
     const format = document.getElementById("exportFormat").value.toLowerCase();
     const shouldEmbed = document.getElementById("chkEmbedProfile").checked;
     const useLZW = document.getElementById("chkLZW").checked;
     const doMockup = document.getElementById("chkMockup").checked;
-    const sameFB = document.getElementById("chkSameFrontBack").checked;
     const doNameNum = document.getElementById("chkNameNum").checked; 
+    const isRaglan = document.getElementById("chkRaglan").checked; 
 
-    const csvText = await selectedCSV.read();
-    const csvRows = parseCSV(csvText);
-    const dataRows = csvRows.slice(1).filter(r => r.length > 0 && r[0] !== "");
-    
-    if(dataRows.length === 0) { log("Error: Empty CSV or No Data"); return; }
-    const headers = csvRows[0].map(h => h.toLowerCase().trim());
-
-    let totalSteps = dataRows.length * 6; 
-    if(doNameNum) totalSteps += dataRows.length;
-
-    let currentStep = 0;
-    
     document.getElementById("workCaption").classList.remove("hidden-control");
     startTime = Date.now();
-    updateProgressUI(0, totalSteps);
 
-    const folders = {
-        front: await ensureFolder(selectedFolder, "Front"),
-        back: await ensureFolder(selectedFolder, "Back"),
-        sleeve: await ensureFolder(selectedFolder, "Sleeve"),
-        namenum: doNameNum ? await ensureFolder(selectedFolder, "Name_Number") : null
-    };
+    try {
+        let csvRows = [];
+        let headers = [];
+        let totalSteps = 0;
+        let currentStep = 0;
 
-    await core.executeAsModal(async () => {
-        try {
+        await core.executeAsModal(async () => {
             const masterDocID = app.activeDocument.id;
+            
+            if (isManual) {
+                log(">>> Initializing Live Size Mode (CSV Bypassed)...");
+                headers = ["front size", "total qty", "half sleeve", "full sleeve"];
+                const dataRows = [];
+                
+                const sizesToRender = ["18","20","22","24","26","28","30","32","34","36","38","40","42","44","46","48","50","52","54","56","58","60"];
+                for(let sz of sizesToRender) {
+                    let elFB = document.getElementById("qty_fb_" + sz);
+                    let elHalf = document.getElementById("qty_half_" + sz);
+                    let elFull = document.getElementById("qty_full_" + sz);
+                    
+                    let fb = (elFB && elFB.value) ? elFB.value.toString() : "0";
+                    let half = (elHalf && elHalf.value) ? elHalf.value.toString() : "0";
+                    let full = (elFull && elFull.value) ? elFull.value.toString() : "0";
+                    
+                    if (parseInt(fb) > 0 || parseInt(half) > 0 || parseInt(full) > 0) {
+                        dataRows.push([sz, fb, half, full]);
+                    }
+                }
+                
+                if (dataRows.length === 0) {
+                    throw new Error("No quantities entered! Please fill out numbers in the Live Size tab.");
+                }
+                
+                csvRows = [headers, ...dataRows];
+                totalSteps += (dataRows.length * (doNameNum ? 7 : 6));
+            } else {
+                const csvText = await selectedCSV.read();
+                csvRows = parseCSV(csvText);
+                const dataRows = csvRows.slice(1).filter(r => r.length > 0 && r[0] !== "");
+                if(dataRows.length === 0) throw new Error("Empty CSV or No Data");
+                headers = csvRows[0].map(h => h.toLowerCase().trim());
+                totalSteps += (dataRows.length * (doNameNum ? 7 : 6));
+            }
+
+            updateProgressUI(0, totalSteps);
+
+            const folders = {
+                front: await ensureFolder(selectedFolder, "Front"),
+                back: await ensureFolder(selectedFolder, "Back"),
+                sleeve: await ensureFolder(selectedFolder, "Sleeve"),
+                namenum: doNameNum ? await ensureFolder(selectedFolder, "Name_Number") : null
+            };
+
             let layerModes = [
                 { name: "Front", mode: "FRONT", folder: folders.front },
                 { name: "Back", mode: "BACK", folder: folders.back },
@@ -402,7 +525,7 @@ async function runEngine() {
 
             for (const lm of layerModes) {
                 log(`>>> STARTING: ${lm.name}`);
-                const count = await processLayerBatch(masterDocID, lm.name, csvRows, headers, lm.folder, res, format, lm.mode, sizeDB, shouldEmbed, useLZW, sameFB, () => {
+                const count = await processLayerBatch(masterDocID, lm.name, csvRows, headers, lm.folder, res, format, lm.mode, sizeDB, shouldEmbed, useLZW, sameFB, isRaglan, () => {
                     currentStep++;
                     updateProgressUI(currentStep, totalSteps);
                 });
@@ -420,7 +543,9 @@ async function runEngine() {
                 const dateStr = `${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2,'0')}-${now.getDate().toString().padStart(2,'0')} ${now.getHours().toString().padStart(2,'0')}-${now.getMinutes().toString().padStart(2,'0')}`;
                 const mockupFolder = await selectedFolder.createFolder(`Mockup ${dateStr}`);
                 
-                const csvNameClean = selectedCSV.name.replace(/\.[^/.]+$/, "");
+                const csvNameClean = selectedCSV 
+                    ? selectedCSV.name.replace(/\.[^/.]+$/, "") 
+                    : `${globalCustomerName.replace(/[\/\\:*?"<>|]/g, "_")} - ${globalOrderNum}`;
                 const bgGroup = await findLayerRecursive(app.activeDocument, "mockup bg");
                 const fullSleeveLayer = await findLayerRecursive(app.activeDocument, "FULL SLEEVE");
 
@@ -500,14 +625,14 @@ async function runEngine() {
             
             await app.showAlert("Automation Finished!");
             
-        } catch(e) { log("Error: " + e.message); }
-        finally {
-            document.getElementById("workCaption").classList.add("hidden-control");
-        }
-    }, { commandName: "Relax. The Future of Textile Automation is Running. Powered by Fivenest.in" });
+        }, { commandName: "Relax. The Future of Textile Automation is Running. Powered by Fivenest.in" });
+    } catch(e) { log("Error: " + e.message); }
+    finally {
+        document.getElementById("workCaption").classList.add("hidden-control");
+    }
 }
 
-async function processLayerBatch(masterDocID, layerName, rows, headers, outFolder, res, format, mode, db, shouldEmbed, useLZW, sameFB, onStep) {
+async function processLayerBatch(masterDocID, layerName, rows, headers, outFolder, res, format, mode, db, shouldEmbed, useLZW, sameFB, isRaglan, onStep) {
     let exportCount = 0;
     
     await app.batchPlay([{ _obj: "select", _target: [{ _ref: "document", _id: masterDocID }] }], {});
@@ -592,9 +717,15 @@ async function processLayerBatch(masterDocID, layerName, rows, headers, outFolde
             } 
             else if (mode.includes("HALF") || mode.includes("FULL")) {
                 let suf = mode.includes("HALF") ? (mode.includes("_L") ? " HSL L" : " HSL R") : (mode.includes("_L") ? " FSL L" : " FSL R");
+                if (isRaglan) suf = suf.replace("HSL", "Raglan HSL").replace("FSL", "Raglan FSL");
                 finalName = `${activeSize} = ${qty}${suf}`;
-                w = mode.includes("HALF") ? db[activeSize].half.w : db[activeSize].full.w;
-                h = mode.includes("HALF") ? db[activeSize].half.h : db[activeSize].full.h;
+                if (isRaglan) {
+                    w = mode.includes("HALF") ? (db[activeSize].rHalf ? db[activeSize].rHalf.w : 11) : (db[activeSize].rFull ? db[activeSize].rFull.w : 11);
+                    h = mode.includes("HALF") ? (db[activeSize].rHalf ? db[activeSize].rHalf.h : 9)  : (db[activeSize].rFull ? db[activeSize].rFull.h : 17);
+                } else {
+                    w = mode.includes("HALF") ? db[activeSize].half.w : db[activeSize].full.w;
+                    h = mode.includes("HALF") ? db[activeSize].half.h : db[activeSize].full.h;
+                }
                 await updateText(soDoc, "SIZE", activeSize);
                 await updateText(soDoc, "quantity", qty);
             }
@@ -698,6 +829,12 @@ function loadSizeToUI() {
     document.getElementById("backW").value=d.back.w; document.getElementById("backH").value=d.back.h; 
     document.getElementById("halfW").value=d.half.w; document.getElementById("halfH").value=d.half.h; 
     document.getElementById("fullW").value=d.full.w; document.getElementById("fullH").value=d.full.h;
+    
+    document.getElementById("rHalfW").value = d.rHalf ? d.rHalf.w : ""; 
+    document.getElementById("rHalfH").value = d.rHalf ? d.rHalf.h : "";
+    document.getElementById("rFullW").value = d.rFull ? d.rFull.w : "";
+    document.getElementById("rFullH").value = d.rFull ? d.rFull.h : "";
+
     if(d.nn) { document.getElementById("nnW").value=d.nn.w; document.getElementById("nnH").value=d.nn.h; }
     else { document.getElementById("nnW").value=0; document.getElementById("nnH").value=0; }
 }
@@ -708,6 +845,8 @@ async function saveSizeFromUI() {
         back: { w: parseFloat(document.getElementById("backW").value), h: parseFloat(document.getElementById("backH").value) }, 
         half: { w: parseFloat(document.getElementById("halfW").value), h: parseFloat(document.getElementById("halfH").value) }, 
         full: { w: parseFloat(document.getElementById("fullW").value), h: parseFloat(document.getElementById("fullH").value) },
+        rHalf: { w: parseFloat(document.getElementById("rHalfW").value) || 0, h: parseFloat(document.getElementById("rHalfH").value) || 0 },
+        rFull: { w: parseFloat(document.getElementById("rFullW").value) || 0, h: parseFloat(document.getElementById("rFullH").value) || 0 },
         nn: { w: parseFloat(document.getElementById("nnW").value), h: parseFloat(document.getElementById("nnH").value) }
     }; 
     try { 
@@ -718,4 +857,15 @@ async function saveSizeFromUI() {
         setTimeout(()=>document.getElementById("saveMsg").innerText="", 1500); 
     } catch(e) { log("Save Err"); } 
 }
-async function loadDatabase() { try { const f=await fs.getDataFolder(); const file=await f.getEntry("fivenest_sizes.json"); if(file) sizeDB=JSON.parse(await file.read()); } catch(e){} }
+async function loadDatabase() { 
+    try { 
+        const f = await fs.getDataFolder(); 
+        const file = await f.getEntry("fivenest_sizes.json"); 
+        if(file) {
+            const loaded = JSON.parse(await file.read()); 
+            for(let k in loaded) {
+                sizeDB[k] = { ...defaultSizes[k], ...loaded[k] };
+            }
+        } 
+    } catch(e){} 
+}
