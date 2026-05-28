@@ -110,6 +110,16 @@
             <div class="row-tiny"><span>Size:</span><select id="sizeSelector" style="width: 100%;"></select></div>
         </div>
         <div class="box" style="margin-bottom: 6px;">
+            <div class="header-small" style="margin-bottom: 8px;">Dimensions (in)</div>
+            <div class="row-tiny"><span style="font-size: 9px;">Front:</span> <div><input type="number" id="frontW" class="size-input"> x <input type="number" id="frontH" class="size-input"></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Back:</span> <div><input type="number" id="backW" class="size-input"> x <input type="number" id="backH" class="size-input"></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Half:</span> <div><input type="number" id="halfW" class="size-input"> x <input type="number" id="halfH" class="size-input"></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Full:</span> <div><input type="number" id="fullW" class="size-input"> x <input type="number" id="fullH" class="size-input"></div></div>
+            
+            <button id="btnSaveDB" class="btn-save">Save Database</button>
+            <div id="saveMsg" class="status-tiny"></div>
+        </div>
+        <div class="box">
             <div class="header-small" style="margin-bottom: 8px;">Text Width Limits (in)</div>
             <div class="row-tiny" style="margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
                 <span style="font-size: 9px;">Name Maximum Width:</span>
@@ -119,16 +129,6 @@
                 <span style="font-size: 9px;">Number Maximum Width:</span>
                 <input type="number" id="limitNum" value="9" style="width: 42px; padding: 0 2px; text-align: center;">
             </div>
-        </div>
-        <div class="box">
-            <div class="header-small" style="margin-bottom: 8px;">Dimensions (in)</div>
-            <div class="row-tiny"><span style="font-size: 9px;">Front:</span> <div><input type="number" id="frontW" class="size-input"> x <input type="number" id="frontH" class="size-input"></div></div>
-            <div class="row-tiny"><span style="font-size: 9px;">Back:</span> <div><input type="number" id="backW" class="size-input"> x <input type="number" id="backH" class="size-input"></div></div>
-            <div class="row-tiny"><span style="font-size: 9px;">Half:</span> <div><input type="number" id="halfW" class="size-input"> x <input type="number" id="halfH" class="size-input"></div></div>
-            <div class="row-tiny"><span style="font-size: 9px;">Full:</span> <div><input type="number" id="fullW" class="size-input"> x <input type="number" id="fullH" class="size-input"></div></div>
-            
-            <button id="btnSaveDB" class="btn-save">Save Database</button>
-            <div id="saveMsg" class="status-tiny"></div>
         </div>
     </div>
 </body>
