@@ -108,7 +108,7 @@ body.light-tool .tabs {
 /* Responsive panels container */
 .panel {
     display: none;
-    padding: 2px 4px;
+    padding: 1px 2px !important;
     overflow-y: auto;
     flex-grow: 1;
     width: 100%;
@@ -121,10 +121,10 @@ body.light-tool .tabs {
 /* Cards (Boxes) */
 .box {
     background: var(--box-bg);
-    padding: 4px 6px;
+    padding: 3px 5px !important;
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    margin-bottom: 3px;
+    margin-bottom: 2px !important;
     flex-shrink: 0;
     width: 100%;
 }
@@ -198,40 +198,62 @@ body.light-tool .tabs {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2px;
+    margin-bottom: 1px !important;
     width: 100%;
+}
+
+/* Hide spin-buttons for input[type="number"] */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none !important;
+    margin: 0 !important;
+}
+
+input[type="number"], input[type="text"] {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+}
+
+button {
+    -webkit-appearance: none !important;
+    appearance: none !important;
 }
 
 input[type="number"], input[type="text"], select {
     background: var(--input-bg);
     border: 1px solid var(--border-color);
     color: var(--text-color);
-    padding: 0 4px !important;
-    margin: 0;
-    font-size: 9px;
-    height: 18px;
-    line-height: 16px !important;
+    padding: 0 2px !important;
+    margin: 0 !important;
+    font-size: 9.5px !important;
+    height: 18px !important;
+    line-height: 15px !important;
     border-radius: 3px;
     text-align: center !important;
     vertical-align: middle;
+    box-sizing: border-box !important;
 }
 input[type="text"] {
     text-align: center !important;
 }
 
 .size-input {
-    width: 32px;
+    width: 42px !important;
 }
 
 .qty-input {
-    width: 36px;
-    height: 18px;
-    text-align: center;
-    font-size: 10px;
+    width: 42px !important;
+    height: 18px !important;
+    text-align: center !important;
+    font-size: 10px !important;
     background: var(--input-bg);
     color: var(--text-color);
     border: 1px solid var(--border-color);
     border-radius: 2px;
+    padding: 0 !important;
+    margin: 0 !important;
+    line-height: 16px !important;
+    box-sizing: border-box !important;
 }
 
 /* Checkboxes styling */
