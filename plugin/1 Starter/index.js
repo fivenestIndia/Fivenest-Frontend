@@ -79,6 +79,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         else await app.showAlert("Please fill in both Email and License Key.");
     };
 
+    const btnManage = document.getElementById("btnManageLicense");
+    if (btnManage) {
+        btnManage.onclick = () => {
+            const licContent = document.getElementById("licenseContent");
+            if (licContent) {
+                if (licContent.style.display === "none") {
+                    licContent.style.display = "block";
+                    btnManage.innerText = "[HIDE]";
+                } else {
+                    licContent.style.display = "none";
+                    btnManage.innerText = "[MANAGE]";
+                }
+            }
+        };
+    }
+
     loadSizeToUI();
     updateUIOptions(); 
     await checkLicenseSystem();
@@ -400,6 +416,8 @@ async function checkLicenseSystem(manualEmail = null, manualKey = null, isUserAc
     const btnAct = document.getElementById("btnActivate");
     const txtEmail = document.getElementById("txtLicenseEmail");
     const txtKey = document.getElementById("txtLicenseKey");
+    const btnManage = document.getElementById("btnManageLicense");
+    const licContent = document.getElementById("licenseContent");
 
     let savedEmail = localStorage.getItem("fivenest_license_email");
     let savedKey = localStorage.getItem("fivenest_license_key");
@@ -413,6 +431,9 @@ async function checkLicenseSystem(manualEmail = null, manualKey = null, isUserAc
         btnAct.innerText = "ACTIVATE";
         txtEmail.style.display = "block";
         txtKey.style.display = "block";
+        licContent.style.display = "block";
+        btnManage.classList.add("hidden-control");
+        btnManage.innerText = "[MANAGE]";
         lbl.innerText = "NO LICENSE FOUND";
         lbl.style.color = "#ff3b30";
         runBtn.innerText = "ENTER KEY TO RUN";
@@ -436,8 +457,11 @@ async function checkLicenseSystem(manualEmail = null, manualKey = null, isUserAc
         localStorage.setItem("fivenest_license_key", savedKey);
         localStorage.setItem("fivenest_last_verified", Date.now().toString());
         btnAct.innerText = "LOGOUT";
-        txtEmail.style.display = "none"; 
-        txtKey.style.display = "none"; 
+        txtEmail.style.display = "block"; 
+        txtKey.style.display = "block"; 
+        licContent.style.display = "none";
+        btnManage.classList.remove("hidden-control");
+        btnManage.innerText = "[MANAGE]";
         
         runBtn.innerText = "▶ RUN AUTOMATION";
         runBtn.disabled = false;
@@ -452,8 +476,11 @@ async function checkLicenseSystem(manualEmail = null, manualKey = null, isUserAc
             lbl.innerText = "OFFLINE - GRACE ACTIVE";
             lbl.style.color = "#ff9500"; 
             btnAct.innerText = "LOGOUT";
-            txtEmail.style.display = "none"; 
-            txtKey.style.display = "none"; 
+            txtEmail.style.display = "block"; 
+            txtKey.style.display = "block"; 
+            licContent.style.display = "none";
+            btnManage.classList.remove("hidden-control");
+            btnManage.innerText = "[MANAGE]";
             runBtn.innerText = "▶ RUN (OFFLINE)";
             runBtn.disabled = false;
             isSystemReady = true;
@@ -478,6 +505,9 @@ async function checkLicenseSystem(manualEmail = null, manualKey = null, isUserAc
         txtEmail.style.display = "block";
         txtKey.style.display = "block";
         txtKey.value = ""; 
+        licContent.style.display = "block";
+        btnManage.classList.add("hidden-control");
+        btnManage.innerText = "[MANAGE]";
         
         if(isUserAction) await app.showAlert("Activation Failed:\n\n" + authResult.message);
     }
