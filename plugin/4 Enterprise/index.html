@@ -24,15 +24,15 @@
                 <div class="header-small">License Registration</div>
                 <div style="display: flex; align-items: center; gap: 4px;">
                     <div id="licenseStatus" style="font-size: 9px; font-weight: bold; color: #ff3b30;">Checking...</div>
-                    <button id="btnManageLicense" class="btn-tiny-action hidden-control" style="font-size: 8px; color: var(--accent-color); padding: 0 2px;">[MANAGE]</button>
+                    <button id="btnManageLicense" class="btn-tiny-action hidden-control" style="font-size: 7.5px !important; color: var(--accent-color); padding: 0 2px !important;">[MANAGE]</button>
                 </div>
             </div>
             <div id="licenseContent">
                 <div class="row-tiny" style="display:flex; flex-direction:column; gap:4px; margin-top: 4px; border-top: 1px solid var(--border-color); padding-top: 4px;">
                     <input type="text" id="txtLicenseEmail" placeholder="Enter Registration Email" style="width: 100%; height:18px; text-align: center; margin-bottom: 3px; background: #222; border: 1px solid #444; color: #fff; padding: 0 4px;">
                     <div style="display:flex; width:100%; gap:4px;">
-                        <input type="text" id="txtLicenseKey" placeholder="Enter License Key" style="flex: 1; height:18px; text-align: center; background: #222; border: 1px solid #444; color: #fff; padding: 0 4px;">
-                        <button id="btnActivate" class="btn-tiny-action" style="font-size: 10px; padding: 1px 6px;">ACTIVATE</button>
+                        <input type="text" id="txtLicenseKey" placeholder="Enter License Key" style="flex: 1; min-width: 0; height:18px; text-align: center; background: #222; border: 1px solid #444; color: #fff; padding: 0 4px;">
+                        <button id="btnActivate" class="btn-tiny-action" style="flex-shrink: 0; font-size: 7.5px !important; padding: 1px 4px !important;">ACTIVATE</button>
                     </div>
                 </div>
             </div>
@@ -78,7 +78,7 @@
 
             <div id="configContent">
                 <div class="row-tiny" style="margin-bottom: 2px;">
-                    <span style="font-size: 9px;">Format:</span>
+                    <span style="font-size: 10px !important; font-weight: bold;">Format:</span>
                     <select id="exportFormat" style="width: 50px;">
                         <option value="jpg">JPG</option>
                         <option value="png">PNG</option>

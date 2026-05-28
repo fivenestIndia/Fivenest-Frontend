@@ -154,7 +154,7 @@ body.light-tool .tabs {
     border: none;
     color: var(--accent-color);
     cursor: pointer;
-    font-size: 8px;
+    font-size: 7px !important;
     padding: 2px 4px;
     font-weight: bold;
     text-transform: uppercase;
@@ -352,9 +352,9 @@ input[type="text"] {
 .progress-container {
     background: #151515;
     border: 1px solid var(--border-color);
-    height: 8px;
-    border-radius: 4px;
-    margin: 3px 0 1px 0;
+    height: 16px !important;
+    border-radius: 8px !important;
+    margin: 4px 0 2px 0 !important;
     position: relative;
     overflow: hidden;
     flex-shrink: 0;
@@ -364,14 +364,14 @@ input[type="text"] {
     width: 0%;
     height: 100%;
     transition: width 0.3s;
-    border-radius: 4px;
+    border-radius: 8px !important;
 }
 .progress-text {
     position: absolute;
     width: 100%;
     text-align: center;
-    font-size: 7px;
-    line-height: 8px;
+    font-size: 9px !important;
+    line-height: 16px !important;
     color: #fff;
     font-weight: bold;
     top: 0;
