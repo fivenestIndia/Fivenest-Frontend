@@ -40,10 +40,12 @@ let selectedCSV = null;
 let selectedFolder = null;
 let startTime = 0;
 let isSystemReady = false; 
+const PRODUCTION_LIMIT = 10000;
 
 document.addEventListener("DOMContentLoaded", async () => {
     await loadDatabase();
     await loadDefaults(); 
+    updateUsageDisplay(); 
     
     const themeBtn = document.getElementById("btnThemeToggle");
     themeBtn.onclick = () => {
@@ -472,6 +474,13 @@ async function runEngine() {
         return;
     }
 
+    const currentUsage = parseInt(localStorage.getItem("fivenest_production_usage") || "0");
+    if (PRODUCTION_LIMIT > 0 && currentUsage >= PRODUCTION_LIMIT) {
+        await app.showAlert("Limit has been exceeded. You need to upgrade to the Enterprise plan.");
+        log("❌ Run blocked: Production limit exceeded.");
+        return;
+    }
+
     const sameFB = document.getElementById("chkSameFrontBack").checked;
     const isManual = document.getElementById("chkManualMode").checked;
     const globalCustomerName = document.getElementById("txtCustomerName") ? document.getElementById("txtCustomerName").value.trim() : "";
@@ -804,6 +813,13 @@ async function processLayerBatch(masterDocID, layerName, rows, headers, outFolde
                 
                 await app.batchPlay([saveCmd], {});
                 exportCount++;
+                let usage = parseInt(localStorage.getItem("fivenest_production_usage") || "0");
+                usage++;
+                localStorage.setItem("fivenest_production_usage", usage.toString());
+                updateUsageDisplay();
+                if (PRODUCTION_LIMIT > 0 && usage >= PRODUCTION_LIMIT) {
+                    throw new Error(`Production limit of ${PRODUCTION_LIMIT} pcs exceeded. Please upgrade.`);
+                }
             }
             onStep();
         }
@@ -906,4 +922,12 @@ async function loadDatabase() {
             }
         } 
     } catch(e){} 
+}
+
+function updateUsageDisplay() {
+    const currentUsage = parseInt(localStorage.getItem("fivenest_production_usage") || "0");
+    const tag = document.getElementById("versionTag");
+    if (tag) {
+        tag.innerText = `PREMIUM V1.0 | Usage: ${currentUsage}/${PRODUCTION_LIMIT} pcs`;
+    }
 }

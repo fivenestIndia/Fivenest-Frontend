@@ -9,6 +9,7 @@ const PLUGIN_ID = "d8dcad95";
 const AUTH_SERVER_URL = "https://fivenest-backend.onrender.com/api/license/verify";
 const GRACE_PERIOD_DAYS = 3;
 let isSystemReady = false;
+const PRODUCTION_LIMIT = 2000;
 
 // --- DATA ---
 const defaultSizes = {
@@ -44,6 +45,7 @@ let startTime = 0;
 document.addEventListener("DOMContentLoaded", async () => {
     await loadDatabase();
     await loadDefaults(); 
+    updateUsageDisplay(); 
     
     const themeBtn = document.getElementById("btnThemeToggle");
     themeBtn.onclick = () => {
@@ -235,6 +237,13 @@ async function runEngine() {
     if(!isSystemReady) {
         await app.showAlert("Cannot Run: Check Internet connection or License status.");
         await checkLicenseSystem(); 
+        return;
+    }
+
+    const currentUsage = parseInt(localStorage.getItem("fivenest_production_usage") || "0");
+    if (PRODUCTION_LIMIT > 0 && currentUsage >= PRODUCTION_LIMIT) {
+        await app.showAlert("Limit has been exceeded. You need to upgrade to the Premium plan.");
+        log("❌ Run blocked: Production limit exceeded.");
         return;
     }
 
@@ -516,6 +525,13 @@ async function processLayerBatch(masterDocID, layerName, rows, headers, outFolde
                 
                 await app.batchPlay([saveCmd], {});
                 exportCount++;
+                let usage = parseInt(localStorage.getItem("fivenest_production_usage") || "0");
+                usage++;
+                localStorage.setItem("fivenest_production_usage", usage.toString());
+                updateUsageDisplay();
+                if (PRODUCTION_LIMIT > 0 && usage >= PRODUCTION_LIMIT) {
+                    throw new Error(`Production limit of ${PRODUCTION_LIMIT} pcs exceeded. Please upgrade.`);
+                }
             }
             onStep();
         }
@@ -748,5 +764,13 @@ async function verifyFiveNestKey(email, key) {
         return { success: data.success, message: data.message || "Verification response received", isOffline: false };
     } catch(e) {
         return { success: false, message: "Could not connect to authentication server.", isOffline: true };
+    }
+}
+
+function updateUsageDisplay() {
+    const currentUsage = parseInt(localStorage.getItem("fivenest_production_usage") || "0");
+    const tag = document.getElementById("versionTag");
+    if (tag) {
+        tag.innerText = `PRO V1.0 | Usage: ${currentUsage}/${PRODUCTION_LIMIT} pcs`;
     }
 }

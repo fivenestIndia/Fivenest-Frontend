@@ -9,6 +9,7 @@ const PLUGIN_ID = "92c18351";
 const AUTH_SERVER_URL = "https://fivenest-backend.onrender.com/api/license/verify";
 const GRACE_PERIOD_DAYS = 3;
 let isSystemReady = false;
+const PRODUCTION_LIMIT = 500;
 
 // --- DATA ---
 const defaultSizes = {"18":{front:{w:11,h:15}, back:{w:11,h:15}, half:{w:9.5,h:5}, full:{w:9,h:14}},"20":{front:{w:12,h:16}, back:{w:12,h:16}, half:{w:10,h:5.5}, full:{w:10,h:15}},"22":{front:{w:13,h:17}, back:{w:13,h:17}, half:{w:11,h:6}, full:{w:11,h:16}},"24":{front:{w:14,h:20}, back:{w:14,h:20}, half:{w:12,h:6}, full:{w:12,h:17.5}},"26":{front:{w:15,h:21}, back:{w:15,h:21}, half:{w:12.5,h:7.5}, full:{w:12.5,h:18}},"28":{front:{w:15.8,h:23}, back:{w:15.8,h:23}, half:{w:14,h:8}, full:{w:14,h:19}},"30":{front:{w:17,h:25}, back:{w:17,h:25}, half:{w:14.5,h:8.5}, full:{w:14.5,h:20.5}},"32":{front:{w:18,h:26}, back:{w:18,h:26}, half:{w:15,h:9}, full:{w:15,h:21}},"34":{front:{w:19,h:27}, back:{w:19,h:27}, half:{w:16,h:9.5}, full:{w:16,h:22.5}},"36":{front:{w:20,h:28}, back:{w:20,h:28}, half:{w:17,h:10.5}, full:{w:17,h:23.5}},"38":{front:{w:21,h:29}, back:{w:21,h:29}, half:{w:18,h:10.5}, full:{w:18,h:24}},"40":{front:{w:22,h:30}, back:{w:22,h:30}, half:{w:19,h:10.5}, full:{w:19,h:25}},"42":{front:{w:23,h:31}, back:{w:23,h:31}, half:{w:20,h:11.5}, full:{w:20,h:25}},"44":{front:{w:24,h:31.8}, back:{w:24,h:31.8}, half:{w:21,h:12.5}, full:{w:21,h:26}},"46":{front:{w:25,h:33}, back:{w:25,h:33}, half:{w:22,h:13}, full:{w:22,h:27}},"48":{front:{w:26,h:33.5}, back:{w:26,h:33.5}, half:{w:23.5,h:13.5}, full:{w:23.5,h:27.5}},"50":{front:{w:27,h:34}, back:{w:27,h:34}, half:{w:23,h:14}, full:{w:24,h:28}},"52":{front:{w:28,h:34.5}, back:{w:28,h:34.5}, half:{w:23,h:14.5}, full:{w:24.5,h:28.5}},"54":{front:{w:29,h:34.5}, back:{w:29,h:34.5}, half:{w:24,h:15}, full:{w:25.5,h:29}},"56":{front:{w:30,h:35}, back:{w:30,h:35}, half:{w:25,h:15}, full:{w:26,h:29}},"58":{front:{w:31,h:36}, back:{w:31,h:36}, half:{w:25.5,h:15.5}, full:{w:26,h:29}},"60":{front:{w:32,h:37}, back:{w:32,h:37}, half:{w:26,h:16}, full:{w:26,h:29}}};
@@ -20,6 +21,7 @@ let startTime = 0;
 document.addEventListener("DOMContentLoaded", async () => {
     await loadDatabase();
     await loadDefaults(); 
+    updateUsageDisplay(); 
     
     // Theme Init
     const isDark = app.preferences.colorTheme === "darker" || app.preferences.colorTheme === "dark";
@@ -208,6 +210,13 @@ async function runEngine() {
         return;
     }
 
+    const currentUsage = parseInt(localStorage.getItem("fivenest_production_usage") || "0");
+    if (PRODUCTION_LIMIT > 0 && currentUsage >= PRODUCTION_LIMIT) {
+        await app.showAlert("Limit has been exceeded. You need to upgrade to the Pro plan.");
+        log("❌ Run blocked: Production limit exceeded.");
+        return;
+    }
+
     if (!selectedCSV || !selectedFolder) { log("Error: Select files first."); return; }
     const res = parseInt(document.getElementById("resolution").value);
     const format = document.getElementById("exportFormat").value.toLowerCase();
@@ -367,6 +376,13 @@ async function processLayerBatch(masterDocID, layerName, rows, headers, outFolde
                 
                 await app.batchPlay([saveCmd], {});
                 exportCount++;
+                let usage = parseInt(localStorage.getItem("fivenest_production_usage") || "0");
+                usage++;
+                localStorage.setItem("fivenest_production_usage", usage.toString());
+                updateUsageDisplay();
+                if (PRODUCTION_LIMIT > 0 && usage >= PRODUCTION_LIMIT) {
+                    throw new Error(`Production limit of ${PRODUCTION_LIMIT} pcs exceeded. Please upgrade.`);
+                }
             }
             await app.batchPlay([{ _obj: "close", saving: { _enum: "yesNo", _value: "no" } }], {});
         } catch (e) { if (app.activeDocument.id !== masterDocID) await app.batchPlay([{ _obj: "close", saving: { _enum: "yesNo", _value: "no" } }], {}); }
@@ -547,5 +563,13 @@ async function verifyFiveNestKey(email, key) {
         return { success: data.success, message: data.message || "Verification response received", isOffline: false };
     } catch(e) {
         return { success: false, message: "Could not connect to authentication server.", isOffline: true };
+    }
+}
+
+function updateUsageDisplay() {
+    const currentUsage = parseInt(localStorage.getItem("fivenest_production_usage") || "0");
+    const tag = document.getElementById("versionTag");
+    if (tag) {
+        tag.innerText = `STARTER V1.0 | Usage: ${currentUsage}/${PRODUCTION_LIMIT} pcs`;
     }
 }
