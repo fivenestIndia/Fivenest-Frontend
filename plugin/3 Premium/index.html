@@ -104,17 +104,6 @@
                         <div style="width: 48%;"></div>
                     </div>
                 </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px; border-top: 1px solid #444; padding-top: 2px; width: 100%;">
-                    <div style="display: flex; align-items: center;">
-                        <span style="font-size: 9px; margin-right: 4px;">Name Max:</span>
-                        <input type="number" id="limitName" value="11" style="width: 30px; padding: 0 2px; text-align: center;">
-                    </div>
-                    <div style="display: flex; align-items: center;">
-                        <span style="font-size: 9px; margin-right: 4px;">Num Max:</span>
-                        <input type="number" id="limitNum" value="9" style="width: 30px; padding: 0 2px; text-align: center;">
-                    </div>
-                </div>
             </div>
         </div>
         
@@ -138,6 +127,17 @@
     <div id="panelEdit" class="panel">
         <div class="box" style="margin-bottom: 6px;">
             <div class="row-tiny"><span>Size:</span><select id="sizeSelector" style="width: 100%;"></select></div>
+        </div>
+        <div class="box" style="margin-bottom: 6px;">
+            <div class="header-small" style="margin-bottom: 8px;">Text Width Limits (in)</div>
+            <div class="row-tiny" style="margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 9px;">Name Maximum Width:</span>
+                <input type="number" id="limitName" value="11" style="width: 42px; padding: 0 2px; text-align: center;">
+            </div>
+            <div class="row-tiny" style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 9px;">Number Maximum Width:</span>
+                <input type="number" id="limitNum" value="9" style="width: 42px; padding: 0 2px; text-align: center;">
+            </div>
         </div>
         <div class="box">
             <div class="header-small" style="margin-bottom: 8px;">Dimensions (in)</div>
