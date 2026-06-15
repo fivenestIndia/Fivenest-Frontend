@@ -265,11 +265,85 @@ router.post("/create-studio-order", async (req, res) => {
     return res.status(200).json({
       orderId: order.id,
       amount: order.amount,
-      currency: order.currency
+      currency: order.currency,
+      keyId: process.env.RAZORPAY_KEY_ID
     });
   } catch (error) {
     console.error("Web Studio Razorpay Order Creation Error:", error);
     return res.status(500).json({ error: error.message || "Failed to create Razorpay Order." });
+  }
+});
+
+/**
+ * @route POST /api/payment/verify-studio-payment
+ * @desc Verify Razorpay payment signature on backend and credit wallet immediately
+ */
+router.post("/verify-studio-payment", async (req, res) => {
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, userId, amount } = req.body;
+
+  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !userId || !amount) {
+    return res.status(400).json({ error: "Missing required verification parameters." });
+  }
+
+  try {
+    // 1. Verify Razorpay Signature
+    const secret = process.env.RAZORPAY_KEY_SECRET || "placeholder_secret";
+    const generated_signature = crypto
+      .createHmac("sha256", secret)
+      .update(razorpay_order_id + "|" + razorpay_payment_id)
+      .digest("hex");
+
+    if (generated_signature !== razorpay_signature) {
+      console.warn("Payment verification failed: Signature mismatch.");
+      return res.status(400).json({ error: "Signature verification failed." });
+    }
+
+    const { supabaseAdmin } = await import("../config/supabase.js");
+
+    // 2. Log transaction in Supabase
+    const { data: wt, error: wtErr } = await supabaseAdmin
+      .from("wallet_transactions")
+      .insert({
+        user_id: userId,
+        amount: amount,
+        razorpay_order_id: razorpay_order_id,
+        razorpay_payment_id: razorpay_payment_id,
+        razorpay_signature: razorpay_signature,
+        status: "completed"
+      })
+      .select()
+      .single();
+
+    if (wtErr) {
+      if (wtErr.code === "23505") { // Unique constraint violation (already processed by webhook or frontend)
+        console.log(`Web Studio transaction ${razorpay_payment_id} already processed.`);
+        return res.status(200).json({ success: true, message: "Transaction already processed." });
+      }
+      console.error("Failed to insert wallet_transaction in verification:", wtErr);
+      return res.status(500).json({ error: "Failed to log transaction in database." });
+    }
+
+    // 3. Log credit ledger topup
+    const { error: ctErr } = await supabaseAdmin
+      .from("credit_transactions")
+      .insert({
+        user_id: userId,
+        amount: amount,
+        transaction_type: "topup",
+        description: `Razorpay wallet recharge (Payment ID: ${razorpay_payment_id})`
+      });
+
+    if (ctErr) {
+      console.error("Failed to insert credit_transaction in verification:", ctErr);
+      return res.status(500).json({ error: "Failed to update wallet balance in database." });
+    }
+
+    console.log(`Successfully verified and completed Web Studio wallet recharge of ₹${amount} for user UUID ${userId}`);
+    return res.status(200).json({ success: true, message: "Payment verified and wallet credited." });
+
+  } catch (error) {
+    console.error("Error verifying payment on backend:", error);
+    return res.status(500).json({ error: error.message || "Verification failed." });
   }
 });
 

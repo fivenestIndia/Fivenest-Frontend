@@ -194,6 +194,145 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
     onClose();
   };
 
+  const [isPaying, setIsPaying] = useState(false);
+
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if ((window as any).Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handleRazorpayRecharge = async () => {
+    if (!currentUser) return;
+    setErrorMessage('');
+    setSuccessMessage('');
+    setIsPaying(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setErrorMessage("User session not found in Supabase. Please click 'Sign Out of Account' and then Sign In again.");
+        setIsPaying(false);
+        return;
+      }
+
+      const loaded = await loadRazorpayScript();
+      if (!loaded) {
+        setErrorMessage("Failed to load Razorpay SDK. Please check your internet connection.");
+        setIsPaying(false);
+        return;
+      }
+
+      const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+      const response = await fetch(`${API_BASE_URL}/api/payment/create-studio-order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: rechargeAmount,
+          userId: user.id,
+          email: user.email
+        })
+      });
+
+      const orderData = await response.json();
+      if (!response.ok || orderData.error) {
+        throw new Error(orderData.error || "Failed to create order on server");
+      }
+
+      const { orderId, amount, currency, keyId } = orderData;
+
+      const options = {
+        key: keyId || "rzp_test_placeholder",
+        amount: amount,
+        currency: currency || "INR",
+        name: "FiveNest Studio Portal",
+        description: `Recharge ₹${rechargeAmount} INR credits`,
+        order_id: orderId,
+        handler: async function (paymentResponse: any) {
+          setIsPaying(true);
+          setSuccessMessage("Payment successful! Verifying transaction...");
+          
+          try {
+            const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+            const verifyRes = await fetch(`${API_BASE_URL}/api/payment/verify-studio-payment`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: paymentResponse.razorpay_order_id,
+                razorpay_payment_id: paymentResponse.razorpay_payment_id,
+                razorpay_signature: paymentResponse.razorpay_signature,
+                userId: user.id,
+                amount: rechargeAmount
+              })
+            });
+            
+            const verifyData = await verifyRes.json();
+            if (!verifyRes.ok || verifyData.error) {
+              throw new Error(verifyData.error || "Payment verification failed on server");
+            }
+            
+            // Fetch updated wallet
+            const details = await fetchUserWallet(user.id);
+            const updatedUser = {
+              ...currentUser,
+              balance: details.balance
+            };
+            localStorage.setItem('fivenest_active_user', JSON.stringify(updatedUser));
+            onLoginStateChange(updatedUser);
+            setIsPaying(false);
+            setSuccessMessage(`Successfully recharged ₹${rechargeAmount} INR credits!`);
+            setTimeout(() => setSuccessMessage(''), 3000);
+          } catch (err: any) {
+            console.error("Verification error:", err);
+            setErrorMessage(err.message || "Direct verification failed. Waiting for webhook...");
+            
+            // Fallback: wait a bit and fetch wallet anyway in case webhook succeeded
+            setTimeout(async () => {
+              const details = await fetchUserWallet(user.id);
+              const updatedUser = {
+                ...currentUser,
+                balance: details.balance
+              };
+              localStorage.setItem('fivenest_active_user', JSON.stringify(updatedUser));
+              onLoginStateChange(updatedUser);
+              setIsPaying(false);
+              setSuccessMessage(`Recharged ₹${rechargeAmount} INR credits (via webhook verification).`);
+              setTimeout(() => setSuccessMessage(''), 3000);
+            }, 3000);
+          }
+        },
+        prefill: {
+          name: currentUser.name,
+          email: currentUser.email
+        },
+        theme: {
+          color: "#9b4dff"
+        },
+        modal: {
+          ondismiss: function () {
+            setIsPaying(false);
+          }
+        }
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+
+    } catch (err: any) {
+      console.error("Razorpay recharge error:", err);
+      setErrorMessage(err.message || "Recharge failed.");
+      setIsPaying(false);
+    }
+  };
+
   const handleRecharge = async () => {
     if (!currentUser) return;
     
@@ -503,35 +642,74 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
               </div>
             </div>
 
-            {/* Simulated Credits Recharge Section */}
-            <div className="glass-card" style={{ background: 'rgba(0,0,0,0.2)', padding: '16px' }}>
-              <h4 style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--color-primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                💳 Sandbox Wallet Top Up
-              </h4>
-              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                Add play credits to simulate transactions. No real payment required.
-              </p>
-
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                {[10, 50, 100, 500].map(amt => (
-                  <button 
-                    key={amt}
-                    className={`btn ${rechargeAmount === amt ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => setRechargeAmount(amt)}
-                    style={{ flex: 1, padding: '6px', fontSize: '11px' }}
-                  >
-                    +₹{amt}
-                  </button>
-                ))}
+            {/* Credits Recharge Section */}
+            <div className="glass-card" style={{ background: 'rgba(0,0,0,0.2)', padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <h4 style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--color-primary)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  💳 Recharge Web Studio Wallet
+                </h4>
+                <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  Add tokens to unlock high-resolution sublimation panel exports.
+                </p>
               </div>
 
-              <button 
-                className="btn btn-success" 
-                onClick={handleRecharge}
-                style={{ width: '100%', padding: '10px', fontSize: '12px', fontWeight: 'bold' }}
-              >
-                Recharge Wallet Balance
-              </button>
+              {/* Amount Selector */}
+              <div>
+                <label className="form-label" style={{ fontSize: '11px', marginBottom: '6px', display: 'block' }}>Select Recharge Amount:</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {[10, 50, 100, 500].map(amt => (
+                    <button 
+                      key={amt}
+                      type="button"
+                      className={`btn ${rechargeAmount === amt ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => setRechargeAmount(amt)}
+                      style={{ flex: 1, padding: '8px 4px', fontSize: '11px', fontWeight: 'bold' }}
+                    >
+                      ₹{amt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <button 
+                  type="button"
+                  className="btn btn-success" 
+                  onClick={handleRazorpayRecharge}
+                  disabled={isPaying}
+                  style={{ 
+                    width: '100%', 
+                    padding: '12px', 
+                    fontSize: '12px', 
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    boxShadow: '0 0 12px rgba(0, 229, 118, 0.2)'
+                  }}
+                >
+                  {isPaying ? "Connecting to Razorpay..." : `Pay ₹${rechargeAmount} Securely (UPI, QR, Card)`}
+                </button>
+
+                <button 
+                  type="button"
+                  className="btn btn-secondary" 
+                  onClick={handleRecharge}
+                  disabled={isPaying}
+                  style={{ 
+                    width: '100%', 
+                    padding: '8px', 
+                    fontSize: '11px', 
+                    fontWeight: '600',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px dashed var(--border-light)'
+                  }}
+                >
+                  ⚡ Sandbox Mode (Simulate Free Recharge)
+                </button>
+              </div>
             </div>
 
             <button 
