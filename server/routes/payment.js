@@ -127,6 +127,58 @@ router.post("/webhook", async (req, res) => {
       const orderId = paymentEntity.order_id || (linkEntity ? linkEntity.id : "N/A");
       const amount = paymentEntity.amount / 100; // Convert Paisa back to INR
 
+      // --- WEB STUDIO WALLET RECHARGE WEBHOOK PROCESSING ---
+      if (notes.purpose === "web_studio_recharge" || notes.type === "web_studio_recharge") {
+        const userId = notes.userId;
+        if (!userId) {
+          console.warn("Captured Web Studio recharge, but missing userId in notes.");
+          return res.status(200).send("No userId found; transaction logged but skipped wallet recharge.");
+        }
+
+        const { supabaseAdmin } = await import("../config/supabase.js");
+
+        // 1. Log transaction in Supabase
+        const { data: wt, error: wtErr } = await supabaseAdmin
+          .from("wallet_transactions")
+          .insert({
+            user_id: userId,
+            amount: amount,
+            razorpay_order_id: paymentEntity.order_id,
+            razorpay_payment_id: paymentEntity.id,
+            razorpay_signature: signature,
+            status: "completed"
+          })
+          .select()
+          .single();
+
+        if (wtErr) {
+          if (wtErr.code === "23505") { // Unique constraint violation (duplicate webhook)
+            console.log(`Web Studio transaction ${paymentEntity.id} already processed.`);
+            return res.status(200).send("Transaction already processed.");
+          }
+          console.error("Failed to insert wallet_transaction into Supabase:", wtErr);
+          return res.status(500).send("Failed to log transaction in Supabase.");
+        }
+
+        // 2. Log credit ledger topup
+        const { error: ctErr } = await supabaseAdmin
+          .from("credit_transactions")
+          .insert({
+            user_id: userId,
+            amount: amount,
+            transaction_type: "topup",
+            description: `Razorpay wallet recharge (Payment ID: ${paymentEntity.id})`
+          });
+
+        if (ctErr) {
+          console.error("Failed to insert credit_transaction into Supabase:", ctErr);
+          return res.status(500).send("Failed to load credits into wallet.");
+        }
+
+        console.log(`Successfully completed Web Studio wallet recharge of ₹${amount} for user UUID ${userId}`);
+        return res.status(200).json({ success: true, message: "Web Studio balance recharged successfully." });
+      }
+
       if (!email) {
         console.warn(`Payment captured (${paymentId}) but no email was found in notes/entity.`);
         return res.status(200).send("No customer email found; logged but skipped fulfillment.");
@@ -181,6 +233,43 @@ router.post("/webhook", async (req, res) => {
   } catch (error) {
     console.error("Webhook processing error:", error);
     return res.status(500).send("Internal Webhook Error");
+  }
+});
+
+/**
+ * @route POST /api/payment/create-studio-order
+ * @desc Create a Razorpay Order ID for Web Studio wallet credit topups
+ */
+router.post("/create-studio-order", async (req, res) => {
+  const { amount, userId, email } = req.body;
+
+  if (!amount || !userId) {
+    return res.status(400).json({ error: "Missing required checkout parameters (amount, userId)." });
+  }
+
+  try {
+    const razorpay = getRazorpayInstance();
+    const options = {
+      amount: Math.round(amount * 100), // convert INR to paisa
+      currency: "INR",
+      receipt: `studio_topup_${Date.now()}`,
+      notes: {
+        purpose: "web_studio_recharge",
+        type: "web_studio_recharge",
+        userId: userId,
+        email: email || ""
+      }
+    };
+
+    const order = await razorpay.orders.create(options);
+    return res.status(200).json({
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency
+    });
+  } catch (error) {
+    console.error("Web Studio Razorpay Order Creation Error:", error);
+    return res.status(500).json({ error: error.message || "Failed to create Razorpay Order." });
   }
 });
 
