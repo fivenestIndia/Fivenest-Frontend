@@ -12,28 +12,41 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const fetchUserWallet = async (userId: string) => {
-  try {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('name')
-      .eq('id', userId)
-      .single();
+  let profile = null;
+  let wallet = null;
 
-    const { data: wallet } = await supabase
+  // Retry up to 3 times with a 500ms delay to handle database trigger creation lag
+  for (let i = 0; i < 3; i++) {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('name')
+        .eq('id', userId)
+        .single();
+
+      if (!error && data) {
+        profile = data;
+        break;
+      }
+    } catch (e) {
+      // Ignore error and retry
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
+  try {
+    const { data: walletData } = await supabase
       .from('wallet')
       .select('balance')
       .eq('user_id', userId)
       .maybeSingle(); // Use maybeSingle to prevent exceptions if wallet doesn't exist yet
-
-    return {
-      name: profile?.name || 'User',
-      balance: wallet?.balance ? parseFloat(wallet.balance) : 0.00
-    };
+    wallet = walletData;
   } catch (error) {
     console.error("Error fetching user wallet:", error);
-    return {
-      name: 'User',
-      balance: 0.00
-    };
   }
+
+  return {
+    name: profile?.name || 'User',
+    balance: wallet?.balance ? parseFloat(wallet.balance) : 0.00
+  };
 };

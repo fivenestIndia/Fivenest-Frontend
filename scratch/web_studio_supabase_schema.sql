@@ -104,6 +104,10 @@ create policy "Allow users to select their own credit transactions"
   on public.credit_transactions for select
   using (auth.uid() = user_id);
 
+create policy "Allow users to insert their own credit transactions"
+  on public.credit_transactions for insert
+  with check (auth.uid() = user_id);
+
 
 -- 6. PLUGIN USAGE LOGS TABLE
 create table public.plugin_usage_logs (
