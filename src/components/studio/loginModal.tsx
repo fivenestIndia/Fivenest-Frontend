@@ -275,7 +275,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
 
         {/* Brand Header */}
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#white', marginBottom: '8px' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: '800', color: 'white', marginBottom: '8px' }}>
             ⚡ FiveNest Web Studio Portal
           </h2>
           <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -337,11 +337,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
         {activeTab === 'login' && !currentUser && (
           <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label" style={{ fontSize: '11px' }}>Email Address</label>
+              <label htmlFor="login-email" className="form-label" style={{ fontSize: '11px' }}>Email Address</label>
               <div style={{ position: 'relative' }}>
                 <Mail size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input 
                   type="email" 
+                  id="login-email"
+                  name="email"
+                  autoComplete="username"
                   className="form-input" 
                   placeholder="name@example.com"
                   value={email}
@@ -352,11 +355,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
             </div>
 
             <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label" style={{ fontSize: '11px' }}>Password</label>
+              <label htmlFor="login-password" className="form-label" style={{ fontSize: '11px' }}>Password</label>
               <div style={{ position: 'relative' }}>
                 <Lock size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input 
                   type="password" 
+                  id="login-password"
+                  name="password"
+                  autoComplete="current-password"
                   className="form-input" 
                   placeholder="••••••••"
                   value={password}
@@ -405,11 +411,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
         {activeTab === 'register' && !currentUser && (
           <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label" style={{ fontSize: '11px' }}>Full Name</label>
+              <label htmlFor="register-name" className="form-label" style={{ fontSize: '11px' }}>Full Name</label>
               <div style={{ position: 'relative' }}>
                 <User size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input 
                   type="text" 
+                  id="register-name"
+                  name="name"
+                  autoComplete="name"
                   className="form-input" 
                   placeholder="John Doe"
                   value={name}
@@ -420,11 +429,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
             </div>
 
             <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label" style={{ fontSize: '11px' }}>Email Address</label>
+              <label htmlFor="register-email" className="form-label" style={{ fontSize: '11px' }}>Email Address</label>
               <div style={{ position: 'relative' }}>
                 <Mail size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input 
                   type="email" 
+                  id="register-email"
+                  name="email"
+                  autoComplete="email"
                   className="form-input" 
                   placeholder="name@example.com"
                   value={email}
@@ -435,11 +447,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
             </div>
 
             <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label" style={{ fontSize: '11px' }}>Password</label>
+              <label htmlFor="register-password" className="form-label" style={{ fontSize: '11px' }}>Password</label>
               <div style={{ position: 'relative' }}>
                 <Lock size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input 
                   type="password" 
+                  id="register-password"
+                  name="password"
+                  autoComplete="new-password"
                   className="form-input" 
                   placeholder="Create a password"
                   value={password}
