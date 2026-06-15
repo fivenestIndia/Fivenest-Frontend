@@ -1,5 +1,5 @@
 const ps = require("photoshop");
-const { app, core } = ps;
+const { app, core, constants } = ps;
 const fs = require("uxp").storage.localFileSystem;
 const shell = require("uxp").shell; 
 
@@ -62,7 +62,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     document.getElementById("exportFormat").addEventListener("change", updateUIOptions);
     
-    const tabs = ["Run", "Edit", "Manual"];
+    const tabs = ["Run", "Edit", "Manual", "Help"];
     function switchTab(target) {
         tabs.forEach(t => {
             const elTab = document.getElementById("tab" + t);
@@ -78,6 +78,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("tabRun").onclick = () => switchTab("Run");
     document.getElementById("tabEdit").onclick = () => switchTab("Edit");
     document.getElementById("tabManual").onclick = () => switchTab("Manual");
+    document.getElementById("tabHelp").onclick = () => switchTab("Help");
 
     // --- Inject Manual Qty Grid ---
     const qtyGrid = document.getElementById("qtyGrid");
@@ -135,6 +136,37 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     });
 
+    const elMergeSleeves = document.getElementById("chkMergeHalfSleeves");
+    if (elMergeSleeves) {
+        elMergeSleeves.addEventListener("change", async (e) => {
+            if (e.target.checked) {
+                log(">>> Please select background color for the sleeve merge.");
+                let r = 255, g = 255, b = 255;
+                try {
+                    const selectedColor = await app.showColorPicker();
+                    if (selectedColor && selectedColor.rgb) {
+                        r = selectedColor.rgb.red;
+                        g = selectedColor.rgb.green;
+                        b = selectedColor.rgb.blue;
+                    }
+                } catch (err) {
+                    // Fallback to white
+                }
+
+                try {
+                    await core.executeAsModal(async () => {
+                        app.backgroundColor.rgb.red = r;
+                        app.backgroundColor.rgb.green = g;
+                        app.backgroundColor.rgb.blue = b;
+                    }, { commandName: "Set Background Color" });
+                    log(`>>> Background color set to RGB(${r}, ${g}, ${b})`);
+                } catch (modalErr) {
+                    log("Error setting background color: " + modalErr.message);
+                }
+            }
+        });
+    }
+
     document.getElementById("btnCSV").addEventListener("click", async () => {
         const file = await fs.getFileForOpening({ types: ["csv", "txt"] });
         if (file) { selectedCSV = file; document.getElementById("lblCSV").innerText = file.name; document.getElementById("lblCSV").style.color = "#4CAF50"; log("CSV Set."); }
@@ -177,17 +209,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         else await app.showAlert("Please fill in both Email and License Key.");
     };
 
-    const btnManage = document.getElementById("btnManageLicense");
-    if (btnManage) {
-        btnManage.onclick = () => {
+    const btnToggleLicense = document.getElementById("btnToggleLicense");
+    if (btnToggleLicense) {
+        btnToggleLicense.onclick = () => {
             const licContent = document.getElementById("licenseContent");
             if (licContent) {
                 if (licContent.style.display === "none") {
                     licContent.style.display = "block";
-                    btnManage.innerText = "[HIDE]";
+                    btnToggleLicense.classList.remove("collapsed");
                 } else {
                     licContent.style.display = "none";
-                    btnManage.innerText = "[MANAGE]";
+                    btnToggleLicense.classList.add("collapsed");
                 }
             }
         };
@@ -195,8 +227,254 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     loadSizeToUI();
     updateUIOptions(); 
+
+    // --- 🤖 HELP ASSISTANT CHATBOT LOGIC 🤖 ---
+    const chatHistory = document.getElementById("chatHistory");
+    const txtChatInput = document.getElementById("txtChatInput");
+    const btnChatSend = document.getElementById("btnChatSend");
+    const btnClearChat = document.getElementById("btnClearChat");
+    const chatSuggestions = document.getElementById("chatSuggestions");
+
+    const helpManual = [
+        {
+            title: "Blank Kit",
+            keywords: ["blank", "kit", "no name", "no number", "name", "number"],
+            summary: "Blank Kit exports designs without player names or numbers.",
+            details: "When **Blank Kit** is checked, the plugin bypasses name and number layers during front/back exports. This is ideal for generating stock team wear or generic jerseys."
+        },
+        {
+            title: "A4-Back Print",
+            keywords: ["a4", "back", "print", "only name", "only number"],
+            summary: "A4-Back Print exports ONLY name & number details.",
+            details: "When **A4-Back Print** is checked, the plugin outputs separate files containing *only* player names and numbers. These are typically printed on transparent sheets or scaled to A4 size for back prints."
+        },
+        {
+            title: "Half-Sleeve Merge",
+            keywords: ["half sleeve", "merge", "join", "sleeve merge", "padding", "white padding"],
+            summary: "Half-Sleeve Merge joins left and right sleeves vertically with 0.2\" white padding.",
+            details: "When **Half-Sleeve Merge** is checked, the plugin exports Left and Right half sleeves as normal, then vertically merges them (Left on top, Right on bottom) with exactly **0.2 inches** of solid white padding. It saves the combined file and deletes the original two separate sleeves."
+        },
+        {
+            title: "Raglan Style",
+            keywords: ["raglan", "sleeves", "style"],
+            summary: "Raglan Style exports sleeves optimized for raglan shirts.",
+            details: "When **Raglan Style** is checked, the export logic adapts layout structures for Raglan-cut shirts and appends a `Raglan` tag to the filename."
+        },
+        {
+            title: "Smart Mockup",
+            keywords: ["mockup", "mockups", "smart mockup", "preview"],
+            summary: "Smart Mockup automatically generates preview images of your designs.",
+            details: "When **Smart Mockup** is checked, the plugin automatically toggles the mockup template background groups and saves JPG previews of the front/back designs in a designated `Mockups` subdirectory."
+        },
+        {
+            title: "Quick Size Entry",
+            keywords: ["quick size", "manual", "data entry", "size entry", "live size", "live input"],
+            summary: "Quick Size Entry lets you input quantities directly in the plugin.",
+            details: "Click the **Live Size/Qty** tab to open the Virtual Data Entry grid. You can type in the quantity of front/back, half sleeves, and full sleeves per size (18 to 60) directly in Photoshop. This is useful for quickly printing custom adjustments without a CSV file."
+        },
+        {
+            title: "Save Default",
+            keywords: ["save default", "default", "save def", "defaults"],
+            summary: "Save Default remembers your current settings.",
+            details: "Clicking **Save Default** saves your selected checkbox configurations, resolution, format, and compression settings to `fivenest_config.json`. These settings will automatically load next time you open Photoshop."
+        },
+        {
+            title: "How to Run Automation",
+            keywords: ["run", "how to use", "start", "automation", "begin", "steps"],
+            summary: "Learn the step-by-step guide to run a batch automation job.",
+            details: "To run a batch job:\n1. Choose your inputs: load a CSV file or enter quantities in the *Live Size/Qty* tab.\n2. Choose your outputs: click *Select Output* folder.\n3. Configure options (Format, Resolution, compression, and sleeve merge options).\n4. Click **Run Automation** to process everything automatically."
+        },
+        {
+            title: "Tiers & Usage Limits",
+            keywords: ["limit", "usage", "subscription", "starter", "pro", "premium", "enterprise", "pcs", "free trial", "trial"],
+            summary: "Learn about product limits and trial activation.",
+            details: "Usage limits are calculated *only* when a BACK layer is exported:\n- **Premium Plan**: 10,000 pcs limit.\n- New installations get a **7-Day Free Trial** with full functionality before requiring license activation."
+        }
+    ];
+
+    async function openWhatsAppSupport() {
+        const email = localStorage.getItem("fivenest_license_email") || "Unregistered User";
+        const clientName = document.getElementById("txtCustomerName") ? document.getElementById("txtCustomerName").value.trim() : "";
+        const nameSection = clientName ? `${clientName} (${email})` : email;
+        const rawMessage = `Hello Vilesh, I need assistance with FN Premium. (User: ${nameSection})`;
+        const encodedMessage = encodeURIComponent(rawMessage);
+        const url = `https://wa.me/918879228710?text=${encodedMessage}`;
+        
+        try {
+            await shell.openExternal(url, "Opening WhatsApp Support");
+        } catch(e) {
+            log("Failed to open WhatsApp: " + e.message);
+        }
+    }
+
+    function appendMessage(text, sender) {
+        const bubble = document.createElement("div");
+        bubble.className = "chat-bubble chat-bubble-" + sender;
+        bubble.innerText = text;
+        chatHistory.appendChild(bubble);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    function appendMessageWithWhatsApp(text) {
+        const bubble = document.createElement("div");
+        bubble.className = "chat-bubble chat-bubble-assistant";
+        bubble.innerText = text + "\n\n";
+        
+        const link = document.createElement("span");
+        link.innerText = "💬 Connect on WhatsApp";
+        link.style.color = "#2ecc71";
+        link.style.textDecoration = "underline";
+        link.style.fontWeight = "bold";
+        link.style.cursor = "pointer";
+        link.style.display = "inline-block";
+        link.style.marginTop = "4px";
+        link.onclick = openWhatsAppSupport;
+        
+        bubble.appendChild(link);
+        chatHistory.appendChild(bubble);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    function renderSuggestions() {
+        chatSuggestions.innerHTML = "";
+        const suggestionTitles = ["Blank Kit", "Half-Sleeve Merge", "Smart Mockup", "Quick Size Entry", "Limits & Trial", "How to Run"];
+        suggestionTitles.forEach(title => {
+            const pill = document.createElement("span");
+            pill.className = "chat-suggestion-pill";
+            pill.innerText = title;
+            pill.onclick = () => {
+                appendMessage(title, "user");
+                const found = helpManual.find(h => h.title === title);
+                if (found) {
+                    setTimeout(() => {
+                        appendMessage(found.summary + "\n\n" + found.details, "assistant");
+                    }, 200);
+                }
+            };
+            chatSuggestions.appendChild(pill);
+        });
+
+        // Add green WhatsApp Support pill
+        const supportPill = document.createElement("span");
+        supportPill.className = "chat-suggestion-pill";
+        supportPill.innerText = "💬 WhatsApp Support";
+        supportPill.style.borderColor = "#2ecc71";
+        supportPill.style.color = "#2ecc71";
+        supportPill.onclick = () => {
+            appendMessage("Connect with Support", "user");
+            setTimeout(() => {
+                appendMessage("Opening WhatsApp to chat with Vilesh...", "assistant");
+                openWhatsAppSupport();
+            }, 200);
+        };
+        chatSuggestions.appendChild(supportPill);
+    }
+
+    function handleUserInput() {
+        const query = txtChatInput.value.trim();
+        if (!query) return;
+        appendMessage(query, "user");
+        txtChatInput.value = "";
+
+        setTimeout(() => {
+            const cleanQuery = query.toLowerCase().replace(/[^a-z0-9\s]/g, "");
+            const words = cleanQuery.split(/\s+/).filter(w => w.length > 2);
+            
+            if (words.length === 0) {
+                appendMessage("I'm sorry, I couldn't catch that. Could you please specify a feature or choose one of the quick suggestions below?", "assistant");
+                return;
+            }
+            
+            let bestMatch = null;
+            let maxMatches = 0;
+            
+            for (const item of helpManual) {
+                let matchCount = 0;
+                for (const word of words) {
+                    if (item.keywords.some(k => k.includes(word) || word.includes(k)) || 
+                        item.title.toLowerCase().includes(word)) {
+                        matchCount++;
+                    }
+                }
+                if (matchCount > maxMatches) {
+                    maxMatches = matchCount;
+                    bestMatch = item;
+                }
+            }
+
+            if (bestMatch && maxMatches > 0) {
+                appendMessage(bestMatch.summary + "\n\n" + bestMatch.details, "assistant");
+            } else {
+                appendMessageWithWhatsApp("I couldn't find a direct match for your question. Here is a quick summary of what I can help you with: \n\n" + 
+                    "• Blank Kit\n" +
+                    "• A4-Back Print\n" +
+                    "• Half-Sleeve Merge\n" +
+                    "• Raglan Style\n" +
+                    "• Smart Mockup\n" +
+                    "• Quick Size Entry\n" +
+                    "• Save Default settings\n" +
+                    "• Usage limits & trial status\n\n" +
+                    "Please try rephrasing or click a suggestion below! If you still need help, click below to chat with Vilesh directly:");
+            }
+        }, 300);
+    }
+
+    btnChatSend.onclick = handleUserInput;
+    txtChatInput.onkeydown = (e) => { if (e.key === "Enter") handleUserInput(); };
+    btnClearChat.onclick = () => {
+        chatHistory.innerHTML = "";
+        appendMessage("Hi! I'm your FN Premium offline assistant. Ask me about any feature (e.g. Blank Kit, Half-Sleeve Merge, Quick Size Entry) or click a suggestion below!", "assistant");
+    };
+
+    // Initialize welcome
+    appendMessage("Hi! I'm your FN Premium offline assistant. Ask me about any feature (e.g. Blank Kit, Half-Sleeve Merge, Quick Size Entry) or click a suggestion below!", "assistant");
+    renderSuggestions();
+
     await checkLicenseSystem();
 });
+
+// --- 🔥 STRICT VALIDATION SYSTEM 🔥 ---
+function checkTrialStatus(lbl, runBtn, btnAct, txtEmail, txtKey, btnManage, licContent) {
+    let trialStart = localStorage.getItem("fivenest_trial_start");
+    if (!trialStart) {
+        trialStart = Date.now().toString();
+        localStorage.setItem("fivenest_trial_start", trialStart);
+    }
+    const msElapsed = Date.now() - parseInt(trialStart);
+    const daysRemaining = 7 - (msElapsed / (1000 * 60 * 60 * 24));
+
+    if (daysRemaining > 0) {
+        lbl.innerText = `TRIAL ACTIVE (${Math.ceil(daysRemaining)} Days Left)`;
+        lbl.style.color = "#00bcd4"; 
+        
+        runBtn.innerText = "▶ RUN AUTOMATION";
+        runBtn.disabled = false;
+        isSystemReady = true;
+
+        btnAct.innerText = "ACTIVATE";
+        txtEmail.style.display = "block";
+        txtKey.style.display = "block";
+        if (licContent) licContent.style.display = "block";
+        if (btnManage) {
+            btnManage.classList.remove("collapsed");
+        }
+    } else {
+        lbl.innerText = "TRIAL EXPIRED / NO KEY";
+        lbl.style.color = "#ff3b30";
+        
+        runBtn.innerText = "ENTER KEY TO RUN";
+        runBtn.disabled = true;
+        isSystemReady = false;
+
+        btnAct.innerText = "ACTIVATE";
+        txtEmail.style.display = "block";
+        txtKey.style.display = "block";
+        if (licContent) licContent.style.display = "block";
+        if (btnManage) {
+            btnManage.classList.remove("collapsed");
+        }
+    }
+}
 
 // --- 🔥 STRICT VALIDATION SYSTEM 🔥 ---
 async function checkLicenseSystem(manualEmail = null, manualKey = null, isUserAction = false) {
@@ -205,7 +483,7 @@ async function checkLicenseSystem(manualEmail = null, manualKey = null, isUserAc
     const btnAct = document.getElementById("btnActivate");
     const txtEmail = document.getElementById("txtLicenseEmail");
     const txtKey = document.getElementById("txtLicenseKey");
-    const btnManage = document.getElementById("btnManageLicense");
+    const btnManage = document.getElementById("btnToggleLicense");
     const licContent = document.getElementById("licenseContent");
 
     let savedEmail = localStorage.getItem("fivenest_license_email");
@@ -217,19 +495,7 @@ async function checkLicenseSystem(manualEmail = null, manualKey = null, isUserAc
     }
 
     if (!savedEmail || !savedKey) {
-        btnAct.innerText = "ACTIVATE";
-        txtEmail.style.display = "block";
-        txtKey.style.display = "block";
-        if (licContent) licContent.style.display = "block";
-        if (btnManage) {
-            btnManage.classList.add("hidden-control");
-            btnManage.innerText = "[MANAGE]";
-        }
-        lbl.innerText = "NO LICENSE FOUND";
-        lbl.style.color = "#ff3b30";
-        runBtn.innerText = "ENTER KEY TO RUN";
-        runBtn.disabled = true;
-        isSystemReady = false;
+        checkTrialStatus(lbl, runBtn, btnAct, txtEmail, txtKey, btnManage, licContent);
         return;
     }
 
@@ -252,8 +518,7 @@ async function checkLicenseSystem(manualEmail = null, manualKey = null, isUserAc
         txtKey.style.display = "block"; 
         if (licContent) licContent.style.display = "none";
         if (btnManage) {
-            btnManage.classList.remove("hidden-control");
-            btnManage.innerText = "[MANAGE]";
+            btnManage.classList.add("collapsed");
         }
         
         runBtn.innerText = "▶ RUN AUTOMATION";
@@ -273,8 +538,7 @@ async function checkLicenseSystem(manualEmail = null, manualKey = null, isUserAc
             txtKey.style.display = "block"; 
             if (licContent) licContent.style.display = "none";
             if (btnManage) {
-                btnManage.classList.remove("hidden-control");
-                btnManage.innerText = "[MANAGE]";
+                btnManage.classList.add("collapsed");
             }
             runBtn.innerText = "▶ RUN (OFFLINE)";
             runBtn.disabled = false;
@@ -288,25 +552,13 @@ async function checkLicenseSystem(manualEmail = null, manualKey = null, isUserAc
             isSystemReady = false;
         }
     } else {
-        lbl.innerText = "LICENSE INVALID";
-        lbl.style.color = "#ff3b30";
-        runBtn.innerText = "ACTIVATION FAILED";
-        runBtn.disabled = true;
-        isSystemReady = false;
-        
         localStorage.removeItem("fivenest_license_email"); 
         localStorage.removeItem("fivenest_license_key"); 
-        btnAct.innerText = "ACTIVATE";
-        txtEmail.style.display = "block";
-        txtKey.style.display = "block";
-        if (licContent) licContent.style.display = "block";
-        if (btnManage) {
-            btnManage.classList.add("hidden-control");
-            btnManage.innerText = "[MANAGE]";
-        }
-        txtKey.value = ""; 
+        txtKey.value = "";
         
         if(isUserAction) await app.showAlert("Activation Failed:\n\n" + authResult.message);
+        
+        checkTrialStatus(lbl, runBtn, btnAct, txtEmail, txtKey, btnManage, licContent);
     }
 }
 
@@ -381,6 +633,7 @@ async function saveDefaults() {
         nameNum: document.getElementById("chkNameNum").checked,
         raglan: document.getElementById("chkRaglan").checked,
         manualMode: document.getElementById("chkManualMode").checked,
+        mergeHalfSleeves: document.getElementById("chkMergeHalfSleeves") ? document.getElementById("chkMergeHalfSleeves").checked : false,
         customerName: document.getElementById("txtCustomerName") ? document.getElementById("txtCustomerName").value : "",
         orderNum: document.getElementById("txtOrderNum") ? document.getElementById("txtOrderNum").value : ""
     };
@@ -408,6 +661,7 @@ async function loadDefaults() {
             if(config.sameFB !== undefined) document.getElementById("chkSameFrontBack").checked = config.sameFB;
             if(config.nameNum !== undefined) document.getElementById("chkNameNum").checked = config.nameNum;
             if(config.raglan !== undefined) document.getElementById("chkRaglan").checked = config.raglan;
+            if(config.mergeHalfSleeves !== undefined && document.getElementById("chkMergeHalfSleeves")) document.getElementById("chkMergeHalfSleeves").checked = config.mergeHalfSleeves;
             if(config.customerName !== undefined && document.getElementById("txtCustomerName")) document.getElementById("txtCustomerName").value = config.customerName;
             if(config.orderNum !== undefined && document.getElementById("txtOrderNum")) document.getElementById("txtOrderNum").value = config.orderNum;
             if(config.manualMode !== undefined) {
@@ -543,43 +797,79 @@ async function runEngine() {
                 const dataRows = csvRows.slice(1).filter(r => r.length > 0 && r[0] !== "");
                 if(dataRows.length === 0) throw new Error("Empty CSV or No Data");
                 headers = csvRows[0].map(h => h.toLowerCase().trim());
-                totalSteps += (dataRows.length * (doNameNum ? 7 : 6));
             }
 
+            let hasFront = false;
+            let hasBack = false;
+            let hasSleeve = false;
+
+            for (let i = 1; i < csvRows.length; i++) {
+                const row = csvRows[i];
+                if (!row || row.length === 0 || row[0] === "") continue;
+
+                const fSize = getVal(row, headers, "front size");
+                const fQty = parseInt(getVal(row, headers, "total qty") || getVal(row, headers, "total quantity") || "0", 10);
+                if (fSize && sizeDB[fSize] && fQty > 0) hasFront = true;
+
+                if (sameFB) {
+                    if (fSize && sizeDB[fSize] && fQty > 0) hasBack = true;
+                } else {
+                    const fname = row[0];
+                    const bSize = getVal(row, headers, "size") || (fname.match(/^(\d{2})/) ? fname.match(/^(\d{2})/)[1] : "");
+                    if (bSize && sizeDB[bSize]) hasBack = true;
+                }
+
+                const hQty = parseInt(getVal(row, headers, "half sleeve") || "0", 10);
+                const flQty = parseInt(getVal(row, headers, "full sleeve") || "0", 10);
+                if (fSize && sizeDB[fSize] && (hQty > 0 || flQty > 0)) hasSleeve = true;
+            }
+
+            let layerModes = [];
+            if (hasFront) layerModes.push({ name: "Front", mode: "FRONT", folderName: "Front" });
+            if (hasBack) layerModes.push({ name: "Back", mode: "BACK", folderName: "Back" });
+            if (hasSleeve) {
+                layerModes.push({ name: "Half Left SL", mode: "HALF_L", folderName: "Sleeve" });
+                layerModes.push({ name: "Half Right SL", mode: "HALF_R", folderName: "Sleeve" });
+                layerModes.push({ name: "Full Left SL", mode: "FULL_L", folderName: "Sleeve" });
+                layerModes.push({ name: "Full Right SL", mode: "FULL_R", folderName: "Sleeve" });
+            }
+            if (doNameNum && hasBack) layerModes.push({ name: "Only Name & Number", mode: "NAMENUM", folderName: "Name_Number" });
+
+            if (layerModes.length === 0) {
+                throw new Error("No valid Front, Back, or Sleeve quantities found to process.");
+            }
+
+            const dataRows = csvRows.slice(1).filter(r => r.length > 0 && r[0] !== "");
+            totalSteps = dataRows.length * layerModes.length;
             updateProgressUI(0, totalSteps);
 
-            const folders = {
-                front: await ensureFolder(selectedFolder, "Front"),
-                back: await ensureFolder(selectedFolder, "Back"),
-                sleeve: await ensureFolder(selectedFolder, "Sleeve"),
-                namenum: doNameNum ? await ensureFolder(selectedFolder, "Name_Number") : null
-            };
-
-            let layerModes = [
-                { name: "Front", mode: "FRONT", folder: folders.front },
-                { name: "Back", mode: "BACK", folder: folders.back },
-                { name: "Half Left SL", mode: "HALF_L", folder: folders.sleeve },
-                { name: "Half Right SL", mode: "HALF_R", folder: folders.sleeve },
-                { name: "Full Left SL", mode: "FULL_L", folder: folders.sleeve },
-                { name: "Full Right SL", mode: "FULL_R", folder: folders.sleeve }
-            ];
-
-            if (doNameNum) {
-                layerModes.push({ name: "Only Name & Number", mode: "NAMENUM", folder: folders.namenum });
-            }
-
             const stats = { Front: 0, Back: 0, Sleeves: 0, NameNum: 0 };
+            let jobSleevesCount = 0;
 
             for (const lm of layerModes) {
+                await app.batchPlay([{ _obj: "select", _target: [{ _ref: "document", _id: masterDocID }] }], {});
+                const layer = await findLayerRecursive(app.activeDocument, lm.name);
+                if (!layer || !layer.visible) {
+                    dataRows.forEach(() => {
+                        currentStep++;
+                        updateProgressUI(currentStep, totalSteps);
+                    });
+                    continue;
+                }
+
                 log(`>>> STARTING: ${lm.name}`);
-                const count = await processLayerBatch(masterDocID, lm.name, csvRows, headers, lm.folder, res, format, lm.mode, sizeDB, shouldEmbed, useLZW, sameFB, isRaglan, () => {
+                const outFolder = await ensureFolder(selectedFolder, lm.folderName);
+                const count = await processLayerBatch(masterDocID, lm.name, csvRows, headers, outFolder, res, format, lm.mode, sizeDB, shouldEmbed, useLZW, sameFB, isRaglan, () => {
                     currentStep++;
                     updateProgressUI(currentStep, totalSteps);
                 });
                 if (lm.mode === "FRONT") stats.Front += count;
                 else if (lm.mode === "BACK") stats.Back += count;
                 else if (lm.mode === "NAMENUM") stats.NameNum += count;
-                else stats.Sleeves += count;
+                else {
+                    stats.Sleeves += count;
+                    jobSleevesCount += count;
+                }
             }
 
             if (doMockup) {
@@ -661,6 +951,13 @@ async function runEngine() {
                     }
                     log(`✅ Saved ${pass.suffix} Mockups.`);
                 }
+            }
+
+            const chkMergeHalfSleeves = document.getElementById("chkMergeHalfSleeves") ? document.getElementById("chkMergeHalfSleeves").checked : false;
+            if (chkMergeHalfSleeves && hasSleeve && jobSleevesCount > 0) {
+                const sleeveFolder = await ensureFolder(selectedFolder, "Sleeve");
+                log(">>> Merging Half Sleeves...");
+                await mergeHalfSleevesBatch(sleeveFolder, csvRows, headers, res, format, isRaglan);
             }
             
             updateProgressUI(totalSteps, totalSteps);
@@ -813,12 +1110,14 @@ async function processLayerBatch(masterDocID, layerName, rows, headers, outFolde
                 
                 await app.batchPlay([saveCmd], {});
                 exportCount++;
-                let usage = parseInt(localStorage.getItem("fivenest_production_usage") || "0");
-                usage++;
-                localStorage.setItem("fivenest_production_usage", usage.toString());
-                updateUsageDisplay();
-                if (PRODUCTION_LIMIT > 0 && usage >= PRODUCTION_LIMIT) {
-                    throw new Error(`Production limit of ${PRODUCTION_LIMIT} pcs exceeded. Please upgrade.`);
+                if (mode === "BACK") {
+                    let usage = parseInt(localStorage.getItem("fivenest_production_usage") || "0");
+                    usage++;
+                    localStorage.setItem("fivenest_production_usage", usage.toString());
+                    updateUsageDisplay();
+                    if (PRODUCTION_LIMIT > 0 && usage >= PRODUCTION_LIMIT) {
+                        throw new Error(`Production limit of ${PRODUCTION_LIMIT} pcs exceeded. Please upgrade.`);
+                    }
                 }
             }
             onStep();
@@ -875,6 +1174,135 @@ async function findLayerRecursive(doc, name) {
 async function updateText(doc, name, text) { try { const layer = await findLayerRecursive(doc, name); if (layer && layer.kind === "text") layer.textItem.contents = (text && text.trim() !== "") ? text : " "; } catch(e) {} }
 function getVal(row, headers, key) { const idx = headers.indexOf(key); return (idx > -1 && row[idx]) ? row[idx].trim() : null; }
 async function ensureFolder(root, name) { try { const f = await root.getEntry(name); if(f.isFolder) return f; } catch(e) {} return await root.createFolder(name); }
+async function mergeHalfSleevesBatch(sleeveFolder, rows, headers, res, format, isRaglan) {
+    const padInches = 0.2;
+    const paddingPx = Math.round(padInches * res);
+    
+    const firstRowIsHeader = rows[0] && rows[0].some(val => typeof val === 'string' && val.toLowerCase().trim() === 'front size');
+    const startIndex = firstRowIsHeader ? 1 : 0;
+
+    for (let i = startIndex; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || row.length === 0 || row[0] === "") continue;
+
+        const activeSize = getVal(row, headers, "front size");
+        const qty = getVal(row, headers, "half sleeve") || "0";
+
+        if (!activeSize || parseInt(qty) <= 0 || isNaN(parseInt(qty))) continue;
+
+        // Suffixes
+        let sufL = isRaglan ? " Raglan HSL L" : " HSL L";
+        let sufR = isRaglan ? " Raglan HSL R" : " HSL R";
+        let sufMerged = isRaglan ? " Raglan HSL" : " HSL";
+
+        // Filenames
+        const nameL = `${activeSize} = ${qty}${sufL}`.replace(/[\/\\:*?"<>|]/g, "_") + "." + format;
+        const nameR = `${activeSize} = ${qty}${sufR}`.replace(/[\/\\:*?"<>|]/g, "_") + "." + format;
+        const nameMerged = `${activeSize} = ${qty}${sufMerged}`.replace(/[\/\\:*?"<>|]/g, "_") + "." + format;
+
+        try {
+            // Check if L and R files exist
+            const fileL = await sleeveFolder.getEntry(nameL);
+            const fileR = await sleeveFolder.getEntry(nameR);
+
+            if (fileL && fileR) {
+                log(`Merging ${nameL} and ${nameR}...`);
+                
+                // Open Left sleeve document
+                await app.open(fileL);
+                const docL = app.activeDocument;
+                const docL_id = docL.id;
+                const heightL = typeof docL.height === "object" ? docL.height.value : docL.height;
+                const widthL = typeof docL.width === "object" ? docL.width.value : docL.width;
+
+                // Open Right sleeve document
+                await app.open(fileR);
+                const docR = app.activeDocument;
+                const docR_id = docR.id;
+                const heightR = typeof docR.height === "object" ? docR.height.value : docR.height;
+
+                // Make sure docR is active
+                app.activeDocument = docR;
+
+                // Convert background layer to normal layer if it is background
+                const rightActiveLayer = docR.activeLayer;
+                if (rightActiveLayer && rightActiveLayer.isBackgroundLayer) {
+                    rightActiveLayer.isBackgroundLayer = false;
+                }
+
+                // Duplicate active layer of docR to docL
+                await app.batchPlay([
+                    {
+                        _obj: "duplicate",
+                        _target: [{ _ref: "layer", _enum: "ordinal", _value: "targetEnum" }],
+                        to: { _ref: "document", _id: docL_id }
+                    }
+                ], {});
+
+                // Close Right document without saving
+                await docR.closeWithoutSaving();
+
+                // Make Left document active
+                app.activeDocument = docL;
+
+                // Resize Left document canvas downwards
+                const newHeight = heightL + heightR + paddingPx;
+                await docL.resizeCanvas(widthL, newHeight, constants.AnchorPosition.TOPCENTER);
+
+                // Offset the active layer (which is the duplicated Right sleeve layer) downwards
+                await app.batchPlay([
+                    {
+                        _obj: "offset",
+                        _target: [{ _ref: "layer", _enum: "ordinal", _value: "targetEnum" }],
+                        horizontal: { _unit: "pixelsUnit", _value: 0 },
+                        vertical: { _unit: "pixelsUnit", _value: heightL + paddingPx }
+                    }
+                ], {});
+
+                // Flatten image
+                await app.batchPlay([{ _obj: "flattenImage" }], {});
+
+                // Save merged document
+                const mergedFile = await sleeveFolder.createFile(nameMerged, { overwrite: true });
+                const saveToken = await fs.createSessionToken(mergedFile);
+
+                let saveCmd = {
+                    _obj: "save",
+                    in: { _path: saveToken, _kind: "local" },
+                    saveStage: { _enum: "saveStageType", _value: "saveBegin" },
+                    copy: true
+                };
+
+                const shouldEmbed = document.getElementById("chkEmbedProfile").checked;
+                const useLZW = document.getElementById("chkLZW").checked;
+                saveCmd.embedProfiles = shouldEmbed;
+
+                if (format === "jpg") {
+                    saveCmd.as = { _obj: "JPEG", extendedQuality: 12 };
+                } else if (format === "png") {
+                    saveCmd.as = { _obj: "PNGFormat", method: { _enum: "PNGMethod", _value: "quick" } };
+                } else {
+                    let comp = { _enum: "encoding", _value: "none" };
+                    if (useLZW) { comp = { _enum: "encoding", _value: "LZW" }; }
+                    saveCmd.as = { _obj: "TIFF", imageCompression: comp };
+                }
+
+                await app.batchPlay([saveCmd], {});
+
+                // Close Left document without saving
+                await docL.closeWithoutSaving();
+
+                // Delete old left and right files
+                await fileL.delete();
+                await fileR.delete();
+                log(`✅ Merged and saved ${nameMerged}`);
+            }
+        } catch (err) {
+            log(`❌ Error merging ${nameL} & ${nameR}: ${err.message}`);
+        }
+    }
+}
+
 function parseCSV(text) { return text.split("\n").map(line => line.split(",")); }
 function loadSizeToUI() { 
     const d = sizeDB[document.getElementById("sizeSelector").value]; 

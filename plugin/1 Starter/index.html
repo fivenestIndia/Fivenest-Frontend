@@ -3,6 +3,58 @@
 <head>
     <script src="index.js"></script>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Chatbot styling */
+        .chat-bubble {
+            max-width: 85%;
+            padding: 6px 10px;
+            font-size: 9.5px !important;
+            line-height: 1.4;
+            margin-bottom: 4px;
+            word-wrap: break-word;
+            flex-shrink: 0; /* CRITICAL: Prevents UXP flex children from collapsing and overlapping */
+            display: block;
+        }
+        .chat-bubble-user {
+            align-self: flex-end;
+            background-color: var(--accent-color);
+            color: #ffffff;
+            border-radius: 8px 8px 0px 8px;
+            text-align: right;
+        }
+        .chat-bubble-assistant {
+            align-self: flex-start;
+            background-color: #222222;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px 8px 8px 0px;
+            text-align: left;
+        }
+        body.light-tool .chat-bubble-assistant {
+            background-color: #f7f7f7;
+        }
+        .chat-suggestion-pill {
+            background: #1e1e1e;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            border-radius: 4px;
+            padding: 2px 5px !important;
+            font-size: 8px !important;
+            font-weight: bold;
+            cursor: pointer;
+            display: inline-block;
+            margin: 2px;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        .chat-suggestion-pill:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+        body.light-tool .chat-suggestion-pill {
+            background: #e8e8e8;
+        }
+    </style>
 </head>
 <body>
     
@@ -14,24 +66,25 @@
     <div class="tabs">
         <button id="tabRun" class="tab-btn active">Run Engine</button>
         <button id="tabEdit" class="tab-btn">Size Editor</button>
+        <button id="tabHelp" class="tab-btn" style="color: var(--accent-color);">Help Center</button>
     </div>
 
     <div id="panelRun" class="panel active">
         
         <div class="box" id="licensingBox" style="border-left: 3px solid var(--accent-color); padding: 4px 6px; margin-bottom: 3px;">
-            <div class="box-header-row" style="display: flex; justify-content: space-between; margin-bottom: 0px; border-bottom: none;">
-                <div class="header-small">License Registration</div>
-                <div style="display: flex; align-items: center; gap: 4px;">
-                    <div id="licenseStatus" style="font-size: 9px; font-weight: bold; color: #ff3b30;">Checking...</div>
-                    <button id="btnManageLicense" class="btn-tiny-action hidden-control" style="font-size: 7.5px !important; color: var(--accent-color); padding: 0 2px !important;">[MANAGE]</button>
+            <div class="box-header-row" style="display: flex; justify-content: space-between; margin-bottom: 0px; border-bottom: none; align-items: center;">
+                <div style="display:flex; align-items:center;">
+                    <span id="btnToggleLicense" class="toggle-icon">▼</span>
+                    <div class="header-small">License Registration</div>
                 </div>
+                <div id="licenseStatus" style="font-size: 9px; font-weight: bold; color: #ff3b30;">Checking...</div>
             </div>
             <div id="licenseContent">
                 <div class="row-tiny" style="display:flex; flex-direction:column; gap:4px; margin-top: 4px; border-top: 1px solid var(--border-color); padding-top: 4px;">
-                    <input type="text" id="txtLicenseEmail" placeholder="Enter Registration Email" style="width: 100%; height:18px; text-align: center; margin-bottom: 3px; background: #222; border: 1px solid #444; color: #fff; padding: 0 4px;">
+                    <input type="text" id="txtLicenseEmail" placeholder="Enter Registration Email" style="width: 100%; height:18px; text-align: center; margin-bottom: 3px; background: #222; border: 1px solid #444; color: #fff; padding: 0 4px;" title="Enter the email address registered with your license.">
                     <div style="display:flex; width:100%; gap:4px;">
-                        <input type="text" id="txtLicenseKey" placeholder="Enter License Key" style="flex: 1; min-width: 0; height:18px; text-align: center; background: #222; border: 1px solid #444; color: #fff; padding: 0 4px;">
-                        <button id="btnActivate" class="btn-tiny-action" style="flex-shrink: 0; font-size: 7.5px !important; padding: 1px 4px !important;">ACTIVATE</button>
+                        <input type="text" id="txtLicenseKey" placeholder="Enter License Key" style="flex: 1; min-width: 0; height:18px; text-align: center; background: #222; border: 1px solid #444; color: #fff; padding: 0 4px;" title="Enter your unique license key to activate the plugin.">
+                        <button id="btnActivate" class="btn-tiny-action" style="flex-shrink: 0; font-size: 7.5px !important; padding: 1px 4px !important;" title="Click to verify and activate your registration credentials.">ACTIVATE</button>
                     </div>
                 </div>
             </div>
@@ -40,15 +93,15 @@
         <div class="box">
             <div class="box-header-row">
                 <div class="header-small">1. Input Files</div>
-                <button id="btnValidate" class="btn-tiny-action">🔍 CHECK CSV</button>
+                <button id="btnValidate" class="btn-tiny-action" title="Analyze and validate the selected CSV file for configuration compatibility, missing patterns, or size mismatches.">🔍 CHECK CSV</button>
             </div>
             <div style="display: flex; width: 100%; gap: 6px;">
                 <div style="flex: 1; min-width: 0;">
-                    <button id="btnCSV" class="picker-btn" style="width: 100%;">Select CSV</button>
+                    <button id="btnCSV" class="picker-btn" style="width: 100%;" title="Select the CSV file containing the production order details (sizes, names, numbers).">Select CSV</button>
                     <div id="lblCSV" class="status-tiny" style="margin-top: 2px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px;">None</div>
                 </div>
                 <div style="flex: 1; min-width: 0;">
-                    <button id="btnFolder" class="picker-btn" style="width: 100%;">Select Output</button>
+                    <button id="btnFolder" class="picker-btn" style="width: 100%;" title="Select the target folder where the generated print-ready files will be saved.">Select Output</button>
                     <div id="lblFolder" class="status-tiny" style="margin-top: 2px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px;">None</div>
                 </div>
             </div>
@@ -60,35 +113,35 @@
                     <span id="btnToggleConfig" class="toggle-icon">▼</span>
                     <div class="header-small">2. Configuration</div>
                 </div>
-                <button id="btnSetDefault" class="btn-tiny-action" title="Save current settings as default">SET DEFAULT</button>
+                <button id="btnSetDefault" class="btn-tiny-action" title="Save your current selections and inputs as the default settings for future sessions.">Save Default</button>
             </div>
 
             <div id="configContent">
                 <div class="row-tiny" style="margin-bottom: 2px;">
                     <span style="font-size: 10px !important; font-weight: bold;">Format:</span>
-                    <select id="exportFormat" style="width: 50px;">
+                    <select id="exportFormat" style="width: 50px;" title="Select the output image format for print exports (JPG, PNG, or TIFF).">
                         <option value="jpg">JPG</option>
                         <option value="png">PNG</option>
                         <option value="tiff">TIFF</option>
                     </select>
-                    <span style="margin-left: auto; margin-right: 4px; font-size: 9px;">Res:</span>
-                    <input type="number" id="resolution" value="300" style="width: 36px; padding: 0 2px;">
+                    <span style="margin-left: auto; margin-right: 4px; font-size: 9px;">Resolution:</span>
+                    <input type="number" id="resolution" value="300" style="width: 36px; padding: 0 2px;" title="Specify the export resolution in DPI (dots per inch) for Photoshop rendering.">
                 </div>
 
                 <div class="row-tiny" style="justify-content: flex-start; margin-bottom: 2px;">
-                    <div class="checkbox-item" id="containerEmbed" style="margin-right: 15px;">
+                    <div class="checkbox-item" id="containerEmbed" style="margin-right: 15px;" title="Embed the color profile in the exported images to guarantee print color fidelity.">
                         <input type="checkbox" id="chkEmbedProfile" checked>
                         <span id="lblEmbed">Embed Profile</span>
                     </div>
-                    <div class="checkbox-item hidden-control" id="containerLZW">
+                    <div class="checkbox-item hidden-control" id="containerLZW" title="Apply lossless LZW compression to exported TIFF files to reduce file sizes.">
                         <input type="checkbox" id="chkLZW">
-                        <span>LZW Comp.</span>
+                        <span>LZW Compression</span>
                     </div>
                 </div>
             </div>
         </div>
         
-        <button id="btnRun" class="btn-main">▶ RUN AUTOMATION</button>
+        <button id="btnRun" class="btn-main" title="Start processing the batch job in Photoshop.">▶ RUN AUTOMATION</button>
 
         <div class="progress-container">
             <div id="progressBar"></div>
@@ -100,34 +153,55 @@
 
         <div class="log-header">
             <div class="log-title">Process Log</div>
-            <button id="btnClearLog" class="btn-tiny-action">Clear Log</button>
+            <button id="btnClearLog" class="btn-tiny-action" title="Clear the console process log area.">Clear Log</button>
         </div>
         <div id="logArea">Ready.</div>
     </div>
 
     <div id="panelEdit" class="panel">
         <div class="box" style="margin-bottom: 6px;">
-            <div class="row-tiny"><span>Size:</span><select id="sizeSelector" style="width: 100%;"></select></div>
+            <div class="row-tiny" title="Select a size to view or edit its pattern dimensions."><span>Size:</span><select id="sizeSelector" style="width: 100%;"></select></div>
         </div>
-        <div class="box" style="margin-bottom: 6px;">
+        <div class="box" style="margin-bottom: 6px;" title="Define pattern piece dimensions in inches.">
             <div class="header-small" style="margin-bottom: 8px;">Dimensions (in)</div>
-            <div class="row-tiny"><span style="font-size: 9px;">Front:</span> <div><input type="number" id="frontW" class="size-input"> x <input type="number" id="frontH" class="size-input"></div></div>
-            <div class="row-tiny"><span style="font-size: 9px;">Back:</span> <div><input type="number" id="backW" class="size-input"> x <input type="number" id="backH" class="size-input"></div></div>
-            <div class="row-tiny"><span style="font-size: 9px;">Half:</span> <div><input type="number" id="halfW" class="size-input"> x <input type="number" id="halfH" class="size-input"></div></div>
-            <div class="row-tiny"><span style="font-size: 9px;">Full:</span> <div><input type="number" id="fullW" class="size-input"> x <input type="number" id="fullH" class="size-input"></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Front:</span> <div><input type="number" id="frontW" class="size-input" title="Front width in inches."> x <input type="number" id="frontH" class="size-input" title="Front height in inches."></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Back:</span> <div><input type="number" id="backW" class="size-input" title="Back width in inches."> x <input type="number" id="backH" class="size-input" title="Back height in inches."></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Half:</span> <div><input type="number" id="halfW" class="size-input" title="Half sleeve width in inches."> x <input type="number" id="halfH" class="size-input" title="Half sleeve height in inches."></div></div>
+            <div class="row-tiny"><span style="font-size: 9px;">Full:</span> <div><input type="number" id="fullW" class="size-input" title="Full sleeve width in inches."> x <input type="number" id="fullH" class="size-input" title="Full sleeve height in inches."></div></div>
             
-            <button id="btnSaveDB" class="btn-save">Save Database</button>
+            <button id="btnSaveDB" class="btn-save" title="Save the updated size dimensions database.">Save Database</button>
             <div id="saveMsg" class="status-tiny"></div>
         </div>
         <div class="box">
             <div class="header-small" style="margin-bottom: 8px;">Text Width Limits (in)</div>
-            <div class="row-tiny" style="margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+            <div class="row-tiny" style="margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;" title="Set the maximum width limit in inches for custom player names to prevent canvas overflow.">
                 <span style="font-size: 9px;">Name Maximum Width:</span>
                 <input type="number" id="limitName" value="11" style="width: 42px; padding: 0 2px; text-align: center;">
             </div>
-            <div class="row-tiny" style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="row-tiny" style="display: flex; justify-content: space-between; align-items: center;" title="Set the maximum width limit in inches for player numbers to prevent canvas overflow.">
                 <span style="font-size: 9px;">Number Maximum Width:</span>
                 <input type="number" id="limitNum" value="9" style="width: 42px; padding: 0 2px; text-align: center;">
+            </div>
+        </div>
+    </div>
+    <div id="panelHelp" class="panel" style="overflow: hidden; height: 100%;">
+        <div class="box" style="display: flex; flex-direction: column; padding: 4px !important; margin-bottom: 0; flex-grow: 1; height: 100%; overflow: hidden;">
+            <div class="box-header-row" style="margin-bottom: 4px; flex-shrink: 0;">
+                <div class="header-small" style="color: var(--accent-color);">Help Assistant</div>
+                <button id="btnClearChat" class="btn-tiny-action" title="Clear and reset the AI Help Assistant conversation history.">Reset Chat</button>
+            </div>
+            
+            <div id="chatHistory" style="flex: 1; min-height: 0; overflow-y: auto; padding: 4px; display: flex; flex-direction: column; gap: 6px; background: #151515; border-radius: 4px; border: 1px solid var(--border-color); margin-bottom: 4px;">
+                <!-- Initial greeting will be inserted here -->
+            </div>
+            
+            <div id="chatSuggestions" style="display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 4px; justify-content: center; flex-shrink: 0;">
+                <!-- Suggestions will be generated here -->
+            </div>
+            
+            <div style="display: flex; gap: 4px; align-items: center; border-top: 1px solid var(--border-color); padding-top: 4px; flex-shrink: 0;">
+                <input type="text" id="txtChatInput" placeholder="Ask about any feature..." style="flex: 1; min-width: 0; height: 20px !important; font-size: 9.5px !important; text-align: left !important; padding: 0 4px !important;" title="Type a question here to ask the AI Help Assistant about any plugin feature.">
+                <button id="btnChatSend" class="btn-tiny-action" style="flex-shrink: 0; font-size: 9px !important; color: var(--accent-color); padding: 2px 5px !important;" title="Send your question to the AI Help Assistant.">Send</button>
             </div>
         </div>
     </div>

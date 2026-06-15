@@ -23,10 +23,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     await loadDefaults(); 
     updateUsageDisplay(); 
     
-    // Theme Init
-    const isDark = app.preferences.colorTheme === "darker" || app.preferences.colorTheme === "dark";
-    document.body.classList.toggle("light-tool", !isDark);
-    document.getElementById("btnThemeToggle").onclick = () => { document.body.classList.toggle("light-tool"); };
+    const themeBtn = document.getElementById("btnThemeToggle");
+    themeBtn.onclick = () => {
+        document.body.classList.toggle("light-tool");
+        themeBtn.innerText = document.body.classList.contains("light-tool") ? "🌙" : "☀";
+    };
     
     // Toggle Config Content
     document.getElementById("btnToggleConfig").onclick = () => {
@@ -38,8 +39,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     document.getElementById("exportFormat").addEventListener("change", updateUIOptions);
 
-    document.getElementById("tabRun").onclick = () => { document.getElementById("panelRun").classList.add("active"); document.getElementById("panelEdit").classList.remove("active"); document.getElementById("tabRun").classList.add("active"); document.getElementById("tabEdit").classList.remove("active"); };
-    document.getElementById("tabEdit").onclick = () => { document.getElementById("panelRun").classList.remove("active"); document.getElementById("panelEdit").classList.add("active"); document.getElementById("tabRun").classList.remove("active"); document.getElementById("tabEdit").classList.add("active"); };
+    // --- 🤖 3-TAB LOGIC 🤖 ---
+    const tabs = ["Run", "Edit", "Help"];
+    function switchTab(target) {
+        tabs.forEach(t => {
+            document.getElementById("tab" + t).classList.remove("active");
+            document.getElementById("panel" + t).classList.remove("active");
+        });
+        document.getElementById("tab" + target).classList.add("active");
+        document.getElementById("panel" + target).classList.add("active");
+    }
+    document.getElementById("tabRun").onclick = () => switchTab("Run");
+    document.getElementById("tabEdit").onclick = () => switchTab("Edit");
+    document.getElementById("tabHelp").onclick = () => switchTab("Help");
+
     document.getElementById("btnCSV").addEventListener("click", async () => {
         const file = await fs.getFileForOpening({ types: ["csv", "txt"] });
         if (file) { selectedCSV = file; document.getElementById("lblCSV").innerText = file.name; document.getElementById("lblCSV").style.color = "#4CAF50"; log("CSV Set."); }
@@ -81,17 +94,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         else await app.showAlert("Please fill in both Email and License Key.");
     };
 
-    const btnManage = document.getElementById("btnManageLicense");
-    if (btnManage) {
-        btnManage.onclick = () => {
+    const btnToggleLicense = document.getElementById("btnToggleLicense");
+    if (btnToggleLicense) {
+        btnToggleLicense.onclick = () => {
             const licContent = document.getElementById("licenseContent");
             if (licContent) {
                 if (licContent.style.display === "none") {
                     licContent.style.display = "block";
-                    btnManage.innerText = "[HIDE]";
+                    btnToggleLicense.classList.remove("collapsed");
                 } else {
                     licContent.style.display = "none";
-                    btnManage.innerText = "[MANAGE]";
+                    btnToggleLicense.classList.add("collapsed");
                 }
             }
         };
@@ -99,6 +112,191 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     loadSizeToUI();
     updateUIOptions(); 
+
+    // --- 🤖 HELP ASSISTANT CHATBOT LOGIC 🤖 ---
+    const chatHistory = document.getElementById("chatHistory");
+    const txtChatInput = document.getElementById("txtChatInput");
+    const btnChatSend = document.getElementById("btnChatSend");
+    const btnClearChat = document.getElementById("btnClearChat");
+    const chatSuggestions = document.getElementById("chatSuggestions");
+
+    const helpManual = [
+        {
+            title: "Format & Resolution",
+            keywords: ["format", "resolution", "jpg", "png", "tiff", "dpi", "res"],
+            summary: "Configure the output format and resolution settings.",
+            details: "Under **Configuration**, you can set the file format (JPG, PNG, or TIFF) and output resolution (DPI). High-resolution printing usually requires **300 DPI**."
+        },
+        {
+            title: "Embed Profile",
+            keywords: ["embed", "profile", "color", "icc", "srgb"],
+            summary: "Embed Profile keeps color profiles consistent.",
+            details: "When **Embed Profile** is checked, the plugin saves the document's active ICC color profile inside the output images. This ensures color fidelity across different screens and printers."
+        },
+        {
+            title: "LZW Compression",
+            keywords: ["lzw", "compression", "tiff compression", "compress"],
+            summary: "LZW Compression reduces TIFF file sizes without losing quality.",
+            details: "When exporting to **TIFF**, check **LZW Compression** to enable lossless data compression. This significantly reduces the storage footprint of your TIFF files."
+        },
+        {
+            title: "Save Default",
+            keywords: ["save default", "default", "save def", "defaults"],
+            summary: "Save Default remembers your current settings.",
+            details: "Clicking **Save Default** saves your selected resolution, format, and compression settings to `fivenest_config.json`. These settings will automatically load next time you open Photoshop."
+        },
+        {
+            title: "How to Run Automation",
+            keywords: ["run", "how to use", "start", "automation", "begin", "steps"],
+            summary: "Learn the step-by-step guide to run a batch automation job.",
+            details: "To run a batch job:\n1. Choose your inputs: click *Select CSV* and load a CSV file.\n2. Choose your outputs: click *Select Output* folder.\n3. Configure options (Format, Resolution, Embed Profile, LZW Compression).\n4. Click **Run Automation** to process everything automatically."
+        },
+        {
+            title: "Tiers & Usage Limits",
+            keywords: ["limit", "usage", "subscription", "starter", "pro", "premium", "enterprise", "pcs", "free trial", "trial"],
+            summary: "Learn about product limits and trial activation.",
+            details: "Usage limits are calculated *only* when a BACK layer is exported:\n- **Starter Plan**: 500 pcs limit.\n- New installations get a **7-Day Free Trial** with full functionality before requiring license activation."
+        }
+    ];
+
+    async function openWhatsAppSupport() {
+        const email = localStorage.getItem("fivenest_license_email") || "Unregistered User";
+        const clientName = document.getElementById("txtCustomerName") ? document.getElementById("txtCustomerName").value.trim() : "";
+        const nameSection = clientName ? `${clientName} (${email})` : email;
+        const rawMessage = `Hello Vilesh, I need assistance with FN Starter. (User: ${nameSection})`;
+        const encodedMessage = encodeURIComponent(rawMessage);
+        const url = `https://wa.me/918879228710?text=${encodedMessage}`;
+        
+        try {
+            await shell.openExternal(url, "Opening WhatsApp Support");
+        } catch(e) {
+            log("Failed to open WhatsApp: " + e.message);
+        }
+    }
+
+    function appendMessage(text, sender) {
+        const bubble = document.createElement("div");
+        bubble.className = "chat-bubble chat-bubble-" + sender;
+        bubble.innerText = text;
+        chatHistory.appendChild(bubble);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    function appendMessageWithWhatsApp(text) {
+        const bubble = document.createElement("div");
+        bubble.className = "chat-bubble chat-bubble-assistant";
+        bubble.innerText = text + "\n\n";
+        
+        const link = document.createElement("span");
+        link.innerText = "💬 Connect on WhatsApp";
+        link.style.color = "#2ecc71";
+        link.style.textDecoration = "underline";
+        link.style.fontWeight = "bold";
+        link.style.cursor = "pointer";
+        link.style.display = "inline-block";
+        link.style.marginTop = "4px";
+        link.onclick = openWhatsAppSupport;
+        
+        bubble.appendChild(link);
+        chatHistory.appendChild(bubble);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    function renderSuggestions() {
+        chatSuggestions.innerHTML = "";
+        const suggestionTitles = ["Format & Res", "Embed Profile", "LZW Compress", "Limits & Trial", "How to Run"];
+        suggestionTitles.forEach(title => {
+            const pill = document.createElement("span");
+            pill.className = "chat-suggestion-pill";
+            pill.innerText = title;
+            pill.onclick = () => {
+                appendMessage(title, "user");
+                let searchTitle = title;
+                if (title === "Format & Res") searchTitle = "Format & Resolution";
+                if (title === "LZW Compress") searchTitle = "LZW Compression";
+                const found = helpManual.find(h => h.title === searchTitle);
+                if (found) {
+                    setTimeout(() => {
+                        appendMessage(found.summary + "\n\n" + found.details, "assistant");
+                    }, 200);
+                }
+            };
+            chatSuggestions.appendChild(pill);
+        });
+
+        // Add green WhatsApp Support pill
+        const supportPill = document.createElement("span");
+        supportPill.className = "chat-suggestion-pill";
+        supportPill.innerText = "💬 WhatsApp Support";
+        supportPill.style.borderColor = "#2ecc71";
+        supportPill.style.color = "#2ecc71";
+        supportPill.onclick = () => {
+            appendMessage("Connect with Support", "user");
+            setTimeout(() => {
+                appendMessage("Opening WhatsApp to chat with Vilesh...", "assistant");
+                openWhatsAppSupport();
+            }, 200);
+        };
+        chatSuggestions.appendChild(supportPill);
+    }
+
+    function handleUserInput() {
+        const query = txtChatInput.value.trim();
+        if (!query) return;
+        appendMessage(query, "user");
+        txtChatInput.value = "";
+
+        setTimeout(() => {
+            const cleanQuery = query.toLowerCase().replace(/[^a-z0-9\s]/g, "");
+            const words = cleanQuery.split(/\s+/).filter(w => w.length > 2);
+            
+            if (words.length === 0) {
+                appendMessage("I'm sorry, I couldn't catch that. Could you please specify a feature or choose one of the quick suggestions below?", "assistant");
+                return;
+            }
+            
+            let bestMatch = null;
+            let maxMatches = 0;
+            
+            for (const item of helpManual) {
+                let matchCount = 0;
+                for (const word of words) {
+                    if (item.keywords.some(k => k.includes(word) || word.includes(k)) || 
+                        item.title.toLowerCase().includes(word)) {
+                        matchCount++;
+                    }
+                }
+                if (matchCount > maxMatches) {
+                    maxMatches = matchCount;
+                    bestMatch = item;
+                }
+            }
+
+            if (bestMatch && maxMatches > 0) {
+                appendMessage(bestMatch.summary + "\n\n" + bestMatch.details, "assistant");
+            } else {
+                appendMessageWithWhatsApp("I couldn't find a direct match for your question. Here is a quick summary of what I can help you with: \n\n" + 
+                    "• Format & Resolution\n" +
+                    "• Embed Profile\n" +
+                    "• LZW Compression\n" +
+                    "• Save Default settings\n" +
+                    "• Usage limits & trial status\n\n" +
+                    "Please try rephrasing or click a suggestion below! If you still need help, click below to chat with Vilesh directly:");
+            }
+        }, 300);
+    }
+
+    btnChatSend.onclick = handleUserInput;
+    txtChatInput.onkeydown = (e) => { if (e.key === "Enter") handleUserInput(); };
+    btnClearChat.onclick = () => {
+        chatHistory.innerHTML = "";
+        appendMessage("Hi! I'm your FN Starter offline assistant. Ask me about any feature (e.g. Format & Res, LZW Compress) or click a suggestion below!", "assistant");
+    };
+
+    // Initialize welcome
+    appendMessage("Hi! I'm your FN Starter offline assistant. Ask me about any feature (e.g. Format & Res, LZW Compress) or click a suggestion below!", "assistant");
+    renderSuggestions();
+
     await checkLicenseSystem();
 });
 
@@ -230,7 +428,43 @@ async function runEngine() {
     if(dataRows.length === 0) { log("Error: Empty CSV or No Data"); return; }
     const headers = csvRows[0].map(h => h.toLowerCase().trim());
 
-    const totalSteps = dataRows.length * 6;
+    let hasFront = false;
+    let hasBack = false;
+    let hasSleeve = false;
+
+    for (let i = 1; i < csvRows.length; i++) {
+        const row = csvRows[i];
+        if (!row || row.length === 0 || row[0] === "") continue;
+
+        const fSize = getVal(row, headers, "front size");
+        const fQty = parseInt(getVal(row, headers, "total qty") || getVal(row, headers, "total quantity") || "0", 10);
+        if (fSize && sizeDB[fSize] && fQty > 0) hasFront = true;
+
+        const fname = row[0];
+        const bSize = getVal(row, headers, "size") || (fname.match(/^(\d{2})/) ? fname.match(/^(\d{2})/)[1] : "");
+        if (bSize && sizeDB[bSize]) hasBack = true;
+
+        const hQty = parseInt(getVal(row, headers, "half sleeve") || "0", 10);
+        const flQty = parseInt(getVal(row, headers, "full sleeve") || "0", 10);
+        if (fSize && sizeDB[fSize] && (hQty > 0 || flQty > 0)) hasSleeve = true;
+    }
+
+    const layerModes = [];
+    if (hasFront) layerModes.push({ name: "Front", mode: "FRONT", folderName: "Front" });
+    if (hasBack) layerModes.push({ name: "Back", mode: "BACK", folderName: "Back" });
+    if (hasSleeve) {
+        layerModes.push({ name: "Half Left SL", mode: "HALF_L", folderName: "Sleeve" });
+        layerModes.push({ name: "Half Right SL", mode: "HALF_R", folderName: "Sleeve" });
+        layerModes.push({ name: "Full Left SL", mode: "FULL_L", folderName: "Sleeve" });
+        layerModes.push({ name: "Full Right SL", mode: "FULL_R", folderName: "Sleeve" });
+    }
+
+    if (layerModes.length === 0) {
+        await app.showAlert("Error: No valid Front, Back, or Sleeve quantities found to process in the CSV.");
+        return;
+    }
+
+    const totalSteps = dataRows.length * layerModes.length;
     let currentStep = 0;
     
     // START CAPTION
@@ -239,30 +473,27 @@ async function runEngine() {
     startTime = Date.now();
     updateProgressUI(0, totalSteps);
 
-    const folders = {
-        front: await ensureFolder(selectedFolder, "Front"),
-        back: await ensureFolder(selectedFolder, "Back"),
-        sleeve: await ensureFolder(selectedFolder, "Sleeve")
-    };
-
     // --- EXECUTE AS MODAL WITH CUSTOM TEXT ---
     await core.executeAsModal(async () => {
         try {
             const masterDocID = app.activeDocument.id;
-            const layerModes = [
-                { name: "Front", mode: "FRONT", folder: folders.front },
-                { name: "Back", mode: "BACK", folder: folders.back },
-                { name: "Half Left SL", mode: "HALF_L", folder: folders.sleeve },
-                { name: "Half Right SL", mode: "HALF_R", folder: folders.sleeve },
-                { name: "Full Left SL", mode: "FULL_L", folder: folders.sleeve },
-                { name: "Full Right SL", mode: "FULL_R", folder: folders.sleeve }
-            ];
 
             const stats = { Front: 0, Back: 0, Sleeves: 0 };
 
             for (const lm of layerModes) {
+                await app.batchPlay([{ _obj: "select", _target: [{ _ref: "document", _id: masterDocID }] }], {});
+                const layer = await findLayerRecursive(app.activeDocument, lm.name);
+                if (!layer || !layer.visible) {
+                    dataRows.forEach(() => {
+                        currentStep++;
+                        updateProgressUI(currentStep, totalSteps);
+                    });
+                    continue;
+                }
+
                 log(`>>> STARTING: ${lm.name}`);
-                const count = await processLayerBatch(masterDocID, lm.name, csvRows, headers, lm.folder, res, format, lm.mode, sizeDB, shouldEmbed, useLZW, () => {
+                const outFolder = await ensureFolder(selectedFolder, lm.folderName);
+                const count = await processLayerBatch(masterDocID, lm.name, csvRows, headers, outFolder, res, format, lm.mode, sizeDB, shouldEmbed, useLZW, () => {
                     currentStep++;
                     updateProgressUI(currentStep, totalSteps);
                 });
@@ -376,12 +607,14 @@ async function processLayerBatch(masterDocID, layerName, rows, headers, outFolde
                 
                 await app.batchPlay([saveCmd], {});
                 exportCount++;
-                let usage = parseInt(localStorage.getItem("fivenest_production_usage") || "0");
-                usage++;
-                localStorage.setItem("fivenest_production_usage", usage.toString());
-                updateUsageDisplay();
-                if (PRODUCTION_LIMIT > 0 && usage >= PRODUCTION_LIMIT) {
-                    throw new Error(`Production limit of ${PRODUCTION_LIMIT} pcs exceeded. Please upgrade.`);
+                if (mode === "BACK") {
+                    let usage = parseInt(localStorage.getItem("fivenest_production_usage") || "0");
+                    usage++;
+                    localStorage.setItem("fivenest_production_usage", usage.toString());
+                    updateUsageDisplay();
+                    if (PRODUCTION_LIMIT > 0 && usage >= PRODUCTION_LIMIT) {
+                        throw new Error(`Production limit of ${PRODUCTION_LIMIT} pcs exceeded. Please upgrade.`);
+                    }
                 }
             }
             await app.batchPlay([{ _obj: "close", saving: { _enum: "yesNo", _value: "no" } }], {});
@@ -425,6 +658,48 @@ function loadSizeToUI() { const d = sizeDB[document.getElementById("sizeSelector
 async function saveSizeFromUI() { const k = document.getElementById("sizeSelector").value; sizeDB[k] = { front: { w: parseFloat(document.getElementById("frontW").value), h: parseFloat(document.getElementById("frontH").value) }, back: { w: parseFloat(document.getElementById("backW").value), h: parseFloat(document.getElementById("backH").value) }, half: { w: parseFloat(document.getElementById("halfW").value), h: parseFloat(document.getElementById("halfH").value) }, full: { w: parseFloat(document.getElementById("fullW").value), h: parseFloat(document.getElementById("fullH").value) } }; try { const f = await fs.getDataFolder(); const file = await f.createFile("fivenest_sizes.json", {overwrite: true}); await file.write(JSON.stringify(sizeDB)); document.getElementById("saveMsg").innerText = "Saved!"; setTimeout(()=>document.getElementById("saveMsg").innerText="", 1500); } catch(e) { log("Save Err"); } }
 async function loadDatabase() { try { const f=await fs.getDataFolder(); const file=await f.getEntry("fivenest_sizes.json"); if(file) sizeDB=JSON.parse(await file.read()); } catch(e){} }
 
+function checkTrialStatus(lbl, runBtn, btnAct, txtEmail, txtKey, btnManage, licContent) {
+    let trialStart = localStorage.getItem("fivenest_trial_start");
+    if (!trialStart) {
+        trialStart = Date.now().toString();
+        localStorage.setItem("fivenest_trial_start", trialStart);
+    }
+    const msElapsed = Date.now() - parseInt(trialStart);
+    const daysRemaining = 7 - (msElapsed / (1000 * 60 * 60 * 24));
+
+    if (daysRemaining > 0) {
+        lbl.innerText = `TRIAL ACTIVE (${Math.ceil(daysRemaining)} Days Left)`;
+        lbl.style.color = "#00bcd4"; 
+        
+        runBtn.innerText = "▶ RUN AUTOMATION";
+        runBtn.disabled = false;
+        isSystemReady = true;
+
+        btnAct.innerText = "ACTIVATE";
+        txtEmail.style.display = "block";
+        txtKey.style.display = "block";
+        if (licContent) licContent.style.display = "block";
+        if (btnManage) {
+            btnManage.classList.remove("collapsed");
+        }
+    } else {
+        lbl.innerText = "TRIAL EXPIRED / NO KEY";
+        lbl.style.color = "#ff3b30";
+        
+        runBtn.innerText = "ENTER KEY TO RUN";
+        runBtn.disabled = true;
+        isSystemReady = false;
+
+        btnAct.innerText = "ACTIVATE";
+        txtEmail.style.display = "block";
+        txtKey.style.display = "block";
+        if (licContent) licContent.style.display = "block";
+        if (btnManage) {
+            btnManage.classList.remove("collapsed");
+        }
+    }
+}
+
 // --- 🔥 STRICT VALIDATION SYSTEM 🔥 ---
 async function checkLicenseSystem(manualEmail = null, manualKey = null, isUserAction = false) {
     const lbl = document.getElementById("licenseStatus");
@@ -432,7 +707,7 @@ async function checkLicenseSystem(manualEmail = null, manualKey = null, isUserAc
     const btnAct = document.getElementById("btnActivate");
     const txtEmail = document.getElementById("txtLicenseEmail");
     const txtKey = document.getElementById("txtLicenseKey");
-    const btnManage = document.getElementById("btnManageLicense");
+    const btnManage = document.getElementById("btnToggleLicense");
     const licContent = document.getElementById("licenseContent");
 
     let savedEmail = localStorage.getItem("fivenest_license_email");
@@ -444,17 +719,7 @@ async function checkLicenseSystem(manualEmail = null, manualKey = null, isUserAc
     }
 
     if (!savedEmail || !savedKey) {
-        btnAct.innerText = "ACTIVATE";
-        txtEmail.style.display = "block";
-        txtKey.style.display = "block";
-        licContent.style.display = "block";
-        btnManage.classList.add("hidden-control");
-        btnManage.innerText = "[MANAGE]";
-        lbl.innerText = "NO LICENSE FOUND";
-        lbl.style.color = "#ff3b30";
-        runBtn.innerText = "ENTER KEY TO RUN";
-        runBtn.disabled = true;
-        isSystemReady = false;
+        checkTrialStatus(lbl, runBtn, btnAct, txtEmail, txtKey, btnManage, licContent);
         return;
     }
 
@@ -475,9 +740,10 @@ async function checkLicenseSystem(manualEmail = null, manualKey = null, isUserAc
         btnAct.innerText = "LOGOUT";
         txtEmail.style.display = "block"; 
         txtKey.style.display = "block"; 
-        licContent.style.display = "none";
-        btnManage.classList.remove("hidden-control");
-        btnManage.innerText = "[MANAGE]";
+        if (licContent) licContent.style.display = "none";
+        if (btnManage) {
+            btnManage.classList.add("collapsed");
+        }
         
         runBtn.innerText = "▶ RUN AUTOMATION";
         runBtn.disabled = false;
@@ -494,9 +760,10 @@ async function checkLicenseSystem(manualEmail = null, manualKey = null, isUserAc
             btnAct.innerText = "LOGOUT";
             txtEmail.style.display = "block"; 
             txtKey.style.display = "block"; 
-            licContent.style.display = "none";
-            btnManage.classList.remove("hidden-control");
-            btnManage.innerText = "[MANAGE]";
+            if (licContent) licContent.style.display = "none";
+            if (btnManage) {
+                btnManage.classList.add("collapsed");
+            }
             runBtn.innerText = "▶ RUN (OFFLINE)";
             runBtn.disabled = false;
             isSystemReady = true;
@@ -509,23 +776,13 @@ async function checkLicenseSystem(manualEmail = null, manualKey = null, isUserAc
             isSystemReady = false;
         }
     } else {
-        lbl.innerText = "LICENSE INVALID";
-        lbl.style.color = "#ff3b30";
-        runBtn.innerText = "ACTIVATION FAILED";
-        runBtn.disabled = true;
-        isSystemReady = false;
-        
         localStorage.removeItem("fivenest_license_email"); 
         localStorage.removeItem("fivenest_license_key"); 
-        btnAct.innerText = "ACTIVATE";
-        txtEmail.style.display = "block";
-        txtKey.style.display = "block";
-        txtKey.value = ""; 
-        licContent.style.display = "block";
-        btnManage.classList.add("hidden-control");
-        btnManage.innerText = "[MANAGE]";
+        txtKey.value = "";
         
         if(isUserAction) await app.showAlert("Activation Failed:\n\n" + authResult.message);
+        
+        checkTrialStatus(lbl, runBtn, btnAct, txtEmail, txtKey, btnManage, licContent);
     }
 }
 

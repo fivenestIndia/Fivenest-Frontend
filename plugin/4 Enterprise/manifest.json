@@ -47,6 +47,9 @@
     "localFileSystem": "fullAccess",
     "network": {
       "domains": "all"
+    },
+    "launchProcess": {
+      "schemes": ["https"]
     }
   }
 }

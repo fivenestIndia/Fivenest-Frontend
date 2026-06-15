@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 
 const navLinks = [
-  { href: "#features", label: "Features" },
-  { href: "#how-it-works", label: "How it Works" },
-  { href: "#pricing", label: "Pricing" },
-  { href: "#faq", label: "FAQ" },
+  { href: "/#features", label: "Features" },
+  { href: "/#how-it-works", label: "How it Works" },
+  { href: "/#pricing", label: "Pricing" },
+  { href: "/#faq", label: "FAQ" },
+  { href: "/studio", label: "Web Studio" },
 ];
 
 const Navbar = () => {
@@ -31,7 +32,7 @@ const Navbar = () => {
       }`}
     >
       <div className="container mx-auto flex items-center justify-between px-6">
-        <a href="#" className="flex items-center gap-1.5 text-2xl font-bold tracking-tight z-50">
+        <a href="/" className="flex items-center gap-1.5 text-2xl font-bold tracking-tight z-50">
           <img src="/logo.svg" alt="Fivenest Logo" className="h-9 w-auto object-contain -mr-3" />
           <span>Fivenest<span className="text-primary">.</span></span>
         </a>
