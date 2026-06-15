@@ -25,7 +25,7 @@ export const fetchUserWallet = async (userId: string) => {
         .from('profiles')
         .select('name')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (!error && data) {
         profile = data;
