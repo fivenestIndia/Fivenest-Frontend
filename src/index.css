@@ -253,7 +253,55 @@
   
   --shadow-card: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
   --accent-bg: rgba(0, 240, 255, 0.08); /* Cyan background active tab */
+  --bg-hover: rgba(255, 255, 255, 0.03);
+  --bg-navbar: rgba(10, 10, 15, 0.8);
+  --border-hover: rgba(255, 255, 255, 0.12);
+  --bg-input: rgba(0, 0, 0, 0.3);
+  --bg-input-focus: rgba(0, 0, 0, 0.45);
+  --bg-table-container: rgba(0, 0, 0, 0.2);
+  --bg-table-th: rgba(255, 255, 255, 0.03);
+  --bg-table-tr-hover: rgba(255, 255, 255, 0.015);
+}
 
+.app-layout.light {
+  --bg-main: #f9fafb;
+  --bg-sidebar: #ffffff;
+  --bg-card: rgba(255, 255, 255, 0.95);
+  --bg-card-hover: rgba(255, 255, 255, 1);
+  
+  --border-light: rgba(0, 0, 0, 0.08);
+  --border-active: rgba(0, 136, 204, 0.5);
+  
+  --color-primary: #0088cc; /* Darker cyan/blue for high readability */
+  --color-primary-glow: rgba(0, 136, 204, 0.15);
+  --color-primary-hover: #006699;
+  
+  --color-secondary: #7e22ce; /* Darker purple for high readability */
+  --color-secondary-glow: rgba(126, 34, 206, 0.15);
+  
+  --color-success: #059669;
+  --color-success-glow: rgba(5, 150, 105, 0.15);
+  
+  --color-danger: #dc2626;
+  --color-danger-glow: rgba(220, 38, 38, 0.15);
+  
+  --text-primary: #111827;
+  --text-muted: #4b5563;
+  --text-dark: #9ca3af;
+  
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.06);
+  --accent-bg: rgba(0, 136, 204, 0.08);
+  --bg-hover: rgba(0, 0, 0, 0.03);
+  --bg-navbar: rgba(243, 244, 246, 0.85);
+  --border-hover: rgba(0, 0, 0, 0.12);
+  --bg-input: rgba(255, 255, 255, 0.8);
+  --bg-input-focus: rgba(255, 255, 255, 1);
+  --bg-table-container: rgba(255, 255, 255, 0.5);
+  --bg-table-th: rgba(0, 0, 0, 0.03);
+  --bg-table-tr-hover: rgba(0, 0, 0, 0.015);
+}
+
+.app-layout {
   display: flex;
   height: 100vh;
   width: 100vw;
@@ -325,7 +373,7 @@
 }
 
 .menu-item:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-hover);
   color: var(--text-primary);
 }
 
@@ -355,7 +403,7 @@
 
 .top-navbar {
   height: 70px;
-  background: rgba(10, 10, 15, 0.8);
+  background: var(--bg-navbar);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border-light);
   padding: 0 32px;
@@ -422,7 +470,7 @@
 }
 
 .glass-card:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: var(--border-hover);
 }
 
 .glass-card.interactive:hover {
@@ -514,7 +562,7 @@
 }
 
 .form-input, .form-select {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--bg-input);
   border: 1px solid var(--border-light);
   border-radius: 8px;
   padding: 10px 14px;
@@ -529,7 +577,7 @@
 .form-input:focus, .form-select:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 10px rgba(155, 77, 255, 0.15);
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--bg-input-focus);
 }
 
 .form-row {
@@ -661,7 +709,7 @@
   overflow-x: auto;
   border-radius: 8px;
   border: 1px solid var(--border-light);
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--bg-table-container);
   margin-top: 12px;
 }
 
@@ -673,7 +721,7 @@
 }
 
 .custom-table th {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-table-th);
   padding: 12px 16px;
   font-weight: 600;
   color: var(--text-muted);
@@ -691,7 +739,7 @@
 }
 
 .custom-table tr:hover td {
-  background: rgba(255, 255, 255, 0.015);
+  background: var(--bg-table-tr-hover);
 }
 
 /* Chatbot UI */
@@ -699,7 +747,7 @@
   display: flex;
   flex-direction: column;
   height: 500px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--bg-table-container);
   border: 1px solid var(--border-light);
   border-radius: 12px;
   overflow: hidden;

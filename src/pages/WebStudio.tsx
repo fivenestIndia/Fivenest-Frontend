@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Palette, Users, Ruler, Sliders, HelpCircle, Award } from 'lucide-react';
+import { Palette, Users, Ruler, Sliders, HelpCircle, Award, ArrowLeft, Sun, Moon } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Designer, defaultDesignConfig } from '../components/studio/designer';
 import type { ArtDesignConfig } from '../components/studio/designer';
 import { OrderEntry } from '../components/studio/orderEntry';
@@ -11,6 +12,14 @@ import { HelpCenter } from '../components/studio/helpCenter';
 import { LoginModal } from '../components/studio/loginModal';
 
 export default function WebStudio() {
+  const [themeMode, setThemeMode] = useState<'dark' | 'light'>(() => {
+    const saved = localStorage.getItem('fivenest_studio_theme');
+    return (saved === 'light') ? 'light' : 'dark';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('fivenest_studio_theme', themeMode);
+  }, [themeMode]);
   const [activeTab, setActiveTab] = useState<'designer' | 'order' | 'sizes' | 'nesting' | 'help'>('designer');
   
   // Roster records state
@@ -86,24 +95,26 @@ export default function WebStudio() {
   };
 
   return (
-    <div className="app-layout">
+    <div className={`app-layout ${themeMode}`}>
       {/* Sidebar Navigation Panel */}
       <aside className="sidebar">
         <div>
-          <div className="sidebar-brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
-            <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <img 
-                src="/logo.svg" 
-                alt="FiveNest Logo" 
-                style={{ width: '26px', height: '26px', objectFit: 'contain' }} 
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
-              <span style={{ fontSize: '18px', fontWeight: '800' }}>FiveNest Web</span>
+          <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div className="sidebar-brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px', cursor: 'pointer' }}>
+              <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <img 
+                  src="/logo.svg" 
+                  alt="FiveNest Logo" 
+                  style={{ width: '26px', height: '26px', objectFit: 'contain' }} 
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+                <span style={{ fontSize: '18px', fontWeight: '800' }}>FiveNest Web</span>
+              </div>
+              <span className="sidebar-version">Web Studio</span>
             </div>
-            <span className="sidebar-version">Web Studio</span>
-          </div>
+          </Link>
 
           <nav className="sidebar-menu">
             <div 
@@ -141,11 +152,60 @@ export default function WebStudio() {
               <HelpCircle size={18} />
               Help & AI Refine
             </div>
+
+            <Link 
+              to="/" 
+              className="menu-item"
+              style={{ 
+                marginTop: '16px', 
+                borderTop: '1px solid var(--border-light)', 
+                paddingTop: '16px',
+                color: 'var(--color-primary)',
+                fontWeight: '600'
+              }}
+            >
+              <ArrowLeft size={18} />
+              Return to Website
+            </Link>
           </nav>
         </div>
 
         {/* Sidebar Footer info */}
         <div className="sidebar-footer">
+          {/* Theme Mode Toggle Button */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', padding: '0 4px' }}>
+            <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-muted)' }}>Theme:</span>
+            <button 
+              onClick={() => setThemeMode(themeMode === 'dark' ? 'light' : 'dark')}
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid var(--border-light)',
+                borderRadius: '20px',
+                padding: '4px 10px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                color: 'var(--text-primary)',
+                fontSize: '11px',
+                fontWeight: '600',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {themeMode === 'dark' ? (
+                <>
+                  <Moon size={12} style={{ color: 'var(--color-primary)' }} />
+                  Dark
+                </>
+              ) : (
+                <>
+                  <Sun size={12} style={{ color: 'var(--color-secondary)' }} />
+                  Light
+                </>
+              )}
+            </button>
+          </div>
+
           <div className="glass-card" style={{ padding: '12px', background: 'rgba(155, 77, 255, 0.04)', borderColor: 'var(--border-active)', textAlign: 'left' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
               <Award size={14} style={{ color: 'var(--color-secondary)' }} />

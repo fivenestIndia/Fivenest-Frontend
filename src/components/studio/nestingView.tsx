@@ -1234,6 +1234,15 @@ export const NestingView: React.FC<NestingViewProps> = ({
       return;
     }
 
+    const calculatedCost = items.reduce((acc, item) => {
+      if (item.panelType === 'back') {
+        return acc + 1.00;
+      } else if (item.panelType === 'a4-print') {
+        return acc + 0.50;
+      }
+      return acc;
+    }, 0);
+
     const executeExport = async () => {
       setIsExporting(true);
       setExportProgress("Initializing high-resolution rendering...");
@@ -1536,7 +1545,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
       }
     };
 
-    if (testMode) {
+    if (testMode || calculatedCost === 0) {
       await executeExport();
     } else {
       if (!currentUser) {
@@ -1545,9 +1554,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
         return;
       }
 
-      setPaymentCost(totalPieces);
+      setPaymentCost(calculatedCost);
       setPendingExportAction(() => executeExport);
-      if (currentUser.balance >= totalPieces) {
+      if (currentUser.balance >= calculatedCost) {
         setUpiPaymentMethod('wallet');
       } else {
         setUpiPaymentMethod('upi');
@@ -1873,7 +1882,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
             </h3>
             
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px' }}>
-              Your order contains **{paymentCost} pieces (panels)**. Production-ready high-resolution rendering is billed at **₹1 INR per piece**.
+              Production-ready rendering is billed at **₹1.00 INR per Back panel** and **₹0.50 INR per A4 size print panel**. Front and sleeve panels are free.
             </p>
 
             <div className="glass-card" style={{ background: 'rgba(0,0,0,0.15)', padding: '16px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1882,12 +1891,20 @@ export const NestingView: React.FC<NestingViewProps> = ({
                 <span style={{ fontWeight: '600' }}>{records.reduce((acc, r) => acc + r.qty, 0)} players</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Total Sublimation Panels:</span>
-                <span style={{ fontWeight: '600' }}>{paymentCost} pcs</span>
+                <span style={{ color: 'var(--text-muted)' }}>Charged Back Panels:</span>
+                <span style={{ fontWeight: '600' }}>{getItemsToExport().filter(item => item.panelType === 'back').length} pcs (₹1.00 each)</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Charged A4 Prints:</span>
+                <span style={{ fontWeight: '600' }}>{getItemsToExport().filter(item => item.panelType === 'a4-print').length} pcs (₹0.50 each)</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Free Panels (Front/Sleeve):</span>
+                <span style={{ fontWeight: '600' }}>{getItemsToExport().filter(item => item.panelType !== 'back' && item.panelType !== 'a4-print').length} pcs (₹0.00 each)</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', borderTop: '1px solid var(--border-light)', paddingTop: '8px', marginTop: '4px' }}>
                 <span style={{ fontWeight: 'bold', color: 'white' }}>Total Amount Due:</span>
-                <span style={{ fontWeight: 'bold', color: 'var(--color-secondary)', fontSize: '15px' }}>₹{paymentCost}.00 INR</span>
+                <span style={{ fontWeight: 'bold', color: 'var(--color-secondary)', fontSize: '15px' }}>₹{paymentCost.toFixed(2)} INR</span>
               </div>
             </div>
 
@@ -1922,7 +1939,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
                     onClick={executePaymentWithWallet}
                     style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                   >
-                    <CheckCircle size={16} /> Deduct ₹{paymentCost} & Export High-Res
+                    <CheckCircle size={16} /> Deduct ₹{paymentCost.toFixed(2)} & Export High-Res
                   </button>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1992,7 +2009,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
                     </div>
                     
                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>
-                      Scan this QR code using GPay, PhonePe, Paytm, or BHIM to pay ₹{paymentCost}.00 INR.
+                      Scan this QR code using GPay, PhonePe, Paytm, or BHIM to pay ₹{paymentCost.toFixed(2)} INR.
                     </p>
 
                     <button 
