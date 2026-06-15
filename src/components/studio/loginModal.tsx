@@ -199,7 +199,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setErrorMessage("User session not found in Supabase. Please click 'Sign Out of Account' and then Sign In again.");
+        return;
+      }
 
       const { error } = await supabase.from('credit_transactions').insert({
         user_id: user.id,
@@ -210,7 +213,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
 
       if (error) {
         console.warn("Direct credit recharge failed:", error);
-        setErrorMessage("Sandbox direct top-up failed. Make sure you set the RLS policy to allow direct client inserts on the credit_transactions table.");
+        setErrorMessage(`Sandbox top-up failed: ${error.message} (Code: ${error.code})`);
         return;
       }
 
