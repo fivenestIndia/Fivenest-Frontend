@@ -3,6 +3,7 @@ import { jsPDF } from 'jspdf';
 import confetti from 'canvas-confetti';
 import { Play, Download, Sliders, Coins, QrCode, CheckCircle, AlertTriangle, Loader2, X } from 'lucide-react';
 import JSZip from 'jszip';
+import { supabase, fetchUserWallet } from '../../lib/supabaseClient';
 
 const getCanvasBlob = (canvas: HTMLCanvasElement): Promise<Blob> => {
   return new Promise((resolve) => {
@@ -164,27 +165,34 @@ export const NestingView: React.FC<NestingViewProps> = ({
   const [simulatedPaymentLoading, setSimulatedPaymentLoading] = useState<boolean>(false);
   const [upiPaymentMethod, setUpiPaymentMethod] = useState<'wallet' | 'upi'>('wallet');
 
-  const executePaymentWithWallet = () => {
+  const executePaymentWithWallet = async () => {
     if (!currentUser) return;
     
-    const savedUsersStr = localStorage.getItem('fivenest_mock_users') || '[]';
-    const users = JSON.parse(savedUsersStr);
-    
-    const userIndex = users.findIndex((u: any) => u.email.toLowerCase() === currentUser.email.toLowerCase());
-    
-    if (userIndex !== -1) {
-      if (users[userIndex].balance < paymentCost) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: success, error } = await supabase.rpc('deduct_export_credits', {
+        amount_to_deduct: paymentCost,
+        export_desc: `Exported ${records.reduce((acc, r) => acc + r.qty, 0)} items (${getItemsToExport().filter(item => item.panelType === 'back').length} back, ${getItemsToExport().filter(item => item.panelType === 'a4-print').length} A4)`
+      });
+
+      if (error) {
+        alert(`Deduction failed: ${error.message}`);
+        return;
+      }
+
+      if (!success) {
         alert("Insufficient wallet balance. Please recharge your wallet or scan the UPI QR code.");
         return;
       }
-      
-      users[userIndex].balance -= paymentCost;
-      localStorage.setItem('fivenest_mock_users', JSON.stringify(users));
-      
+
+      const details = await fetchUserWallet(user.id);
       const updatedUser = {
         ...currentUser,
-        balance: users[userIndex].balance
+        balance: details.balance
       };
+      
       localStorage.setItem('fivenest_active_user', JSON.stringify(updatedUser));
       onUserChange(updatedUser);
       
@@ -192,28 +200,60 @@ export const NestingView: React.FC<NestingViewProps> = ({
       if (pendingExportAction) {
         pendingExportAction();
       }
+    } catch (err: any) {
+      alert(`Payment failed: ${err.message || err}`);
     }
   };
 
   const executePaymentWithUPI = () => {
     setSimulatedPaymentLoading(true);
-    setTimeout(() => {
-      setSimulatedPaymentLoading(false);
-      setShowPaymentModal(false);
-      
-      const savedTxStr = localStorage.getItem('fivenest_transactions') || '[]';
-      const txs = JSON.parse(savedTxStr);
-      txs.push({
-        id: `tx-${Date.now()}`,
-        user: currentUser?.email || 'anonymous',
-        amount: paymentCost,
-        date: new Date().toISOString(),
-        status: 'SUCCESS'
-      });
-      localStorage.setItem('fivenest_transactions', JSON.stringify(txs));
+    setTimeout(async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          // 1. Simulate webhook wallet topup in database
+          const { error: topupError } = await supabase.from('credit_transactions').insert({
+            user_id: user.id,
+            amount: paymentCost,
+            transaction_type: 'topup',
+            description: `Simulated UPI payment topup for order export`
+          });
 
-      if (pendingExportAction) {
-        pendingExportAction();
+          if (topupError) {
+            console.error("Topup simulation failed:", topupError);
+          }
+
+          // 2. Perform credit deduction
+          const { data: success, error: deductError } = await supabase.rpc('deduct_export_credits', {
+            amount_to_deduct: paymentCost,
+            export_desc: `Exported ${records.reduce((acc, r) => acc + r.qty, 0)} items via UPI`
+          });
+
+          if (deductError) {
+             console.error("Deduction simulation failed:", deductError);
+          }
+
+          // 3. Fetch latest balance
+          const details = await fetchUserWallet(user.id);
+          const updatedUser = {
+            ...currentUser,
+            balance: details.balance
+          };
+          
+          localStorage.setItem('fivenest_active_user', JSON.stringify(updatedUser));
+          onUserChange(updatedUser);
+        }
+        
+        setSimulatedPaymentLoading(false);
+        setShowPaymentModal(false);
+
+        if (pendingExportAction) {
+          pendingExportAction();
+        }
+      } catch (err) {
+        console.error("UPI simulation failed:", err);
+        setSimulatedPaymentLoading(false);
+        setShowPaymentModal(false);
       }
     }, 1500);
   };

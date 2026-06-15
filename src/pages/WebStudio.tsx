@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Palette, Users, Ruler, Sliders, HelpCircle, Award, ArrowLeft, Sun, Moon } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { supabase, fetchUserWallet } from '../lib/supabaseClient';
 import { Designer, defaultDesignConfig } from '../components/studio/designer';
 import type { ArtDesignConfig } from '../components/studio/designer';
 import { OrderEntry } from '../components/studio/orderEntry';
@@ -55,19 +56,46 @@ export default function WebStudio() {
       }
     }
 
-    const savedUser = localStorage.getItem('fivenest_active_user');
-    if (savedUser) {
-      try {
-        setCurrentUser(JSON.parse(savedUser));
-      } catch (e) {}
-    }
-
     const savedTestMode = localStorage.getItem('fivenest_test_mode');
     if (savedTestMode) {
       try {
         setTestMode(JSON.parse(savedTestMode));
       } catch (e) {}
     }
+
+    // Connect Supabase Auth Session
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const details = await fetchUserWallet(session.user.id);
+        setCurrentUser({
+          email: session.user.email || '',
+          name: details.name,
+          balance: details.balance
+        });
+      } else {
+        setCurrentUser(null);
+      }
+    };
+    checkSession();
+
+    // Listen to changes in auth state
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        const details = await fetchUserWallet(session.user.id);
+        setCurrentUser({
+          email: session.user.email || '',
+          name: details.name,
+          balance: details.balance
+        });
+      } else {
+        setCurrentUser(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Artwork layers positioning configuration state

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Lock, User, X, Coins, LogOut } from 'lucide-react';
+import { supabase, fetchUserWallet } from '../../lib/supabaseClient';
 
 interface LoginModalProps {
   onClose: () => void;
@@ -25,155 +26,207 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
     }
   }, [currentUser]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
+    setSuccessMessage('');
     
     if (!email || !password) {
       setErrorMessage('Please fill in all fields.');
       return;
     }
 
-    // Load registered users from localStorage
-    const savedUsersStr = localStorage.getItem('fivenest_mock_users') || '[]';
-    const users = JSON.parse(savedUsersStr);
-    
-    // Find matching user
-    const user = users.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
-    
-    if (!user || user.password !== password) {
-      setErrorMessage('Invalid email or password.');
-      return;
-    }
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
 
-    // Set logged in user state
-    const loggedInUser = {
-      email: user.email,
-      name: user.name,
-      balance: user.balance || 0
-    };
-    
-    localStorage.setItem('fivenest_active_user', JSON.stringify(loggedInUser));
-    onLoginStateChange(loggedInUser);
-    setSuccessMessage('Logged in successfully!');
-    setTimeout(() => {
-      setSuccessMessage('');
-      onClose();
-    }, 1200);
+      if (error) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      if (data?.user) {
+        const details = await fetchUserWallet(data.user.id);
+        const loggedInUser = {
+          email: data.user.email || email,
+          name: details.name,
+          balance: details.balance
+        };
+        
+        localStorage.setItem('fivenest_active_user', JSON.stringify(loggedInUser));
+        onLoginStateChange(loggedInUser);
+        setSuccessMessage('Logged in successfully!');
+        setTimeout(() => {
+          setSuccessMessage('');
+          onClose();
+        }, 1200);
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Login failed.');
+    }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
+    setSuccessMessage('');
     
     if (!name || !email || !password) {
       setErrorMessage('Please fill in all fields.');
       return;
     }
 
-    const savedUsersStr = localStorage.getItem('fivenest_mock_users') || '[]';
-    const users = JSON.parse(savedUsersStr);
-    
-    // Check if user already exists
-    if (users.some((u: any) => u.email.toLowerCase() === email.toLowerCase())) {
-      setErrorMessage('User with this email already exists.');
-      return;
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: name
+          }
+        }
+      });
+
+      if (error) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      if (data?.user) {
+        setSuccessMessage('Account created successfully! Please check your email for confirmation (if email confirmations are enabled).');
+        
+        // Auto sign in user if email confirmation is not required
+        const details = await fetchUserWallet(data.user.id);
+        const loggedInUser = {
+          email: data.user.email || email,
+          name: name,
+          balance: details.balance
+        };
+        
+        localStorage.setItem('fivenest_active_user', JSON.stringify(loggedInUser));
+        onLoginStateChange(loggedInUser);
+        
+        setTimeout(() => {
+          setSuccessMessage('');
+          onClose();
+        }, 3000);
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Registration failed.');
     }
-
-    const newUser = {
-      name,
-      email,
-      password, // Plain text for demo purposes
-      balance: 10 // Start with ₹10 free credit
-    };
-
-    users.push(newUser);
-    localStorage.setItem('fivenest_mock_users', JSON.stringify(users));
-    
-    // Auto-login new user
-    const loggedInUser = {
-      email: newUser.email,
-      name: newUser.name,
-      balance: newUser.balance
-    };
-    
-    localStorage.setItem('fivenest_active_user', JSON.stringify(loggedInUser));
-    onLoginStateChange(loggedInUser);
-    setSuccessMessage('Registered & logged in successfully! Added ₹10 free credits.');
-    setTimeout(() => {
-      setSuccessMessage('');
-      onClose();
-    }, 1500);
   };
 
-  const handleDemoLogin = (type: 'demo' | 'empty') => {
-    // Register demo user in database if it doesn't exist
-    const savedUsersStr = localStorage.getItem('fivenest_mock_users') || '[]';
-    const users = JSON.parse(savedUsersStr);
+  const handleDemoLogin = async (type: 'demo' | 'empty') => {
+    setErrorMessage('');
+    setSuccessMessage('');
     
     const demoEmail = type === 'demo' ? 'demo@fivenest.in' : 'newuser@fivenest.in';
     const demoName = type === 'demo' ? 'Demo Designer' : 'New Client';
-    const demoBalance = type === 'demo' ? 100 : 0;
-    
-    let userIndex = users.findIndex((u: any) => u.email.toLowerCase() === demoEmail.toLowerCase());
-    
-    if (userIndex === -1) {
-      const newUser = {
-        name: demoName,
-        email: demoEmail,
-        password: 'password123',
-        balance: demoBalance
-      };
-      users.push(newUser);
-      localStorage.setItem('fivenest_mock_users', JSON.stringify(users));
-    } else if (type === 'demo' && users[userIndex].balance < 10) {
-      // Top up demo user balance if it ran out
-      users[userIndex].balance = 100;
-      localStorage.setItem('fivenest_mock_users', JSON.stringify(users));
-    }
+    const demoPassword = 'password123';
 
-    const loggedInUser = {
-      email: demoEmail,
-      name: demoName,
-      balance: userIndex === -1 ? demoBalance : users[userIndex].balance
-    };
-    
-    localStorage.setItem('fivenest_active_user', JSON.stringify(loggedInUser));
-    onLoginStateChange(loggedInUser);
-    setSuccessMessage(`Logged in as ${demoName}!`);
-    setTimeout(() => {
-      setSuccessMessage('');
-      onClose();
-    }, 1200);
+    try {
+      // Attempt to sign in
+      let { data, error } = await supabase.auth.signInWithPassword({
+        email: demoEmail,
+        password: demoPassword
+      });
+
+      if (error) {
+        // If demo user doesn't exist, register them
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: demoEmail,
+          password: demoPassword,
+          options: {
+            data: {
+              name: demoName
+            }
+          }
+        });
+
+        if (signUpError) {
+          setErrorMessage(signUpError.message);
+          return;
+        }
+
+        data = signUpData;
+      }
+
+      if (data?.user) {
+        // Give demo starting credits if wallet balance is 0
+        const details = await fetchUserWallet(data.user.id);
+        
+        if (type === 'demo' && details.balance < 10) {
+          // Add default credits via ledger insert for demo simulation
+          await supabase.from('credit_transactions').insert({
+            user_id: data.user.id,
+            amount: 100,
+            transaction_type: 'topup',
+            description: 'Sandbox Demo Starting Credit'
+          });
+        }
+
+        const finalDetails = await fetchUserWallet(data.user.id);
+        const loggedInUser = {
+          email: data.user.email || demoEmail,
+          name: finalDetails.name,
+          balance: finalDetails.balance
+        };
+
+        localStorage.setItem('fivenest_active_user', JSON.stringify(loggedInUser));
+        onLoginStateChange(loggedInUser);
+        setSuccessMessage(`Logged in as ${finalDetails.name}!`);
+        setTimeout(() => {
+          setSuccessMessage('');
+          onClose();
+        }, 1200);
+      }
+    } catch (err: any) {
+      setErrorMessage("Demo connection failed. Verify your Supabase config credentials in your env.");
+    }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     localStorage.removeItem('fivenest_active_user');
     onLoginStateChange(null);
     onClose();
   };
 
-  const handleRecharge = () => {
+  const handleRecharge = async () => {
     if (!currentUser) return;
     
-    const savedUsersStr = localStorage.getItem('fivenest_mock_users') || '[]';
-    const users = JSON.parse(savedUsersStr);
-    
-    const userIndex = users.findIndex((u: any) => u.email.toLowerCase() === currentUser.email.toLowerCase());
-    
-    if (userIndex !== -1) {
-      users[userIndex].balance = (users[userIndex].balance || 0) + rechargeAmount;
-      localStorage.setItem('fivenest_mock_users', JSON.stringify(users));
-      
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase.from('credit_transactions').insert({
+        user_id: user.id,
+        amount: rechargeAmount,
+        transaction_type: 'topup',
+        description: 'Sandbox Wallet Top Up'
+      });
+
+      if (error) {
+        console.warn("Direct credit recharge failed:", error);
+        setErrorMessage("Sandbox direct top-up failed. Make sure you set the RLS policy to allow direct client inserts on the credit_transactions table.");
+        return;
+      }
+
+      const details = await fetchUserWallet(user.id);
       const updatedUser = {
         ...currentUser,
-        balance: users[userIndex].balance
+        balance: details.balance
       };
+      
       localStorage.setItem('fivenest_active_user', JSON.stringify(updatedUser));
       onLoginStateChange(updatedUser);
       
       setSuccessMessage(`Successfully added ₹${rechargeAmount} INR credits to your account!`);
       setTimeout(() => setSuccessMessage(''), 2500);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Recharge failed.');
     }
   };
 
