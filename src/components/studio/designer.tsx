@@ -25,6 +25,8 @@ export interface LogoConfig {
   height: number; // in inches
   xPos: number;   // horizontal distance in inches
   yPos: number;   // vertical distance in inches
+  lockAspectRatio?: boolean;
+  text?: string;
 }
 
 export interface PanelConfig {
@@ -71,10 +73,10 @@ export const defaultDesignConfig: ArtDesignConfig = {
     nameConfig: { enabled: false, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     numberConfig: { enabled: true, yPos: 44, fontSize: 3.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 3, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.08 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
-    guidelines: { vertical: [11], horizontal: [7.5, 15, 22.5] },
-    leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5 },
-    rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5 },
-    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0 }
+    guidelines: { vertical: [2.0, 8.5, 11.0, 13.5, 20.0], horizontal: [7.0, 10.0, 12.0, 27.5] },
+    leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
+    rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
+    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '' }
   },
   back: {
     backgroundType: 'generate',
@@ -85,10 +87,10 @@ export const defaultDesignConfig: ArtDesignConfig = {
     nameConfig: { enabled: true, yPos: 22, fontSize: 2.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 12, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     numberConfig: { enabled: true, yPos: 55, fontSize: 8.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 6, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 9, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
-    guidelines: { vertical: [11], horizontal: [7.5, 15, 22.5] },
-    leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5 },
-    rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5 },
-    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0 }
+    guidelines: { vertical: [2.0, 11.0, 20.0], horizontal: [2.5, 6.0, 8.0, 9.5, 16.5] },
+    leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
+    rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
+    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '' }
   },
   sleeveLeft: {
     backgroundType: 'generate',
@@ -99,10 +101,10 @@ export const defaultDesignConfig: ArtDesignConfig = {
     nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
-    guidelines: { vertical: [9.5], horizontal: [5.5, 11, 16.5] },
-    leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5 },
-    rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5 },
-    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0 }
+    guidelines: { vertical: [9.5], horizontal: [8.0] },
+    leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
+    rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
+    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '' }
   },
   sleeveRight: {
     backgroundType: 'generate',
@@ -113,10 +115,10 @@ export const defaultDesignConfig: ArtDesignConfig = {
     nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
-    guidelines: { vertical: [9.5], horizontal: [5.5, 11, 16.5] },
-    leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5 },
-    rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5 },
-    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0 }
+    guidelines: { vertical: [9.5], horizontal: [8.0] },
+    leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
+    rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
+    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '' }
   },
   a4Print: {
     backgroundType: 'generate',
@@ -127,10 +129,10 @@ export const defaultDesignConfig: ArtDesignConfig = {
     nameConfig: { enabled: false, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     numberConfig: { enabled: true, yPos: 55, fontSize: 6.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
-    guidelines: { vertical: [5], horizontal: [2.75, 5.5, 8.25] },
-    leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5 },
-    rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5 },
-    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0 }
+    guidelines: { vertical: [5.0], horizontal: [5.5] },
+    leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
+    rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
+    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '' }
   }
 };
 
@@ -444,14 +446,85 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       width: logoType === 'torso' ? 8.0 : 3.5,
       height: logoType === 'torso' ? 5.0 : 3.5,
       xPos: logoType === 'leftChest' ? 13.5 : logoType === 'rightChest' ? 8.5 : 11.0,
-      yPos: logoType === 'torso' ? 16.0 : 7.5
+      yPos: logoType === 'torso' ? 16.0 : 7.5,
+      lockAspectRatio: logoType !== 'torso'
     };
-    updateActivePanel({
-      [configKey]: {
-        ...current,
-        ...fields
+
+    let updated = { ...current, ...fields };
+
+    // Aspect ratio locking logic: if lockAspectRatio is true and we're scaling width or height,
+    // we scale the other dimension proportionally.
+    const isLocked = updated.lockAspectRatio ?? (logoType !== 'torso');
+    if (isLocked) {
+      if (fields.width !== undefined && fields.width !== current.width && current.width > 0) {
+        const ratio = current.height / current.width;
+        updated.height = parseFloat((fields.width * ratio).toFixed(2));
+      } else if (fields.height !== undefined && fields.height !== current.height && current.height > 0) {
+        const ratio = current.width / current.height;
+        updated.width = parseFloat((fields.height * ratio).toFixed(2));
       }
+    }
+
+    updateActivePanel({
+      [configKey]: updated
     });
+  };
+
+  const handleSleeveTypeChange = (newType: 'half' | 'full') => {
+    setPreviewSleeveType(newType);
+
+    const oldType = newType === 'half' ? 'full' : 'half';
+    const oldVert = [9.5];
+    const oldHoriz = oldType === 'half' ? [8.0] : [9.0];
+    const newVert = [9.5];
+    const newHoriz = newType === 'half' ? [8.0] : [9.0];
+
+    const arraysEqual = (a: number[], b: number[]) => {
+      if (!a || !b) return false;
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) return false;
+      }
+      return true;
+    };
+
+    const shouldUpdateGuidelines = (g: any) => {
+      if (!g) return true;
+      const vert = g.vertical || [];
+      const horiz = g.horizontal || [];
+      if (vert.length === 0 && horiz.length === 0) return true;
+      if (arraysEqual(vert, oldVert) && arraysEqual(horiz, oldHoriz)) return true;
+      return false;
+    };
+
+    let updated = { ...designConfig };
+    let modified = false;
+
+    if (designConfig.sleeveLeft) {
+      const g = designConfig.sleeveLeft.guidelines;
+      if (shouldUpdateGuidelines(g)) {
+        updated.sleeveLeft = {
+          ...designConfig.sleeveLeft,
+          guidelines: { vertical: newVert, horizontal: newHoriz }
+        };
+        modified = true;
+      }
+    }
+
+    if (designConfig.sleeveRight) {
+      const g = designConfig.sleeveRight.guidelines;
+      if (shouldUpdateGuidelines(g)) {
+        updated.sleeveRight = {
+          ...designConfig.sleeveRight,
+          guidelines: { vertical: newVert, horizontal: newHoriz }
+        };
+        modified = true;
+      }
+    }
+
+    if (modified) {
+      onDesignConfigChange(updated);
+    }
   };
 
   // Draw preview canvas
@@ -811,8 +884,30 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
       const panel = activePanel;
       
-      const drawSingleLogo = (logo: LogoConfig | undefined) => {
-        if (!logo || !logo.enabled || !logo.uploadedUrl) return;
+      const drawSingleLogo = (logo: LogoConfig | undefined, isTorso: boolean = false) => {
+        if (!logo || !logo.enabled) return;
+
+        if (isTorso && logo.text && logo.text.trim()) {
+          ctx.save();
+          const xPx = logo.xPos * scale;
+          const yPx = logo.yPos * scale;
+          const wPx = logo.width * scale;
+          const hPx = logo.height * scale;
+
+          ctx.font = `bold ${hPx}px OldSport02AthleticNcv-E0gj, Impact, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#ffffff';
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = Math.max(1, Math.round(0.06 * hPx));
+
+          ctx.strokeText(logo.text, xPx, yPx, wPx);
+          ctx.fillText(logo.text, xPx, yPx, wPx);
+          ctx.restore();
+          return;
+        }
+
+        if (!logo.uploadedUrl) return;
         const cachedImg = logoImagesRef.current[logo.uploadedUrl];
         if (!cachedImg) return; // Not loaded yet
 
@@ -826,9 +921,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.restore();
       };
 
-      drawSingleLogo(panel.leftChestLogo);
-      drawSingleLogo(panel.rightChestLogo);
-      drawSingleLogo(panel.torsoLogo);
+      drawSingleLogo(panel.leftChestLogo, false);
+      drawSingleLogo(panel.rightChestLogo, false);
+      drawSingleLogo(panel.torsoLogo, true);
     };
 
     // 1. Draw Background
@@ -1122,14 +1217,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             <button 
               className={`btn ${previewSleeveType === 'half' ? 'btn-primary' : 'btn-secondary'}`}
               style={{ padding: '6px 14px', fontSize: '11px', borderRadius: '20px' }}
-              onClick={() => setPreviewSleeveType('half')}
+              onClick={() => handleSleeveTypeChange('half')}
             >
               Half Sleeve ({metadata?.raglanStyle ? "19x17\"" : "19x11\""})
             </button>
             <button 
               className={`btn ${previewSleeveType === 'full' ? 'btn-primary' : 'btn-secondary'}`}
               style={{ padding: '6px 14px', fontSize: '11px', borderRadius: '20px' }}
-              onClick={() => setPreviewSleeveType('full')}
+              onClick={() => handleSleeveTypeChange('full')}
             >
               Full Sleeve ({metadata?.raglanStyle ? "19x31\"" : "19x25\""})
             </button>
@@ -2185,6 +2280,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         </div>
                       </div>
 
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '-2px', marginBottom: '4px' }}>
+                        <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', cursor: 'pointer' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={activePanel.leftChestLogo?.lockAspectRatio ?? true}
+                            onChange={(e) => updateLogoConfig('leftChest', { lockAspectRatio: e.target.checked })}
+                          />
+                          Lock Proportions
+                        </label>
+                      </div>
+
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
                           <span>Horizontal Pos (X) (in):</span>
@@ -2298,6 +2404,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         </div>
                       </div>
 
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '-2px', marginBottom: '4px' }}>
+                        <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', cursor: 'pointer' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={activePanel.rightChestLogo?.lockAspectRatio ?? true}
+                            onChange={(e) => updateLogoConfig('rightChest', { lockAspectRatio: e.target.checked })}
+                          />
+                          Lock Proportions
+                        </label>
+                      </div>
+
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
                           <span>Horizontal Pos (X) (in):</span>
@@ -2347,6 +2464,18 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
                   {(activePanel.torsoLogo?.enabled ?? false) && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Logo Text (Optional):</label>
+                        <input 
+                          type="text" 
+                          className="form-input" 
+                          value={activePanel.torsoLogo?.text ?? ''}
+                          onChange={(e) => updateLogoConfig('torso', { text: e.target.value })}
+                          placeholder="Enter torso text..."
+                          style={{ padding: '6px' }}
+                        />
+                      </div>
+
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         <label className="form-label" style={{ fontSize: '11px' }}>Logo Image:</label>
                         {activePanel.torsoLogo?.uploadedUrl ? (

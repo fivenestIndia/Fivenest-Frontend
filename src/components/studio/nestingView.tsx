@@ -1187,21 +1187,43 @@ export const NestingView: React.FC<NestingViewProps> = ({
         }
 
         // Draw customizable logos (Left Chest, Right Chest, Torso)
-        const drawLogo = (logoConf: any, logoImg: HTMLImageElement | undefined) => {
-          if (logoConf && logoConf.enabled && logoImg) {
-            ctx.save();
-            const logoW = Math.round(logoConf.width * scaleDpi);
-            const logoH = Math.round(logoConf.height * scaleDpi);
-            const logoX = Math.round(logoConf.xPos * scaleDpi) - Math.round(logoW / 2);
-            const logoY = Math.round(logoConf.yPos * scaleDpi) - Math.round(logoH / 2);
-            ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
-            ctx.restore();
+        const drawLogo = (logoConf: any, logoImg: HTMLImageElement | undefined, isTorso: boolean = false) => {
+          if (logoConf && logoConf.enabled) {
+            if (isTorso && logoConf.text && logoConf.text.trim()) {
+              ctx.save();
+              const logoX = Math.round(logoConf.xPos * scaleDpi);
+              const logoY = Math.round(logoConf.yPos * scaleDpi);
+              const maxW = Math.round(logoConf.width * scaleDpi);
+              const logoH = Math.round(logoConf.height * scaleDpi);
+
+              ctx.font = `bold ${logoH}px OldSport02AthleticNcv-E0gj, Impact, sans-serif`;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillStyle = '#ffffff';
+              ctx.strokeStyle = '#000000';
+              ctx.lineWidth = Math.max(1, Math.round(0.06 * logoH));
+
+              ctx.strokeText(logoConf.text, logoX, logoY, maxW);
+              ctx.fillText(logoConf.text, logoX, logoY, maxW);
+              ctx.restore();
+              return;
+            }
+
+            if (logoImg) {
+              ctx.save();
+              const logoW = Math.round(logoConf.width * scaleDpi);
+              const logoH = Math.round(logoConf.height * scaleDpi);
+              const logoX = Math.round(logoConf.xPos * scaleDpi) - Math.round(logoW / 2);
+              const logoY = Math.round(logoConf.yPos * scaleDpi) - Math.round(logoH / 2);
+              ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
+              ctx.restore();
+            }
           }
         };
 
         drawLogo(leftLogo, images.leftLogo);
         drawLogo(rightLogo, images.rightLogo);
-        drawLogo(torsoLogo, images.torsoLogo);
+        drawLogo(torsoLogo, images.torsoLogo, true);
 
         // Draw overlays
         drawOverlays();
