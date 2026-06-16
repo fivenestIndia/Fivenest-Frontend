@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, RotateCcw, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2 } from 'lucide-react';
 import type { OrderMetadata } from './orderEntry';
 
 export interface TextConfig {
@@ -15,6 +15,16 @@ export interface TextConfig {
   effect?: 'none' | 'arch' | 'shadow';
   text?: string;
   letterSpacing?: number;
+  align?: 'left' | 'center' | 'right';
+}
+
+export interface LogoConfig {
+  enabled: boolean;
+  uploadedUrl: string | null;
+  width: number;  // in inches
+  height: number; // in inches
+  xPos: number;   // horizontal distance in inches
+  yPos: number;   // vertical distance in inches
 }
 
 export interface PanelConfig {
@@ -32,6 +42,9 @@ export interface PanelConfig {
     vertical: number[];
     horizontal: number[];
   };
+  leftChestLogo?: LogoConfig;
+  rightChestLogo?: LogoConfig;
+  torsoLogo?: LogoConfig;
 }
 
 export interface ArtDesignConfig {
@@ -55,10 +68,13 @@ export const defaultDesignConfig: ArtDesignConfig = {
     generatedColor1: '#9b4dff',
     generatedColor2: '#ff8c00',
     uploadedFileUrl: null,
-    nameConfig: { enabled: false, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none' },
-    numberConfig: { enabled: true, yPos: 50, fontSize: 4.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'Impact', maxW: 8, caseType: 'uppercase', effect: 'none' },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none' },
-    guidelines: { vertical: [], horizontal: [] }
+    nameConfig: { enabled: false, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    numberConfig: { enabled: true, yPos: 44, fontSize: 3.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 3, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.08 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    guidelines: { vertical: [11], horizontal: [7.5, 15, 22.5] },
+    leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5 },
+    rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5 },
+    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0 }
   },
   back: {
     backgroundType: 'generate',
@@ -66,10 +82,13 @@ export const defaultDesignConfig: ArtDesignConfig = {
     generatedColor1: '#9b4dff',
     generatedColor2: '#ff8c00',
     uploadedFileUrl: null,
-    nameConfig: { enabled: true, yPos: 22, fontSize: 2.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 3, fontFamily: 'Impact', maxW: 12, caseType: 'uppercase', effect: 'none' },
-    numberConfig: { enabled: true, yPos: 55, fontSize: 8.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 6, fontFamily: 'Impact', maxW: 9, caseType: 'uppercase', effect: 'none' },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none' },
-    guidelines: { vertical: [], horizontal: [] }
+    nameConfig: { enabled: true, yPos: 22, fontSize: 2.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 12, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    numberConfig: { enabled: true, yPos: 55, fontSize: 8.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 6, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 9, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    guidelines: { vertical: [11], horizontal: [7.5, 15, 22.5] },
+    leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5 },
+    rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5 },
+    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0 }
   },
   sleeveLeft: {
     backgroundType: 'generate',
@@ -77,10 +96,13 @@ export const defaultDesignConfig: ArtDesignConfig = {
     generatedColor1: '#9b4dff',
     generatedColor2: '#0a0a0f',
     uploadedFileUrl: null,
-    nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1, fontFamily: 'Impact', maxW: 5, caseType: 'uppercase', effect: 'none' },
-    numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'Impact', maxW: 4, caseType: 'uppercase', effect: 'none' },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none' },
-    guidelines: { vertical: [], horizontal: [] }
+    nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    guidelines: { vertical: [9.5], horizontal: [5.5, 11, 16.5] },
+    leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5 },
+    rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5 },
+    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0 }
   },
   sleeveRight: {
     backgroundType: 'generate',
@@ -88,10 +110,13 @@ export const defaultDesignConfig: ArtDesignConfig = {
     generatedColor1: '#9b4dff',
     generatedColor2: '#0a0a0f',
     uploadedFileUrl: null,
-    nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1, fontFamily: 'Impact', maxW: 5, caseType: 'uppercase', effect: 'none' },
-    numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'Impact', maxW: 4, caseType: 'uppercase', effect: 'none' },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none' },
-    guidelines: { vertical: [], horizontal: [] }
+    nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    guidelines: { vertical: [9.5], horizontal: [5.5, 11, 16.5] },
+    leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5 },
+    rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5 },
+    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0 }
   },
   a4Print: {
     backgroundType: 'generate',
@@ -99,10 +124,13 @@ export const defaultDesignConfig: ArtDesignConfig = {
     generatedColor1: '#9b4dff',
     generatedColor2: '#ff8c00',
     uploadedFileUrl: null,
-    nameConfig: { enabled: false, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none' },
-    numberConfig: { enabled: true, yPos: 55, fontSize: 6.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'Impact', maxW: 8, caseType: 'uppercase', effect: 'none' },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none' },
-    guidelines: { vertical: [], horizontal: [] }
+    nameConfig: { enabled: false, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    numberConfig: { enabled: true, yPos: 55, fontSize: 6.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    guidelines: { vertical: [5], horizontal: [2.75, 5.5, 8.25] },
+    leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5 },
+    rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5 },
+    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0 }
   }
 };
 
@@ -125,6 +153,45 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [spaceKeyPressed, setSpaceKeyPressed] = useState<boolean>(false);
   const [panStart, setPanStart] = useState<{ scrollLeft: number; scrollTop: number; x: number; y: number } | null>(null);
 
+  const [showGuidelines, setShowGuidelines] = useState<boolean>(true);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
+    zip: true,
+    presets: true,
+    background: true,
+    overlays: true,
+    logos: true,
+    guidelines: true,
+    fonts: true,
+  });
+
+  const logoImagesRef = useRef<Record<string, HTMLImageElement>>({});
+
+  const toggleCollapse = (key: string) => {
+    setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  // Pre-load and cache chest/torso logos for real-time canvas rendering
+  useEffect(() => {
+    const panel = designConfig[activeTab];
+    const urls = {
+      leftChest: panel.leftChestLogo?.uploadedUrl,
+      rightChest: panel.rightChestLogo?.uploadedUrl,
+      torso: panel.torsoLogo?.uploadedUrl
+    };
+
+    Object.entries(urls).forEach(([key, url]) => {
+      if (url) {
+        if (logoImagesRef.current[url]) return; // Already cached
+        const img = new Image();
+        img.onload = () => {
+          logoImagesRef.current[url] = img;
+          setPrefTrigger(prev => prev + 1); // Trigger canvas redrawing
+        };
+        img.src = url;
+      }
+    });
+  }, [designConfig, activeTab]);
+
   useEffect(() => {
     const saved = localStorage.getItem('fivenest_presets');
     if (saved) {
@@ -144,6 +211,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
       if (e.key.toLowerCase() === 'z') {
         setZKeyPressed(true);
+      }
+      // Zoom reset: Ctrl + 0 or Cmd + 0
+      if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+        e.preventDefault();
+        setZoom(1);
+      }
+      // Toggle guidelines: Ctrl + . or Cmd + .
+      if ((e.ctrlKey || e.metaKey) && e.key === '.') {
+        e.preventDefault();
+        setShowGuidelines(prev => !prev);
       }
     };
 
@@ -359,6 +436,24 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     });
   };
 
+  const updateLogoConfig = (logoType: 'leftChest' | 'rightChest' | 'torso', fields: Partial<LogoConfig>) => {
+    const configKey = logoType === 'leftChest' ? 'leftChestLogo' : logoType === 'rightChest' ? 'rightChestLogo' : 'torsoLogo';
+    const current = activePanel[configKey] || {
+      enabled: false,
+      uploadedUrl: null,
+      width: logoType === 'torso' ? 8.0 : 3.5,
+      height: logoType === 'torso' ? 5.0 : 3.5,
+      xPos: logoType === 'leftChest' ? 13.5 : logoType === 'rightChest' ? 8.5 : 11.0,
+      yPos: logoType === 'torso' ? 16.0 : 7.5
+    };
+    updateActivePanel({
+      [configKey]: {
+        ...current,
+        ...fields
+      }
+    });
+  };
+
   // Draw preview canvas
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -421,16 +516,35 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.save();
         const fontSizePx = Math.round((conf.fontSize / 30) * height);
         ctx.font = `bold ${fontSizePx}px "${conf.fontFamily}"`;
-        ctx.textAlign = 'center';
+        
+        const align = conf.align || 'center';
+        ctx.textAlign = align;
         ctx.textBaseline = 'middle';
         ctx.fillStyle = conf.color;
         ctx.strokeStyle = conf.strokeColor;
         ctx.lineWidth = conf.strokeWidth;
 
-        // Apply custom letter spacing
+        // Calculate custom position based on alignment
+        let targetX = textX;
+        if (conf.effect !== 'arch') {
+          if (align === 'left') {
+            targetX = (width / 2) - (maxLimitPx / 2);
+          } else if (align === 'right') {
+            targetX = (width / 2) + (maxLimitPx / 2);
+          }
+        }
+
+        // Apply custom letter spacing and compensation offset
+        let adjustedX = targetX;
+        let spacingPx = 0;
         if (conf.letterSpacing !== undefined) {
-          const spacingPx = Math.round(conf.letterSpacing * scale);
+          spacingPx = Math.round(conf.letterSpacing * scale);
           ctx.letterSpacing = `${spacingPx}px`;
+          if (align === 'center') {
+            adjustedX += spacingPx / 2;
+          } else if (align === 'right') {
+            adjustedX += spacingPx;
+          }
         }
 
         // Apply drop shadow effect
@@ -446,7 +560,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         if (conf.effect === 'arch') {
           // Circular arched text bending concave (ends down)
           const radius = height * 0.45;
-          ctx.translate(textX, textY + radius);
+          ctx.translate(targetX, textY + radius);
           const totalAngle = Math.min(Math.PI / 2.5, (displayName.length * fontSizePx * 0.55) / radius);
           const startAngle = -totalAngle / 2;
           const angleStep = totalAngle / (displayName.length - 1 || 1);
@@ -465,7 +579,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         } else {
           // Standard straight text
           const measuredW = ctx.measureText(displayName).width;
-          ctx.translate(textX, textY);
+          ctx.translate(adjustedX, textY);
           if (measuredW > maxLimitPx) {
             ctx.scale(maxLimitPx / measuredW, 1);
           }
@@ -486,24 +600,40 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
 
       // Draw customizable Size Tag (Top Left) - skip for A4
-      const sizeTagConf = activePanel.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none' };
+      const sizeTagConf = activePanel.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
       if (sizeTagConf.enabled && activeTab !== 'a4Print') {
         ctx.save();
         const fontSizePx = Math.round((sizeTagConf.fontSize / 72) * scale);
         ctx.font = `bold ${fontSizePx}px "${sizeTagConf.fontFamily}"`;
-        ctx.textAlign = 'left';
+        
+        const align = sizeTagConf.align || 'left';
+        ctx.textAlign = align;
         ctx.textBaseline = 'top';
         ctx.fillStyle = sizeTagConf.color;
         ctx.strokeStyle = sizeTagConf.strokeColor;
         ctx.lineWidth = sizeTagConf.strokeWidth;
 
-        // Apply custom letter spacing to size tag as well
-        if (sizeTagConf.letterSpacing !== undefined) {
-          const spacingPx = Math.round(sizeTagConf.letterSpacing * scale);
-          ctx.letterSpacing = `${spacingPx}px`;
+        const offsetPx = Math.round(0.15 * scale);
+        
+        let targetX = offsetPx;
+        if (align === 'center') {
+          targetX = width / 2;
+        } else if (align === 'right') {
+          targetX = width - offsetPx;
         }
 
-        const offsetPx = Math.round(0.15 * scale);
+        // Apply custom letter spacing and compensation offset
+        let adjustedX = targetX;
+        let spacingPx = 0;
+        if (sizeTagConf.letterSpacing !== undefined) {
+          spacingPx = Math.round(sizeTagConf.letterSpacing * scale);
+          ctx.letterSpacing = `${spacingPx}px`;
+          if (align === 'center') {
+            adjustedX += spacingPx / 2;
+          } else if (align === 'right') {
+            adjustedX += spacingPx;
+          }
+        }
 
         if (sizeTagConf.effect === 'shadow') {
           ctx.shadowColor = 'rgba(0,0,0,0.6)';
@@ -516,9 +646,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         const displayText = templateText.replace('{size}', "40");
 
         if (sizeTagConf.strokeWidth > 0) {
-          ctx.strokeText(displayText, offsetPx, offsetPx);
+          ctx.strokeText(displayText, adjustedX, offsetPx);
         }
-        ctx.fillText(displayText, offsetPx, offsetPx);
+        ctx.fillText(displayText, adjustedX, offsetPx);
         ctx.restore();
       }
     };
@@ -615,61 +745,90 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
 
       // Draw custom guidelines
-      const customGuides = activePanel.guidelines || { vertical: [], horizontal: [] };
-      ctx.save();
-      ctx.strokeStyle = '#00f0ff'; // Cyan guideline color
-      ctx.lineWidth = 0.5; // Decreased thickness
-      ctx.setLineDash([4, 4]);
+      if (showGuidelines) {
+        const customGuides = activePanel.guidelines || { vertical: [], horizontal: [] };
+        ctx.save();
+        ctx.strokeStyle = '#00f0ff'; // Cyan guideline color
+        ctx.lineWidth = 0.5; // Decreased thickness
+        ctx.setLineDash([4, 4]);
 
-      ctx.fillStyle = '#00f0ff';
-      ctx.font = `bold ${Math.max(9, Math.round(0.12 * scale))}px system-ui`;
+        ctx.fillStyle = '#00f0ff';
+        ctx.font = `bold ${Math.max(9, Math.round(0.12 * scale))}px system-ui`;
+        
+        // 1. Vertical Guides (constant X position)
+        (customGuides.vertical || []).forEach(xVal => {
+          // Snap vertical center guidelines to exact center pixel
+          const xPx = Math.abs(xVal - physicalWidth / 2) < 0.01 ? Math.round(width / 2) : Math.round(xVal * scale);
+          if (xPx >= rulerHeightPx && xPx < width) {
+            ctx.beginPath();
+            ctx.moveTo(xPx, rulerHeightPx);
+            ctx.lineTo(xPx, height);
+            ctx.stroke();
+
+            // Draw a label tag on top ruler
+            ctx.save();
+            ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
+            ctx.fillRect(xPx - 16, 2, 32, rulerHeightPx - 4);
+            ctx.fillStyle = '#00f0ff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(`${xVal.toFixed(1)}`, xPx, 4);
+            ctx.restore();
+          }
+        });
+
+        // 2. Horizontal Guides (constant Y position)
+        (customGuides.horizontal || []).forEach(yVal => {
+          // Snap horizontal center guidelines to exact center pixel
+          const yPx = Math.abs(yVal - physicalHeight / 2) < 0.01 ? Math.round(height / 2) : Math.round(yVal * scale);
+          if (yPx >= rulerHeightPx && yPx < height) {
+            ctx.beginPath();
+            ctx.moveTo(rulerHeightPx, yPx);
+            ctx.lineTo(width, yPx);
+            ctx.stroke();
+
+            // Draw a label tag on left ruler
+            ctx.save();
+            ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
+            ctx.fillRect(2, yPx - 7, rulerHeightPx - 4, 14);
+            ctx.fillStyle = '#00f0ff';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${yVal.toFixed(1)}`, 4, yPx);
+            ctx.restore();
+          }
+        });
+        ctx.restore();
+      }
+
+      ctx.restore();
+    };
+
+    // Draw customizable logos (Left Chest, Right Chest, Torso)
+    const drawLogos = (ctx: CanvasRenderingContext2D) => {
+      const hideOverlays = metadata?.blankKit ?? false;
+      if (hideOverlays) return;
+
+      const panel = activePanel;
       
-      // 1. Vertical Guides (constant X position)
-      (customGuides.vertical || []).forEach(xVal => {
-        // Snap vertical center guidelines to exact center pixel
-        const xPx = Math.abs(xVal - physicalWidth / 2) < 0.01 ? Math.round(width / 2) : Math.round(xVal * scale);
-        if (xPx >= rulerHeightPx && xPx < width) {
-          ctx.beginPath();
-          ctx.moveTo(xPx, rulerHeightPx);
-          ctx.lineTo(xPx, height);
-          ctx.stroke();
+      const drawSingleLogo = (logo: LogoConfig | undefined) => {
+        if (!logo || !logo.enabled || !logo.uploadedUrl) return;
+        const cachedImg = logoImagesRef.current[logo.uploadedUrl];
+        if (!cachedImg) return; // Not loaded yet
 
-          // Draw a label tag on top ruler
-          ctx.save();
-          ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
-          ctx.fillRect(xPx - 16, 2, 32, rulerHeightPx - 4);
-          ctx.fillStyle = '#00f0ff';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'top';
-          ctx.fillText(`${xVal.toFixed(1)}`, xPx, 4);
-          ctx.restore();
-        }
-      });
+        ctx.save();
+        const wPx = logo.width * scale;
+        const hPx = logo.height * scale;
+        const xPx = logo.xPos * scale;
+        const yPx = logo.yPos * scale;
 
-      // 2. Horizontal Guides (constant Y position)
-      (customGuides.horizontal || []).forEach(yVal => {
-        // Snap horizontal center guidelines to exact center pixel
-        const yPx = Math.abs(yVal - physicalHeight / 2) < 0.01 ? Math.round(height / 2) : Math.round(yVal * scale);
-        if (yPx >= rulerHeightPx && yPx < height) {
-          ctx.beginPath();
-          ctx.moveTo(rulerHeightPx, yPx);
-          ctx.lineTo(width, yPx);
-          ctx.stroke();
+        ctx.drawImage(cachedImg, xPx - wPx / 2, yPx - hPx / 2, wPx, hPx);
+        ctx.restore();
+      };
 
-          // Draw a label tag on left ruler
-          ctx.save();
-          ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
-          ctx.fillRect(2, yPx - 7, rulerHeightPx - 4, 14);
-          ctx.fillStyle = '#00f0ff';
-          ctx.textAlign = 'left';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(`${yVal.toFixed(1)}`, 4, yPx);
-          ctx.restore();
-        }
-      });
-      ctx.restore();
-
-      ctx.restore();
+      drawSingleLogo(panel.leftChestLogo);
+      drawSingleLogo(panel.rightChestLogo);
+      drawSingleLogo(panel.torsoLogo);
     };
 
     // 1. Draw Background
@@ -684,6 +843,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const img = new Image();
       img.onload = () => {
         ctx.drawImage(img, 0, 0, width, height);
+        drawLogos(ctx);
         drawTexts(ctx);
         drawTechnicalMarks(ctx);
         drawRulersAndGrid(ctx);
@@ -691,6 +851,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       img.onerror = () => {
         ctx.fillStyle = '#1c1c24';
         ctx.fillRect(0, 0, width, height);
+        drawLogos(ctx);
         drawTexts(ctx);
         drawTechnicalMarks(ctx);
         drawRulersAndGrid(ctx);
@@ -748,11 +909,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       ctx.lineWidth = 2;
       ctx.strokeRect(10, 10, width - 20, height - 20);
       
+      drawLogos(ctx);
       drawTexts(ctx);
       drawTechnicalMarks(ctx);
       drawRulersAndGrid(ctx);
     }
-  }, [activeTab, activePanel, previewName, previewNumber, designConfig, customFonts, metadata, previewSleeveType, prefTrigger, zoom]);
+  }, [activeTab, activePanel, previewName, previewNumber, designConfig, customFonts, metadata, previewSleeveType, prefTrigger, zoom, showGuidelines]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1133,164 +1295,256 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       <div className="controls-panel">
         {/* Bulk ZIP Importer Card */}
         <div className="glass-card" style={{ padding: '20px' }}>
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: 'var(--color-secondary)' }}>
-            <FolderArchive size={18} /> Bulk ZIP Importer
+          <h3 
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-secondary)' }}
+            onClick={() => toggleCollapse('zip')}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FolderArchive size={18} /> Bulk ZIP Importer
+            </span>
+            {collapsed.zip ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
           </h3>
-          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-            Upload a `.zip` file. The system will auto-detect and import: <strong>Front, Back, Left Half SL, Right Half SL, Left Full Sleeve, & Right Full Sleeve</strong>.
-          </p>
-          <input 
-            type="file" 
-            accept=".zip" 
-            id="zip-importer-input" 
-            style={{ display: 'none' }} 
-            onChange={handleZipImport} 
-          />
-          <label htmlFor="zip-importer-input" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '8px' }}>
-            <Upload size={14} /> Import ZIP File
-          </label>
-        </div>
-
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', color: 'var(--color-primary)' }}>
-            <Paintbrush size={18} /> Artwork Background
-          </h3>
-
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
-            <button 
-              className={`btn ${activePanel.backgroundType === 'generate' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ flex: 1, padding: '8px 12px', fontSize: '12px' }}
-              onClick={() => updateActivePanel({ backgroundType: 'generate' })}
-            >
-              Pattern Generator
-            </button>
-            <button 
-              className={`btn ${activePanel.backgroundType === 'upload' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ flex: 1, padding: '8px 12px', fontSize: '12px' }}
-              onClick={() => updateActivePanel({ backgroundType: 'upload' })}
-            >
-              Upload Graphic
-            </button>
-          </div>
-
-          {activePanel.backgroundType === 'generate' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Pattern Style:</label>
-                <select 
-                  className="form-select" 
-                  value={activePanel.generatedStyle}
-                  onChange={(e) => updateActivePanel({ generatedStyle: e.target.value as any })}
-                >
-                  <option value="neon-gradient">Radial Glow Gradient</option>
-                  <option value="classic-stripes">Diagonal Athletic Stripes</option>
-                  <option value="camo-glow">Digital Camo Glow Spots</option>
-                  <option value="blank">Blank Flat Background</option>
-                </select>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label">Theme Color 1:</label>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <input 
-                      type="color" 
-                      value={activePanel.generatedColor1} 
-                      onChange={(e) => updateActivePanel({ generatedColor1: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
-                    />
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      value={activePanel.generatedColor1.toUpperCase()}
-                      onChange={(e) => updateActivePanel({ generatedColor1: e.target.value })}
-                      style={{ padding: '6px', fontSize: '12px' }}
-                    />
-                  </div>
-                </div>
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label">Theme Color 2:</label>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <input 
-                      type="color" 
-                      value={activePanel.generatedColor2} 
-                      onChange={(e) => updateActivePanel({ generatedColor2: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
-                    />
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      value={activePanel.generatedColor2.toUpperCase()}
-                      onChange={(e) => updateActivePanel({ generatedColor2: e.target.value })}
-                      style={{ padding: '6px', fontSize: '12px' }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div 
-              className="file-dropzone" 
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const file = e.dataTransfer.files?.[0];
-                if (file && file.type.startsWith('image/')) {
-                  const reader = new FileReader();
-                  reader.onload = (event) => {
-                    const url = event.target?.result as string;
-                    if (activeTab.startsWith('sleeve')) {
-                      if (previewSleeveType === 'full') {
-                        updateActivePanel({
-                          backgroundType: 'upload',
-                          uploadedFileFullUrl: url
-                        });
-                      } else {
-                        updateActivePanel({
-                          backgroundType: 'upload',
-                          uploadedFileHalfUrl: url
-                        });
-                      }
-                    } else {
-                      updateActivePanel({
-                        backgroundType: 'upload',
-                        uploadedFileUrl: url
-                      });
-                    }
-                  };
-                  reader.readAsDataURL(file);
-                }
-              }}
-            >
+          {!collapsed.zip && (
+            <div style={{ marginTop: '16px' }}>
+              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                Upload a `.zip` file. The system will auto-detect and import: <strong>Front, Back, Left Half SL, Right Half SL, Left Full Sleeve, & Right Full Sleeve</strong>.
+              </p>
               <input 
                 type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileUpload} 
-                accept="image/*" 
+                accept=".zip" 
+                id="zip-importer-input" 
                 style={{ display: 'none' }} 
+                onChange={handleZipImport} 
               />
-              <Upload className="file-dropzone-icon" size={24} />
-              <div>
-                <p style={{ fontSize: '13px', fontWeight: 'bold' }}>Choose background template</p>
-                <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>PNG, JPG, SVG or TIFF</p>
+              <label htmlFor="zip-importer-input" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '8px' }}>
+                <Upload size={14} /> Import ZIP File
+              </label>
+            </div>
+          )}
+        </div>
+
+        {/* Saved Presets Card */}
+        <div className="glass-card" style={{ padding: '20px' }}>
+          <h3 
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-primary)' }}
+            onClick={() => toggleCollapse('presets')}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '18px' }}>💾</span> Design Presets Manager
+            </span>
+            {collapsed.presets ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+          </h3>
+          {!collapsed.presets && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
+              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                Save the current design configuration (background uploads, colors, fonts, strokes, and text formats) as a reusable template preset.
+              </p>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="Preset Name" 
+                  value={newPresetName}
+                  onChange={(e) => setNewPresetName(e.target.value)}
+                  style={{ padding: '8px', fontSize: '12px' }}
+                />
+                <button 
+                  className="btn btn-primary" 
+                  onClick={handleSavePreset}
+                  style={{ padding: '8px 16px', fontSize: '12px', whiteSpace: 'nowrap' }}
+                >
+                  Save
+                </button>
               </div>
-              {activeTab.startsWith('sleeve') ? (
-                (previewSleeveType === 'full' ? activePanel.uploadedFileFullUrl : activePanel.uploadedFileHalfUrl) && (
-                  <div style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: 'bold', wordBreak: 'break-all', marginTop: '8px' }}>
-                    Sleeve Image Loaded Successfully ✓
+
+              {presets.length > 0 && (
+                <div>
+                  <p style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '6px' }}>Select Preset to Load:</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
+                    {presets.map((preset, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '11px' }}>
+                        <span 
+                          style={{ fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-bright)' }}
+                          onClick={() => handleLoadPreset(preset.name)}
+                        >
+                          {preset.name}
+                        </span>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '3px 8px', fontSize: '9px' }}
+                            onClick={() => handleLoadPreset(preset.name)}
+                          >
+                            Load
+                          </button>
+                          <button 
+                            className="btn" 
+                            style={{ padding: '3px 8px', fontSize: '9px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744' }}
+                            onClick={() => handleDeletePreset(preset.name)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                )
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Artwork Background */}
+        <div className="glass-card" style={{ padding: '20px' }}>
+          <h3 
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-primary)' }}
+            onClick={() => toggleCollapse('background')}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Paintbrush size={18} /> Artwork Background
+            </span>
+            {collapsed.background ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+          </h3>
+
+          {!collapsed.background && (
+            <div style={{ marginTop: '16px' }}>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
+                <button 
+                  className={`btn ${activePanel.backgroundType === 'generate' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ flex: 1, padding: '8px 12px', fontSize: '12px' }}
+                  onClick={() => updateActivePanel({ backgroundType: 'generate' })}
+                >
+                  Pattern Generator
+                </button>
+                <button 
+                  className={`btn ${activePanel.backgroundType === 'upload' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ flex: 1, padding: '8px 12px', fontSize: '12px' }}
+                  onClick={() => updateActivePanel({ backgroundType: 'upload' })}
+                >
+                  Upload Graphic
+                </button>
+              </div>
+
+              {activePanel.backgroundType === 'generate' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Pattern Style:</label>
+                    <select 
+                      className="form-select" 
+                      value={activePanel.generatedStyle}
+                      onChange={(e) => updateActivePanel({ generatedStyle: e.target.value as any })}
+                    >
+                      <option value="neon-gradient">Radial Glow Gradient</option>
+                      <option value="classic-stripes">Diagonal Athletic Stripes</option>
+                      <option value="camo-glow">Digital Camo Glow Spots</option>
+                      <option value="blank">Blank Flat Background</option>
+                    </select>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label">Theme Color 1:</label>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <input 
+                          type="color" 
+                          value={activePanel.generatedColor1} 
+                          onChange={(e) => updateActivePanel({ generatedColor1: e.target.value })}
+                          style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
+                        />
+                        <input 
+                          type="text" 
+                          className="form-input" 
+                          value={activePanel.generatedColor1.toUpperCase()}
+                          onChange={(e) => updateActivePanel({ generatedColor1: e.target.value })}
+                          style={{ padding: '6px', fontSize: '12px' }}
+                        />
+                      </div>
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label">Theme Color 2:</label>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <input 
+                          type="color" 
+                          value={activePanel.generatedColor2} 
+                          onChange={(e) => updateActivePanel({ generatedColor2: e.target.value })}
+                          style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
+                        />
+                        <input 
+                          type="text" 
+                          className="form-input" 
+                          value={activePanel.generatedColor2.toUpperCase()}
+                          onChange={(e) => updateActivePanel({ generatedColor2: e.target.value })}
+                          style={{ padding: '6px', fontSize: '12px' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
               ) : (
-                activePanel.uploadedFileUrl && (
-                  <div style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: 'bold', wordBreak: 'break-all', marginTop: '8px' }}>
-                    Image Loaded Successfully ✓
+                <div 
+                  className="file-dropzone" 
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const file = e.dataTransfer.files?.[0];
+                    if (file && file.type.startsWith('image/')) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        const url = event.target?.result as string;
+                        if (activeTab.startsWith('sleeve')) {
+                          if (previewSleeveType === 'full') {
+                            updateActivePanel({
+                              backgroundType: 'upload',
+                              uploadedFileFullUrl: url
+                            });
+                          } else {
+                            updateActivePanel({
+                              backgroundType: 'upload',
+                              uploadedFileHalfUrl: url
+                            });
+                          }
+                        } else {
+                          updateActivePanel({
+                            backgroundType: 'upload',
+                            uploadedFileUrl: url
+                          });
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                >
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleFileUpload} 
+                    accept="image/*" 
+                    style={{ display: 'none' }} 
+                  />
+                  <Upload className="file-dropzone-icon" size={24} />
+                  <div>
+                    <p style={{ fontSize: '13px', fontWeight: 'bold' }}>Choose background template</p>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>PNG, JPG, SVG or TIFF</p>
                   </div>
-                )
+                  {activeTab.startsWith('sleeve') ? (
+                    (previewSleeveType === 'full' ? activePanel.uploadedFileFullUrl : activePanel.uploadedFileHalfUrl) && (
+                      <div style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: 'bold', wordBreak: 'break-all', marginTop: '8px' }}>
+                        Sleeve Image Loaded Successfully ✓
+                      </div>
+                    )
+                  ) : (
+                    activePanel.uploadedFileUrl && (
+                      <div style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: 'bold', wordBreak: 'break-all', marginTop: '8px' }}>
+                        Image Loaded Successfully ✓
+                      </div>
+                    )
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -1298,127 +1552,168 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
         {/* Name and Number overlays */}
         <div className="glass-card" style={{ padding: '20px' }}>
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', color: 'var(--color-secondary)' }}>
-            <Layers size={18} /> Print Layer Overlays
+          <h3 
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-secondary)', marginBottom: collapsed.overlays ? 0 : '16px' }}
+            onClick={() => toggleCollapse('overlays')}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Layers size={18} /> Print Layer Overlays
+            </span>
+            {collapsed.overlays ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
           </h3>
 
-          {/* Name Config */}
-          <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '16px', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Name Layer</span>
-              <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
-                <input 
-                  type="checkbox" 
-                  checked={activePanel.nameConfig.enabled}
-                  onChange={(e) => updateTextConfig('name', { enabled: e.target.checked })}
-                />
-                Enabled
-              </label>
-            </div>
-
-            {activePanel.nameConfig.enabled && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    <span>Vertical Position (Y):</span>
-                    <span>{activePanel.nameConfig.yPos}%</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="5" 
-                    max="95" 
-                    value={activePanel.nameConfig.yPos}
-                    onChange={(e) => updateTextConfig('name', { yPos: parseInt(e.target.value) })}
-                  />
-                </div>
-
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    <span>Letter Spacing (in):</span>
-                    <span>{activePanel.nameConfig.letterSpacing || 0} in</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="1" 
-                    step="0.02" 
-                    value={activePanel.nameConfig.letterSpacing || 0}
-                    onChange={(e) => updateTextConfig('name', { letterSpacing: parseFloat(e.target.value) })}
-                  />
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Font Size (in):</label>
+          {!collapsed.overlays && (
+            <div>
+              {/* Name Config */}
+              <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '16px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Name Layer</span>
+                  <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
                     <input 
-                      type="number" 
-                      step="0.1" 
-                      className="form-input" 
-                      value={activePanel.nameConfig.fontSize}
-                      onChange={(e) => updateTextConfig('name', { fontSize: parseFloat(e.target.value) || 1 })}
-                      style={{ padding: '6px' }}
+                      type="checkbox" 
+                      checked={activePanel.nameConfig.enabled}
+                      onChange={(e) => updateTextConfig('name', { enabled: e.target.checked })}
                     />
-                  </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Max Width (in):</label>
-                    <input 
-                      type="number" 
-                      step="0.5" 
-                      className="form-input" 
-                      value={activePanel.nameConfig.maxW}
-                      onChange={(e) => updateTextConfig('name', { maxW: parseFloat(e.target.value) || 5 })}
-                      style={{ padding: '6px' }}
-                    />
-                  </div>
+                    Enabled
+                  </label>
                 </div>
 
-                <div className="form-row">
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Font Style:</label>
-                    <select 
-                      className="form-select" 
-                      value={activePanel.nameConfig.fontFamily}
-                      onChange={(e) => updateTextConfig('name', { fontFamily: e.target.value })}
-                      style={{ padding: '6px' }}
-                    >
-                      <option value="Impact">Impact (Bold Athletic)</option>
-                      <option value="Arial">Arial Black</option>
-                      <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
-                      <option value="Times New Roman">Times (Classic Serif)</option>
-                      {customFonts.map(font => (
-                        <option key={font.name} value={font.name}>{font.name} (Custom)</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Text Effect:</label>
-                    <select 
-                      className="form-select" 
-                      value={activePanel.nameConfig.effect || 'none'}
-                      onChange={(e) => updateTextConfig('name', { effect: e.target.value as any })}
-                      style={{ padding: '6px' }}
-                    >
-                      <option value="none">Flat (Normal)</option>
-                      <option value="arch">Arched Curve</option>
-                      <option value="shadow">Drop Shadow</option>
-                    </select>
-                  </div>
-                </div>
+                {activePanel.nameConfig.enabled && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        <span>Vertical Position (Y):</span>
+                        <span>{activePanel.nameConfig.yPos}%</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="5" 
+                        max="95" 
+                        value={activePanel.nameConfig.yPos}
+                        onChange={(e) => updateTextConfig('name', { yPos: parseInt(e.target.value) })}
+                      />
+                    </div>
 
-                <div className="form-row">
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Case Style:</label>
-                    <select 
-                      className="form-select" 
-                      value={activePanel.nameConfig.caseType}
-                      onChange={(e) => updateTextConfig('name', { caseType: e.target.value as any })}
-                      style={{ padding: '6px' }}
-                    >
-                      <option value="uppercase">ALL UPPERCASE</option>
-                      <option value="normal">As Typed</option>
-                    </select>
-                  </div>
-                </div>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        <span>Horizontal Spacing (Letter Spacing):</span>
+                        <span>{activePanel.nameConfig.letterSpacing || 0} in</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="0" 
+                        max="1" 
+                        step="0.02" 
+                        value={activePanel.nameConfig.letterSpacing || 0}
+                        onChange={(e) => updateTextConfig('name', { letterSpacing: parseFloat(e.target.value) })}
+                      />
+                    </div>
+
+                    <div className="form-row">
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Font Size (in):</label>
+                        <input 
+                          type="number" 
+                          step="0.1" 
+                          className="form-input" 
+                          value={activePanel.nameConfig.fontSize}
+                          onChange={(e) => updateTextConfig('name', { fontSize: parseFloat(e.target.value) || 1 })}
+                          style={{ padding: '6px' }}
+                        />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Max Width (in):</label>
+                        <input 
+                          type="number" 
+                          step="0.5" 
+                          className="form-input" 
+                          value={activePanel.nameConfig.maxW}
+                          onChange={(e) => updateTextConfig('name', { maxW: parseFloat(e.target.value) || 5 })}
+                          style={{ padding: '6px' }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-row">
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Font Style:</label>
+                        <select 
+                          className="form-select" 
+                          value={activePanel.nameConfig.fontFamily}
+                          onChange={(e) => updateTextConfig('name', { fontFamily: e.target.value })}
+                          style={{ padding: '6px' }}
+                        >
+                          <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
+                          <option value="Impact">Impact (Bold Athletic)</option>
+                          <option value="Arial">Arial Black</option>
+                          <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
+                          <option value="Times New Roman">Times (Classic Serif)</option>
+                          {customFonts.map(font => (
+                            <option key={font.name} value={font.name}>{font.name} (Custom)</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Text Effect:</label>
+                        <select 
+                          className="form-select" 
+                          value={activePanel.nameConfig.effect || 'none'}
+                          onChange={(e) => updateTextConfig('name', { effect: e.target.value as any })}
+                          style={{ padding: '6px' }}
+                        >
+                          <option value="none">Flat (Normal)</option>
+                          <option value="arch">Arched Curve</option>
+                          <option value="shadow">Drop Shadow</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="form-row">
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Case Style:</label>
+                        <select 
+                          className="form-select" 
+                          value={activePanel.nameConfig.caseType}
+                          onChange={(e) => updateTextConfig('name', { caseType: e.target.value as any })}
+                          style={{ padding: '6px' }}
+                        >
+                          <option value="uppercase">ALL UPPERCASE</option>
+                          <option value="normal">As Typed</option>
+                        </select>
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Alignment:</label>
+                        <div style={{ display: 'flex', border: '1px solid var(--border-light)', borderRadius: '4px', overflow: 'hidden' }}>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ flex: 1, padding: '6px 0', border: 'none', background: activePanel.nameConfig.align === 'left' ? 'var(--color-primary)' : 'transparent', color: activePanel.nameConfig.align === 'left' ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+                            onClick={() => updateTextConfig('name', { align: 'left' })}
+                            title="Align Left"
+                          >
+                            <AlignLeft size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ flex: 1, padding: '6px 0', border: 'none', borderLeft: '1px solid var(--border-light)', borderRight: '1px solid var(--border-light)', background: (!activePanel.nameConfig.align || activePanel.nameConfig.align === 'center') ? 'var(--color-primary)' : 'transparent', color: (!activePanel.nameConfig.align || activePanel.nameConfig.align === 'center') ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+                            onClick={() => updateTextConfig('name', { align: 'center' })}
+                            title="Align Center"
+                          >
+                            <AlignCenter size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ flex: 1, padding: '6px 0', border: 'none', background: activePanel.nameConfig.align === 'right' ? 'var(--color-primary)' : 'transparent', color: activePanel.nameConfig.align === 'right' ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+                            onClick={() => updateTextConfig('name', { align: 'right' })}
+                            title="Align Right"
+                          >
+                            <AlignRight size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
 
                 <div className="form-row">
                   <div className="form-group" style={{ margin: 0 }}>
@@ -1488,7 +1783,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    <span>Letter Spacing (in):</span>
+                    <span>Horizontal Spacing (Letter Spacing):</span>
                     <span>{activePanel.numberConfig.letterSpacing || 0} in</span>
                   </div>
                   <input 
@@ -1535,6 +1830,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       onChange={(e) => updateTextConfig('number', { fontFamily: e.target.value })}
                       style={{ padding: '6px' }}
                     >
+                      <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
                       <option value="Impact">Impact (Bold Athletic)</option>
                       <option value="Arial">Arial Black</option>
                       <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
@@ -1556,6 +1852,41 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       <option value="arch">Arched Curve</option>
                       <option value="shadow">Drop Shadow</option>
                     </select>
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontSize: '11px' }}>Alignment:</label>
+                    <div style={{ display: 'flex', border: '1px solid var(--border-light)', borderRadius: '4px', overflow: 'hidden' }}>
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{ flex: 1, padding: '6px 0', border: 'none', background: activePanel.numberConfig.align === 'left' ? 'var(--color-primary)' : 'transparent', color: activePanel.numberConfig.align === 'left' ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+                        onClick={() => updateTextConfig('number', { align: 'left' })}
+                        title="Align Left"
+                      >
+                        <AlignLeft size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{ flex: 1, padding: '6px 0', border: 'none', borderLeft: '1px solid var(--border-light)', borderRight: '1px solid var(--border-light)', background: (!activePanel.numberConfig.align || activePanel.numberConfig.align === 'center') ? 'var(--color-primary)' : 'transparent', color: (!activePanel.numberConfig.align || activePanel.numberConfig.align === 'center') ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+                        onClick={() => updateTextConfig('number', { align: 'center' })}
+                        title="Align Center"
+                      >
+                        <AlignCenter size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{ flex: 1, padding: '6px 0', border: 'none', background: activePanel.numberConfig.align === 'right' ? 'var(--color-primary)' : 'transparent', color: activePanel.numberConfig.align === 'right' ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+                        onClick={() => updateTextConfig('number', { align: 'right' })}
+                        title="Align Right"
+                      >
+                        <AlignRight size={14} />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1593,8 +1924,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 </div>
               </div>
             )}
+          </div>
 
-            {/* Size Tag Config */}
+          {/* Size Tag Config */}
             <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '16px', marginTop: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Size Tag Layer (Top Left)</span>
@@ -1625,7 +1957,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                      <span>Letter Spacing (in):</span>
+                      <span>Horizontal Spacing (Letter Spacing):</span>
                       <span>{activePanel.sizeTagConfig?.letterSpacing || 0} in</span>
                     </div>
                     <input 
@@ -1657,6 +1989,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         onChange={(e) => updateTextConfig('sizeTag', { fontFamily: e.target.value })}
                         style={{ padding: '6px' }}
                       >
+                        <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
                         <option value="Impact">Impact (Bold Athletic)</option>
                         <option value="Arial">Arial Black</option>
                         <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
@@ -1680,6 +2013,38 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         <option value="none">Flat (Normal)</option>
                         <option value="shadow">Drop Shadow</option>
                       </select>
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '11px' }}>Alignment:</label>
+                      <div style={{ display: 'flex', border: '1px solid var(--border-light)', borderRadius: '4px', overflow: 'hidden' }}>
+                        <button
+                          type="button"
+                          className="btn"
+                          style={{ flex: 1, padding: '6px 0', border: 'none', background: (activePanel.sizeTagConfig?.align === 'left' || !activePanel.sizeTagConfig?.align) ? 'var(--color-primary)' : 'transparent', color: (activePanel.sizeTagConfig?.align === 'left' || !activePanel.sizeTagConfig?.align) ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+                          onClick={() => updateTextConfig('sizeTag', { align: 'left' })}
+                          title="Align Left"
+                        >
+                          <AlignLeft size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn"
+                          style={{ flex: 1, padding: '6px 0', border: 'none', borderLeft: '1px solid var(--border-light)', borderRight: '1px solid var(--border-light)', background: activePanel.sizeTagConfig?.align === 'center' ? 'var(--color-primary)' : 'transparent', color: activePanel.sizeTagConfig?.align === 'center' ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+                          onClick={() => updateTextConfig('sizeTag', { align: 'center' })}
+                          title="Align Center"
+                        >
+                          <AlignCenter size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn"
+                          style={{ flex: 1, padding: '6px 0', border: 'none', background: activePanel.sizeTagConfig?.align === 'right' ? 'var(--color-primary)' : 'transparent', color: activePanel.sizeTagConfig?.align === 'right' ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+                          onClick={() => updateTextConfig('sizeTag', { align: 'right' })}
+                          title="Align Right"
+                        >
+                          <AlignRight size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -1717,284 +2082,606 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   </div>
                 </div>
               )}
+            </div>
           </div>
-        </div>
+        )}
+      </div>
+
+
+
+
+        {/* Chest & Torso Logos Card (shown when activeTab === 'front') */}
+        {activeTab === 'front' && (
+          <div className="glass-card" style={{ padding: '20px' }}>
+            <h3 
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-success)', marginBottom: collapsed.logos ? 0 : '16px' }}
+              onClick={() => toggleCollapse('logos')}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>🛡️</span> Chest & Torso Logos
+              </span>
+              {collapsed.logos ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+            </h3>
+
+            {!collapsed.logos && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* Left Chest Logo */}
+                <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Left Chest Logo</span>
+                    <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={activePanel.leftChestLogo?.enabled ?? false}
+                        onChange={(e) => updateLogoConfig('leftChest', { enabled: e.target.checked })}
+                      />
+                      Enabled
+                    </label>
+                  </div>
+
+                  {(activePanel.leftChestLogo?.enabled ?? false) && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Logo Image:</label>
+                        {activePanel.leftChestLogo?.uploadedUrl ? (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
+                            <img src={activePanel.leftChestLogo.uploadedUrl} style={{ height: '30px', objectFit: 'contain', borderRadius: '4px' }} />
+                            <button 
+                              type="button" 
+                              className="btn" 
+                              style={{ padding: '4px 8px', fontSize: '11px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744', cursor: 'pointer' }}
+                              onClick={() => updateLogoConfig('leftChest', { uploadedUrl: null })}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ) : (
+                          <div>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              id="left-chest-logo-file"
+                              style={{ display: 'none' }}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    updateLogoConfig('leftChest', { uploadedUrl: event.target?.result as string });
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
+                            <label htmlFor="left-chest-logo-file" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '8px', fontSize: '12px' }}>
+                              <Upload size={14} /> Upload Left Logo
+                            </label>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="form-row">
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ fontSize: '11px' }}>Width (in):</label>
+                          <input 
+                            type="number" 
+                            step="0.1" 
+                            className="form-input" 
+                            value={activePanel.leftChestLogo?.width ?? 3.5}
+                            onChange={(e) => updateLogoConfig('leftChest', { width: parseFloat(e.target.value) || 1.0 })}
+                            style={{ padding: '6px' }}
+                          />
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ fontSize: '11px' }}>Height (in):</label>
+                          <input 
+                            type="number" 
+                            step="0.1" 
+                            className="form-input" 
+                            value={activePanel.leftChestLogo?.height ?? 3.5}
+                            onChange={(e) => updateLogoConfig('leftChest', { height: parseFloat(e.target.value) || 1.0 })}
+                            style={{ padding: '6px' }}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                          <span>Horizontal Pos (X) (in):</span>
+                          <span>{activePanel.leftChestLogo?.xPos ?? 13.5} in</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="0" 
+                          max={physicalWidth}
+                          step="0.1"
+                          value={activePanel.leftChestLogo?.xPos ?? 13.5}
+                          onChange={(e) => updateLogoConfig('leftChest', { xPos: parseFloat(e.target.value) })}
+                        />
+                      </div>
+
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                          <span>Vertical Pos (Y) (in):</span>
+                          <span>{activePanel.leftChestLogo?.yPos ?? 7.5} in</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="0" 
+                          max={physicalHeight}
+                          step="0.1"
+                          value={activePanel.leftChestLogo?.yPos ?? 7.5}
+                          onChange={(e) => updateLogoConfig('leftChest', { yPos: parseFloat(e.target.value) })}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Chest Logo */}
+                <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Right Chest Logo</span>
+                    <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={activePanel.rightChestLogo?.enabled ?? false}
+                        onChange={(e) => updateLogoConfig('rightChest', { enabled: e.target.checked })}
+                      />
+                      Enabled
+                    </label>
+                  </div>
+
+                  {(activePanel.rightChestLogo?.enabled ?? false) && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Logo Image:</label>
+                        {activePanel.rightChestLogo?.uploadedUrl ? (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
+                            <img src={activePanel.rightChestLogo.uploadedUrl} style={{ height: '30px', objectFit: 'contain', borderRadius: '4px' }} />
+                            <button 
+                              type="button" 
+                              className="btn" 
+                              style={{ padding: '4px 8px', fontSize: '11px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744', cursor: 'pointer' }}
+                              onClick={() => updateLogoConfig('rightChest', { uploadedUrl: null })}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ) : (
+                          <div>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              id="right-chest-logo-file"
+                              style={{ display: 'none' }}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    updateLogoConfig('rightChest', { uploadedUrl: event.target?.result as string });
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
+                            <label htmlFor="right-chest-logo-file" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '8px', fontSize: '12px' }}>
+                              <Upload size={14} /> Upload Right Logo
+                            </label>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="form-row">
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ fontSize: '11px' }}>Width (in):</label>
+                          <input 
+                            type="number" 
+                            step="0.1" 
+                            className="form-input" 
+                            value={activePanel.rightChestLogo?.width ?? 3.5}
+                            onChange={(e) => updateLogoConfig('rightChest', { width: parseFloat(e.target.value) || 1.0 })}
+                            style={{ padding: '6px' }}
+                          />
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ fontSize: '11px' }}>Height (in):</label>
+                          <input 
+                            type="number" 
+                            step="0.1" 
+                            className="form-input" 
+                            value={activePanel.rightChestLogo?.height ?? 3.5}
+                            onChange={(e) => updateLogoConfig('rightChest', { height: parseFloat(e.target.value) || 1.0 })}
+                            style={{ padding: '6px' }}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                          <span>Horizontal Pos (X) (in):</span>
+                          <span>{activePanel.rightChestLogo?.xPos ?? 8.5} in</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="0" 
+                          max={physicalWidth}
+                          step="0.1"
+                          value={activePanel.rightChestLogo?.xPos ?? 8.5}
+                          onChange={(e) => updateLogoConfig('rightChest', { xPos: parseFloat(e.target.value) })}
+                        />
+                      </div>
+
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                          <span>Vertical Pos (Y) (in):</span>
+                          <span>{activePanel.rightChestLogo?.yPos ?? 7.5} in</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="0" 
+                          max={physicalHeight}
+                          step="0.1"
+                          value={activePanel.rightChestLogo?.yPos ?? 7.5}
+                          onChange={(e) => updateLogoConfig('rightChest', { yPos: parseFloat(e.target.value) })}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Torso Logo */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Torso Logo / Text</span>
+                    <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={activePanel.torsoLogo?.enabled ?? false}
+                        onChange={(e) => updateLogoConfig('torso', { enabled: e.target.checked })}
+                      />
+                      Enabled
+                    </label>
+                  </div>
+
+                  {(activePanel.torsoLogo?.enabled ?? false) && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Logo Image:</label>
+                        {activePanel.torsoLogo?.uploadedUrl ? (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
+                            <img src={activePanel.torsoLogo.uploadedUrl} style={{ height: '30px', objectFit: 'contain', borderRadius: '4px' }} />
+                            <button 
+                              type="button" 
+                              className="btn" 
+                              style={{ padding: '4px 8px', fontSize: '11px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744', cursor: 'pointer' }}
+                              onClick={() => updateLogoConfig('torso', { uploadedUrl: null })}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ) : (
+                          <div>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              id="torso-logo-file"
+                              style={{ display: 'none' }}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    updateLogoConfig('torso', { uploadedUrl: event.target?.result as string });
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
+                            <label htmlFor="torso-logo-file" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '8px', fontSize: '12px' }}>
+                              <Upload size={14} /> Upload Torso Logo
+                            </label>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="form-row">
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ fontSize: '11px' }}>Width (in):</label>
+                          <input 
+                            type="number" 
+                            step="0.1" 
+                            className="form-input" 
+                            value={activePanel.torsoLogo?.width ?? 8.0}
+                            onChange={(e) => updateLogoConfig('torso', { width: parseFloat(e.target.value) || 1.0 })}
+                            style={{ padding: '6px' }}
+                          />
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ fontSize: '11px' }}>Height (in):</label>
+                          <input 
+                            type="number" 
+                            step="0.1" 
+                            className="form-input" 
+                            value={activePanel.torsoLogo?.height ?? 5.0}
+                            onChange={(e) => updateLogoConfig('torso', { height: parseFloat(e.target.value) || 1.0 })}
+                            style={{ padding: '6px' }}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                          <span>Horizontal Pos (X) (in):</span>
+                          <span>{activePanel.torsoLogo?.xPos ?? 11.0} in</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="0" 
+                          max={physicalWidth}
+                          step="0.1"
+                          value={activePanel.torsoLogo?.xPos ?? 11.0}
+                          onChange={(e) => updateLogoConfig('torso', { xPos: parseFloat(e.target.value) })}
+                        />
+                      </div>
+
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                          <span>Vertical Pos (Y) (in):</span>
+                          <span>{activePanel.torsoLogo?.yPos ?? 16.0} in</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="0" 
+                          max={physicalHeight}
+                          step="0.1"
+                          value={activePanel.torsoLogo?.yPos ?? 16.0}
+                          onChange={(e) => updateLogoConfig('torso', { yPos: parseFloat(e.target.value) })}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Custom Guidelines Card */}
         <div className="glass-card" style={{ padding: '20px' }}>
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', color: '#00f0ff' }}>
-            <span style={{ fontSize: '18px' }}>📏</span> Custom Guidelines (Inches)
+          <h3 
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: '#00f0ff', marginBottom: collapsed.guidelines ? 0 : '16px' }}
+            onClick={() => toggleCollapse('guidelines')}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '18px' }}>📏</span> Custom Guidelines (Inches)
+            </span>
+            {collapsed.guidelines ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
           </h3>
-          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-            Add horizontal or vertical guidelines at custom positions on this panel. Guidelines are saved per panel.
-          </p>
 
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-            <select 
-              className="form-select" 
-              style={{ width: '120px', padding: '6px' }}
-              value={newGuideType}
-              onChange={(e) => setNewGuideType(e.target.value as any)}
-            >
-              <option value="vertical">Vertical</option>
-              <option value="horizontal">Horizontal</option>
-            </select>
-            <input 
-              type="number" 
-              step="0.1"
-              min="0"
-              className="form-input" 
-              placeholder="Inches" 
-              style={{ padding: '6px', flexGrow: 1 }}
-              value={newGuideValue}
-              onChange={(e) => setNewGuideValue(e.target.value)}
-            />
-            <button 
-              className="btn btn-primary" 
-              style={{ padding: '6px 12px', fontSize: '12px' }}
-              onClick={() => {
-                const val = parseFloat(newGuideValue);
-                if (isNaN(val) || val < 0) {
-                  alert("Please enter a valid position in inches.");
-                  return;
-                }
-                const maxVal = newGuideType === 'vertical' ? physicalWidth : physicalHeight;
-                if (val > maxVal) {
-                  alert(`Position exceeds panel boundary (${maxVal.toFixed(1)} inches).`);
-                  return;
-                }
+          {!collapsed.guidelines && (
+            <div>
+              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                Add horizontal or vertical guidelines at custom positions on this panel. Guidelines are saved per panel.
+              </p>
 
-                // Add to active panel guidelines
-                const currentGuides = activePanel.guidelines || { vertical: [], horizontal: [] };
-                const list = newGuideType === 'vertical' 
-                  ? [...(currentGuides.vertical || [])] 
-                  : [...(currentGuides.horizontal || [])];
-                
-                if (list.includes(val)) {
-                  alert("This guideline already exists.");
-                  return;
-                }
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                <select 
+                  className="form-select" 
+                  style={{ width: '120px', padding: '6px' }}
+                  value={newGuideType}
+                  onChange={(e) => setNewGuideType(e.target.value as any)}
+                >
+                  <option value="vertical">Vertical</option>
+                  <option value="horizontal">Horizontal</option>
+                </select>
+                <input 
+                  type="number" 
+                  step="0.1"
+                  min="0"
+                  className="form-input" 
+                  placeholder="Inches" 
+                  style={{ padding: '6px', flexGrow: 1 }}
+                  value={newGuideValue}
+                  onChange={(e) => setNewGuideValue(e.target.value)}
+                />
+                <button 
+                  className="btn btn-primary" 
+                  style={{ padding: '6px 12px', fontSize: '12px' }}
+                  onClick={() => {
+                    const val = parseFloat(newGuideValue);
+                    if (isNaN(val) || val < 0) {
+                      alert("Please enter a valid position in inches.");
+                      return;
+                    }
+                    const maxVal = newGuideType === 'vertical' ? physicalWidth : physicalHeight;
+                    if (val > maxVal) {
+                      alert(`Position exceeds panel boundary (${maxVal.toFixed(1)} inches).`);
+                      return;
+                    }
 
-                // Sort numerically
-                list.push(val);
-                list.sort((a, b) => a - b);
+                    // Add to active panel guidelines
+                    const currentGuides = activePanel.guidelines || { vertical: [], horizontal: [] };
+                    const list = newGuideType === 'vertical' 
+                      ? [...(currentGuides.vertical || [])] 
+                      : [...(currentGuides.horizontal || [])];
+                    
+                    if (list.includes(val)) {
+                      alert("This guideline already exists.");
+                      return;
+                    }
 
-                updateActivePanel({
-                  guidelines: {
-                    vertical: newGuideType === 'vertical' ? list : (currentGuides.vertical || []),
-                    horizontal: newGuideType === 'horizontal' ? list : (currentGuides.horizontal || [])
-                  }
-                });
-                setNewGuideValue("");
-              }}
-            >
-              + Add
-            </button>
-          </div>
+                    // Sort numerically
+                    list.push(val);
+                    list.sort((a, b) => a - b);
 
-          {/* List of active guidelines */}
-          {((activePanel.guidelines?.vertical?.length || 0) > 0 || (activePanel.guidelines?.horizontal?.length || 0) > 0) ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '10px' }}>
-                <p style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '6px', color: 'var(--text-muted)' }}>Active Guides:</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
-                  {/* Vertical Guides */}
-                  {(activePanel.guidelines?.vertical || []).map((val, idx) => (
-                    <div key={`v-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(0, 240, 255, 0.03)', borderRadius: '6px', border: '1px solid rgba(0, 240, 255, 0.15)', fontSize: '11px' }}>
-                      <span style={{ color: '#00f0ff', fontWeight: '500' }}>Vertical: {val.toFixed(1)}"</span>
-                      <button 
-                        className="btn" 
-                        style={{ padding: '2px 6px', fontSize: '9px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744', cursor: 'pointer' }}
-                        onClick={() => {
-                          const currentGuides = activePanel.guidelines || { vertical: [], horizontal: [] };
-                          updateActivePanel({
-                            guidelines: {
-                              vertical: (currentGuides.vertical || []).filter(v => v !== val),
-                              horizontal: currentGuides.horizontal || []
-                            }
-                          });
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  ))}
-
-                  {/* Horizontal Guides */}
-                  {(activePanel.guidelines?.horizontal || []).map((val, idx) => (
-                    <div key={`h-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(0, 240, 255, 0.03)', borderRadius: '6px', border: '1px solid rgba(0, 240, 255, 0.15)', fontSize: '11px' }}>
-                      <span style={{ color: '#00f0ff', fontWeight: '500' }}>Horizontal: {val.toFixed(1)}"</span>
-                      <button 
-                        className="btn" 
-                        style={{ padding: '2px 6px', fontSize: '9px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744', cursor: 'pointer' }}
-                        onClick={() => {
-                          const currentGuides = activePanel.guidelines || { vertical: [], horizontal: [] };
-                          updateActivePanel({
-                            guidelines: {
-                              vertical: currentGuides.vertical || [],
-                              horizontal: (currentGuides.horizontal || []).filter(h => h !== val)
-                            }
-                          });
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                    updateActivePanel({
+                      guidelines: {
+                        vertical: newGuideType === 'vertical' ? list : (currentGuides.vertical || []),
+                        horizontal: newGuideType === 'horizontal' ? list : (currentGuides.horizontal || [])
+                      }
+                    });
+                    setNewGuideValue("");
+                  }}
+                >
+                  + Add
+                </button>
               </div>
-              <button 
-                className="btn btn-secondary" 
-                style={{ padding: '6px', fontSize: '11px', width: '100%', marginTop: '6px' }}
-                onClick={() => {
-                  updateActivePanel({
-                    guidelines: { vertical: [], horizontal: [] }
-                  });
-                }}
-              >
-                Clear All Guides
-              </button>
+
+              {/* List of active guidelines */}
+              {((activePanel.guidelines?.vertical?.length || 0) > 0 || (activePanel.guidelines?.horizontal?.length || 0) > 0) ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '10px' }}>
+                    <p style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '6px', color: 'var(--text-muted)' }}>Active Guides:</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
+                      {/* Vertical Guides */}
+                      {(activePanel.guidelines?.vertical || []).map((val, idx) => (
+                        <div key={`v-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(0, 240, 255, 0.03)', borderRadius: '6px', border: '1px solid rgba(0, 240, 255, 0.15)', fontSize: '11px' }}>
+                          <span style={{ color: '#00f0ff', fontWeight: '500' }}>Vertical: {val.toFixed(1)}"</span>
+                          <button 
+                            className="btn" 
+                            style={{ padding: '2px 6px', fontSize: '9px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744', cursor: 'pointer' }}
+                            onClick={() => {
+                              const currentGuides = activePanel.guidelines || { vertical: [], horizontal: [] };
+                              updateActivePanel({
+                                guidelines: {
+                                  vertical: (currentGuides.vertical || []).filter(v => v !== val),
+                                  horizontal: currentGuides.horizontal || []
+                                }
+                              });
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      ))}
+
+                      {/* Horizontal Guides */}
+                      {(activePanel.guidelines?.horizontal || []).map((val, idx) => (
+                        <div key={`h-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(0, 240, 255, 0.03)', borderRadius: '6px', border: '1px solid rgba(0, 240, 255, 0.15)', fontSize: '11px' }}>
+                          <span style={{ color: '#00f0ff', fontWeight: '500' }}>Horizontal: {val.toFixed(1)}"</span>
+                          <button 
+                            className="btn" 
+                            style={{ padding: '2px 6px', fontSize: '9px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744', cursor: 'pointer' }}
+                            onClick={() => {
+                              const currentGuides = activePanel.guidelines || { vertical: [], horizontal: [] };
+                              updateActivePanel({
+                                guidelines: {
+                                  vertical: currentGuides.vertical || [],
+                                  horizontal: (currentGuides.horizontal || []).filter(h => h !== val)
+                                }
+                              });
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <button 
+                    className="btn btn-secondary" 
+                    style={{ padding: '6px', fontSize: '11px', width: '100%', marginTop: '6px' }}
+                    onClick={() => {
+                      updateActivePanel({
+                        guidelines: { vertical: [], horizontal: [] }
+                      });
+                    }}
+                  >
+                    Clear All Guides
+                  </button>
+                </div>
+              ) : (
+                <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center', margin: '8px 0' }}>
+                  No custom guidelines defined for this panel.
+                </p>
+              )}
             </div>
-          ) : (
-            <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center', margin: '8px 0' }}>
-              No custom guidelines defined for this panel.
-            </p>
           )}
         </div>
 
         {/* Custom Font Upload Card */}
         <div className="glass-card" style={{ padding: '20px' }}>
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', color: 'var(--color-success)' }}>
-            <span style={{ fontSize: '18px' }}>🔤</span> Custom Font Registry
+          <h3 
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-success)', marginBottom: collapsed.fonts ? 0 : '16px' }}
+            onClick={() => toggleCollapse('fonts')}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '18px' }}>🔤</span> Custom Font Registry
+            </span>
+            {collapsed.fonts ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
           </h3>
-          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-            Upload custom TrueType (.ttf) or Web (.woff/.woff2) fonts to use for player names and numbers. Font styles will load into the canvas and export automatically.
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <input 
-              type="file" 
-              accept=".ttf,.woff,.woff2" 
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  const fontName = file.name.substring(0, file.name.lastIndexOf('.'));
-                  const reader = new FileReader();
-                  reader.onload = async (uploadEvent) => {
-                    const dataUrl = uploadEvent.target?.result as string;
-                    try {
-                      const fontFace = new FontFace(fontName, `url(${dataUrl})`);
-                      const loadedFace = await fontFace.load();
-                      document.fonts.add(loadedFace);
-                      
-                      const newFont = { name: fontName, url: dataUrl };
-                      const updated = [...customFonts, newFont];
-                      setCustomFonts(updated);
-                      localStorage.setItem('teedex_custom_fonts', JSON.stringify(updated));
-                    } catch (err) {
-                      console.error("Failed to register font:", err);
-                      alert("Could not load font file. Please verify it is a valid TTF or WOFF file.");
-                    }
-                  };
-                  reader.readAsDataURL(file);
-                }
-              }} 
-              style={{ display: 'none' }} 
-              id="font-uploader-input"
-            />
-            <label htmlFor="font-uploader-input" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '8px' }}>
-              <Upload size={14} /> Upload Font File
-            </label>
-            
-            {customFonts.length > 0 && (
-              <div style={{ marginTop: '10px' }}>
-                <p style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px' }}>Loaded Custom Fonts:</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '120px', overflowY: 'auto' }}>
-                  {customFonts.map((font, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px', border: '1px solid var(--border-light)', fontSize: '11px' }}>
-                      <span style={{ fontFamily: font.name, fontWeight: 'bold' }}>{font.name}</span>
-                      <button 
-                        className="btn" 
-                        style={{ padding: '2px 6px', fontSize: '9px', background: 'rgba(255,23,68,0.2)', border: 'none', color: '#ff1744', cursor: 'pointer' }}
-                        onClick={() => {
-                          const updated = customFonts.filter(f => f.name !== font.name);
+
+          {!collapsed.fonts && (
+            <div>
+              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                Upload custom TrueType (.ttf) or Web (.woff/.woff2) fonts to use for player names and numbers. Font styles will load into the canvas and export automatically.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <input 
+                  type="file" 
+                  accept=".ttf,.woff,.woff2" 
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const fontName = file.name.substring(0, file.name.lastIndexOf('.'));
+                      const reader = new FileReader();
+                      reader.onload = async (uploadEvent) => {
+                        const dataUrl = uploadEvent.target?.result as string;
+                        try {
+                          const fontFace = new FontFace(fontName, `url(${dataUrl})`);
+                          const loadedFace = await fontFace.load();
+                          document.fonts.add(loadedFace);
+                          
+                          const newFont = { name: fontName, url: dataUrl };
+                          const updated = [...customFonts, newFont];
                           setCustomFonts(updated);
                           localStorage.setItem('teedex_custom_fonts', JSON.stringify(updated));
-                        }}
-                      >
-                        Delete
-                      </button>
+                        } catch (err) {
+                          console.error("Failed to register font:", err);
+                          alert("Could not load font file. Please verify it is a valid TTF or WOFF file.");
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }} 
+                  style={{ display: 'none' }} 
+                  id="font-uploader-input"
+                />
+                <label htmlFor="font-uploader-input" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '8px' }}>
+                  <Upload size={14} /> Upload Font File
+                </label>
+                
+                {customFonts.length > 0 && (
+                  <div style={{ marginTop: '10px' }}>
+                    <p style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px' }}>Loaded Custom Fonts:</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '120px', overflowY: 'auto' }}>
+                      {customFonts.map((font, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px', border: '1px solid var(--border-light)', fontSize: '11px' }}>
+                          <span style={{ fontFamily: font.name, fontWeight: 'bold' }}>{font.name}</span>
+                          <button 
+                            className="btn" 
+                            style={{ padding: '2px 6px', fontSize: '9px', background: 'rgba(255,23,68,0.2)', border: 'none', color: '#ff1744', cursor: 'pointer' }}
+                            onClick={() => {
+                              const updated = customFonts.filter(f => f.name !== font.name);
+                              setCustomFonts(updated);
+                              localStorage.setItem('teedex_custom_fonts', JSON.stringify(updated));
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Saved Presets Card */}
-        <div className="glass-card" style={{ padding: '20px', marginTop: '20px' }}>
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', color: 'var(--color-primary)' }}>
-            <span style={{ fontSize: '18px' }}>💾</span> Design Presets Manager
-          </h3>
-          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-            Save the current design configuration (background uploads, colors, fonts, strokes, and text formats) as a reusable template preset.
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input 
-                type="text" 
-                className="form-input" 
-                placeholder="Preset Name" 
-                value={newPresetName}
-                onChange={(e) => setNewPresetName(e.target.value)}
-                style={{ padding: '8px', fontSize: '12px' }}
-              />
-              <button 
-                className="btn btn-primary" 
-                onClick={handleSavePreset}
-                style={{ padding: '8px 16px', fontSize: '12px', whiteSpace: 'nowrap' }}
-              >
-                Save
-              </button>
             </div>
-
-            {presets.length > 0 && (
-              <div>
-                <p style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '6px' }}>Select Preset to Load:</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
-                  {presets.map((preset, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '11px' }}>
-                      <span 
-                        style={{ fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-bright)' }}
-                        onClick={() => handleLoadPreset(preset.name)}
-                      >
-                        {preset.name}
-                      </span>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <button 
-                          className="btn btn-secondary" 
-                          style={{ padding: '3px 8px', fontSize: '9px' }}
-                          onClick={() => handleLoadPreset(preset.name)}
-                        >
-                          Load
-                        </button>
-                        <button 
-                          className="btn" 
-                          style={{ padding: '3px 8px', fontSize: '9px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744' }}
-                          onClick={() => handleDeletePreset(preset.name)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </div>
-  </div>
-);
+  );
 };
+

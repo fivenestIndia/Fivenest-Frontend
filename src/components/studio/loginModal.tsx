@@ -333,44 +333,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
     }
   };
 
-  const handleRecharge = async () => {
-    if (!currentUser) return;
-    
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setErrorMessage("User session not found in Supabase. Please click 'Sign Out of Account' and then Sign In again.");
-        return;
-      }
 
-      const { error } = await supabase.from('credit_transactions').insert({
-        user_id: user.id,
-        amount: rechargeAmount,
-        transaction_type: 'topup',
-        description: 'Sandbox Wallet Top Up'
-      });
-
-      if (error) {
-        console.warn("Direct credit recharge failed:", error);
-        setErrorMessage(`Sandbox top-up failed: ${error.message} (Code: ${error.code})`);
-        return;
-      }
-
-      const details = await fetchUserWallet(user.id);
-      const updatedUser = {
-        ...currentUser,
-        balance: details.balance
-      };
-      
-      localStorage.setItem('fivenest_active_user', JSON.stringify(updatedUser));
-      onLoginStateChange(updatedUser);
-      
-      setSuccessMessage(`Successfully added ₹${rechargeAmount} INR credits to your account!`);
-      setTimeout(() => setSuccessMessage(''), 2500);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Recharge failed.');
-    }
-  };
 
   return (
     <div className="modal-backdrop" style={{
@@ -691,23 +654,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
                   }}
                 >
                   {isPaying ? "Connecting to Razorpay..." : `Pay ₹${rechargeAmount} Securely (UPI, QR, Card)`}
-                </button>
-
-                <button 
-                  type="button"
-                  className="btn btn-secondary" 
-                  onClick={handleRecharge}
-                  disabled={isPaying}
-                  style={{ 
-                    width: '100%', 
-                    padding: '8px', 
-                    fontSize: '11px', 
-                    fontWeight: '600',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px dashed var(--border-light)'
-                  }}
-                >
-                  ⚡ Sandbox Mode (Simulate Free Recharge)
                 </button>
               </div>
             </div>

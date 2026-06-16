@@ -82,6 +82,16 @@ const injectJPDpi = (blob: Blob, dpiValue: number): Promise<Blob> => {
   });
 };
 
+const loadImage = (url: string): Promise<HTMLImageElement> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(e);
+    img.src = url;
+  });
+};
+
 import type { SizeDatabase } from './sizesDb';
 import type { PlayerRecord, OrderMetadata } from './orderEntry';
 import type { ArtDesignConfig, TextConfig } from './designer';
@@ -896,167 +906,40 @@ export const NestingView: React.FC<NestingViewProps> = ({
         }
       };
 
-      // @ts-ignore - Unused on exports per user request but kept in codebase
-      const drawRulersAndGrid = () => {
-        const rulersEnabled = JSON.parse(localStorage.getItem('fivenest_pref_rulers') || 'true');
-        if (!rulersEnabled) return;
-
-        ctx.save();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-        ctx.lineWidth = 1;
-        
-        const physicalW = item.w;
-        const physicalH = item.h;
-
-        ctx.font = `${Math.max(12, Math.round(0.12 * scaleDpi))}px system-ui`;
-        ctx.shadowColor = 'transparent';
-
-        // Guidelines customizable spacing
-        const gridSpacing = JSON.parse(localStorage.getItem('fivenest_pref_guideline_spacing') || '2');
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-        ctx.setLineDash([Math.round(0.05 * scaleDpi), Math.round(0.05 * scaleDpi)]);
-        for (let x = gridSpacing; x < physicalW; x += gridSpacing) {
-          const xPx = Math.round(x * scaleDpi);
-          ctx.beginPath();
-          ctx.moveTo(xPx, 0);
-          ctx.lineTo(xPx, heightPx);
-          ctx.stroke();
-        }
-        for (let y = gridSpacing; y < physicalH; y += gridSpacing) {
-          const yPx = Math.round(y * scaleDpi);
-          ctx.beginPath();
-          ctx.moveTo(0, yPx);
-          ctx.lineTo(widthPx, yPx);
-          ctx.stroke();
-        }
-        ctx.setLineDash([]); // Reset dashed lines
-
-        // Ruler size: 0.35 inches
-        const rulerHeightPx = Math.round(0.35 * scaleDpi);
-        
-        // Background bar
-        ctx.fillStyle = 'rgba(15, 15, 22, 0.9)';
-        ctx.fillRect(0, 0, widthPx, rulerHeightPx);
-        ctx.fillRect(0, 0, rulerHeightPx, heightPx);
-
-        // Borders
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-        ctx.beginPath();
-        ctx.moveTo(0, rulerHeightPx);
-        ctx.lineTo(widthPx, rulerHeightPx);
-        ctx.moveTo(rulerHeightPx, 0);
-        ctx.lineTo(rulerHeightPx, heightPx);
-        ctx.stroke();
-
-        ctx.fillStyle = '#ffffff';
-        ctx.strokeStyle = '#ffffff';
-
-        // Top ticks
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        for (let x = 0; x <= physicalW; x += 0.5) {
-          const xPx = Math.round(x * scaleDpi);
-          if (xPx < rulerHeightPx) continue;
-          const isWhole = x % 1 === 0;
-          const tickLen = isWhole ? Math.round(0.08 * scaleDpi) : Math.round(0.04 * scaleDpi);
-          ctx.beginPath();
-          ctx.moveTo(xPx, rulerHeightPx - tickLen);
-          ctx.lineTo(xPx, rulerHeightPx);
-          ctx.stroke();
-
-          if (isWhole && x > 0) {
-            ctx.fillText(x.toString(), xPx, 2);
-          }
-        }
-
-        // Left ticks
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        for (let y = 0; y <= physicalH; y += 0.5) {
-          const yPx = Math.round(y * scaleDpi);
-          if (yPx < rulerHeightPx) continue;
-          const isWhole = y % 1 === 0;
-          const tickLen = isWhole ? Math.round(0.08 * scaleDpi) : Math.round(0.04 * scaleDpi);
-          ctx.beginPath();
-          ctx.moveTo(rulerHeightPx - tickLen, yPx);
-          ctx.lineTo(rulerHeightPx, yPx);
-          ctx.stroke();
-
-          if (isWhole && y > 0) {
-            ctx.fillText(y.toString(), 2, yPx);
-          }
-        }
-
-        // Draw custom guidelines on exported panels
-        const customGuides = conf.guidelines || { vertical: [], horizontal: [] };
-        ctx.save();
-        ctx.strokeStyle = '#00f0ff'; // Cyan guideline color
-        ctx.lineWidth = Math.max(1, Math.round(0.8 * (scaleDpi / 96)));
-        ctx.setLineDash([Math.round(4 * (scaleDpi / 96)), Math.round(4 * (scaleDpi / 96))]);
-
-        ctx.fillStyle = '#00f0ff';
-        ctx.font = `bold ${Math.max(12, Math.round(0.12 * scaleDpi))}px system-ui`;
-        
-        // 1. Vertical Guides
-        (customGuides.vertical || []).forEach(xVal => {
-          const xPx = Math.round(xVal * scaleDpi);
-          if (xPx >= rulerHeightPx && xPx < widthPx) {
-            ctx.beginPath();
-            ctx.moveTo(xPx, rulerHeightPx);
-            ctx.lineTo(xPx, heightPx);
-            ctx.stroke();
-
-            // Label on top ruler
-            ctx.save();
-            ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
-            ctx.fillRect(xPx - Math.round(16 * (scaleDpi / 96)), 2, Math.round(32 * (scaleDpi / 96)), rulerHeightPx - 4);
-            ctx.fillStyle = '#00f0ff';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'top';
-            ctx.fillText(`${xVal.toFixed(1)}`, xPx, 4);
-            ctx.restore();
-          }
-        });
-
-        // 2. Horizontal Guides
-        (customGuides.horizontal || []).forEach(yVal => {
-          const yPx = Math.round(yVal * scaleDpi);
-          if (yPx >= rulerHeightPx && yPx < heightPx) {
-            ctx.beginPath();
-            ctx.moveTo(rulerHeightPx, yPx);
-            ctx.lineTo(widthPx, yPx);
-            ctx.stroke();
-
-            // Label on left ruler
-            ctx.save();
-            ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
-            ctx.fillRect(2, yPx - Math.round(7 * (scaleDpi / 96)), rulerHeightPx - 4, Math.round(14 * (scaleDpi / 96)));
-            ctx.fillStyle = '#00f0ff';
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(`${yVal.toFixed(1)}`, 4, yPx);
-            ctx.restore();
-          }
-        });
-        ctx.restore();
-
-        ctx.restore();
-      };
-
       const drawSingleText = (text: string, textConf: TextConfig, textX: number, textY: number, maxLimitPx: number) => {
         ctx.save();
         const fontSizePx = Math.round((textConf.fontSize / 30) * heightPx);
         ctx.font = `bold ${fontSizePx}px "${textConf.fontFamily}"`;
-        ctx.textAlign = 'center';
+        
+        const align = textConf.align || 'center';
+        ctx.textAlign = align;
         ctx.textBaseline = 'middle';
         ctx.fillStyle = textConf.color;
         ctx.strokeStyle = textConf.strokeColor;
         ctx.lineWidth = textConf.strokeWidth * (scaleDpi / 100);
 
+        // Calculate custom position based on alignment
+        let targetX = textX;
+        if (textConf.effect !== 'arch') {
+          if (align === 'left') {
+            targetX = (widthPx / 2) - (maxLimitPx / 2);
+          } else if (align === 'right') {
+            targetX = (widthPx / 2) + (maxLimitPx / 2);
+          }
+        }
+
+        // Apply custom letter spacing and compensation offset
+        let drawX = targetX;
+        let spacingPx = 0;
+
         if (textConf.letterSpacing !== undefined) {
-          const spacingPx = Math.round(textConf.letterSpacing * scaleDpi);
+          spacingPx = Math.round(textConf.letterSpacing * scaleDpi);
           ctx.letterSpacing = `${spacingPx}px`;
+          if (align === 'center') {
+            drawX += spacingPx / 2;
+          } else if (align === 'right') {
+            drawX += spacingPx;
+          }
         }
 
         // Apply drop shadow effect
@@ -1072,7 +955,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
         if (textConf.effect === 'arch') {
           // Circular arched text bending concave (ends down)
           const radius = heightPx * 0.45;
-          ctx.translate(textX, textY + radius);
+          ctx.translate(drawX, textY + radius);
           const totalAngle = Math.min(Math.PI / 2.5, (displayName.length * fontSizePx * 0.55) / radius);
           const startAngle = -totalAngle / 2;
           const angleStep = totalAngle / (displayName.length - 1 || 1);
@@ -1091,7 +974,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
         } else {
           // Standard straight text
           const measuredW = ctx.measureText(displayName).width;
-          ctx.translate(textX, textY);
+          ctx.translate(drawX, textY);
           if (measuredW > maxLimitPx) {
             ctx.scale(maxLimitPx / measuredW, 1);
           }
@@ -1122,23 +1005,40 @@ export const NestingView: React.FC<NestingViewProps> = ({
         }
 
         // Draw customizable Size Tag (Top Left)
-        const sizeTagConf = conf.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none' };
+        const sizeTagConf = conf.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
         if (sizeTagConf.enabled && item.panelType !== 'a4-print') {
           ctx.save();
           const fontSizePx = Math.round((sizeTagConf.fontSize / 72) * scaleDpi);
           ctx.font = `bold ${fontSizePx}px "${sizeTagConf.fontFamily}"`;
-          ctx.textAlign = 'left';
+          
+          const align = sizeTagConf.align || 'left';
+          ctx.textAlign = align;
           ctx.textBaseline = 'top';
           ctx.fillStyle = sizeTagConf.color;
           ctx.strokeStyle = sizeTagConf.strokeColor;
           ctx.lineWidth = sizeTagConf.strokeWidth * (scaleDpi / 100);
 
-          if (sizeTagConf.letterSpacing !== undefined) {
-            const spacingPx = Math.round(sizeTagConf.letterSpacing * scaleDpi);
-            ctx.letterSpacing = `${spacingPx}px`;
+          const offsetPx = Math.round(0.15 * scaleDpi);
+          
+          let targetX = offsetPx;
+          if (align === 'center') {
+            targetX = widthPx / 2;
+          } else if (align === 'right') {
+            targetX = widthPx - offsetPx;
           }
 
-          const offsetPx = Math.round(0.15 * scaleDpi);
+          let drawX = targetX;
+          let spacingPx = 0;
+
+          if (sizeTagConf.letterSpacing !== undefined) {
+            spacingPx = Math.round(sizeTagConf.letterSpacing * scaleDpi);
+            ctx.letterSpacing = `${spacingPx}px`;
+            if (align === 'center') {
+              drawX += spacingPx / 2;
+            } else if (align === 'right') {
+              drawX += spacingPx;
+            }
+          }
 
           if (sizeTagConf.effect === 'shadow') {
             ctx.shadowColor = 'rgba(0,0,0,0.6)';
@@ -1151,9 +1051,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
           const displayText = templateText.replace('{size}', item.size);
 
           if (sizeTagConf.strokeWidth > 0) {
-            ctx.strokeText(displayText, offsetPx, offsetPx);
+            ctx.strokeText(displayText, drawX, offsetPx);
           }
-          ctx.fillText(displayText, offsetPx, offsetPx);
+          ctx.fillText(displayText, drawX, offsetPx);
           ctx.restore();
         }
 
@@ -1182,11 +1082,6 @@ export const NestingView: React.FC<NestingViewProps> = ({
           ctx.strokeText("FIVENEST WEB STUDIO DEMO", 0, 45 * (scaleDpi / 100));
           ctx.restore();
         }
-
-        // Draw rulers and grid (Disabled on exports per user request)
-        // drawRulersAndGrid();
-
-        resolve(canvas);
       };
 
       // 1. Draw Template Artwork
@@ -1197,66 +1092,121 @@ export const NestingView: React.FC<NestingViewProps> = ({
           : (conf.uploadedFileHalfUrl || conf.uploadedFileUrl);
       }
 
-      if (conf.backgroundType === 'upload' && bgUrl) {
-        const img = new Image();
-        img.onload = () => {
-          ctx.drawImage(img, 0, 0, widthPx, heightPx);
-          drawOverlays();
-        };
-        img.onerror = () => {
-          console.warn("Failed to load uploaded background image, drawing fallback pattern.");
-          ctx.fillStyle = '#1c1c24';
-          ctx.fillRect(0, 0, widthPx, heightPx);
-          drawOverlays();
-        };
-        img.src = bgUrl;
-      } else {
-        // Render generated vectors at high-res
-        const c1 = conf.generatedColor1;
-        const c2 = conf.generatedColor2;
+      const leftLogo = conf.leftChestLogo;
+      const rightLogo = conf.rightChestLogo;
+      const torsoLogo = conf.torsoLogo;
 
-        if (conf.generatedStyle === 'neon-gradient') {
-          const gradient = ctx.createRadialGradient(widthPx/2, heightPx/2, widthPx*0.1, widthPx/2, heightPx/2, widthPx*0.8);
-          gradient.addColorStop(0, c1);
-          gradient.addColorStop(1, c2);
-          ctx.fillStyle = gradient;
-          ctx.fillRect(0, 0, widthPx, heightPx);
-        } else if (conf.generatedStyle === 'classic-stripes') {
-          ctx.fillStyle = c2;
-          ctx.fillRect(0, 0, widthPx, heightPx);
-          
-          ctx.fillStyle = c1;
-          ctx.beginPath();
-          const stripeW = widthPx * 0.15;
-          for (let i = -widthPx; i < widthPx + heightPx; i += stripeW * 2) {
-            ctx.moveTo(i, 0);
-            ctx.lineTo(i + stripeW, 0);
-            ctx.lineTo(i - heightPx + stripeW, heightPx);
-            ctx.lineTo(i - heightPx, heightPx);
-          }
-          ctx.fill();
-        } else if (conf.generatedStyle === 'camo-glow') {
-          ctx.fillStyle = '#111';
-          ctx.fillRect(0, 0, widthPx, heightPx);
-          
-          ctx.fillStyle = c1;
-          ctx.beginPath();
-          ctx.arc(widthPx * 0.3, heightPx * 0.25, widthPx * 0.2, 0, Math.PI * 2);
-          ctx.arc(widthPx * 0.7, heightPx * 0.75, widthPx * 0.35, 0, Math.PI * 2);
-          ctx.fill();
-          
-          ctx.fillStyle = c2;
-          ctx.beginPath();
-          ctx.arc(widthPx * 0.8, heightPx * 0.25, widthPx * 0.15, 0, Math.PI * 2);
-          ctx.arc(widthPx * 0.2, heightPx * 0.8, widthPx * 0.25, 0, Math.PI * 2);
-          ctx.fill();
-        } else {
-          ctx.fillStyle = '#1c1c24';
-          ctx.fillRect(0, 0, widthPx, heightPx);
+      const loadAllImages = async () => {
+        const images: { bg?: HTMLImageElement; leftLogo?: HTMLImageElement; rightLogo?: HTMLImageElement; torsoLogo?: HTMLImageElement } = {};
+        const promises: Promise<void>[] = [];
+
+        if (conf.backgroundType === 'upload' && bgUrl) {
+          promises.push(
+            loadImage(bgUrl)
+              .then(img => { images.bg = img; })
+              .catch(err => console.warn("Failed to load background:", err))
+          );
         }
 
+        if (leftLogo?.enabled && leftLogo?.uploadedUrl) {
+          promises.push(
+            loadImage(leftLogo.uploadedUrl)
+              .then(img => { images.leftLogo = img; })
+              .catch(err => console.warn("Failed to load Left Chest Logo:", err))
+          );
+        }
+
+        if (rightLogo?.enabled && rightLogo?.uploadedUrl) {
+          promises.push(
+            loadImage(rightLogo.uploadedUrl)
+              .then(img => { images.rightLogo = img; })
+              .catch(err => console.warn("Failed to load Right Chest Logo:", err))
+          );
+        }
+
+        if (torsoLogo?.enabled && torsoLogo?.uploadedUrl) {
+          promises.push(
+            loadImage(torsoLogo.uploadedUrl)
+              .then(img => { images.torsoLogo = img; })
+              .catch(err => console.warn("Failed to load Torso Logo:", err))
+          );
+        }
+
+        await Promise.all(promises);
+        return images;
+      };
+
+      loadAllImages().then(images => {
+        // Draw background
+        if (images.bg) {
+          ctx.drawImage(images.bg, 0, 0, widthPx, heightPx);
+        } else {
+          // Render generated vectors at high-res
+          const c1 = conf.generatedColor1;
+          const c2 = conf.generatedColor2;
+
+          if (conf.generatedStyle === 'neon-gradient') {
+            const gradient = ctx.createRadialGradient(widthPx/2, heightPx/2, widthPx*0.1, widthPx/2, heightPx/2, widthPx*0.8);
+            gradient.addColorStop(0, c1);
+            gradient.addColorStop(1, c2);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, widthPx, heightPx);
+          } else if (conf.generatedStyle === 'classic-stripes') {
+            ctx.fillStyle = c2;
+            ctx.fillRect(0, 0, widthPx, heightPx);
+            
+            ctx.fillStyle = c1;
+            ctx.beginPath();
+            const stripeW = widthPx * 0.15;
+            for (let i = -widthPx; i < widthPx + heightPx; i += stripeW * 2) {
+              ctx.moveTo(i, 0);
+              ctx.lineTo(i + stripeW, 0);
+              ctx.lineTo(i - heightPx + stripeW, heightPx);
+              ctx.lineTo(i - heightPx, heightPx);
+            }
+            ctx.fill();
+          } else if (conf.generatedStyle === 'camo-glow') {
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, widthPx, heightPx);
+            
+            ctx.fillStyle = c1;
+            ctx.beginPath();
+            ctx.arc(widthPx * 0.3, heightPx * 0.25, widthPx * 0.2, 0, Math.PI * 2);
+            ctx.arc(widthPx * 0.7, heightPx * 0.75, widthPx * 0.35, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = c2;
+            ctx.beginPath();
+            ctx.arc(widthPx * 0.8, heightPx * 0.25, widthPx * 0.15, 0, Math.PI * 2);
+            ctx.arc(widthPx * 0.2, heightPx * 0.8, widthPx * 0.25, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            ctx.fillStyle = '#1c1c24';
+            ctx.fillRect(0, 0, widthPx, heightPx);
+          }
+        }
+
+        // Draw customizable logos (Left Chest, Right Chest, Torso)
+        const drawLogo = (logoConf: any, logoImg: HTMLImageElement | undefined) => {
+          if (logoConf && logoConf.enabled && logoImg) {
+            ctx.save();
+            const logoW = Math.round(logoConf.width * scaleDpi);
+            const logoH = Math.round(logoConf.height * scaleDpi);
+            const logoX = Math.round(logoConf.xPos * scaleDpi) - Math.round(logoW / 2);
+            const logoY = Math.round(logoConf.yPos * scaleDpi) - Math.round(logoH / 2);
+            ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
+            ctx.restore();
+          }
+        };
+
+        drawLogo(leftLogo, images.leftLogo);
+        drawLogo(rightLogo, images.rightLogo);
+        drawLogo(torsoLogo, images.torsoLogo);
+
+        // Draw overlays
         drawOverlays();
-      }
+        resolve(canvas);
+      });
     });
   };
 
@@ -1334,19 +1284,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
           items.forEach(item => {
             if (item.panelType === 'front') {
-              if (frontOverlaysChecked) {
-                const safeName = (item.playerName || 'BLANK').replace(/[\/\\:*?"<>|]/g, "_").trim();
-                const safeNum = (item.playerNum || '').replace(/[\/\\:*?"<>|]/g, "_").trim();
-                const suffix = safeNum ? `_${safeNum}` : '';
-                renderActions.push({
-                  representativeItem: item,
-                  fileName: `${item.size}_${safeName}${suffix}_F.jpg`,
-                  folder: 'Front'
-                });
-              } else {
-                if (!frontSizeMap[item.size]) frontSizeMap[item.size] = [];
-                frontSizeMap[item.size].push(item);
-              }
+              if (!frontSizeMap[item.size]) frontSizeMap[item.size] = [];
+              frontSizeMap[item.size].push(item);
             } else if (item.panelType === 'back') {
               if (!backSizeMap[item.size]) backSizeMap[item.size] = [];
               backSizeMap[item.size].push(item);
@@ -1380,8 +1319,22 @@ export const NestingView: React.FC<NestingViewProps> = ({
             }
           });
 
-          // Group fronts by size (when overlays disabled)
-          if (!frontOverlaysChecked) {
+          // Group/Format Fronts
+          if (frontOverlaysChecked) {
+            // Sort front items by size alphabetically to make sequential numbers clean
+            const allFrontItems: PlacedItem[] = [];
+            Object.keys(frontSizeMap).sort().forEach(size => {
+              allFrontItems.push(...frontSizeMap[size]);
+            });
+            allFrontItems.forEach((item, index) => {
+              renderActions.push({
+                representativeItem: item,
+                fileName: `${item.size} ${index + 1} F.jpg`,
+                folder: 'Front'
+              });
+            });
+          } else {
+            // Group by size
             Object.keys(frontSizeMap).forEach(size => {
               const list = frontSizeMap[size];
               renderActions.push({
@@ -2052,13 +2005,6 @@ export const NestingView: React.FC<NestingViewProps> = ({
                       Scan this QR code using GPay, PhonePe, Paytm, or BHIM to pay ₹{paymentCost.toFixed(2)} INR.
                     </p>
 
-                    <button 
-                      className="btn btn-success" 
-                      onClick={executePaymentWithUPI}
-                      style={{ width: '100%', padding: '12px', fontWeight: 'bold' }}
-                    >
-                      Simulate Payment Success (Sandbox)
-                    </button>
                   </>
                 )}
               </div>
