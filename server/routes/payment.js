@@ -136,6 +136,10 @@ router.post("/webhook", async (req, res) => {
         }
 
         const { supabaseAdmin } = await import("../config/supabase.js");
+        if (!supabaseAdmin) {
+          console.error("Webhook processing failed: Supabase admin client not initialized.");
+          return res.status(500).send("Supabase admin client not initialized on backend.");
+        }
 
         // 1. Log transaction in Supabase
         const { data: wt, error: wtErr } = await supabaseAdmin
@@ -299,6 +303,9 @@ router.post("/verify-studio-payment", async (req, res) => {
     }
 
     const { supabaseAdmin } = await import("../config/supabase.js");
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: "Supabase keys (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) are not configured on your backend Render/Vercel server. Please add them in your environment variables dashboard." });
+    }
 
     // 2. Log transaction in Supabase
     const { data: wt, error: wtErr } = await supabaseAdmin
