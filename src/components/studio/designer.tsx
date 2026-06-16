@@ -74,9 +74,9 @@ export const defaultDesignConfig: ArtDesignConfig = {
     numberConfig: { enabled: true, yPos: 44, fontSize: 3.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 3, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.08 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [2.0, 8.5, 11.0, 13.5, 20.0], horizontal: [7.0, 10.0, 12.0, 27.5] },
-    leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
-    rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
-    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '' }
+    leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 15.0, yPos: 8.5, lockAspectRatio: true },
+    rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 7.0, yPos: 8.5, lockAspectRatio: true },
+    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.5, height: 2.6, xPos: 11.0, yPos: 13.3, text: '', lockAspectRatio: true }
   },
   back: {
     backgroundType: 'generate',
@@ -84,13 +84,13 @@ export const defaultDesignConfig: ArtDesignConfig = {
     generatedColor1: '#9b4dff',
     generatedColor2: '#ff8c00',
     uploadedFileUrl: null,
-    nameConfig: { enabled: true, yPos: 22, fontSize: 2.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 12, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    numberConfig: { enabled: true, yPos: 55, fontSize: 8.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 6, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 9, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    nameConfig: { enabled: true, yPos: 25, fontSize: 2.5, color: '#000000', strokeColor: '#ffffff', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 11, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.18 },
+    numberConfig: { enabled: true, yPos: 47, fontSize: 9.0, color: '#000000', strokeColor: '#ffffff', strokeWidth: 5, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8.5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.2 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 30, color: '#000000', strokeColor: '#ffffff', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0.06 },
     guidelines: { vertical: [2.0, 11.0, 20.0], horizontal: [2.5, 6.0, 8.0, 9.5, 16.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
-    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '' }
+    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '', lockAspectRatio: true }
   },
   sleeveLeft: {
     backgroundType: 'generate',
@@ -104,7 +104,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     guidelines: { vertical: [9.5], horizontal: [8.0] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
-    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '' }
+    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '', lockAspectRatio: true }
   },
   sleeveRight: {
     backgroundType: 'generate',
@@ -118,7 +118,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     guidelines: { vertical: [9.5], horizontal: [8.0] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
-    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '' }
+    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '', lockAspectRatio: true }
   },
   a4Print: {
     backgroundType: 'generate',
@@ -132,7 +132,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     guidelines: { vertical: [5.0], horizontal: [5.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
-    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '' }
+    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '', lockAspectRatio: true }
   }
 };
 
@@ -443,18 +443,18 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const current = activePanel[configKey] || {
       enabled: false,
       uploadedUrl: null,
-      width: logoType === 'torso' ? 8.0 : 3.5,
-      height: logoType === 'torso' ? 5.0 : 3.5,
-      xPos: logoType === 'leftChest' ? 13.5 : logoType === 'rightChest' ? 8.5 : 11.0,
-      yPos: logoType === 'torso' ? 16.0 : 7.5,
-      lockAspectRatio: logoType !== 'torso'
+      width: logoType === 'torso' ? 8.5 : 3.5,
+      height: logoType === 'torso' ? 2.6 : 3.5,
+      xPos: logoType === 'leftChest' ? 15.0 : logoType === 'rightChest' ? 7.0 : 11.0,
+      yPos: logoType === 'torso' ? 13.3 : 8.5,
+      lockAspectRatio: true
     };
 
     let updated = { ...current, ...fields };
 
     // Aspect ratio locking logic: if lockAspectRatio is true and we're scaling width or height,
     // we scale the other dimension proportionally.
-    const isLocked = updated.lockAspectRatio ?? (logoType !== 'torso');
+    const isLocked = updated.lockAspectRatio ?? true;
     if (isLocked) {
       if (fields.width !== undefined && fields.width !== current.width && current.width > 0) {
         const ratio = current.height / current.width;
@@ -2538,6 +2538,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                             style={{ padding: '6px' }}
                           />
                         </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '-2px', marginBottom: '4px' }}>
+                        <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', cursor: 'pointer' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={activePanel.torsoLogo?.lockAspectRatio ?? true}
+                            onChange={(e) => updateLogoConfig('torso', { lockAspectRatio: e.target.checked })}
+                          />
+                          Lock Proportions
+                        </label>
                       </div>
 
                       <div>
