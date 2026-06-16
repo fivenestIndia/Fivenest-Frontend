@@ -354,4 +354,20 @@ router.post("/verify-studio-payment", async (req, res) => {
   }
 });
 
+/**
+ * @route GET /api/payment/debug-env
+ * @desc Non-sensitive debugging check for environment variables and client setup
+ */
+router.get("/debug-env", async (req, res) => {
+  const { supabaseAdmin } = await import("../config/supabase.js");
+  return res.status(200).json({
+    hasSupabaseUrl: !!process.env.SUPABASE_URL,
+    supabaseUrlLength: process.env.SUPABASE_URL ? process.env.SUPABASE_URL.length : 0,
+    hasSupabaseServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    supabaseServiceRoleKeyLength: process.env.SUPABASE_SERVICE_ROLE_KEY ? process.env.SUPABASE_SERVICE_ROLE_KEY.length : 0,
+    supabaseAdminInitialized: !!supabaseAdmin,
+    port: process.env.PORT || "not set"
+  });
+});
+
 export default router;
