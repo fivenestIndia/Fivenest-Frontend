@@ -1268,21 +1268,6 @@ export const NestingView: React.FC<NestingViewProps> = ({
         // Enforce 72 DPI in Test Mode
         let activeDpi = testMode ? 72 : dpi;
 
-        // Safety checks for giant canvas sizes when using 300 DPI
-        if (!testMode && enableNesting && dpi === 300) {
-          const firstSheet = nestingSheets[0];
-          const sWidthPx = Math.round(rollW * 300);
-          const sHeightPx = Math.round(firstSheet.height * 300);
-          if (sWidthPx > 16384 || sHeightPx > 16384 || (sWidthPx * sHeightPx) > 200000000) {
-            const confirmReduce = window.confirm(
-              `Warning: Rendering a 300 DPI nested roll of size ${rollW}" x ${Math.round(firstSheet.height)}" requires a giant canvas of size ${sWidthPx}x${sHeightPx} px (${Math.round((sWidthPx * sHeightPx) / 1000000)} Megapixels). This might exceed browser canvas limits and crash. \n\nClick OK to automatically scale down to 150 DPI for nesting safety, or Cancel to attempt 300 DPI anyway.`
-            );
-            if (confirmReduce) {
-              activeDpi = 150;
-            }
-          }
-        }
-
         if (!enableNesting) {
           // EXPORT AS ZIP OF INDIVIDUAL IMAGES (Front, Back, Sleeve, A4 folders)
           const frontOverlaysChecked = (designConfig.front.nameConfig.enabled || designConfig.front.numberConfig.enabled) && !metadata.blankKit;
@@ -1487,56 +1472,50 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
         for (let s = 0; s < nestingSheets.length; s++) {
           const sheet = nestingSheets[s];
-          setExportProgress(`Rendering Nest Sheet ${s + 1} of ${nestingSheets.length} at ${activeDpi} DPI...`);
-
-          const sheetCanvas = document.createElement('canvas');
-          const sCtx = sheetCanvas.getContext('2d');
-          if (!sCtx) {
-            alert(`Failed to allocate a high-resolution nested canvas for Sheet ${s + 1} at ${activeDpi} DPI. This occurs when the canvas size exceeds browser limitations. \n\nPlease choose a lower DPI (e.g. 150 DPI) or disable nesting to export individual panels.`);
-            setIsExporting(false);
-            setExportProgress("");
-            return;
-          }
-
-          const sWidthPx = Math.round(rollW * activeDpi);
-          const sHeightPx = Math.round(sheet.height * activeDpi);
-          sheetCanvas.width = sWidthPx;
-          sheetCanvas.height = sHeightPx;
-
-          sCtx.fillStyle = '#ffffff';
-          sCtx.fillRect(0, 0, sWidthPx, sHeightPx);
-
-          for (let i = 0; i < sheet.items.length; i++) {
-            const item = sheet.items[i];
-            
-            const itemCanvas = await renderPanelGraphic(item, activeDpi);
-
-            const targetX = Math.round(item.x * activeDpi);
-            const targetY = Math.round(item.y * activeDpi);
-            const targetW = Math.round(item.w * activeDpi);
-            const targetH = Math.round(item.h * activeDpi);
-
-            sCtx.save();
-            sCtx.translate(targetX + targetW / 2, targetY + targetH / 2);
-            
-            if (item.rotated) {
-              sCtx.rotate(Math.PI / 2);
-              sCtx.drawImage(itemCanvas, -targetH/2, -targetW/2, targetH, targetW);
-            } else {
-              sCtx.drawImage(itemCanvas, -targetW/2, -targetH/2, targetW, targetH);
-            }
-            sCtx.restore();
-          }
-
-          const imgData = sheetCanvas.toDataURL('image/jpeg', 0.82);
-          
           const widthPt = rollW * 72;
           const heightPt = sheet.height * 72;
 
           if (s > 0) {
             pdf.addPage([widthPt, heightPt], 'portrait');
           }
-          pdf.addImage(imgData, 'JPEG', 0, 0, widthPt, heightPt, undefined, 'FAST');
+
+          // Directly draw each nested panel onto the PDF document
+          for (let i = 0; i < sheet.items.length; i++) {
+            const item = sheet.items[i];
+            setExportProgress(`Rendering panel ${i + 1}/${sheet.items.length} on Sheet ${s + 1} at ${activeDpi} DPI...`);
+
+            const itemCanvas = await renderPanelGraphic(item, activeDpi);
+
+            // Handle pre-rotation of the panel if it is rotated in the layout
+            let finalCanvas = itemCanvas;
+            if (item.rotated) {
+              const rotatedCanvas = document.createElement('canvas');
+              rotatedCanvas.width = itemCanvas.height;
+              rotatedCanvas.height = itemCanvas.width;
+              const rCtx = rotatedCanvas.getContext('2d');
+              if (rCtx) {
+                rCtx.save();
+                rCtx.translate(rotatedCanvas.width / 2, rotatedCanvas.height / 2);
+                rCtx.rotate(Math.PI / 2);
+                rCtx.drawImage(itemCanvas, -itemCanvas.width / 2, -itemCanvas.height / 2);
+                rCtx.restore();
+                finalCanvas = rotatedCanvas;
+              }
+            }
+
+            const imgData = finalCanvas.toDataURL('image/jpeg', 0.85);
+
+            const targetXPt = item.x * 72;
+            const targetYPt = item.y * 72;
+            const targetWPt = item.w * 72;
+            const targetHPt = item.h * 72;
+
+            if (item.rotated) {
+              pdf.addImage(imgData, 'JPEG', targetXPt, targetYPt, targetHPt, targetWPt, undefined, 'FAST');
+            } else {
+              pdf.addImage(imgData, 'JPEG', targetXPt, targetYPt, targetWPt, targetHPt, undefined, 'FAST');
+            }
+          }
         }
 
         setExportProgress("Saving PDF document...");

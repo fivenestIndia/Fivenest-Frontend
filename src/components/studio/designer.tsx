@@ -71,7 +71,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     generatedColor2: '#ff8c00',
     uploadedFileUrl: null,
     nameConfig: { enabled: false, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    numberConfig: { enabled: true, yPos: 44, fontSize: 3.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 3, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.08 },
+    numberConfig: { enabled: false, yPos: 44, fontSize: 3.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 3, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.08 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [2.0, 8.5, 11.0, 13.5, 20.0], horizontal: [7.0, 10.0, 12.0, 27.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 15.0, yPos: 8.5, lockAspectRatio: true },
@@ -2242,7 +2242,19 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                                 if (file) {
                                   const reader = new FileReader();
                                   reader.onload = (event) => {
-                                    updateLogoConfig('leftChest', { uploadedUrl: event.target?.result as string });
+                                    const dataUrl = event.target?.result as string;
+                                    const img = new Image();
+                                    img.onload = () => {
+                                      const aspect = img.naturalWidth / img.naturalHeight;
+                                      const targetW = 3.5;
+                                      const targetH = parseFloat((targetW / aspect).toFixed(2));
+                                      updateLogoConfig('leftChest', { 
+                                        uploadedUrl: dataUrl,
+                                        width: targetW,
+                                        height: targetH
+                                      });
+                                    };
+                                    img.src = dataUrl;
                                   };
                                   reader.readAsDataURL(file);
                                 }
@@ -2366,7 +2378,19 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                                 if (file) {
                                   const reader = new FileReader();
                                   reader.onload = (event) => {
-                                    updateLogoConfig('rightChest', { uploadedUrl: event.target?.result as string });
+                                    const dataUrl = event.target?.result as string;
+                                    const img = new Image();
+                                    img.onload = () => {
+                                      const aspect = img.naturalWidth / img.naturalHeight;
+                                      const targetW = 3.5;
+                                      const targetH = parseFloat((targetW / aspect).toFixed(2));
+                                      updateLogoConfig('rightChest', { 
+                                        uploadedUrl: dataUrl,
+                                        width: targetW,
+                                        height: targetH
+                                      });
+                                    };
+                                    img.src = dataUrl;
                                   };
                                   reader.readAsDataURL(file);
                                 }
@@ -2502,7 +2526,19 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                                 if (file) {
                                   const reader = new FileReader();
                                   reader.onload = (event) => {
-                                    updateLogoConfig('torso', { uploadedUrl: event.target?.result as string });
+                                    const dataUrl = event.target?.result as string;
+                                    const img = new Image();
+                                    img.onload = () => {
+                                      const aspect = img.naturalWidth / img.naturalHeight;
+                                      const targetW = 8.5;
+                                      const targetH = parseFloat((targetW / aspect).toFixed(2));
+                                      updateLogoConfig('torso', { 
+                                        uploadedUrl: dataUrl,
+                                        width: targetW,
+                                        height: targetH
+                                      });
+                                    };
+                                    img.src = dataUrl;
                                   };
                                   reader.readAsDataURL(file);
                                 }
