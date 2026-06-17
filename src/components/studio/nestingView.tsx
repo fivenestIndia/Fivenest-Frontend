@@ -1484,7 +1484,12 @@ export const NestingView: React.FC<NestingViewProps> = ({
             const item = sheet.items[i];
             setExportProgress(`Rendering panel ${i + 1}/${sheet.items.length} on Sheet ${s + 1} at ${activeDpi} DPI...`);
 
-            const itemCanvas = await renderPanelGraphic(item, activeDpi);
+            // Compute original unrotated dimensions to prevent template stretching
+            const origW = item.rotated ? item.h : item.w;
+            const origH = item.rotated ? item.w : item.h;
+            const unrotatedItem = { ...item, w: origW, h: origH };
+
+            const itemCanvas = await renderPanelGraphic(unrotatedItem, activeDpi);
 
             // Handle pre-rotation of the panel if it is rotated in the layout
             let finalCanvas = itemCanvas;
@@ -1510,11 +1515,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
             const targetWPt = item.w * 72;
             const targetHPt = item.h * 72;
 
-            if (item.rotated) {
-              pdf.addImage(imgData, 'JPEG', targetXPt, targetYPt, targetHPt, targetWPt, undefined, 'FAST');
-            } else {
-              pdf.addImage(imgData, 'JPEG', targetXPt, targetYPt, targetWPt, targetHPt, undefined, 'FAST');
-            }
+            pdf.addImage(imgData, 'JPEG', targetXPt, targetYPt, targetWPt, targetHPt, undefined, 'FAST');
           }
         }
 

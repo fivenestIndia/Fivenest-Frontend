@@ -456,10 +456,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     // we scale the other dimension proportionally.
     const isLocked = updated.lockAspectRatio ?? true;
     if (isLocked) {
-      if (fields.width !== undefined && fields.width !== current.width && current.width > 0) {
+      if (fields.width !== undefined && fields.height === undefined && fields.width !== current.width && current.width > 0) {
         const ratio = current.height / current.width;
         updated.height = parseFloat((fields.width * ratio).toFixed(2));
-      } else if (fields.height !== undefined && fields.height !== current.height && current.height > 0) {
+      } else if (fields.height !== undefined && fields.width === undefined && fields.height !== current.height && current.height > 0) {
         const ratio = current.width / current.height;
         updated.width = parseFloat((fields.height * ratio).toFixed(2));
       }
@@ -2245,9 +2245,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                                     const dataUrl = event.target?.result as string;
                                     const img = new Image();
                                     img.onload = () => {
-                                      const aspect = img.naturalWidth / img.naturalHeight;
-                                      const targetW = 3.5;
-                                      const targetH = parseFloat((targetW / aspect).toFixed(2));
+                                      const targetW = parseFloat((img.naturalWidth / 300).toFixed(2));
+                                      const targetH = parseFloat((img.naturalHeight / 300).toFixed(2));
                                       updateLogoConfig('leftChest', { 
                                         uploadedUrl: dataUrl,
                                         width: targetW,
@@ -2381,9 +2380,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                                     const dataUrl = event.target?.result as string;
                                     const img = new Image();
                                     img.onload = () => {
-                                      const aspect = img.naturalWidth / img.naturalHeight;
-                                      const targetW = 3.5;
-                                      const targetH = parseFloat((targetW / aspect).toFixed(2));
+                                      const targetW = parseFloat((img.naturalWidth / 300).toFixed(2));
+                                      const targetH = parseFloat((img.naturalHeight / 300).toFixed(2));
                                       updateLogoConfig('rightChest', { 
                                         uploadedUrl: dataUrl,
                                         width: targetW,
@@ -2529,9 +2527,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                                     const dataUrl = event.target?.result as string;
                                     const img = new Image();
                                     img.onload = () => {
-                                      const aspect = img.naturalWidth / img.naturalHeight;
-                                      const targetW = 8.5;
-                                      const targetH = parseFloat((targetW / aspect).toFixed(2));
+                                      const targetW = parseFloat((img.naturalWidth / 300).toFixed(2));
+                                      const targetH = parseFloat((img.naturalHeight / 300).toFixed(2));
                                       updateLogoConfig('torso', { 
                                         uploadedUrl: dataUrl,
                                         width: targetW,
