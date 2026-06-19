@@ -1795,8 +1795,56 @@ async function generatePreviewPDF(mappedJobs, selectedFolder, customerName, orde
         jobSleeveFiles.sort((a, b) => a.entry.name.localeCompare(b.entry.name));
         jobNameNumFiles.sort((a, b) => a.entry.name.localeCompare(b.entry.name));
 
-        // Combine for this job in requested order: Front -> Back -> Sleeve -> Name_Number
-        filesToMerge.push(...jobFrontFiles, ...jobBackFiles, ...jobSleeveFiles, ...jobNameNumFiles);
+        const pairedFiles = [];
+        const usedBacks = new Set();
+
+        if (job.rows && job.headers) {
+            for (const row of job.rows) {
+                const fname = row[0];
+                if (!fname) continue;
+
+                const activeSize = getVal(row, job.headers, "size") || getVal(row, job.headers, "front size") || (fname.match(/^(\d{2})/) ? fname.match(/^(\d{2})/)[1] : "");
+                if (!activeSize) continue;
+
+                // Find back match
+                const backMatch = jobBackFiles.find(bf => {
+                    const cleanBfName = bf.entry.name.replace(/\.[^/.]+$/, "").toLowerCase();
+                    return cleanBfName === `${fname.toLowerCase()} b`;
+                });
+
+                if (backMatch) {
+                    // Find front match for this size
+                    const frontMatch = jobFrontFiles.find(ff => {
+                        const cleanFfName = ff.entry.name.replace(/\.[^/.]+$/, "").toLowerCase();
+                        return cleanFfName.startsWith(`${activeSize.toLowerCase()} = `) || 
+                               cleanFfName.startsWith(`${activeSize.toLowerCase()} `);
+                    });
+
+                    if (frontMatch) {
+                        pairedFiles.push({
+                            entry: frontMatch.entry,
+                            folderName: "Front",
+                            customName: `${fname} F`
+                        });
+                    }
+                    pairedFiles.push({
+                        entry: backMatch.entry,
+                        folderName: "Back",
+                        customName: `${fname} B`
+                    });
+                    usedBacks.add(backMatch.entry.nativePath);
+                }
+            }
+        }
+
+        const unpairedBacks = jobBackFiles.filter(bf => !usedBacks.has(bf.entry.nativePath));
+        const leftoverFiles = [...unpairedBacks, ...jobSleeveFiles, ...jobNameNumFiles];
+
+        if (pairedFiles.length > 0) {
+            filesToMerge.push(...pairedFiles, ...leftoverFiles);
+        } else {
+            filesToMerge.push(...jobFrontFiles, ...jobBackFiles, ...jobSleeveFiles, ...jobNameNumFiles);
+        }
     }
 
     if (filesToMerge.length === 0) {
@@ -1829,7 +1877,7 @@ async function generatePreviewPDF(mappedJobs, selectedFolder, customerName, orde
             const path = f.entry.nativePath;
             imagePaths.push(path);
             folderNames.push(f.folderName);
-            fileNames.push(f.entry.name.replace(/\.[^/.]+$/, ""));
+            fileNames.push(f.customName || f.entry.name.replace(/\.[^/.]+$/, ""));
 
             const dim = exportedDimensions[normalizePath(path)] || { w: 15, h: 21 }; // default fallback to standard front/back size
             widths.push(dim.w);

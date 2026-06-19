@@ -1466,28 +1466,113 @@ export const NestingView: React.FC<NestingViewProps> = ({
           const needPreviewPdf = !testMode && activeDpi > 72;
           if (needPreviewPdf && renderActions.length > 0) {
             setExportProgress("Generating preview PDF at 72 DPI...");
-            const maxItemHeight = renderActions.reduce((max, act) => Math.max(max, act.representativeItem.h), 0);
-            const maxItemHeightPt = maxItemHeight * 72;
-            const zipUUnit = maxItemHeightPt > 14400 ? Math.ceil(maxItemHeightPt / 14400) : 1.0;
+            
+            interface PreviewPage {
+              item: PlacedItem;
+              label: string;
+            }
+            const previewPages: PreviewPage[] = [];
+            const processedItemIds = new Set<string>();
 
-            const previewPdf = new jsPDF({
-              orientation: 'portrait',
-              unit: 'pt',
-              format: [ (renderActions[0].representativeItem.w * 72) / zipUUnit, (renderActions[0].representativeItem.h * 72) / zipUUnit ],
-              userUnit: zipUUnit
+            // 1. Pair Front and Back for each player piece
+            items.forEach(item => {
+              if (item.panelType === 'back') {
+                // Find corresponding front panel for this item (shares the same recordId prefix)
+                const recordPrefix = item.recordId.substring(0, item.recordId.lastIndexOf('-item-') + 6);
+                const frontItem = items.find(fit => fit.panelType === 'front' && fit.recordId.startsWith(recordPrefix));
+                
+                if (frontItem) {
+                  previewPages.push({
+                    item: frontItem,
+                    label: `[Front] ${item.playerName || 'BLANK'} F`
+                  });
+                }
+                previewPages.push({
+                  item: item,
+                  label: `[Back] ${item.playerName || 'BLANK'} B`
+                });
+                processedItemIds.add(item.recordId);
+                if (frontItem) {
+                  processedItemIds.add(frontItem.recordId);
+                }
+              }
             });
 
-            for (let i = 0; i < renderActions.length; i++) {
-              const action = renderActions[i];
-              const item = action.representativeItem;
-              if (i > 0) {
-                previewPdf.addPage([ (item.w * 72) / zipUUnit, (item.h * 72) / zipUUnit ], 'portrait');
+            // 2. Add any other items (unpaired fronts, sleeves, A4 prints)
+            items.forEach(item => {
+              if (!processedItemIds.has(item.recordId)) {
+                let label = `[${item.panelType.toUpperCase()}] ${item.size}`;
+                if (item.panelType === 'front') {
+                  label = `[Front] ${item.playerName || 'BLANK'} F`;
+                } else if (item.panelType.startsWith('sleeve')) {
+                  label = `[Sleeve] ${item.size}`;
+                } else if (item.panelType === 'a4-print') {
+                  label = `[A4] ${item.size}`;
+                }
+                previewPages.push({
+                  item,
+                  label
+                });
               }
-              const previewItemCanvas = await renderPanelGraphic(item, 72);
-              const previewImgData = previewItemCanvas.toDataURL('image/jpeg', 0.75);
-              previewPdf.addImage(previewImgData, 'JPEG', 0, 0, (item.w * 72) / zipUUnit, (item.h * 72) / zipUUnit, undefined, 'FAST');
+            });
+
+            if (previewPages.length > 0) {
+              const maxItemHeight = previewPages.reduce((max, pg) => Math.max(max, pg.item.h), 0);
+              const maxItemHeightPt = (maxItemHeight * 72) + 30;
+              const zipUUnit = maxItemHeightPt > 14400 ? Math.ceil(maxItemHeightPt / 14400) : 1.0;
+
+              const previewPdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'pt',
+                format: [ (previewPages[0].item.w * 72) / zipUUnit, ((previewPages[0].item.h * 72) + 30) / zipUUnit ],
+                userUnit: zipUUnit
+              });
+
+              for (let i = 0; i < previewPages.length; i++) {
+                const page = previewPages[i];
+                const item = page.item;
+                const pageW = (item.w * 72) / zipUUnit;
+                const pageH = ((item.h * 72) + 30) / zipUUnit;
+
+                if (i > 0) {
+                  previewPdf.addPage([ pageW, pageH ], 'portrait');
+                }
+
+                // Draw solid white background
+                previewPdf.setFillColor(255, 255, 255);
+                previewPdf.rect(0, 0, pageW, pageH, 'F');
+
+                const previewItemCanvas = await renderPanelGraphic(item, 72);
+                const previewImgData = previewItemCanvas.toDataURL('image/jpeg', 0.75);
+
+                const targetXPt = 0;
+                const targetYPt = 5;
+                const targetWPt = item.w * 72;
+                const targetHPt = item.h * 72;
+
+                previewPdf.addImage(
+                  previewImgData, 
+                  'JPEG', 
+                  targetXPt / zipUUnit, 
+                  targetYPt / zipUUnit, 
+                  targetWPt / zipUUnit, 
+                  targetHPt / zipUUnit, 
+                  undefined, 
+                  'FAST'
+                );
+
+                // Add centered label below image
+                previewPdf.setFontSize(12);
+                previewPdf.setTextColor(50, 50, 50);
+                previewPdf.text(
+                  page.label,
+                  pageW / 2,
+                  ((item.h * 72) + 20) / zipUUnit,
+                  { align: 'center' }
+                );
+              }
+              previewPdf.save(`${cleanCust}_${cleanOrder}_Preview_72dpi.pdf`);
             }
-            previewPdf.save(`${cleanCust}_${cleanOrder}_Preview_72dpi.pdf`);
           }
 
           setIsExporting(false);
