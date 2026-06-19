@@ -476,7 +476,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
     // 2. Perform Bin Packing
     let sheets: NestingSheet[] = [];
-    const effectiveRollH = Math.min(rollH, 200);
+    const effectiveRollH = rollH;
     
     if (tightestFit) {
       sheets = packItemsTight(itemsToPack, effectiveRollH);
@@ -501,7 +501,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
   // Shelf Packer (Classic Row-based)
   const packItemsShelf = (items: any[], maxHParam?: number) => {
-    const effectiveRollH = Math.min(maxHParam ?? rollH, 200);
+    const effectiveRollH = maxHParam ?? rollH;
     const sheets: NestingSheet[] = [];
     let currentItems: PlacedItem[] = [];
     let currentX = 0;
@@ -615,7 +615,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
   // Node-Splitting Packer (Tight 2D bin packing)
   const packItemsTight = (items: any[], maxHParam?: number) => {
-    const effectiveRollH = Math.min(maxHParam ?? rollH, 200);
+    const effectiveRollH = maxHParam ?? rollH;
     const sheets: NestingSheet[] = [];
 
     const splitNode = (node: PackNode, w: number, h: number) => {
