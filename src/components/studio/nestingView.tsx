@@ -476,11 +476,12 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
     // 2. Perform Bin Packing
     let sheets: NestingSheet[] = [];
+    const effectiveRollH = Math.min(rollH, 200);
     
     if (tightestFit) {
-      sheets = packItemsTight(itemsToPack);
+      sheets = packItemsTight(itemsToPack, effectiveRollH);
     } else {
-      sheets = packItemsShelf(itemsToPack);
+      sheets = packItemsShelf(itemsToPack, effectiveRollH);
     }
 
     setNestingSheets(sheets);
@@ -499,7 +500,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
   // --- 2D packing algorithms ---
 
   // Shelf Packer (Classic Row-based)
-  const packItemsShelf = (items: any[]) => {
+  const packItemsShelf = (items: any[], maxHParam?: number) => {
+    const effectiveRollH = Math.min(maxHParam ?? rollH, 200);
     const sheets: NestingSheet[] = [];
     let currentItems: PlacedItem[] = [];
     let currentX = 0;
@@ -532,7 +534,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
       let placed = false;
 
       // 1. Try fit on current shelf
-      if (currentX + itemW <= rollW && currentY + itemH <= rollH) {
+      if (currentX + itemW <= rollW && currentY + itemH <= effectiveRollH) {
         currentItems.push({
           ...item,
           x: currentX,
@@ -544,7 +546,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
         placed = true;
       }
       // 2. Try fit rotated on current shelf
-      else if (canRotate && currentX + itemH <= rollW && currentY + itemW <= rollH) {
+      else if (canRotate && currentX + itemH <= rollW && currentY + itemW <= effectiveRollH) {
         currentItems.push({
           ...item,
           w: itemH,
@@ -562,7 +564,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
       if (!placed) {
         const nextY = currentY + shelfHeight + itemGap;
         
-        if (nextY + itemH <= rollH) {
+        if (nextY + itemH <= effectiveRollH) {
           currentY = nextY;
           currentX = 0;
           shelfHeight = itemH;
@@ -575,7 +577,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
           });
           currentX += itemW + itemGap;
           placed = true;
-        } else if (canRotate && nextY + itemW <= rollH) {
+        } else if (canRotate && nextY + itemW <= effectiveRollH) {
           currentY = nextY;
           currentX = 0;
           shelfHeight = itemW;
@@ -612,7 +614,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
   };
 
   // Node-Splitting Packer (Tight 2D bin packing)
-  const packItemsTight = (items: any[]) => {
+  const packItemsTight = (items: any[], maxHParam?: number) => {
+    const effectiveRollH = Math.min(maxHParam ?? rollH, 200);
     const sheets: NestingSheet[] = [];
 
     const splitNode = (node: PackNode, w: number, h: number) => {
@@ -665,7 +668,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
       // Start a new sheet
       if (!placed) {
-        const rootNode = new PackNode(0, 0, rollW, rollH);
+        const rootNode = new PackNode(0, 0, rollW, effectiveRollH);
         let rotated = false;
         
         let node = findNode(rootNode, padW, padH);
@@ -701,7 +704,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
         sheets.push({
           width: rollW,
-          height: rollH, // we will trim actual height later
+          height: effectiveRollH, // we will trim actual height later
           items: newItems,
           efficiency: 0,
           // Attach root for next items
@@ -716,7 +719,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
       sheet.items.forEach(item => {
         maxBottom = Math.max(maxBottom, item.y + item.h);
       });
-      sheet.height = maxBottom > 0 ? maxBottom : rollH;
+      sheet.height = maxBottom > 0 ? maxBottom : effectiveRollH;
       sheet.efficiency = calculateEfficiency(sheet.items, rollW, sheet.height);
     });
 
@@ -1139,7 +1142,15 @@ export const NestingView: React.FC<NestingViewProps> = ({
       loadAllImages().then(images => {
         // Draw background
         if (images.bg) {
-          ctx.drawImage(images.bg, 0, 0, widthPx, heightPx);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, widthPx, heightPx);
+
+          const bgW = (conf.bgWidth !== undefined ? conf.bgWidth : item.w) * scaleDpi;
+          const bgH = (conf.bgHeight !== undefined ? conf.bgHeight : item.h) * scaleDpi;
+          const bgX = (conf.bgX !== undefined ? conf.bgX : 0) * scaleDpi;
+          const bgY = (conf.bgY !== undefined ? conf.bgY : 0) * scaleDpi;
+
+          ctx.drawImage(images.bg, bgX, bgY, bgW, bgH);
         } else {
           // Render generated vectors at high-res
           const c1 = conf.generatedColor1;
@@ -1181,7 +1192,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
             ctx.arc(widthPx * 0.2, heightPx * 0.8, widthPx * 0.25, 0, Math.PI * 2);
             ctx.fill();
           } else {
-            ctx.fillStyle = '#1c1c24';
+            ctx.fillStyle = item.panelType === 'a4-print' ? '#ffffff' : '#1c1c24';
             ctx.fillRect(0, 0, widthPx, heightPx);
           }
         }
@@ -1248,7 +1259,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
     const calculatedCost = items.reduce((acc, item) => {
       if (item.panelType === 'back') {
-        return acc + 1.00;
+        return acc + 3.00;
       } else if (item.panelType === 'a4-print') {
         return acc + 0.50;
       }
@@ -1451,6 +1462,29 @@ export const NestingView: React.FC<NestingViewProps> = ({
           link.click();
           document.body.removeChild(link);
 
+          // Now, generate and download a 72 DPI preview PDF alongside if activeDpi > 72 and not in testMode
+          const needPreviewPdf = !testMode && activeDpi > 72;
+          if (needPreviewPdf && renderActions.length > 0) {
+            setExportProgress("Generating preview PDF at 72 DPI...");
+            const previewPdf = new jsPDF({
+              orientation: 'portrait',
+              unit: 'pt',
+              format: [renderActions[0].representativeItem.w * 72, renderActions[0].representativeItem.h * 72]
+            });
+
+            for (let i = 0; i < renderActions.length; i++) {
+              const action = renderActions[i];
+              const item = action.representativeItem;
+              if (i > 0) {
+                previewPdf.addPage([item.w * 72, item.h * 72], 'portrait');
+              }
+              const previewItemCanvas = await renderPanelGraphic(item, 72);
+              const previewImgData = previewItemCanvas.toDataURL('image/jpeg', 0.75);
+              previewPdf.addImage(previewImgData, 'JPEG', 0, 0, item.w * 72, item.h * 72, undefined, 'FAST');
+            }
+            previewPdf.save(`${cleanCust}_${cleanOrder}_Preview_72dpi.pdf`);
+          }
+
           setIsExporting(false);
           setExportProgress("");
 
@@ -1470,6 +1504,17 @@ export const NestingView: React.FC<NestingViewProps> = ({
           format: [rollW * 72, firstSheet.height * 72]
         });
 
+        // Create the 72 DPI preview PDF if activeDpi is not 72
+        const needPreviewPdf = !testMode && activeDpi > 72;
+        let previewPdf: jsPDF | null = null;
+        if (needPreviewPdf) {
+          previewPdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'pt',
+            format: [rollW * 72, firstSheet.height * 72]
+          });
+        }
+
         for (let s = 0; s < nestingSheets.length; s++) {
           const sheet = nestingSheets[s];
           const widthPt = rollW * 72;
@@ -1477,6 +1522,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
           if (s > 0) {
             pdf.addPage([widthPt, heightPt], 'portrait');
+            if (needPreviewPdf && previewPdf) {
+              previewPdf.addPage([widthPt, heightPt], 'portrait');
+            }
           }
 
           // Directly draw each nested panel onto the PDF document
@@ -1490,6 +1538,10 @@ export const NestingView: React.FC<NestingViewProps> = ({
             const unrotatedItem = { ...item, w: origW, h: origH };
 
             const itemCanvas = await renderPanelGraphic(unrotatedItem, activeDpi);
+            let previewItemCanvas = null;
+            if (needPreviewPdf) {
+              previewItemCanvas = await renderPanelGraphic(unrotatedItem, 72);
+            }
 
             // Handle pre-rotation of the panel if it is rotated in the layout
             let finalCanvas = itemCanvas;
@@ -1508,6 +1560,22 @@ export const NestingView: React.FC<NestingViewProps> = ({
               }
             }
 
+            let finalPreviewCanvas = previewItemCanvas;
+            if (needPreviewPdf && item.rotated && previewItemCanvas) {
+              const rotatedCanvas = document.createElement('canvas');
+              rotatedCanvas.width = previewItemCanvas.height;
+              rotatedCanvas.height = previewItemCanvas.width;
+              const rCtx = rotatedCanvas.getContext('2d');
+              if (rCtx) {
+                rCtx.save();
+                rCtx.translate(rotatedCanvas.width / 2, rotatedCanvas.height / 2);
+                rCtx.rotate(Math.PI / 2);
+                rCtx.drawImage(previewItemCanvas, -previewItemCanvas.width / 2, -previewItemCanvas.height / 2);
+                rCtx.restore();
+                finalPreviewCanvas = rotatedCanvas;
+              }
+            }
+
             const imgData = finalCanvas.toDataURL('image/jpeg', 0.85);
 
             const targetXPt = item.x * 72;
@@ -1516,6 +1584,11 @@ export const NestingView: React.FC<NestingViewProps> = ({
             const targetHPt = item.h * 72;
 
             pdf.addImage(imgData, 'JPEG', targetXPt, targetYPt, targetWPt, targetHPt, undefined, 'FAST');
+
+            if (needPreviewPdf && finalPreviewCanvas && previewPdf) {
+              const previewImgData = finalPreviewCanvas.toDataURL('image/jpeg', 0.75);
+              previewPdf.addImage(previewImgData, 'JPEG', targetXPt, targetYPt, targetWPt, targetHPt, undefined, 'FAST');
+            }
           }
         }
 
@@ -1523,6 +1596,10 @@ export const NestingView: React.FC<NestingViewProps> = ({
         const cleanCust = metadata.customerName.replace(/[\/\\:*?"<>|]/g, "_").trim() || "Unknown";
         const cleanOrder = metadata.orderNum.replace(/[\/\\:*?"<>|]/g, "_").trim() || "01";
         pdf.save(`${cleanCust}_${cleanOrder}_Print_Roll.pdf`);
+
+        if (needPreviewPdf && previewPdf) {
+          previewPdf.save(`${cleanCust}_${cleanOrder}_Preview_72dpi.pdf`);
+        }
 
         setIsExporting(false);
         setExportProgress("");
@@ -1877,7 +1954,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
             </h3>
             
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px' }}>
-              Production-ready rendering is billed at **₹1.00 INR per Back panel** and **₹0.50 INR per A4 size print panel**. Front and sleeve panels are free.
+              Production-ready rendering is billed at **₹3.00 INR per Back panel** and **₹0.50 INR per A4 size print panel**. Front and sleeve panels are free.
             </p>
 
             <div className="glass-card" style={{ background: 'rgba(0,0,0,0.15)', padding: '16px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1887,7 +1964,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Charged Back Panels:</span>
-                <span style={{ fontWeight: '600' }}>{getItemsToExport().filter(item => item.panelType === 'back').length} pcs (₹1.00 each)</span>
+                <span style={{ fontWeight: '600' }}>{getItemsToExport().filter(item => item.panelType === 'back').length} pcs (₹3.00 each)</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Charged A4 Prints:</span>

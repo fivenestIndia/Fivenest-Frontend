@@ -47,6 +47,11 @@ export interface PanelConfig {
   leftChestLogo?: LogoConfig;
   rightChestLogo?: LogoConfig;
   torsoLogo?: LogoConfig;
+  bgWidth?: number;
+  bgHeight?: number;
+  bgX?: number;
+  bgY?: number;
+  bgLockAspectRatio?: boolean;
 }
 
 export interface ArtDesignConfig {
@@ -84,7 +89,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     generatedColor1: '#9b4dff',
     generatedColor2: '#ff8c00',
     uploadedFileUrl: null,
-    nameConfig: { enabled: true, yPos: 25, fontSize: 2.5, color: '#000000', strokeColor: '#ffffff', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 11, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.18 },
+    nameConfig: { enabled: true, yPos: 24, fontSize: 2.5, color: '#000000', strokeColor: '#ffffff', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 11, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.18 },
     numberConfig: { enabled: true, yPos: 47, fontSize: 9.0, color: '#000000', strokeColor: '#ffffff', strokeWidth: 5, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8.5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.2 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 30, color: '#000000', strokeColor: '#ffffff', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0.06 },
     guidelines: { vertical: [2.0, 11.0, 20.0], horizontal: [2.5, 6.0, 8.0, 9.5, 16.5] },
@@ -122,10 +127,15 @@ export const defaultDesignConfig: ArtDesignConfig = {
   },
   a4Print: {
     backgroundType: 'generate',
-    generatedStyle: 'neon-gradient',
-    generatedColor1: '#9b4dff',
-    generatedColor2: '#ff8c00',
+    generatedStyle: 'blank',
+    generatedColor1: '#ffffff',
+    generatedColor2: '#ffffff',
     uploadedFileUrl: null,
+    bgWidth: 10,
+    bgHeight: 11,
+    bgX: 0,
+    bgY: 0,
+    bgLockAspectRatio: true,
     nameConfig: { enabled: false, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     numberConfig: { enabled: true, yPos: 55, fontSize: 6.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
@@ -468,6 +478,31 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     updateActivePanel({
       [configKey]: updated
     });
+  };
+
+  const updateBackgroundConfig = (fields: Partial<{ bgWidth: number; bgHeight: number; bgX: number; bgY: number; bgLockAspectRatio: boolean }>) => {
+    const current = {
+      bgWidth: activePanel.bgWidth ?? physicalWidth,
+      bgHeight: activePanel.bgHeight ?? physicalHeight,
+      bgX: activePanel.bgX ?? 0,
+      bgY: activePanel.bgY ?? 0,
+      bgLockAspectRatio: activePanel.bgLockAspectRatio ?? true
+    };
+
+    let updated = { ...current, ...fields };
+
+    const isLocked = updated.bgLockAspectRatio;
+    if (isLocked) {
+      if (fields.bgWidth !== undefined && fields.bgHeight === undefined && current.bgWidth > 0) {
+        const ratio = current.bgHeight / current.bgWidth;
+        updated.bgHeight = parseFloat((fields.bgWidth * ratio).toFixed(2));
+      } else if (fields.bgHeight !== undefined && fields.bgWidth === undefined && current.bgHeight > 0) {
+        const ratio = current.bgWidth / current.bgHeight;
+        updated.bgWidth = parseFloat((fields.bgHeight * ratio).toFixed(2));
+      }
+    }
+
+    updateActivePanel(updated);
   };
 
   const handleSleeveTypeChange = (newType: 'half' | 'full') => {
@@ -937,14 +972,23 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     if (activePanel.backgroundType === 'upload' && bgUrl) {
       const img = new Image();
       img.onload = () => {
-        ctx.drawImage(img, 0, 0, width, height);
+        // Draw white background under uploaded image
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+
+        const bgW = (activePanel.bgWidth !== undefined ? activePanel.bgWidth : physicalWidth) * scale;
+        const bgH = (activePanel.bgHeight !== undefined ? activePanel.bgHeight : physicalHeight) * scale;
+        const bgX = (activePanel.bgX !== undefined ? activePanel.bgX : 0) * scale;
+        const bgY = (activePanel.bgY !== undefined ? activePanel.bgY : 0) * scale;
+
+        ctx.drawImage(img, bgX, bgY, bgW, bgH);
         drawLogos(ctx);
         drawTexts(ctx);
         drawTechnicalMarks(ctx);
         drawRulersAndGrid(ctx);
       };
       img.onerror = () => {
-        ctx.fillStyle = '#1c1c24';
+        ctx.fillStyle = activeTab === 'a4Print' ? '#ffffff' : '#1c1c24';
         ctx.fillRect(0, 0, width, height);
         drawLogos(ctx);
         drawTexts(ctx);
@@ -995,7 +1039,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.fill();
       } else {
         // Blank
-        ctx.fillStyle = '#1c1c24';
+        ctx.fillStyle = activeTab === 'a4Print' ? '#ffffff' : '#1c1c24';
         ctx.fillRect(0, 0, width, height);
       }
       
@@ -1029,6 +1073,22 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               uploadedFileHalfUrl: url
             });
           }
+        } else if (activeTab === 'a4Print') {
+          const img = new Image();
+          img.onload = () => {
+            const targetW = parseFloat((img.naturalWidth / 300).toFixed(2));
+            const targetH = parseFloat((img.naturalHeight / 300).toFixed(2));
+            updateActivePanel({
+              backgroundType: 'upload',
+              uploadedFileUrl: url,
+              bgWidth: targetW,
+              bgHeight: targetH,
+              bgX: 0,
+              bgY: 0,
+              bgLockAspectRatio: true
+            });
+          };
+          img.src = url;
         } else {
           updateActivePanel({
             backgroundType: 'upload',
@@ -1603,6 +1663,22 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                               uploadedFileHalfUrl: url
                             });
                           }
+                        } else if (activeTab === 'a4Print') {
+                          const img = new Image();
+                          img.onload = () => {
+                            const targetW = parseFloat((img.naturalWidth / 300).toFixed(2));
+                            const targetH = parseFloat((img.naturalHeight / 300).toFixed(2));
+                            updateActivePanel({
+                              backgroundType: 'upload',
+                              uploadedFileUrl: url,
+                              bgWidth: targetW,
+                              bgHeight: targetH,
+                              bgX: 0,
+                              bgY: 0,
+                              bgLockAspectRatio: true
+                            });
+                          };
+                          img.src = url;
                         } else {
                           updateActivePanel({
                             backgroundType: 'upload',
@@ -1639,6 +1715,100 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       </div>
                     )
                   )}
+                </div>
+              )}
+
+              {activePanel.backgroundType === 'upload' && activeTab === 'a4Print' && activePanel.uploadedFileUrl && (
+                <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '12px', color: 'var(--color-primary)' }}>A4 Background Image Position & Size</span>
+                  
+                  <div className="grid-2">
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '11px' }}>Width (in):</label>
+                      <input 
+                        type="number" 
+                        step="0.05"
+                        className="form-input" 
+                        value={activePanel.bgWidth ?? 10} 
+                        onChange={(e) => updateBackgroundConfig({ bgWidth: parseFloat(e.target.value) || 0 })}
+                        style={{ padding: '6px', fontSize: '12px' }}
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '11px' }}>Height (in):</label>
+                      <input 
+                        type="number" 
+                        step="0.05"
+                        className="form-input" 
+                        value={activePanel.bgHeight ?? 11} 
+                        onChange={(e) => updateBackgroundConfig({ bgHeight: parseFloat(e.target.value) || 0 })}
+                        style={{ padding: '6px', fontSize: '12px' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '11px', flex: 1 }}>
+                      <input 
+                        type="checkbox" 
+                        checked={activePanel.bgLockAspectRatio ?? true} 
+                        onChange={(e) => updateBackgroundConfig({ bgLockAspectRatio: e.target.checked })}
+                      />
+                      Lock Proportions
+                    </label>
+                  </div>
+
+                  <div className="grid-2">
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '11px' }}>X Position (in):</label>
+                      <input 
+                        type="number" 
+                        step="0.05"
+                        className="form-input" 
+                        value={activePanel.bgX ?? 0} 
+                        onChange={(e) => updateBackgroundConfig({ bgX: parseFloat(e.target.value) || 0 })}
+                        style={{ padding: '6px', fontSize: '12px' }}
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '11px' }}>Y Position (in):</label>
+                      <input 
+                        type="number" 
+                        step="0.05"
+                        className="form-input" 
+                        value={activePanel.bgY ?? 0} 
+                        onChange={(e) => updateBackgroundConfig({ bgY: parseFloat(e.target.value) || 0 })}
+                        style={{ padding: '6px', fontSize: '12px' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activePanel.backgroundType === 'upload' && (
+                activeTab.startsWith('sleeve') 
+                  ? (previewSleeveType === 'full' ? activePanel.uploadedFileFullUrl : activePanel.uploadedFileHalfUrl)
+                  : activePanel.uploadedFileUrl
+              ) && (
+                <div style={{ marginTop: '12px' }}>
+                  <button 
+                    type="button" 
+                    className="btn" 
+                    style={{ width: '100%', padding: '6px', fontSize: '11px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744', cursor: 'pointer' }}
+                    onClick={() => {
+                      if (activeTab.startsWith('sleeve')) {
+                        if (previewSleeveType === 'full') {
+                          updateActivePanel({ uploadedFileFullUrl: null });
+                        } else {
+                          updateActivePanel({ uploadedFileHalfUrl: null });
+                        }
+                      } else {
+                        updateActivePanel({ uploadedFileUrl: null });
+                      }
+                    }}
+                  >
+                    Remove Uploaded Background
+                  </button>
                 </div>
               )}
             </div>

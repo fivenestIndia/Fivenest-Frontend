@@ -43,7 +43,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
       });
 
       if (error) {
-        setErrorMessage(error.message);
+        let msg = error.message;
+        if (msg.toLowerCase().includes('confirm') || msg.toLowerCase().includes('verify')) {
+          msg += " (Make sure you have confirmed your email via the link sent to you, or disable 'Confirm email' in the Supabase settings under Auth -> Providers -> Email)";
+        }
+        setErrorMessage(msg);
         return;
       }
 
@@ -95,23 +99,27 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
       }
 
       if (data?.user) {
-        setSuccessMessage('Account created successfully! Please check your email for confirmation (if email confirmations are enabled).');
-        
-        // Auto sign in user if email confirmation is not required
-        const details = await fetchUserWallet(data.user.id);
-        const loggedInUser = {
-          email: data.user.email || email,
-          name: name,
-          balance: details.balance
-        };
-        
-        localStorage.setItem('fivenest_active_user', JSON.stringify(loggedInUser));
-        onLoginStateChange(loggedInUser);
-        
-        setTimeout(() => {
-          setSuccessMessage('');
-          onClose();
-        }, 3000);
+        if (data.session) {
+          // Email confirmation is disabled, user is logged in automatically
+          const details = await fetchUserWallet(data.user.id);
+          const loggedInUser = {
+            email: data.user.email || email,
+            name: name,
+            balance: details.balance
+          };
+          
+          localStorage.setItem('fivenest_active_user', JSON.stringify(loggedInUser));
+          onLoginStateChange(loggedInUser);
+          setSuccessMessage('Account created successfully! Logging you in...');
+          
+          setTimeout(() => {
+            setSuccessMessage('');
+            onClose();
+          }, 2000);
+        } else {
+          // Email confirmation is enabled, user needs to verify email first
+          setSuccessMessage('Account created successfully! Please check your email inbox (and spam folder) for the confirmation link to activate your account. You cannot sign in until you click the confirmation link.');
+        }
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Registration failed.');
@@ -480,6 +488,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
             <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px', marginTop: '8px' }}>
               Sign In
             </button>
+
+            <p style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: '1.4', marginTop: '4px', textAlign: 'center' }}>
+              💡 <strong>Sign In issue?</strong> Make sure you confirmed your signup email, or turn off "Confirm email" in the Supabase Dashboard settings (Auth → Providers → Email).
+            </p>
 
             <div style={{ margin: '12px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
               <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--border-light)' }} />
