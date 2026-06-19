@@ -476,7 +476,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
     // 2. Perform Bin Packing
     let sheets: NestingSheet[] = [];
-    const effectiveRollH = Math.min(rollH, 200);
+    const effectiveRollH = rollH;
     
     if (tightestFit) {
       sheets = packItemsTight(itemsToPack, effectiveRollH);
@@ -501,7 +501,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
   // Shelf Packer (Classic Row-based)
   const packItemsShelf = (items: any[], maxHParam?: number) => {
-    const effectiveRollH = Math.min(maxHParam ?? rollH, 200);
+    const effectiveRollH = maxHParam ?? rollH;
     const sheets: NestingSheet[] = [];
     let currentItems: PlacedItem[] = [];
     let currentX = 0;
@@ -615,7 +615,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
   // Node-Splitting Packer (Tight 2D bin packing)
   const packItemsTight = (items: any[], maxHParam?: number) => {
-    const effectiveRollH = Math.min(maxHParam ?? rollH, 200);
+    const effectiveRollH = maxHParam ?? rollH;
     const sheets: NestingSheet[] = [];
 
     const splitNode = (node: PackNode, w: number, h: number) => {
@@ -1466,21 +1466,26 @@ export const NestingView: React.FC<NestingViewProps> = ({
           const needPreviewPdf = !testMode && activeDpi > 72;
           if (needPreviewPdf && renderActions.length > 0) {
             setExportProgress("Generating preview PDF at 72 DPI...");
+            const maxItemHeight = renderActions.reduce((max, act) => Math.max(max, act.representativeItem.h), 0);
+            const maxItemHeightPt = maxItemHeight * 72;
+            const zipUUnit = maxItemHeightPt > 14400 ? Math.ceil(maxItemHeightPt / 14400) : 1.0;
+
             const previewPdf = new jsPDF({
               orientation: 'portrait',
               unit: 'pt',
-              format: [renderActions[0].representativeItem.w * 72, renderActions[0].representativeItem.h * 72]
+              format: [ (renderActions[0].representativeItem.w * 72) / zipUUnit, (renderActions[0].representativeItem.h * 72) / zipUUnit ],
+              userUnit: zipUUnit
             });
 
             for (let i = 0; i < renderActions.length; i++) {
               const action = renderActions[i];
               const item = action.representativeItem;
               if (i > 0) {
-                previewPdf.addPage([item.w * 72, item.h * 72], 'portrait');
+                previewPdf.addPage([ (item.w * 72) / zipUUnit, (item.h * 72) / zipUUnit ], 'portrait');
               }
               const previewItemCanvas = await renderPanelGraphic(item, 72);
               const previewImgData = previewItemCanvas.toDataURL('image/jpeg', 0.75);
-              previewPdf.addImage(previewImgData, 'JPEG', 0, 0, item.w * 72, item.h * 72, undefined, 'FAST');
+              previewPdf.addImage(previewImgData, 'JPEG', 0, 0, (item.w * 72) / zipUUnit, (item.h * 72) / zipUUnit, undefined, 'FAST');
             }
             previewPdf.save(`${cleanCust}_${cleanOrder}_Preview_72dpi.pdf`);
           }
@@ -1498,10 +1503,16 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
         // Standard Nested Roll export
         const firstSheet = nestingSheets[0];
+        // Calculate userUnit scaling factor to bypass PDF 200-inch limit (14400 points)
+        const maxSheetHeight = nestingSheets.reduce((max, s) => Math.max(max, s.height), 0);
+        const maxSheetHeightPt = maxSheetHeight * 72;
+        const uUnit = maxSheetHeightPt > 14400 ? Math.ceil(maxSheetHeightPt / 14400) : 1.0;
+
         const pdf = new jsPDF({
           orientation: 'portrait',
           unit: 'pt',
-          format: [rollW * 72, firstSheet.height * 72]
+          format: [ (rollW * 72) / uUnit, (firstSheet.height * 72) / uUnit ],
+          userUnit: uUnit
         });
 
         // Create the 72 DPI preview PDF if activeDpi is not 72
@@ -1511,7 +1522,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
           previewPdf = new jsPDF({
             orientation: 'portrait',
             unit: 'pt',
-            format: [rollW * 72, firstSheet.height * 72]
+            format: [ (rollW * 72) / uUnit, (firstSheet.height * 72) / uUnit ],
+            userUnit: uUnit
           });
         }
 
@@ -1521,9 +1533,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
           const heightPt = sheet.height * 72;
 
           if (s > 0) {
-            pdf.addPage([widthPt, heightPt], 'portrait');
+            pdf.addPage([ widthPt / uUnit, heightPt / uUnit ], 'portrait');
             if (needPreviewPdf && previewPdf) {
-              previewPdf.addPage([widthPt, heightPt], 'portrait');
+              previewPdf.addPage([ widthPt / uUnit, heightPt / uUnit ], 'portrait');
             }
           }
 
@@ -1583,11 +1595,11 @@ export const NestingView: React.FC<NestingViewProps> = ({
             const targetWPt = item.w * 72;
             const targetHPt = item.h * 72;
 
-            pdf.addImage(imgData, 'JPEG', targetXPt, targetYPt, targetWPt, targetHPt, undefined, 'FAST');
+            pdf.addImage(imgData, 'JPEG', targetXPt / uUnit, targetYPt / uUnit, targetWPt / uUnit, targetHPt / uUnit, undefined, 'FAST');
 
             if (needPreviewPdf && finalPreviewCanvas && previewPdf) {
               const previewImgData = finalPreviewCanvas.toDataURL('image/jpeg', 0.75);
-              previewPdf.addImage(previewImgData, 'JPEG', targetXPt, targetYPt, targetWPt, targetHPt, undefined, 'FAST');
+              previewPdf.addImage(previewImgData, 'JPEG', targetXPt / uUnit, targetYPt / uUnit, targetWPt / uUnit, targetHPt / uUnit, undefined, 'FAST');
             }
           }
         }
