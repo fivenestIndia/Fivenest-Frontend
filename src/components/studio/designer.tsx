@@ -186,6 +186,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
   // Pre-load and cache chest/torso logos for real-time canvas rendering
   useEffect(() => {
+    if (activeTab === 'threeD') return;
     const panel = designConfig[activeTab];
     const urls = {
       leftChest: panel.leftChestLogo?.uploadedUrl,
