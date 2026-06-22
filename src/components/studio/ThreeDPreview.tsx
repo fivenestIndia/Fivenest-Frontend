@@ -212,18 +212,36 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
         const box = new THREE.Box3().setFromObject(model);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
-        console.log("GLTF true bounding box center:", center, "size:", size);
+        console.log("DEBUG: GLTF raw bounding box center:", JSON.stringify(center), "size:", JSON.stringify(size));
 
         // Scale to a standard target height (e.g. 0.95 meters)
         const targetHeight = 0.95;
         const scaleFactor = targetHeight / (size.y || 1);
         model.scale.set(scaleFactor, scaleFactor, scaleFactor);
-        console.log("Applying scale factor:", scaleFactor);
+        console.log("DEBUG: Applying scale factor:", scaleFactor);
 
         // Center model at world origin and shift slightly down
         model.position.copy(center).multiplyScalar(-scaleFactor);
         model.position.y -= 0.45;
-        console.log("Positioned model group at:", model.position);
+        console.log("DEBUG: Positioned model group at:", JSON.stringify(model.position), "scale:", JSON.stringify(model.scale));
+
+        // Expose to window for headless debugging
+        (window as any).__THREE_DEBUG__ = {
+          scene,
+          camera,
+          renderer,
+          controls,
+          model,
+          box,
+          center,
+          size,
+          scaleFactor
+        };
+        console.log("DEBUG: Exposed __THREE_DEBUG__ to window.");
+        console.log("DEBUG: container dimensions:", containerRef.current?.clientWidth, "x", containerRef.current?.clientHeight);
+        console.log("DEBUG: canvas dimensions:", canvasRef.current?.clientWidth, "x", canvasRef.current?.clientHeight);
+        console.log("DEBUG: camera aspect:", camera.aspect, "fov:", camera.fov, "position:", JSON.stringify(camera.position));
+        console.log("DEBUG: controls target:", JSON.stringify(controls.target));
 
         // Apply materials to meshes
         let meshCount = 0;
