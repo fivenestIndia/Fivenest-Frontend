@@ -909,7 +909,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         // 2. Horizontal Guides (constant Y position)
         (customGuides.horizontal || []).forEach(yVal => {
           const yPx = Math.abs(yVal - physicalHeight / 2) < 0.01 ? Math.round(height / 2) : Math.round(yVal * scale);
-          if (yPx >= rulersHeightPx && yPx < height) {
+          if (yPx >= rulerHeightPx && yPx < height) {
             ctx.beginPath();
             ctx.moveTo(rulerHeightPx, yPx);
             ctx.lineTo(width, yPx);
