@@ -184,28 +184,54 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Pre-load and cache chest/torso logos for real-time canvas rendering
+  // Pre-load and cache all logos and background images for real-time canvas rendering
   useEffect(() => {
-    if (activeTab === 'threeD') return;
-    const panel = designConfig[activeTab];
-    const urls = {
-      leftChest: panel.leftChestLogo?.uploadedUrl,
-      rightChest: panel.rightChestLogo?.uploadedUrl,
-      torso: panel.torsoLogo?.uploadedUrl
-    };
+    const urls: string[] = [];
 
-    Object.entries(urls).forEach(([key, url]) => {
-      if (url) {
-        if (logoImagesRef.current[url]) return; // Already cached
-        const img = new Image();
-        img.onload = () => {
-          logoImagesRef.current[url] = img;
-          setPrefTrigger(prev => prev + 1); // Trigger canvas redrawing
-        };
-        img.src = url;
+    // Collect all backgrounds and logos across all panels
+    const panelKeys: ('front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print')[] = [
+      'front', 'back', 'sleeveLeft', 'sleeveRight', 'a4Print'
+    ];
+
+    panelKeys.forEach((key) => {
+      const panel = designConfig[key];
+      if (!panel) return;
+
+      // Add backgrounds
+      if (panel.backgroundType === 'upload') {
+        let bgUrl = panel.uploadedFileUrl;
+        if (key.startsWith('sleeve')) {
+          bgUrl = previewSleeveType === 'full'
+            ? (panel.uploadedFileFullUrl || panel.uploadedFileUrl)
+            : (panel.uploadedFileHalfUrl || panel.uploadedFileUrl);
+        }
+        if (bgUrl) urls.push(bgUrl);
+      }
+
+      // Add logos
+      if (panel.leftChestLogo?.enabled && panel.leftChestLogo.uploadedUrl) {
+        urls.push(panel.leftChestLogo.uploadedUrl);
+      }
+      if (panel.rightChestLogo?.enabled && panel.rightChestLogo.uploadedUrl) {
+        urls.push(panel.rightChestLogo.uploadedUrl);
+      }
+      if (panel.torsoLogo?.enabled && panel.torsoLogo.uploadedUrl) {
+        urls.push(panel.torsoLogo.uploadedUrl);
       }
     });
-  }, [designConfig, activeTab]);
+
+    // Load each unique URL
+    const uniqueUrls = Array.from(new Set(urls));
+    uniqueUrls.forEach((url) => {
+      if (logoImagesRef.current[url]) return; // Already cached
+      const img = new Image();
+      img.onload = () => {
+        logoImagesRef.current[url] = img;
+        setPrefTrigger(prev => prev + 1); // Trigger canvas redrawing/re-composition
+      };
+      img.src = url;
+    });
+  }, [designConfig, previewSleeveType]);
 
   useEffect(() => {
     const saved = localStorage.getItem('fivenest_presets');
@@ -962,7 +988,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
         if (!logo.uploadedUrl) return;
         const cachedImg = logoImagesRef.current[logo.uploadedUrl];
-        if (!cachedImg) return;
+        if (!cachedImg) {
+          // Asynchronously load the logo and cache it, then trigger redraw
+          const img = new Image();
+          img.onload = () => {
+            logoImagesRef.current[logo.uploadedUrl!] = img;
+            setPrefTrigger(prev => prev + 1);
+          };
+          img.src = logo.uploadedUrl;
+          return;
+        }
 
         ctx.save();
         const wPx = logo.width * scale;
@@ -988,8 +1023,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     }
 
     if (panel.backgroundType === 'upload' && bgUrl) {
-      const img = new Image();
-      img.onload = () => {
+      const cachedImg = logoImagesRef.current[bgUrl];
+      if (cachedImg && cachedImg.complete) {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, width, height);
 
@@ -998,21 +1033,40 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         const bgX = (panel.bgX !== undefined ? panel.bgX : 0) * scale;
         const bgY = (panel.bgY !== undefined ? panel.bgY : 0) * scale;
 
-        ctx.drawImage(img, bgX, bgY, bgW, bgH);
+        ctx.drawImage(cachedImg, bgX, bgY, bgW, bgH);
         drawLogos(ctx);
         drawTexts(ctx);
         drawTechnicalMarks(ctx);
         drawRulersAndGrid(ctx);
-      };
-      img.onerror = () => {
-        ctx.fillStyle = panelKey === 'a4Print' ? '#ffffff' : '#1c1c24';
-        ctx.fillRect(0, 0, width, height);
-        drawLogos(ctx);
-        drawTexts(ctx);
-        drawTechnicalMarks(ctx);
-        drawRulersAndGrid(ctx);
-      };
-      img.src = bgUrl;
+      } else {
+        const img = new Image();
+        img.onload = () => {
+          logoImagesRef.current[bgUrl] = img;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, width, height);
+
+          const bgW = (panel.bgWidth !== undefined ? panel.bgWidth : physicalW) * scale;
+          const bgH = (panel.bgHeight !== undefined ? panel.bgHeight : physicalH) * scale;
+          const bgX = (panel.bgX !== undefined ? panel.bgX : 0) * scale;
+          const bgY = (panel.bgY !== undefined ? panel.bgY : 0) * scale;
+
+          ctx.drawImage(img, bgX, bgY, bgW, bgH);
+          drawLogos(ctx);
+          drawTexts(ctx);
+          drawTechnicalMarks(ctx);
+          drawRulersAndGrid(ctx);
+          setPrefTrigger(prev => prev + 1);
+        };
+        img.onerror = () => {
+          ctx.fillStyle = panelKey === 'a4Print' ? '#ffffff' : '#1c1c24';
+          ctx.fillRect(0, 0, width, height);
+          drawLogos(ctx);
+          drawTexts(ctx);
+          drawTechnicalMarks(ctx);
+          drawRulersAndGrid(ctx);
+        };
+        img.src = bgUrl;
+      }
     } else {
       const c1 = panel.generatedColor1;
       const c2 = panel.generatedColor2;
@@ -1447,6 +1501,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   designConfig={designConfig} 
                   renderPanelToCanvas={renderPanelToCanvas}
                   previewSleeveType={previewSleeveType}
+                  prefTrigger={prefTrigger}
                 />
               </div>
             ) : (

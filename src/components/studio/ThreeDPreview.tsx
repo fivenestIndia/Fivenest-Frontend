@@ -16,12 +16,14 @@ interface ThreeDPreviewProps {
     is3DPreview?: boolean
   ) => void;
   previewSleeveType?: 'half' | 'full';
+  prefTrigger?: number;
 }
 
 export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
   designConfig,
   renderPanelToCanvas,
-  previewSleeveType = 'half'
+  previewSleeveType = 'half',
+  prefTrigger
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -107,10 +109,10 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
     }
   };
 
-  // Re-run composition when designConfig or sleeve settings change
+  // Re-run composition when designConfig, sleeve settings, or loaded images change
   useEffect(() => {
     composeTexture();
-  }, [designConfig, previewSleeveType]);
+  }, [designConfig, previewSleeveType, prefTrigger]);
 
   // Initialize ThreeJS scene, camera, lights, and OrbitControls
   useEffect(() => {
@@ -191,15 +193,18 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
 
     // Load T-Shirt GLTF model
     const loader = new GLTFLoader();
+    console.log("Starting to load GLTF model from /models/tshirt.glb...");
     loader.load(
       '/models/tshirt.glb',
       (gltf) => {
+        console.log("GLTF model loaded successfully! Scene structure:", gltf.scene);
         const model = gltf.scene;
         poloModelRef.current = model;
 
         // Center model around origin
         const box = new THREE.Box3().setFromObject(model);
         const center = box.getCenter(new THREE.Vector3());
+        console.log("GLTF raw bounding box center:", center);
 
         // Scale from millimeters to meters
         model.scale.set(0.0014, 0.0014, 0.0014);
@@ -207,15 +212,20 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
         // Center model at world origin and shift slightly down
         model.position.copy(center).multiplyScalar(-0.0014);
         model.position.y -= 0.45;
+        console.log("Positioned model group at:", model.position);
 
         // Apply materials to meshes
+        let meshCount = 0;
         model.traverse((child) => {
           if ((child as any).isMesh) {
+            meshCount++;
             const mesh = child as THREE.Mesh;
             mesh.castShadow = true;
             mesh.receiveShadow = true;
 
             const matName = (mesh.material as any).name || '';
+            console.log(`Mesh ${meshCount}: Name="${mesh.name}", MaterialName="${matName}", Geometry has UV:`, !!mesh.geometry?.attributes?.uv);
+
             const mat = new THREE.MeshStandardMaterial({
               roughness: 0.82,
               metalness: 0.12,
@@ -228,34 +238,42 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
               matName.toLowerCase().includes('material 0') || 
               mesh.name.toLowerCase().includes('cloth')
             ) {
+              console.log(`-> Mapping composite canvas texture to mesh: "${mesh.name}"`);
               mat.map = texture;
               mesh.material = mat;
             } else if (
               matName.toLowerCase().includes('button') || 
               matName.toLowerCase().includes('material 1')
             ) {
+              console.log(`-> Mapping solid color (button) to mesh: "${mesh.name}"`);
               mat.color.set(designConfig.front?.generatedColor1 || '#ffffff');
               mesh.material = mat;
             } else if (
               matName.toLowerCase().includes('sleeve end') || 
               matName.toLowerCase().includes('material 2')
             ) {
+              console.log(`-> Mapping solid color (sleeve end) to mesh: "${mesh.name}"`);
               mat.color.set(designConfig.front?.generatedColor1 || '#ffffff');
               mesh.material = mat;
             } else {
+              console.log(`-> Mapping default white to mesh: "${mesh.name}"`);
               mat.color.set('#ffffff');
               mesh.material = mat;
             }
           }
         });
+        console.log(`Successfully processed ${meshCount} meshes.`);
 
         scene.add(model);
+        console.log("Added model to scene. Running composeTexture...");
         composeTexture(); // Perform initial composition draw
         setLoading(false);
       },
       (xhr) => {
         if (xhr.total > 0) {
-          setProgress(Math.round((xhr.loaded / xhr.total) * 100));
+          const percent = Math.round((xhr.loaded / xhr.total) * 100);
+          console.log(`GLTF Loading progress: ${percent}%`);
+          setProgress(percent);
         }
       },
       (error) => {
