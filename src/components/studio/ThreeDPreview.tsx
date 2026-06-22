@@ -205,16 +205,23 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
         const model = gltf.scene;
         poloModelRef.current = model;
 
+        // Force update world matrices so child node scales and positions are applied
+        model.updateMatrixWorld(true);
+
         // Center model around origin
         const box = new THREE.Box3().setFromObject(model);
         const center = box.getCenter(new THREE.Vector3());
-        console.log("GLTF raw bounding box center:", center);
+        const size = box.getSize(new THREE.Vector3());
+        console.log("GLTF true bounding box center:", center, "size:", size);
 
-        // Scale from millimeters to meters
-        model.scale.set(0.0014, 0.0014, 0.0014);
+        // Scale to a standard target height (e.g. 0.95 meters)
+        const targetHeight = 0.95;
+        const scaleFactor = targetHeight / (size.y || 1);
+        model.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        console.log("Applying scale factor:", scaleFactor);
 
         // Center model at world origin and shift slightly down
-        model.position.copy(center).multiplyScalar(-0.0014);
+        model.position.copy(center).multiplyScalar(-scaleFactor);
         model.position.y -= 0.45;
         console.log("Positioned model group at:", model.position);
 
