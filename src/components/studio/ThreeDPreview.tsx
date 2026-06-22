@@ -200,11 +200,13 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
         // Center model around origin
         const box = new THREE.Box3().setFromObject(model);
         const center = box.getCenter(new THREE.Vector3());
-        model.position.sub(center);
 
-        // Adjust size and ground offset
-        model.scale.set(1.4, 1.4, 1.4);
-        model.position.y = -0.45;
+        // Scale from millimeters to meters
+        model.scale.set(0.0014, 0.0014, 0.0014);
+
+        // Center model at world origin and shift slightly down
+        model.position.copy(center).multiplyScalar(-0.0014);
+        model.position.y -= 0.45;
 
         // Apply materials to meshes
         model.traverse((child) => {
@@ -232,13 +234,13 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
               matName.toLowerCase().includes('button') || 
               matName.toLowerCase().includes('material 1')
             ) {
-              mat.color.set(designConfig.front.generatedColor1);
+              mat.color.set(designConfig.front?.generatedColor1 || '#ffffff');
               mesh.material = mat;
             } else if (
               matName.toLowerCase().includes('sleeve end') || 
               matName.toLowerCase().includes('material 2')
             ) {
-              mat.color.set(designConfig.front.generatedColor1);
+              mat.color.set(designConfig.front?.generatedColor1 || '#ffffff');
               mesh.material = mat;
             } else {
               mat.color.set('#ffffff');
@@ -271,20 +273,26 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
     };
     animate();
 
-    // Window resize handler
-    const handleResize = () => {
-      if (!containerRef.current) return;
-      const w = containerRef.current.clientWidth;
-      const h = containerRef.current.clientHeight;
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
-    };
-    window.addEventListener('resize', handleResize);
+    // Resize Observer for dynamic dimensions and layout adjustments (sidebar collapse, etc.)
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const { width: w, height: h } = entry.contentRect;
+        if (w > 0 && h > 0) {
+          camera.aspect = w / h;
+          camera.updateProjectionMatrix();
+          renderer.setSize(w, h);
+        }
+      }
+    });
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
 
     return () => {
       cancelAnimationFrame(animId);
-      window.removeEventListener('resize', handleResize);
+      if (containerRef.current) {
+        resizeObserver.unobserve(containerRef.current);
+      }
       renderer.dispose();
       texture.dispose();
       normalMap.dispose();
