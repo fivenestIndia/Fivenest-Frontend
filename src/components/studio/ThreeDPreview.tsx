@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { ArtDesignConfig } from './designer';
 import { Loader2 } from 'lucide-react';
+import { defaultSizes } from './sizesDb';
 
 interface ThreeDPreviewProps {
   designConfig: ArtDesignConfig;
@@ -53,12 +54,18 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
     mainCtx.fillRect(0, 0, 4267, 4267);
 
     // 1. Draw Front panel (Component 14: X=[64, 1450], Y=[1962, 3861], Size: 1386x1899)
+    const sizeConf = defaultSizes["40"];
+    const frontScale = 1386 / sizeConf.front.w;
+    const backScale = 1515 / sizeConf.back.w;
+    const isFullSleeve = previewSleeveType === 'full';
+    const sleeveW = isFullSleeve ? sizeConf.full.w : sizeConf.half.w;
+    const sleeveScale = 1344 / sleeveW;
+
     const frontCtx = frontCanvas.current.getContext('2d');
     if (frontCtx) {
       frontCanvas.current.width = 1386;
       frontCanvas.current.height = 1899;
-      // Front physical width is 15 inches. scale = 1386 / 15
-      renderPanelToCanvas('front', frontCtx, 1386, 1899, 1386 / 15, true);
+      renderPanelToCanvas('front', frontCtx, 1386, 1899, frontScale, true);
       mainCtx.drawImage(frontCanvas.current, 64, 1962);
     }
 
@@ -67,8 +74,7 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
     if (backCtx) {
       backCanvas.current.width = 1515;
       backCanvas.current.height = 2155;
-      // Back physical width is 15 inches. scale = 1515 / 15
-      renderPanelToCanvas('back', backCtx, 1515, 2155, 1515 / 15, true);
+      renderPanelToCanvas('back', backCtx, 1515, 2155, backScale, true);
       mainCtx.drawImage(backCanvas.current, 2282, 1962);
     }
 
@@ -77,8 +83,7 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
     if (leftSleeveCtx) {
       leftSleeveCanvas.current.width = 1344;
       leftSleeveCanvas.current.height = 704;
-      // Sleeve physical width is 10 inches. scale = 1344 / 10
-      renderPanelToCanvas('sleeveLeft', leftSleeveCtx, 1344, 704, 1344 / 10, true);
+      renderPanelToCanvas('sleeveLeft', leftSleeveCtx, 1344, 704, sleeveScale, true);
       mainCtx.drawImage(leftSleeveCanvas.current, 341, 576);
     }
 
@@ -87,8 +92,7 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
     if (rightSleeveCtx) {
       rightSleeveCanvas.current.width = 1344;
       rightSleeveCanvas.current.height = 704;
-      // Sleeve physical width is 10 inches. scale = 1344 / 10
-      renderPanelToCanvas('sleeveRight', rightSleeveCtx, 1344, 704, 1344 / 10, true);
+      renderPanelToCanvas('sleeveRight', rightSleeveCtx, 1344, 704, sleeveScale, true);
       mainCtx.drawImage(rightSleeveCanvas.current, 1728, 576);
     }
 
@@ -234,14 +238,6 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
             });
 
             if (
-              matName.toLowerCase().includes('main design') || 
-              matName.toLowerCase().includes('material 0') || 
-              mesh.name.toLowerCase().includes('cloth')
-            ) {
-              console.log(`-> Mapping composite canvas texture to mesh: "${mesh.name}"`);
-              mat.map = texture;
-              mesh.material = mat;
-            } else if (
               matName.toLowerCase().includes('button') || 
               matName.toLowerCase().includes('material 1')
             ) {
@@ -254,6 +250,14 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
             ) {
               console.log(`-> Mapping solid color (sleeve end) to mesh: "${mesh.name}"`);
               mat.color.set(designConfig.front?.generatedColor1 || '#ffffff');
+              mesh.material = mat;
+            } else if (
+              matName.toLowerCase().includes('main design') || 
+              matName.toLowerCase().includes('material 0') || 
+              mesh.name.toLowerCase().includes('cloth')
+            ) {
+              console.log(`-> Mapping composite canvas texture to mesh: "${mesh.name}"`);
+              mat.map = texture;
               mesh.material = mat;
             } else {
               console.log(`-> Mapping default white to mesh: "${mesh.name}"`);
