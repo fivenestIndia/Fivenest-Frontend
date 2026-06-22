@@ -813,15 +813,15 @@ export const NestingView: React.FC<NestingViewProps> = ({
   }, [nestingSheets, activeSheetIndex, rollW]);
 
   // High-Resolution Sublimation Rendering in Browser Canvas
-  const renderPanelGraphic = (item: PlacedItem, scaleDpi: number): Promise<HTMLCanvasElement> => {
+  const renderPanelGraphic = (item: PlacedItem, scaleDpi: number, isPreview?: boolean): Promise<HTMLCanvasElement> => {
     if (item.panelType === 'sleeve-merged') {
       const singleH = (item.h - 0.2) / 2;
       const leftItem: PlacedItem = { ...item, panelType: 'sleeve-left', h: singleH };
       const rightItem: PlacedItem = { ...item, panelType: 'sleeve-right', h: singleH };
       
       return Promise.all([
-        renderPanelGraphic(leftItem, scaleDpi),
-        renderPanelGraphic(rightItem, scaleDpi)
+        renderPanelGraphic(leftItem, scaleDpi, isPreview),
+        renderPanelGraphic(rightItem, scaleDpi, isPreview)
       ]).then(([leftCanvas, rightCanvas]) => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d')!;
@@ -991,8 +991,13 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
       const drawOverlays = () => {
         const hideOverlays = metadata.blankKit;
+        // Force name/number overlay on front panel in preview mode so customers can verify
+        const isFrontPreview = item.panelType === 'front' && isPreview;
+        const isNameEnabled = conf.nameConfig.enabled || isFrontPreview;
+        const isNumEnabled = conf.numberConfig.enabled || isFrontPreview;
+
         // Draw Name overlay if enabled
-        if (!hideOverlays && conf.nameConfig.enabled && item.playerName && item.playerName !== "BLANK") {
+        if (!hideOverlays && isNameEnabled && item.playerName && item.playerName !== "BLANK") {
           const textX = widthPx / 2;
           const textY = (conf.nameConfig.yPos / 100) * heightPx;
           const maxLimitPx = (conf.nameConfig.maxW / item.w) * widthPx;
@@ -1000,7 +1005,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
         }
 
         // Draw Number overlay if enabled
-        if (!hideOverlays && conf.numberConfig.enabled && item.playerNum) {
+        if (!hideOverlays && isNumEnabled && item.playerNum) {
           const textX = widthPx / 2;
           const textY = (conf.numberConfig.yPos / 100) * heightPx;
           const maxLimitPx = (conf.numberConfig.maxW / item.w) * widthPx;
@@ -1542,7 +1547,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
                 previewPdf.setFillColor(255, 255, 255);
                 previewPdf.rect(0, 0, pageW, pageH, 'F');
 
-                const previewItemCanvas = await renderPanelGraphic(item, 72);
+                const previewItemCanvas = await renderPanelGraphic(item, 72, true);
                 const previewImgData = previewItemCanvas.toDataURL('image/jpeg', 0.75);
 
                 const targetXPt = 0;
@@ -1637,7 +1642,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
             const itemCanvas = await renderPanelGraphic(unrotatedItem, activeDpi);
             let previewItemCanvas = null;
             if (needPreviewPdf) {
-              previewItemCanvas = await renderPanelGraphic(unrotatedItem, 72);
+              previewItemCanvas = await renderPanelGraphic(unrotatedItem, 72, true);
             }
 
             // Handle pre-rotation of the panel if it is rotated in the layout

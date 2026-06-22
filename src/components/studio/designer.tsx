@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, RotateCcw, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2 } from 'lucide-react';
 import type { OrderMetadata } from './orderEntry';
+import { ThreeDPreview } from './ThreeDPreview';
 
 export interface TextConfig {
   enabled: boolean;
@@ -147,7 +148,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
 };
 
 export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfigChange, metadata }) => {
-  const [activeTab, setActiveTab] = useState<'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print'>('back');
+  const [activeTab, setActiveTab] = useState<'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD'>('back');
   const [previewName, setPreviewName] = useState<string>("RODRIGUEZ");
   const [previewNumber, setPreviewNumber] = useState<string>("10");
   const [customFonts, setCustomFonts] = useState<{name: string, url: string}[]>([]);
@@ -424,13 +425,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
   const scale = width / physicalWidth;
 
-  const activePanel = designConfig[activeTab];
+  const activePanel = activeTab === 'threeD' ? designConfig.front : designConfig[activeTab];
 
   // Helper to trigger parent update
   const updateActivePanel = (updatedFields: Partial<PanelConfig>) => {
+    const targetTab = activeTab === 'threeD' ? 'front' : activeTab;
     const updated = {
       ...designConfig,
-      [activeTab]: {
+      [targetTab]: {
         ...activePanel,
         ...updatedFields
       }
@@ -562,22 +564,44 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     }
   };
 
-  // Draw preview canvas
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  // Parameters-based Canvas Drawing Helper for both 2D and 3D
+  const renderPanelToCanvas = (
+    panelKey: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print',
+    ctx: CanvasRenderingContext2D,
+    customWidth: number,
+    customHeight: number,
+    customScale: number,
+    is3DPreview: boolean = false
+  ) => {
+    const panel = designConfig[panelKey];
+    if (!panel) return;
 
-    canvas.width = width * zoom;
-    canvas.height = height * zoom;
-    ctx.scale(zoom, zoom);
+    const width = customWidth;
+    const height = customHeight;
+    const scale = customScale;
+
+    // Resolve physical panel properties for correct mapping size
+    const sizeConf = sizeDB["40"];
+    let physicalW = 15;
+    let physicalH = 21;
+    if (panelKey === 'front' || panelKey === 'back') {
+      physicalW = sizeConf[panelKey].w;
+      physicalH = sizeConf[panelKey].h;
+    } else if (panelKey === 'sleeveLeft' || panelKey === 'sleeveRight') {
+      const isFull = previewSleeveType === 'full';
+      physicalW = isFull ? sizeConf.full.w : sizeConf.half.w;
+      physicalH = isFull ? sizeConf.full.h : sizeConf.half.h;
+    } else if (panelKey === 'a4Print') {
+      physicalW = 10;
+      physicalH = 11;
+    }
 
     const drawTechnicalMarks = (ctx: CanvasRenderingContext2D) => {
+      if (is3DPreview) return; // Skip technical marks in 3D preview
       const centerMarks = JSON.parse(localStorage.getItem('fivenest_pref_center_marks') || 'false');
       const sizeWatermarks = JSON.parse(localStorage.getItem('fivenest_pref_size_watermarks') || 'false');
 
-      if (centerMarks && activeTab !== 'a4Print') {
+      if (centerMarks && panelKey !== 'a4Print') {
         ctx.save();
         ctx.fillStyle = '#ff1744';
         ctx.shadowColor = 'transparent';
@@ -585,7 +609,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         const wPx = Math.round(0.1 * scale);
         const hPx = Math.round(0.2 * scale);
 
-        // Use Math.round to match guideline centering exactly
         const leftEdgeXPx = Math.round(width / 2 - wPx / 2);
 
         // Top center solid patch
@@ -596,7 +619,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.restore();
       }
 
-      if (sizeWatermarks && activeTab !== 'a4Print') {
+      if (sizeWatermarks && panelKey !== 'a4Print') {
         ctx.save();
         ctx.fillStyle = '#ff1744';
         const fontSizePx = Math.round((14 / 72) * scale); // 14 pt
@@ -606,7 +629,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         const offset = Math.round(0.04 * scale);
 
         // 2. Sleeve Style on top-right of Back panel only
-        if (activeTab === 'back') {
+        if (panelKey === 'back') {
           ctx.textAlign = 'right';
           ctx.textBaseline = 'top';
           const isRaglan = metadata?.raglanStyle ?? false;
@@ -700,16 +723,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       };
 
       const hideOverlays = metadata?.blankKit ?? false;
-      if (!hideOverlays && activePanel.nameConfig.enabled) {
-        drawSingleText(previewName, activePanel.nameConfig, width / 2, (activePanel.nameConfig.yPos / 100) * height, (activePanel.nameConfig.maxW / 20) * width);
+      if (!hideOverlays && panel.nameConfig.enabled) {
+        drawSingleText(previewName, panel.nameConfig, width / 2, (panel.nameConfig.yPos / 100) * height, (panel.nameConfig.maxW / 20) * width);
       }
-      if (!hideOverlays && activePanel.numberConfig.enabled) {
-        drawSingleText(previewNumber, activePanel.numberConfig, width / 2, (activePanel.numberConfig.yPos / 100) * height, (activePanel.numberConfig.maxW / 20) * width);
+      if (!hideOverlays && panel.numberConfig.enabled) {
+        drawSingleText(previewNumber, panel.numberConfig, width / 2, (panel.numberConfig.yPos / 100) * height, (panel.numberConfig.maxW / 20) * width);
       }
 
-      // Draw customizable Size Tag (Top Left) - skip for A4
-      const sizeTagConf = activePanel.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
-      if (sizeTagConf.enabled && activeTab !== 'a4Print') {
+      // Draw customizable Size Tag (Top Left) - skip for A4 and skip if 3D preview
+      const sizeTagConf = panel.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
+      if (!is3DPreview && sizeTagConf.enabled && panelKey !== 'a4Print') {
         ctx.save();
         const fontSizePx = Math.round((sizeTagConf.fontSize / 72) * scale);
         ctx.font = `bold ${fontSizePx}px "${sizeTagConf.fontFamily}"`;
@@ -762,6 +785,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     };
 
     const drawRulersAndGrid = (ctx: CanvasRenderingContext2D) => {
+      if (is3DPreview) return; // Skip rulers/grids in 3D preview
       const rulersEnabled = JSON.parse(localStorage.getItem('fivenest_pref_rulers') || 'true');
       if (!rulersEnabled) return;
 
@@ -769,9 +793,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
       ctx.lineWidth = 1;
-      
-      const physicalW = width / scale;
-      const physicalH = physicalHeight;
 
       ctx.font = `${Math.max(8, Math.round(0.12 * scale))}px system-ui`;
       ctx.shadowColor = 'transparent';
@@ -854,7 +875,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
       // Draw custom guidelines
       if (showGuidelines) {
-        const customGuides = activePanel.guidelines || { vertical: [], horizontal: [] };
+        const customGuides = panel.guidelines || { vertical: [], horizontal: [] };
         ctx.save();
         ctx.strokeStyle = '#00f0ff'; // Cyan guideline color
         ctx.lineWidth = 0.5; // Decreased thickness
@@ -865,7 +886,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         
         // 1. Vertical Guides (constant X position)
         (customGuides.vertical || []).forEach(xVal => {
-          // Snap vertical center guidelines to exact center pixel
           const xPx = Math.abs(xVal - physicalWidth / 2) < 0.01 ? Math.round(width / 2) : Math.round(xVal * scale);
           if (xPx >= rulerHeightPx && xPx < width) {
             ctx.beginPath();
@@ -887,9 +907,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
         // 2. Horizontal Guides (constant Y position)
         (customGuides.horizontal || []).forEach(yVal => {
-          // Snap horizontal center guidelines to exact center pixel
           const yPx = Math.abs(yVal - physicalHeight / 2) < 0.01 ? Math.round(height / 2) : Math.round(yVal * scale);
-          if (yPx >= rulerHeightPx && yPx < height) {
+          if (yPx >= rulersHeightPx && yPx < height) {
             ctx.beginPath();
             ctx.moveTo(rulerHeightPx, yPx);
             ctx.lineTo(width, yPx);
@@ -912,12 +931,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       ctx.restore();
     };
 
-    // Draw customizable logos (Left Chest, Right Chest, Torso)
     const drawLogos = (ctx: CanvasRenderingContext2D) => {
       const hideOverlays = metadata?.blankKit ?? false;
       if (hideOverlays) return;
-
-      const panel = activePanel;
       
       const drawSingleLogo = (logo: LogoConfig | undefined, isTorso: boolean = false) => {
         if (!logo || !logo.enabled) return;
@@ -944,7 +960,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
         if (!logo.uploadedUrl) return;
         const cachedImg = logoImagesRef.current[logo.uploadedUrl];
-        if (!cachedImg) return; // Not loaded yet
+        if (!cachedImg) return;
 
         ctx.save();
         const wPx = logo.width * scale;
@@ -961,25 +977,24 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       drawSingleLogo(panel.torsoLogo, true);
     };
 
-    // 1. Draw Background
-    let bgUrl = activePanel.uploadedFileUrl;
-    if (activeTab.startsWith('sleeve')) {
+    // Draw Background
+    let bgUrl = panel.uploadedFileUrl;
+    if (panelKey.startsWith('sleeve')) {
       bgUrl = previewSleeveType === 'full' 
-        ? (activePanel.uploadedFileFullUrl || activePanel.uploadedFileUrl) 
-        : (activePanel.uploadedFileHalfUrl || activePanel.uploadedFileUrl);
+        ? (panel.uploadedFileFullUrl || panel.uploadedFileUrl) 
+        : (panel.uploadedFileHalfUrl || panel.uploadedFileUrl);
     }
 
-    if (activePanel.backgroundType === 'upload' && bgUrl) {
+    if (panel.backgroundType === 'upload' && bgUrl) {
       const img = new Image();
       img.onload = () => {
-        // Draw white background under uploaded image
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, width, height);
 
-        const bgW = (activePanel.bgWidth !== undefined ? activePanel.bgWidth : physicalWidth) * scale;
-        const bgH = (activePanel.bgHeight !== undefined ? activePanel.bgHeight : physicalHeight) * scale;
-        const bgX = (activePanel.bgX !== undefined ? activePanel.bgX : 0) * scale;
-        const bgY = (activePanel.bgY !== undefined ? activePanel.bgY : 0) * scale;
+        const bgW = (panel.bgWidth !== undefined ? panel.bgWidth : physicalW) * scale;
+        const bgH = (panel.bgHeight !== undefined ? panel.bgHeight : physicalH) * scale;
+        const bgX = (panel.bgX !== undefined ? panel.bgX : 0) * scale;
+        const bgY = (panel.bgY !== undefined ? panel.bgY : 0) * scale;
 
         ctx.drawImage(img, bgX, bgY, bgW, bgH);
         drawLogos(ctx);
@@ -988,7 +1003,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         drawRulersAndGrid(ctx);
       };
       img.onerror = () => {
-        ctx.fillStyle = activeTab === 'a4Print' ? '#ffffff' : '#1c1c24';
+        ctx.fillStyle = panelKey === 'a4Print' ? '#ffffff' : '#1c1c24';
         ctx.fillRect(0, 0, width, height);
         drawLogos(ctx);
         drawTexts(ctx);
@@ -997,22 +1012,20 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       };
       img.src = bgUrl;
     } else {
-      // Generated Backgrounds
-      const c1 = activePanel.generatedColor1;
-      const c2 = activePanel.generatedColor2;
+      const c1 = panel.generatedColor1;
+      const c2 = panel.generatedColor2;
       
-      if (activePanel.generatedStyle === 'neon-gradient') {
+      if (panel.generatedStyle === 'neon-gradient') {
         const gradient = ctx.createRadialGradient(width/2, height/2, 50, width/2, height/2, width*0.8);
         gradient.addColorStop(0, c1);
         gradient.addColorStop(1, c2);
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, width, height);
-      } else if (activePanel.generatedStyle === 'classic-stripes') {
+      } else if (panel.generatedStyle === 'classic-stripes') {
         ctx.fillStyle = c2;
         ctx.fillRect(0, 0, width, height);
         
         ctx.fillStyle = c1;
-        // Draw diagonal stripes
         ctx.beginPath();
         for (let i = -100; i < width + height; i += 60) {
           ctx.moveTo(i, 0);
@@ -1021,11 +1034,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           ctx.lineTo(i - 100, height);
         }
         ctx.fill();
-      } else if (activePanel.generatedStyle === 'camo-glow') {
+      } else if (panel.generatedStyle === 'camo-glow') {
         ctx.fillStyle = '#111';
         ctx.fillRect(0, 0, width, height);
         
-        // Custom spotty glow
         ctx.fillStyle = c1;
         ctx.beginPath();
         ctx.arc(width * 0.3, height * 0.25, 80, 0, Math.PI * 2);
@@ -1038,21 +1050,37 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.arc(width * 0.2, height * 0.8, 90, 0, Math.PI * 2);
         ctx.fill();
       } else {
-        // Blank
-        ctx.fillStyle = activeTab === 'a4Print' ? '#ffffff' : '#1c1c24';
+        ctx.fillStyle = panelKey === 'a4Print' ? '#ffffff' : '#1c1c24';
         ctx.fillRect(0, 0, width, height);
       }
       
-      // Draw gridlines to represent a jersey mock border
-      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(10, 10, width - 20, height - 20);
+      if (!is3DPreview) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(10, 10, width - 20, height - 20);
+      }
       
       drawLogos(ctx);
       drawTexts(ctx);
       drawTechnicalMarks(ctx);
       drawRulersAndGrid(ctx);
     }
+  };
+
+  // Draw preview canvas
+  useEffect(() => {
+    if (activeTab === 'threeD') return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = width * zoom;
+    canvas.height = height * zoom;
+    ctx.scale(zoom, zoom);
+
+    renderPanelToCanvas(activeTab, ctx, width, height, scale, false);
   }, [activeTab, activePanel, previewName, previewNumber, designConfig, customFonts, metadata, previewSleeveType, prefTrigger, zoom, showGuidelines]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1264,12 +1292,20 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           </div>
         )}
 
-        <div className="tab-btn-group" style={{ width: '100%', maxWidth: '580px' }}>
+        <div className="tab-btn-group" style={{ width: '100%', maxWidth: '640px' }}>
           <button className={`tab-btn ${activeTab === 'front' ? 'active' : ''}`} onClick={() => setActiveTab('front')}>Front</button>
           <button className={`tab-btn ${activeTab === 'back' ? 'active' : ''}`} onClick={() => setActiveTab('back')}>Back</button>
           <button className={`tab-btn ${activeTab === 'sleeveLeft' ? 'active' : ''}`} onClick={() => setActiveTab('sleeveLeft')}>Left Sleeve</button>
           <button className={`tab-btn ${activeTab === 'sleeveRight' ? 'active' : ''}`} onClick={() => setActiveTab('sleeveRight')}>Right Sleeve</button>
           <button className={`tab-btn ${activeTab === 'a4Print' ? 'active' : ''}`} onClick={() => setActiveTab('a4Print')}>A4 Print</button>
+          <button 
+            className={`tab-btn flex items-center gap-1.5 ${activeTab === 'threeD' ? 'active' : ''}`} 
+            onClick={() => setActiveTab('threeD')}
+            style={{ borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '12px' }}
+          >
+            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+            3D View
+          </button>
         </div>
         
         {(activeTab === 'sleeveLeft' || activeTab === 'sleeveRight') && (
@@ -1403,21 +1439,31 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             boxSizing: 'border-box',
             padding: zoom === 1 ? '0' : '80px'
           }}>
-            <canvas 
-              ref={canvasRef} 
-              style={{ 
-                borderRadius: '8px', 
-                border: '1px solid rgba(255,255,255,0.1)', 
-                boxShadow: '0 0 30px rgba(0,0,0,0.8)',
-                cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : 'pointer',
-                width: zoom === 1 ? undefined : `${width * zoom}px`,
-                height: zoom === 1 ? undefined : `${height * zoom}px`,
-                maxWidth: zoom === 1 ? '100%' : 'none',
-                maxHeight: zoom === 1 ? 'calc(100% - 10px)' : 'none',
-                objectFit: 'contain',
-                flexShrink: 0
-              }} 
-            />
+            {activeTab === 'threeD' ? (
+              <div style={{ width: '100%', height: '100%', minHeight: '520px', flexGrow: 1 }}>
+                <ThreeDPreview 
+                  designConfig={designConfig} 
+                  renderPanelToCanvas={renderPanelToCanvas}
+                  previewSleeveType={previewSleeveType}
+                />
+              </div>
+            ) : (
+              <canvas 
+                ref={canvasRef} 
+                style={{ 
+                  borderRadius: '8px', 
+                  border: '1px solid rgba(255,255,255,0.1)', 
+                  boxShadow: '0 0 30px rgba(0,0,0,0.8)',
+                  cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : 'pointer',
+                  width: zoom === 1 ? undefined : `${width * zoom}px`,
+                  height: zoom === 1 ? undefined : `${height * zoom}px`,
+                  maxWidth: zoom === 1 ? '100%' : 'none',
+                  maxHeight: zoom === 1 ? 'calc(100% - 10px)' : 'none',
+                  objectFit: 'contain',
+                  flexShrink: 0
+                }} 
+              />
+            )}
           </div>
         </div>
         
