@@ -18,13 +18,15 @@ interface ThreeDPreviewProps {
   ) => void;
   previewSleeveType?: 'half' | 'full';
   prefTrigger?: number;
+  zoom?: number;
 }
 
 export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
   designConfig,
   renderPanelToCanvas,
   previewSleeveType = 'half',
-  prefTrigger
+  prefTrigger,
+  zoom = 1
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -35,6 +37,8 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
   const textureRef = useRef<THREE.CanvasTexture | null>(null);
   const mainCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const poloModelRef = useRef<THREE.Group | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const controlsRef = useRef<OrbitControls | null>(null);
 
   // Canvas layers for panel composition
   const frontCanvas = useRef(document.createElement('canvas'));
@@ -118,6 +122,20 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
     composeTexture();
   }, [designConfig, previewSleeveType, prefTrigger]);
 
+  // Handle external zoom controls dynamically
+  useEffect(() => {
+    if (cameraRef.current) {
+      cameraRef.current.zoom = zoom;
+      cameraRef.current.updateProjectionMatrix();
+    }
+    // Reset camera position and target when zoom is reset to 1
+    if (zoom === 1 && cameraRef.current && controlsRef.current) {
+      cameraRef.current.position.set(0, 0.25, 2.8);
+      controlsRef.current.target.set(0, 0, 0);
+      controlsRef.current.update();
+    }
+  }, [zoom]);
+
   // Initialize ThreeJS scene, camera, lights, and OrbitControls
   useEffect(() => {
     if (!containerRef.current || !canvasRef.current) return;
@@ -129,7 +147,8 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
     scene.background = new THREE.Color('#0a0a0f');
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.set(0, 0.4, 3.8);
+    camera.position.set(0, 0.25, 2.8);
+    cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({
       canvas: canvasRef.current,
@@ -174,6 +193,7 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
     controls.maxDistance = 5.5;
     controls.maxPolarAngle = Math.PI / 1.8;
     controls.target.set(0, 0, 0);
+    controlsRef.current = controls;
 
     // Create Main Composition Canvas
     const mainCanvas = document.createElement('canvas');

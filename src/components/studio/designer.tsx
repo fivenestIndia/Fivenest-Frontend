@@ -1490,10 +1490,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             justifyContent: 'center',
             minWidth: '100%',
             minHeight: '100%',
-            width: zoom === 1 ? '100%' : `${width * zoom + 160}px`,
-            height: zoom === 1 ? '100%' : `${height * zoom + 160}px`,
+            width: (zoom === 1 || activeTab === 'threeD') ? '100%' : `${width * zoom + 160}px`,
+            height: (zoom === 1 || activeTab === 'threeD') ? '100%' : `${height * zoom + 160}px`,
             boxSizing: 'border-box',
-            padding: zoom === 1 ? '0' : '80px'
+            padding: (zoom === 1 || activeTab === 'threeD') ? '0' : '80px'
           }}>
             {activeTab === 'threeD' ? (
               <div style={{ width: '100%', height: '100%', minHeight: '520px', flexGrow: 1 }}>
@@ -1502,6 +1502,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   renderPanelToCanvas={renderPanelToCanvas}
                   previewSleeveType={previewSleeveType}
                   prefTrigger={prefTrigger}
+                  zoom={zoom}
                 />
               </div>
             ) : (
