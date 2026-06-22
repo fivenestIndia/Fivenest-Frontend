@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, RotateCcw, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2 } from 'lucide-react';
 import type { OrderMetadata } from './orderEntry';
 import { ThreeDPreview } from './ThreeDPreview';
+import { defaultSizes } from './sizesDb';
 
 export interface TextConfig {
   enabled: boolean;
@@ -581,7 +582,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const scale = customScale;
 
     // Resolve physical panel properties for correct mapping size
-    const sizeConf = sizeDB["40"];
+    const sizeConf = defaultSizes["40"];
     let physicalW = 15;
     let physicalH = 21;
     if (panelKey === 'front' || panelKey === 'back') {
