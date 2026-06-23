@@ -409,69 +409,6 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
         // Force update world matrices so child node scales and positions are applied
         model.updateMatrixWorld(true);
 
-        // --- Sleeve Droop (Shear-only, no rotation — preserves UV/texture flow) ---
-        // Strategy: For vertices past the shoulder junction, translate Y downward
-        // proportional to how far out the vertex is. Pure translation = no squeezing.
-        model.traverse((child) => {
-          if ((child as any).isMesh && (child as any).geometry) {
-            const geom = (child as any).geometry;
-            const pos = geom.attributes.position;
-            if (!pos) return;
-
-            // Find actual mesh X bounds to detect shoulder junction dynamically
-            let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
-            for (let i = 0; i < pos.count; i++) {
-              const x = pos.getX(i);
-              const y = pos.getY(i);
-              if (x < xMin) xMin = x;
-              if (x > xMax) xMax = x;
-              if (y < yMin) yMin = y;
-              if (y > yMax) yMax = y;
-            }
-
-            // Only process wide meshes (the main cloth has full sleeve width)
-            const totalWidth = xMax - xMin;
-            if (totalWidth < 200) return; // skip narrow meshes (buttons, cuffs)
-
-            // Shoulder junction = 28% from each side of total width
-            const shoulderJunctionL = xMin + totalWidth * 0.28;
-            const shoulderJunctionR = xMax - totalWidth * 0.28;
-            const sleeveReachL = xMin;
-            const sleeveReachR = xMax;
-
-            // Max droop at sleeve tip = 22% of total Y height
-            const totalHeight = yMax - yMin;
-            const maxDroop = totalHeight * 0.22;
-
-            for (let i = 0; i < pos.count; i++) {
-              const x = pos.getX(i);
-              const y = pos.getY(i);
-
-              let droop = 0;
-              if (x < shoulderJunctionL) {
-                // Left sleeve — droop increases as x goes further left
-                const t = (shoulderJunctionL - x) / (shoulderJunctionL - sleeveReachL);
-                const tSmooth = t * t * (3 - 2 * t); // smoothstep
-                droop = -maxDroop * tSmooth;
-              } else if (x > shoulderJunctionR) {
-                // Right sleeve — droop increases as x goes further right
-                const t = (x - shoulderJunctionR) / (sleeveReachR - shoulderJunctionR);
-                const tSmooth = t * t * (3 - 2 * t); // smoothstep
-                droop = -maxDroop * tSmooth;
-              }
-
-              if (droop !== 0) {
-                pos.setY(i, y + droop);
-              }
-            }
-
-            pos.needsUpdate = true;
-            geom.computeBoundingBox();
-            geom.computeBoundingSphere();
-          }
-        });
-        // -----------------------------------------------------------------------
-
         // Center model around origin
         const box = new THREE.Box3().setFromObject(model);
         const center = box.getCenter(new THREE.Vector3());
