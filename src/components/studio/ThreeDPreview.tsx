@@ -46,6 +46,66 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
   const leftSleeveCanvas = useRef(document.createElement('canvas'));
   const rightSleeveCanvas = useRef(document.createElement('canvas'));
 
+  // Preloaded/cached images for Collar, Placket, and Sleeve stripe trims
+  const [loadedTrimImages, setLoadedTrimImages] = useState<{
+    collar?: HTMLImageElement;
+    placket?: HTMLImageElement;
+    sleeveStripe?: HTMLImageElement;
+  }>({});
+
+  // Dynamic image preloader hook for trims
+  useEffect(() => {
+    const trim = designConfig.trim;
+    if (!trim) {
+      setLoadedTrimImages({});
+      return;
+    }
+
+    const urls = {
+      collar: trim.collar.uploadedUrl,
+      placket: trim.placket.uploadedUrl,
+      sleeveStripe: trim.sleeveStripe.uploadedUrl
+    };
+
+    let changed = false;
+    const newImages = { ...loadedTrimImages };
+
+    const loadPromises = Object.entries(urls).map(([key, url]) => {
+      const typedKey = key as 'collar' | 'placket' | 'sleeveStripe';
+      if (!url) {
+        if (newImages[typedKey]) {
+          delete newImages[typedKey];
+          changed = true;
+        }
+        return Promise.resolve();
+      }
+      if (newImages[typedKey]?.src === url) {
+        return Promise.resolve();
+      }
+
+      return new Promise<void>((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          newImages[typedKey] = img;
+          changed = true;
+          resolve();
+        };
+        img.onerror = () => {
+          console.error(`Failed to load trim image for ${key}: ${url}`);
+          resolve();
+        };
+        img.src = url;
+      });
+    });
+
+    Promise.all(loadPromises).then(() => {
+      if (changed) {
+        setLoadedTrimImages(newImages);
+      }
+    });
+  }, [designConfig.trim]);
+
   // Re-draw panels and compose onto single 4267x4267 texture sheet
   const composeTexture = () => {
     const mainCanvas = mainCanvasRef.current;
@@ -100,27 +160,86 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
       mainCtx.drawImage(rightSleeveCanvas.current, 1728, 576);
     }
 
-    // Draw collar, button placket, cuffs and other parts with solid matches
+    // Draw collar, button placket, cuffs and other parts with solid matches or custom images
     const c1 = designConfig.front.generatedColor1;
-    mainCtx.fillStyle = c1;
+    const trim = designConfig.trim || {
+      collar: { color: c1, uploadedUrl: null },
+      placket: { color: c1, uploadedUrl: null },
+      sleeveStripe: { color: c1, uploadedUrl: null }
+    };
+
     // Component 1: Collar (X=[3157, 4117], Y=[42, 1002])
-    mainCtx.fillRect(3157, 42, 960, 960);
+    if (loadedTrimImages.collar) {
+      mainCtx.drawImage(loadedTrimImages.collar, 3157, 42, 960, 960);
+    } else {
+      mainCtx.fillStyle = trim.collar.color || c1;
+      mainCtx.fillRect(3157, 42, 960, 960);
+    }
+
     // Component 10: Collar rib (X=[1813, 2901], Y=[1408, 1514])
-    mainCtx.fillRect(1813, 1408, 1088, 106);
+    if (loadedTrimImages.collar) {
+      mainCtx.drawImage(loadedTrimImages.collar, 1813, 1408, 1088, 106);
+    } else {
+      mainCtx.fillStyle = trim.collar.color || c1;
+      mainCtx.fillRect(1813, 1408, 1088, 106);
+    }
+
     // Component 11: Sleeve cuff (X=[490, 1557], Y=[1429, 1536])
-    mainCtx.fillRect(490, 1429, 1067, 107);
+    if (loadedTrimImages.sleeveStripe) {
+      mainCtx.drawImage(loadedTrimImages.sleeveStripe, 490, 1429, 1067, 107);
+    } else {
+      mainCtx.fillStyle = trim.sleeveStripe.color || c1;
+      mainCtx.fillRect(490, 1429, 1067, 107);
+    }
+
     // Component 12: Placket (X=[2474, 3050], Y=[1706, 1834])
-    mainCtx.fillRect(2474, 1706, 576, 128);
+    if (loadedTrimImages.placket) {
+      mainCtx.drawImage(loadedTrimImages.placket, 2474, 1706, 576, 128);
+    } else {
+      mainCtx.fillStyle = trim.placket.color || c1;
+      mainCtx.fillRect(2474, 1706, 576, 128);
+    }
 
     if (textureRef.current) {
       textureRef.current.needsUpdate = true;
     }
   };
 
-  // Re-run composition when designConfig, sleeve settings, or loaded images change
+  // Re-run composition and dynamically update solid meshes when trim configuration changes
   useEffect(() => {
     composeTexture();
-  }, [designConfig, previewSleeveType, prefTrigger]);
+
+    // Dynamically update solid color materials on 3D meshes (buttons, sleeve ends) in real-time
+    if (poloModelRef.current) {
+      const c1 = designConfig.front.generatedColor1;
+      const trim = designConfig.trim || {
+        collar: { color: c1, uploadedUrl: null },
+        placket: { color: c1, uploadedUrl: null },
+        sleeveStripe: { color: c1, uploadedUrl: null }
+      };
+
+      poloModelRef.current.traverse((child) => {
+        if ((child as any).isMesh) {
+          const mesh = child as THREE.Mesh;
+          const matName = (mesh.material as any).name || '';
+          const mat = mesh.material as THREE.MeshStandardMaterial;
+          if (mat) {
+            if (
+              matName.toLowerCase().includes('button') || 
+              matName.toLowerCase().includes('material 1')
+            ) {
+              mat.color.set(trim.placket.color || '#ffffff');
+            } else if (
+              matName.toLowerCase().includes('sleeve end') || 
+              matName.toLowerCase().includes('material 2')
+            ) {
+              mat.color.set(trim.sleeveStripe.color || '#ffffff');
+            }
+          }
+        }
+      });
+    }
+  }, [designConfig, previewSleeveType, prefTrigger, loadedTrimImages]);
 
   // Handle external zoom controls dynamically
   useEffect(() => {
@@ -130,7 +249,7 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
     }
     // Reset camera position and target when zoom is reset to 1
     if (zoom === 1 && cameraRef.current && controlsRef.current) {
-      cameraRef.current.position.set(0, 0.25, 2.8);
+      cameraRef.current.position.set(0, 0.2, 2.2);
       controlsRef.current.target.set(0, 0, 0);
       controlsRef.current.update();
     }
@@ -147,7 +266,7 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
     scene.background = new THREE.Color('#0a0a0f');
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.set(0, 0.25, 2.8);
+    camera.position.set(0, 0.2, 2.2);
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({
@@ -189,11 +308,69 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.enablePan = false;
-    controls.minDistance = 1.2;
+    controls.minDistance = 1.0;
     controls.maxDistance = 5.5;
     controls.maxPolarAngle = Math.PI / 1.8;
     controls.target.set(0, 0, 0);
     controlsRef.current = controls;
+
+    // Spacebar Panning Control Handlers
+    let isSpaceDown = false;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        if (!isSpaceDown) {
+          isSpaceDown = true;
+          controls.enablePan = true;
+          controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
+          if (canvasRef.current) {
+            canvasRef.current.style.cursor = 'grab';
+          }
+        }
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === ' ' || e.code === 'Space') {
+        isSpaceDown = false;
+        controls.enablePan = false;
+        controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+        if (canvasRef.current) {
+          canvasRef.current.style.cursor = 'auto';
+        }
+      }
+    };
+
+    const handleMouseDown = () => {
+      if (isSpaceDown && canvasRef.current) {
+        canvasRef.current.style.cursor = 'grabbing';
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (canvasRef.current) {
+        canvasRef.current.style.cursor = isSpaceDown ? 'grab' : 'auto';
+      }
+    };
+
+    const handleBlur = () => {
+      isSpaceDown = false;
+      controls.enablePan = false;
+      controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+      if (canvasRef.current) {
+        canvasRef.current.style.cursor = 'auto';
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+    const canvasEl = canvasRef.current;
+    if (canvasEl) {
+      canvasEl.addEventListener('mousedown', handleMouseDown);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
 
     // Create Main Composition Canvas
     const mainCanvas = document.createElement('canvas');
@@ -227,6 +404,68 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
 
         // Force update world matrices so child node scales and positions are applied
         model.updateMatrixWorld(true);
+
+        // Apply programmatic sleeve deformation to bend sleeves downward naturally
+        model.traverse((child) => {
+          if ((child as any).isMesh && (child as any).geometry) {
+            const mesh = child as THREE.Mesh;
+            const geom = mesh.geometry;
+            const pos = geom.attributes.position;
+            if (pos) {
+              const vCount = pos.count;
+              
+              const xPivotL = -135;
+              const xPivotR = 135;
+              const yPivot = 1380;
+              const angleRad = 0.52; // ~30 degrees downward
+              const transitionWidth = 60;
+
+              for (let i = 0; i < vCount; i++) {
+                let x = pos.getX(i);
+                let y = pos.getY(i);
+
+                if (x < xPivotL) {
+                  // Left Sleeve: Counter-clockwise (positive angle) to bend down
+                  const dist = xPivotL - x;
+                  const w = Math.min(1, dist / transitionWidth);
+                  const theta = angleRad * w;
+                  
+                  const cosT = Math.cos(theta);
+                  const sinT = Math.sin(theta);
+                  
+                  const dx = x - xPivotL;
+                  const dy = y - yPivot;
+                  
+                  const rx = dx * cosT - dy * sinT;
+                  const ry = dx * sinT + dy * cosT;
+                  
+                  pos.setX(i, xPivotL + rx);
+                  pos.setY(i, yPivot + ry);
+                } else if (x > xPivotR) {
+                  // Right Sleeve: Clockwise (negative angle) to bend down
+                  const dist = x - xPivotR;
+                  const w = Math.min(1, dist / transitionWidth);
+                  const theta = -angleRad * w;
+                  
+                  const cosT = Math.cos(theta);
+                  const sinT = Math.sin(theta);
+                  
+                  const dx = x - xPivotR;
+                  const dy = y - yPivot;
+                  
+                  const rx = dx * cosT - dy * sinT;
+                  const ry = dx * sinT + dy * cosT;
+                  
+                  pos.setX(i, xPivotR + rx);
+                  pos.setY(i, yPivot + ry);
+                }
+              }
+              pos.needsUpdate = true;
+              geom.computeBoundingBox();
+              geom.computeBoundingSphere();
+            }
+          }
+        });
 
         // Center model around origin
         const box = new THREE.Box3().setFromObject(model);
@@ -282,19 +521,26 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
               normalScale: new THREE.Vector2(0.12, 0.12)
             });
 
+            const c1 = designConfig.front.generatedColor1;
+            const trim = designConfig.trim || {
+              collar: { color: c1, uploadedUrl: null },
+              placket: { color: c1, uploadedUrl: null },
+              sleeveStripe: { color: c1, uploadedUrl: null }
+            };
+
             if (
               matName.toLowerCase().includes('button') || 
               matName.toLowerCase().includes('material 1')
             ) {
               console.log(`-> Mapping solid color (button) to mesh: "${mesh.name}"`);
-              mat.color.set(designConfig.front?.generatedColor1 || '#ffffff');
+              mat.color.set(trim.placket.color || '#ffffff');
               mesh.material = mat;
             } else if (
               matName.toLowerCase().includes('sleeve end') || 
               matName.toLowerCase().includes('material 2')
             ) {
               console.log(`-> Mapping solid color (sleeve end) to mesh: "${mesh.name}"`);
-              mat.color.set(designConfig.front?.generatedColor1 || '#ffffff');
+              mat.color.set(trim.sleeveStripe.color || '#ffffff');
               mesh.material = mat;
             } else if (
               matName.toLowerCase().includes('main design') || 
@@ -357,6 +603,13 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
 
     return () => {
       cancelAnimationFrame(animId);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+      if (canvasEl) {
+        canvasEl.removeEventListener('mousedown', handleMouseDown);
+        window.removeEventListener('mouseup', handleMouseUp);
+      }
       if (containerRef.current) {
         resizeObserver.unobserve(containerRef.current);
       }

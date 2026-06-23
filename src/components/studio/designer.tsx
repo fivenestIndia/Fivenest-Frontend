@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, RotateCcw, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2 } from 'lucide-react';
+import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, RotateCcw, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt } from 'lucide-react';
 import type { OrderMetadata } from './orderEntry';
 import { ThreeDPreview } from './ThreeDPreview';
 import { defaultSizes } from './sizesDb';
+import { toast } from 'sonner';
 
 export interface TextConfig {
   enabled: boolean;
@@ -56,12 +57,24 @@ export interface PanelConfig {
   bgLockAspectRatio?: boolean;
 }
 
+export interface TrimPartConfig {
+  color: string;
+  uploadedUrl: string | null;
+}
+
+export interface TrimConfig {
+  collar: TrimPartConfig;
+  placket: TrimPartConfig;
+  sleeveStripe: TrimPartConfig;
+}
+
 export interface ArtDesignConfig {
   front: PanelConfig;
   back: PanelConfig;
   sleeveLeft: PanelConfig;
   sleeveRight: PanelConfig;
   a4Print: PanelConfig;
+  trim?: TrimConfig;
 }
 
 interface DesignerProps {
@@ -145,6 +158,11 @@ export const defaultDesignConfig: ArtDesignConfig = {
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
     torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '', lockAspectRatio: true }
+  },
+  trim: {
+    collar: { color: '#9b4dff', uploadedUrl: null },
+    placket: { color: '#9b4dff', uploadedUrl: null },
+    sleeveStripe: { color: '#9b4dff', uploadedUrl: null }
   }
 };
 
@@ -176,6 +194,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     logos: true,
     guidelines: true,
     fonts: true,
+    trim: true,
   });
 
   const logoImagesRef = useRef<Record<string, HTMLImageElement>>({});
@@ -466,6 +485,37 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
     };
     onDesignConfigChange(updated);
+  };
+
+  const updateTrimConfig = (partKey: 'collar' | 'placket' | 'sleeveStripe', updatedFields: Partial<TrimPartConfig>) => {
+    const currentTrim = designConfig.trim || {
+      collar: { color: designConfig.front.generatedColor1, uploadedUrl: null },
+      placket: { color: designConfig.front.generatedColor1, uploadedUrl: null },
+      sleeveStripe: { color: designConfig.front.generatedColor1, uploadedUrl: null }
+    };
+    const updated = {
+      ...designConfig,
+      trim: {
+        ...currentTrim,
+        [partKey]: {
+          ...currentTrim[partKey],
+          ...updatedFields
+        }
+      }
+    };
+    onDesignConfigChange(updated);
+  };
+
+  const handleTrimFileUpload = (partKey: 'collar' | 'placket' | 'sleeveStripe', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const url = event.target?.result as string;
+        updateTrimConfig(partKey, { uploadedUrl: url });
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const updateTextConfig = (textType: 'name' | 'number' | 'sizeTag', fields: Partial<TextConfig>) => {
@@ -1915,6 +1965,167 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   </button>
                 </div>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* Collar & Trim Customization */}
+        <div className="glass-card" style={{ padding: '20px' }}>
+          <h3 
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-primary)' }}
+            onClick={() => toggleCollapse('trim')}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Shirt size={18} /> Collar & Trim Customization
+            </span>
+            {collapsed.trim ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+          </h3>
+
+          {!collapsed.trim && (
+            <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Part 1: Collar */}
+              <div>
+                <h4 style={{ fontSize: '13px', fontWeight: 'semibold', color: '#fff', marginBottom: '8px' }}>Collar & Rib</h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input 
+                      type="color" 
+                      value={designConfig.trim?.collar.color || designConfig.front.generatedColor1} 
+                      onChange={(e) => updateTrimConfig('collar', { color: e.target.value })}
+                      style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
+                    />
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={(designConfig.trim?.collar.color || designConfig.front.generatedColor1).toUpperCase()}
+                      onChange={(e) => updateTrimConfig('collar', { color: e.target.value })}
+                      style={{ padding: '6px', fontSize: '12px', width: '90px' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    {designConfig.trim?.collar.uploadedUrl ? (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          Image Active
+                        </div>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '4px 8px', fontSize: '11px' }}
+                          onClick={() => updateTrimConfig('collar', { uploadedUrl: null })}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
+                        Import Image
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => handleTrimFileUpload('collar', e)} 
+                          style={{ display: 'none' }} 
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Part 2: Placket */}
+              <div>
+                <h4 style={{ fontSize: '13px', fontWeight: 'semibold', color: '#fff', marginBottom: '8px' }}>Button Placket</h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input 
+                      type="color" 
+                      value={designConfig.trim?.placket.color || designConfig.front.generatedColor1} 
+                      onChange={(e) => updateTrimConfig('placket', { color: e.target.value })}
+                      style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
+                    />
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={(designConfig.trim?.placket.color || designConfig.front.generatedColor1).toUpperCase()}
+                      onChange={(e) => updateTrimConfig('placket', { color: e.target.value })}
+                      style={{ padding: '6px', fontSize: '12px', width: '90px' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    {designConfig.trim?.placket.uploadedUrl ? (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          Image Active
+                        </div>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '4px 8px', fontSize: '11px' }}
+                          onClick={() => updateTrimConfig('placket', { uploadedUrl: null })}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
+                        Import Image
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => handleTrimFileUpload('placket', e)} 
+                          style={{ display: 'none' }} 
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Part 3: Sleeve Stripe */}
+              <div>
+                <h4 style={{ fontSize: '13px', fontWeight: 'semibold', color: '#fff', marginBottom: '8px' }}>Sleeve Stripe / Cuff</h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input 
+                      type="color" 
+                      value={designConfig.trim?.sleeveStripe.color || designConfig.front.generatedColor1} 
+                      onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
+                      style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
+                    />
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={(designConfig.trim?.sleeveStripe.color || designConfig.front.generatedColor1).toUpperCase()}
+                      onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
+                      style={{ padding: '6px', fontSize: '12px', width: '90px' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    {designConfig.trim?.sleeveStripe.uploadedUrl ? (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          Image Active
+                        </div>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '4px 8px', fontSize: '11px' }}
+                          onClick={() => updateTrimConfig('sleeveStripe', { uploadedUrl: null })}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
+                        Import Image
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => handleTrimFileUpload('sleeveStripe', e)} 
+                          style={{ display: 'none' }} 
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
