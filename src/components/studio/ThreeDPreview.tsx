@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { ArtDesignConfig } from './designer';
 import { Loader2 } from 'lucide-react';
 import { defaultSizes } from './sizesDb';
@@ -394,6 +395,9 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
 
     // Load T-Shirt GLTF model
     const loader = new GLTFLoader();
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+    loader.setDRACOLoader(dracoLoader);
     console.log("Starting to load GLTF model from /models/tshirt.glb...");
     loader.load(
       '/models/tshirt.glb',
