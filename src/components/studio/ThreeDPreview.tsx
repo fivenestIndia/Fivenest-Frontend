@@ -409,68 +409,6 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
         // Force update world matrices so child node scales and positions are applied
         model.updateMatrixWorld(true);
 
-        // --- Apply Programmatic Sleeve Bending ---
-        // Bends the sleeves downward dynamically so no Blender rigging is required.
-        model.traverse((child) => {
-          if ((child as any).isMesh && (child as any).geometry) {
-            const geom = (child as any).geometry;
-            const pos = geom.attributes.position;
-            if (!pos) return;
-            
-            const vCount = pos.count;
-            const xPivotL = -135;
-            const xPivotR = 135;
-            const yPivot = 1380;
-            const angleRad = 0.52; // ~30 degrees downward
-            const transitionWidth = 60;
-
-            for (let i = 0; i < vCount; i++) {
-              let x = pos.getX(i);
-              let y = pos.getY(i);
-              let z = pos.getZ(i);
-
-              if (x < xPivotL) {
-                // Left Sleeve: Counter-clockwise
-                const dist = xPivotL - x;
-                const w = Math.min(1, dist / transitionWidth);
-                const theta = angleRad * w;
-                
-                const cosT = Math.cos(theta);
-                const sinT = Math.sin(theta);
-                
-                const dx = x - xPivotL;
-                const dy = y - yPivot;
-                
-                const rx = dx * cosT - dy * sinT;
-                const ry = dx * sinT + dy * cosT;
-                
-                pos.setX(i, xPivotL + rx);
-                pos.setY(i, yPivot + ry);
-              } else if (x > xPivotR) {
-                // Right Sleeve: Clockwise
-                const dist = x - xPivotR;
-                const w = Math.min(1, dist / transitionWidth);
-                const theta = -angleRad * w;
-                
-                const cosT = Math.cos(theta);
-                const sinT = Math.sin(theta);
-                
-                const dx = x - xPivotR;
-                const dy = y - yPivot;
-                
-                const rx = dx * cosT - dy * sinT;
-                const ry = dx * sinT + dy * cosT;
-                
-                pos.setX(i, xPivotR + rx);
-                pos.setY(i, yPivot + ry);
-              }
-            }
-            pos.needsUpdate = true;
-            geom.computeBoundingBox();
-            geom.computeBoundingSphere();
-          }
-        });
-        // -----------------------------------------
 
         // Center model around origin
         const box = new THREE.Box3().setFromObject(model);
