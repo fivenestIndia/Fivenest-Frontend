@@ -1108,13 +1108,14 @@ export const NestingView: React.FC<NestingViewProps> = ({
           ctx.strokeStyle = sizeTagConf.strokeColor;
           ctx.lineWidth = sizeTagConf.strokeWidth * (scaleDpi / 100);
 
-          const offsetPx = Math.round(0.15 * scaleDpi);
+          const offsetX = Math.round(0.06 * scaleDpi); // ~4px at 72dpi, flush to top-left
+          const offsetY = Math.round(0.05 * scaleDpi); // ~3.5px at 72dpi
           
-          let targetX = offsetPx;
+          let targetX = offsetX;
           if (align === 'center') {
             targetX = widthPx / 2;
           } else if (align === 'right') {
-            targetX = widthPx - offsetPx;
+            targetX = widthPx - offsetX;
           }
 
           let drawX = targetX;
@@ -1154,24 +1155,25 @@ export const NestingView: React.FC<NestingViewProps> = ({
           const compressedDrawX = drawX / 0.80;
 
           if (sizeTagConf.strokeWidth > 0) {
-            ctx.strokeText(displayText, compressedDrawX, offsetPx);
+            ctx.strokeText(displayText, compressedDrawX, offsetY);
           }
-          ctx.fillText(displayText, compressedDrawX, offsetPx);
+          ctx.fillText(displayText, compressedDrawX, offsetY);
           ctx.restore();
         }
 
         // Draw center tick marks and corner watermark text labels
         drawTechnicalMarks();
 
-        // Draw FiveNest Watermark Logo in 180° (upside-down) at EXTREME BOTTOM-RIGHT of Front files in BLACK & WHITE
+        // Draw FiveNest Watermark Logo in 180° (upside-down) with full brand text "FiveNest" at bottom-right of Front files
         if (includeWatermarkLogo && item.panelType === 'front') {
           ctx.save();
-          const logoW = Math.round(0.35 * scaleDpi); // 0.35 inches width for ultra-high vector clarity
-          const logoH = Math.round((0.35 * (48.1 / 64.8)) * scaleDpi);
+          // Icon size: 0.36" width, 0.27" height
+          const logoW = Math.round(0.36 * scaleDpi);
+          const logoH = Math.round((0.36 * (48.1 / 64.8)) * scaleDpi);
 
-          // Position at extreme bottom-right corner of panel (0.15" from right, 0.10" from bottom)
-          const marginX = Math.round(0.15 * scaleDpi);
-          const marginY = Math.round(0.10 * scaleDpi);
+          // Shift watermark slightly up & left into corner so entire logo + text fits inside guidelines
+          const marginX = Math.round(0.28 * scaleDpi);
+          const marginY = Math.round(0.32 * scaleDpi);
 
           const cx = widthPx - marginX;
           const cy = heightPx - marginY;
@@ -1179,16 +1181,16 @@ export const NestingView: React.FC<NestingViewProps> = ({
           ctx.translate(cx, cy);
           ctx.rotate(Math.PI); // Rotate 180 Degrees (upside down)
 
+          ctx.globalAlpha = 1.0;
+
           if (logoPathCyan && logoPathWhite) {
-            // Pure 2D High-Res Vector Path rendering in Black & White matching user spec
+            ctx.save();
             ctx.scale(logoW / 64.8, logoH / 48.1);
             ctx.translate(-64.8 / 2, -48.1 / 2);
 
-            ctx.globalAlpha = 1.0;
-            
             // Outer White Border for maximum contrast & crispness
             ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 3.0;
+            ctx.lineWidth = 3.5;
             ctx.stroke(logoPathCyan);
 
             // Solid Black Main Shape
@@ -1198,10 +1200,28 @@ export const NestingView: React.FC<NestingViewProps> = ({
             // Crisp White Accent Path
             ctx.fillStyle = '#ffffff';
             ctx.fill(logoPathWhite);
+            ctx.restore();
           } else if (fivenestLogoImageInstance && fivenestLogoImageInstance.complete && fivenestLogoImageInstance.naturalWidth > 0) {
-            ctx.globalAlpha = 1.0;
             ctx.drawImage(fivenestLogoImageInstance, -logoW / 2, -logoH / 2, logoW, logoH);
           }
+
+          // Draw full "FiveNest" brand text right below icon (inside 180° rotated canvas)
+          const textFontSize = Math.round(0.12 * scaleDpi); // Crisp ~9pt text size
+          ctx.font = `bold ${textFontSize}px system-ui, -apple-system, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+
+          const textY = (logoH / 2) + Math.round(0.04 * scaleDpi);
+
+          // White outline for text
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = Math.max(2, Math.round(2 * (scaleDpi / 100)));
+          ctx.strokeText("FiveNest", 0, textY);
+
+          // Solid Black text fill
+          ctx.fillStyle = '#000000';
+          ctx.fillText("FiveNest", 0, textY);
+
           ctx.restore();
         }
 
