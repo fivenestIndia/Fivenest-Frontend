@@ -1295,6 +1295,203 @@ export const NestingView: React.FC<NestingViewProps> = ({
         // Enforce 72 DPI in Test Mode
         let activeDpi = testMode ? 72 : dpi;
 
+        const cleanCust = metadata.customerName.replace(/[\/\\:*?"<>|]/g, "_").trim() || "Unknown";
+        const cleanOrder = metadata.orderNum.replace(/[\/\\:*?"<>|]/g, "_").trim() || "01";
+
+        // TEST MODE: EXPORT SINGLE 72 DPI PDF ONLY (NO ZIP / NO FOLDERS)
+        if (testMode) {
+          setExportProgress("Generating Test Mode 72 DPI PDF document...");
+
+          const frontOverlaysChecked = (designConfig.front.nameConfig.enabled || designConfig.front.numberConfig.enabled) && !metadata.blankKit;
+          const backOverlaysChecked = (designConfig.back.nameConfig.enabled || designConfig.back.numberConfig.enabled) && !metadata.blankKit;
+          const a4OverlaysChecked = (designConfig.a4Print.nameConfig.enabled || designConfig.a4Print.numberConfig.enabled) && !metadata.blankKit;
+
+          interface TestPdfPage {
+            item: PlacedItem;
+            label: string;
+          }
+          const testPdfPages: TestPdfPage[] = [];
+
+          // 1. Group / Format Fronts
+          const frontItems = items.filter(it => it.panelType === 'front');
+          const frontSizeMap: Record<string, PlacedItem[]> = {};
+          frontItems.forEach(it => {
+            if (!frontSizeMap[it.size]) frontSizeMap[it.size] = [];
+            frontSizeMap[it.size].push(it);
+          });
+
+          if (frontOverlaysChecked) {
+            Object.keys(frontSizeMap).sort().forEach(size => {
+              frontSizeMap[size].forEach((it, idx) => {
+                testPdfPages.push({
+                  item: it,
+                  label: `[Front] ${it.size} ${idx + 1} F`
+                });
+              });
+            });
+          } else {
+            Object.keys(frontSizeMap).forEach(size => {
+              const list = frontSizeMap[size];
+              testPdfPages.push({
+                item: list[0],
+                label: `[Front] ${size} = ${list.length} F`
+              });
+            });
+          }
+
+          // 2. Group / Format Backs
+          const backItems = items.filter(it => it.panelType === 'back');
+          const backSizeMap: Record<string, PlacedItem[]> = {};
+          backItems.forEach(it => {
+            if (!backSizeMap[it.size]) backSizeMap[it.size] = [];
+            backSizeMap[it.size].push(it);
+          });
+
+          if (backOverlaysChecked) {
+            Object.keys(backSizeMap).sort().forEach(size => {
+              backSizeMap[size].forEach((it, idx) => {
+                testPdfPages.push({
+                  item: it,
+                  label: `[Back] ${it.size} ${idx + 1} B`
+                });
+              });
+            });
+          } else {
+            Object.keys(backSizeMap).forEach(size => {
+              const list = backSizeMap[size];
+              testPdfPages.push({
+                item: list[0],
+                label: `[Back] ${size} = ${list.length} B`
+              });
+            });
+          }
+
+          // 3. Group / Format Sleeves
+          const sleeveItems = items.filter(it => it.panelType.startsWith('sleeve'));
+          const sleeveSizeMap: Record<string, PlacedItem[]> = {};
+          sleeveItems.forEach(it => {
+            const key = `${it.size}-${it.panelType}-${it.sleeveType || ''}`;
+            if (!sleeveSizeMap[key]) sleeveSizeMap[key] = [];
+            sleeveSizeMap[key].push(it);
+          });
+
+          Object.keys(sleeveSizeMap).forEach(key => {
+            const list = sleeveSizeMap[key];
+            const rep = list[0];
+            const qty = list.length;
+            let sleeveCode = 'HSL';
+            if (rep.panelType === 'sleeve-left') {
+              sleeveCode = rep.sleeveType === 'full' ? 'FSL L' : 'HSL L';
+            } else if (rep.panelType === 'sleeve-right') {
+              sleeveCode = rep.sleeveType === 'full' ? 'FSL R' : 'HSL R';
+            } else {
+              sleeveCode = rep.sleeveType === 'full' ? 'FSL' : 'HSL';
+            }
+
+            testPdfPages.push({
+              item: rep,
+              label: `[Sleeve] ${rep.size} = ${qty} ${sleeveCode}`
+            });
+          });
+
+          // 4. Group / Format A4 Prints
+          const a4Items = items.filter(it => it.panelType === 'a4-print');
+          if (a4OverlaysChecked) {
+            a4Items.forEach((it, idx) => {
+              testPdfPages.push({
+                item: it,
+                label: `[A4] ${it.size} ${idx + 1} A4`
+              });
+            });
+          } else {
+            const a4SizeMap: Record<string, PlacedItem[]> = {};
+            a4Items.forEach(it => {
+              if (!a4SizeMap[it.size]) a4SizeMap[it.size] = [];
+              a4SizeMap[it.size].push(it);
+            });
+            Object.keys(a4SizeMap).forEach(size => {
+              const list = a4SizeMap[size];
+              testPdfPages.push({
+                item: list[0],
+                label: `[A4] ${size} = ${list.length} A4`
+              });
+            });
+          }
+
+          if (testPdfPages.length > 0) {
+            const firstPage = testPdfPages[0];
+            const maxItemHeight = testPdfPages.reduce((max, pg) => Math.max(max, pg.item.h), 0);
+            const maxItemHeightPt = (maxItemHeight * 72) + 40;
+            const zipUUnit = maxItemHeightPt > 14400 ? Math.ceil(maxItemHeightPt / 14400) : 1.0;
+
+            const testPdf = new jsPDF({
+              orientation: 'portrait',
+              unit: 'pt',
+              format: [ (firstPage.item.w * 72) / zipUUnit, ((firstPage.item.h * 72) + 40) / zipUUnit ],
+              userUnit: zipUUnit
+            });
+
+            for (let i = 0; i < testPdfPages.length; i++) {
+              const page = testPdfPages[i];
+              const item = page.item;
+              setExportProgress(`Rendering 72 DPI Test PDF Page (${i + 1}/${testPdfPages.length}): ${page.label}...`);
+
+              const pageW = (item.w * 72) / zipUUnit;
+              const pageH = ((item.h * 72) + 40) / zipUUnit;
+
+              if (i > 0) {
+                testPdf.addPage([ pageW, pageH ], 'portrait');
+              }
+
+              // Solid white background
+              testPdf.setFillColor(255, 255, 255);
+              testPdf.rect(0, 0, pageW, pageH, 'F');
+
+              const previewItemCanvas = await renderPanelGraphic(item, 72);
+              const previewImgData = previewItemCanvas.toDataURL('image/jpeg', 0.85);
+
+              const targetXPt = 0;
+              const targetYPt = 5;
+              const targetWPt = item.w * 72;
+              const targetHPt = item.h * 72;
+
+              testPdf.addImage(
+                previewImgData, 
+                'JPEG', 
+                targetXPt / zipUUnit, 
+                targetYPt / zipUUnit, 
+                targetWPt / zipUUnit, 
+                targetHPt / zipUUnit, 
+                undefined, 
+                'FAST'
+              );
+
+              // Add centered label below image in brackets
+              testPdf.setFontSize(13);
+              testPdf.setFont("helvetica", "bold");
+              testPdf.setTextColor(30, 30, 30);
+              testPdf.text(
+                page.label,
+                pageW / 2,
+                ((item.h * 72) + 26) / zipUUnit,
+                { align: 'center' }
+              );
+            }
+
+            testPdf.save(`${cleanCust}_${cleanOrder}_72DPI_Test.pdf`);
+          }
+
+          setIsExporting(false);
+          setExportProgress("");
+
+          confetti({
+            particleCount: 150,
+            spread: 80,
+            origin: { y: 0.5 }
+          });
+          return;
+        }
+
         if (!enableNesting) {
           // EXPORT AS ZIP OF INDIVIDUAL IMAGES (Front, Back, Sleeve, A4 folders)
           const frontOverlaysChecked = (designConfig.front.nameConfig.enabled || designConfig.front.numberConfig.enabled) && !metadata.blankKit;
@@ -1467,9 +1664,6 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
           setExportProgress("Compiling ZIP package...");
           const content = await zip.generateAsync({ type: "blob" });
-          
-          const cleanCust = metadata.customerName.replace(/[\/\\:*?"<>|]/g, "_").trim() || "Unknown";
-          const cleanOrder = metadata.orderNum.replace(/[\/\\:*?"<>|]/g, "_").trim() || "01";
           
           const link = document.createElement('a');
           link.href = URL.createObjectURL(content);
@@ -1706,8 +1900,6 @@ export const NestingView: React.FC<NestingViewProps> = ({
         }
 
         setExportProgress("Saving PDF document...");
-        const cleanCust = metadata.customerName.replace(/[\/\\:*?"<>|]/g, "_").trim() || "Unknown";
-        const cleanOrder = metadata.orderNum.replace(/[\/\\:*?"<>|]/g, "_").trim() || "01";
         pdf.save(`${cleanCust}_${cleanOrder}_Print_Roll.pdf`);
 
         if (needPreviewPdf && previewPdf) {
