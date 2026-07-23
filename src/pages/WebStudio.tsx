@@ -324,6 +324,25 @@ export default function WebStudio() {
               </button>
             )}
 
+            {/* Header Billing System Button Shortcut */}
+            <button
+              className={`btn ${activeTab === 'billing' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveTab('billing')}
+              style={{ 
+                padding: '6px 14px', 
+                borderRadius: '30px', 
+                fontSize: '11px', 
+                fontWeight: 'bold', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '6px',
+                borderColor: activeTab === 'billing' ? 'var(--color-primary)' : 'rgba(0, 230, 118, 0.3)',
+                color: activeTab === 'billing' ? 'white' : 'var(--color-success)'
+              }}
+            >
+              <Receipt size={14} /> Billing System
+            </button>
+
             {/* Visual step tracker */}
             <div className="wizard-steps" style={{ margin: 0, gap: '20px' }}>
               <div className={`wizard-step ${activeTab === 'designer' ? 'active' : records.length > 0 ? 'completed' : ''}`} style={{ padding: 0 }}>

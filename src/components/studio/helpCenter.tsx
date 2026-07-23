@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, FileText, Check, Copy, RefreshCw } from 'lucide-react';
+import { Send, FileText, Check, Copy, RefreshCw, Sparkles, ExternalLink } from 'lucide-react';
 import type { PlayerRecord } from './orderEntry';
 
 interface HelpCenterProps {
@@ -269,7 +269,46 @@ export const HelpCenter: React.FC<HelpCenterProps> = ({ onImportRecords }) => {
           </div>
         </div>
       ) : (
-        <div className="grid-2">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* ✨ Gemini Gem Banner */}
+          <div className="glass-card" style={{ 
+            background: 'linear-gradient(135deg, rgba(155, 77, 255, 0.18), rgba(0, 229, 255, 0.12))', 
+            border: '1px solid rgba(155, 77, 255, 0.4)', 
+            padding: '20px 24px', 
+            borderRadius: '12px',
+            boxShadow: '0 4px 20px rgba(155, 77, 255, 0.15)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
+              <div>
+                <h3 style={{ margin: '0 0 6px', fontSize: '17px', fontWeight: '800', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sparkles size={20} style={{ color: 'var(--color-primary)' }} /> FiveNest AI Roster Refiner Gem (Gemini AI)
+                </h3>
+                <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255, 255, 255, 0.75)', lineHeight: '1.5', maxWidth: '650px' }}>
+                  Use our custom Google Gemini Gem to automatically refine, extract, and clean raw client emails or WhatsApp roster text into structured CSV format.
+                </p>
+              </div>
+              <a 
+                href="https://gemini.google.com/gem/1vc3MbyzLtt5RspOpQualSpuViseurHd4?usp=sharing" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="btn btn-primary"
+                style={{ 
+                  padding: '11px 20px', 
+                  fontSize: '13px', 
+                  fontWeight: 'bold', 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '8px', 
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 4px 16px rgba(155, 77, 255, 0.4)'
+                }}
+              >
+                <Sparkles size={16} /> Launch Gemini AI Gem <ExternalLink size={14} />
+              </a>
+            </div>
+          </div>
+
+          <div className="grid-2">
           {/* Unstructured Text Input */}
           <div className="glass-card">
             <h3 style={{ marginBottom: '12px' }}>📝 Paste Client Email / Unstructured Text</h3>
@@ -352,6 +391,7 @@ export const HelpCenter: React.FC<HelpCenterProps> = ({ onImportRecords }) => {
                 Click "Clean & Extract Roster List" to parse the text.
               </div>
             )}
+          </div>
           </div>
         </div>
       )}
