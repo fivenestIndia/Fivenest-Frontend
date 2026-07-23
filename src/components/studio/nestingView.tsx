@@ -1163,32 +1163,44 @@ export const NestingView: React.FC<NestingViewProps> = ({
         // Draw center tick marks and corner watermark text labels
         drawTechnicalMarks();
 
-        // Draw FiveNest Watermark Logo in 180° (upside-down) at bottom-right of Front files if enabled
+        // Draw FiveNest Watermark Logo in 180° (upside-down) at EXTREME BOTTOM-RIGHT of Front files in BLACK & WHITE
         if (includeWatermarkLogo && item.panelType === 'front') {
           ctx.save();
-          const logoW = Math.round(0.3 * scaleDpi); // 0.3 inches width
-          const logoH = Math.round((0.3 * (48.1 / 64.8)) * scaleDpi); // aspect ratio from logo.svg
+          const logoW = Math.round(0.35 * scaleDpi); // 0.35 inches width for ultra-high vector clarity
+          const logoH = Math.round((0.35 * (48.1 / 64.8)) * scaleDpi);
 
-          const marginX = Math.round(0.4 * scaleDpi); // 0.4" from right
-          const marginY = Math.round(0.4 * scaleDpi); // 0.4" from bottom
+          // Position at extreme bottom-right corner of panel (0.15" from right, 0.10" from bottom)
+          const marginX = Math.round(0.15 * scaleDpi);
+          const marginY = Math.round(0.10 * scaleDpi);
 
           const cx = widthPx - marginX;
           const cy = heightPx - marginY;
 
           ctx.translate(cx, cy);
-          ctx.rotate(Math.PI); // Rotate 180 Degrees!
+          ctx.rotate(Math.PI); // Rotate 180 Degrees (upside down)
 
-          if (fivenestLogoImageInstance && fivenestLogoImageInstance.complete && fivenestLogoImageInstance.naturalWidth > 0) {
-            ctx.globalAlpha = 0.85;
-            ctx.drawImage(fivenestLogoImageInstance, -logoW / 2, -logoH / 2, logoW, logoH);
-          } else if (logoPathCyan && logoPathWhite) {
-            // Pure 2D Vector Path fallback (100% instant, no image needed!)
+          if (logoPathCyan && logoPathWhite) {
+            // Pure 2D High-Res Vector Path rendering in Black & White matching user spec
             ctx.scale(logoW / 64.8, logoH / 48.1);
             ctx.translate(-64.8 / 2, -48.1 / 2);
-            ctx.fillStyle = '#0acbf9';
+
+            ctx.globalAlpha = 1.0;
+            
+            // Outer White Border for maximum contrast & crispness
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3.0;
+            ctx.stroke(logoPathCyan);
+
+            // Solid Black Main Shape
+            ctx.fillStyle = '#000000';
             ctx.fill(logoPathCyan);
+
+            // Crisp White Accent Path
             ctx.fillStyle = '#ffffff';
             ctx.fill(logoPathWhite);
+          } else if (fivenestLogoImageInstance && fivenestLogoImageInstance.complete && fivenestLogoImageInstance.naturalWidth > 0) {
+            ctx.globalAlpha = 1.0;
+            ctx.drawImage(fivenestLogoImageInstance, -logoW / 2, -logoH / 2, logoW, logoH);
           }
           ctx.restore();
         }
