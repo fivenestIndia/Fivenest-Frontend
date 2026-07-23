@@ -859,9 +859,11 @@ export const NestingView: React.FC<NestingViewProps> = ({
       }
       const conf = designConfig[panelTypeKey] || designConfig.front;
 
-      // Load optional guides preferences from localStorage
-      const centerMarks = JSON.parse(localStorage.getItem('fivenest_pref_center_marks') || 'false');
-      const sizeWatermarks = JSON.parse(localStorage.getItem('fivenest_pref_size_watermarks') || 'false');
+      // Load optional guides preferences from localStorage (Default ON = true)
+      const savedCenter = localStorage.getItem('fivenest_pref_center_marks');
+      const centerMarks = savedCenter !== null ? JSON.parse(savedCenter) : true;
+      const savedWater = localStorage.getItem('fivenest_pref_size_watermarks');
+      const sizeWatermarks = savedWater !== null ? JSON.parse(savedWater) : true;
 
       const drawTechnicalMarks = () => {
         if (centerMarks && item.panelType !== 'a4-print') {
@@ -1055,8 +1057,17 @@ export const NestingView: React.FC<NestingViewProps> = ({
             ctx.shadowOffsetY = 2 * (scaleDpi / 100);
           }
 
+          // Calculate total quantity for this size in the roster order
+          const matchingRecords = records.filter(r => (r.size || '').trim() === (item.size || '').trim());
+          const sizeQty = matchingRecords.reduce((acc, r) => acc + (r.qty || 1), 0);
+          const qtyVal = sizeQty > 0 ? sizeQty : (item.qty || 1);
+
+          // Requirement: Format size watermark as "40 = Quantity" (e.g. "40 = 2")
+          const sizeQtyText = `${item.size} = ${qtyVal}`;
           const templateText = sizeTagConf.text || '{size}';
-          const displayText = templateText.replace('{size}', item.size);
+          const displayText = templateText.includes('{size}')
+            ? templateText.replace('{size}', sizeQtyText)
+            : sizeQtyText;
 
           if (sizeTagConf.strokeWidth > 0) {
             ctx.strokeText(displayText, drawX, offsetPx);

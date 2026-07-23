@@ -54,24 +54,35 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
   const [sizeDB, setSizeDB] = useState<SizeDatabase>(defaultSizes);
   const [selectedSize, setSelectedSize] = useState<string>("40");
   const [saveMessage, setSaveMessage] = useState<string>("");
-  const [centerMarks, setCenterMarks] = useState<boolean>(false);
-  const [sizeWatermarks, setSizeWatermarks] = useState<boolean>(false);
+  const [centerMarks, setCenterMarks] = useState<boolean>(() => {
+    const saved = localStorage.getItem('fivenest_pref_center_marks');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+  const [sizeWatermarks, setSizeWatermarks] = useState<boolean>(() => {
+    const saved = localStorage.getItem('fivenest_pref_size_watermarks');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
   const [showRulers, setShowRulers] = useState<boolean>(true);
   const [gridSpacing, setGridSpacing] = useState<number>(2);
 
   // Load technical marks preferences from localStorage on mount
   useEffect(() => {
     const savedCenter = localStorage.getItem('fivenest_pref_center_marks');
-    if (savedCenter) {
+    if (savedCenter !== null) {
       try {
         setCenterMarks(JSON.parse(savedCenter));
       } catch (e) {}
+    } else {
+      localStorage.setItem('fivenest_pref_center_marks', 'true');
     }
+
     const savedWater = localStorage.getItem('fivenest_pref_size_watermarks');
-    if (savedWater) {
+    if (savedWater !== null) {
       try {
         setSizeWatermarks(JSON.parse(savedWater));
       } catch (e) {}
+    } else {
+      localStorage.setItem('fivenest_pref_size_watermarks', 'true');
     }
     const savedRulers = localStorage.getItem('fivenest_pref_rulers');
     if (savedRulers) {

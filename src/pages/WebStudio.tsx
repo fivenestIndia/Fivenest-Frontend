@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Palette, Users, Ruler, Sliders, HelpCircle, Award, ArrowLeft, Sun, Moon } from 'lucide-react';
+import { Palette, Users, Ruler, Sliders, HelpCircle, Award, ArrowLeft, Sun, Moon, Receipt } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase, fetchUserWallet } from '../lib/supabaseClient';
 import { Designer, defaultDesignConfig } from '../components/studio/designer';
@@ -11,6 +11,7 @@ import type { SizeDatabase } from '../components/studio/sizesDb';
 import { NestingView } from '../components/studio/nestingView';
 import { HelpCenter } from '../components/studio/helpCenter';
 import { LoginModal } from '../components/studio/loginModal';
+import { BillingSystem } from '../components/studio/billingSystem';
 
 export default function WebStudio() {
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>(() => {
@@ -21,7 +22,7 @@ export default function WebStudio() {
   useEffect(() => {
     localStorage.setItem('fivenest_studio_theme', themeMode);
   }, [themeMode]);
-  const [activeTab, setActiveTab] = useState<'designer' | 'order' | 'sizes' | 'nesting' | 'help'>('designer');
+  const [activeTab, setActiveTab] = useState<'designer' | 'order' | 'sizes' | 'nesting' | 'help' | 'billing'>('designer');
   
   // Roster records state
   const [records, setRecords] = useState<PlayerRecord[]>([]);
@@ -179,6 +180,13 @@ export default function WebStudio() {
             >
               <HelpCircle size={18} />
               Help & AI Refine
+            </div>
+            <div 
+              className={`menu-item ${activeTab === 'billing' ? 'active' : ''}`}
+              onClick={() => setActiveTab('billing')}
+            >
+              <Receipt size={18} />
+              Billing System
             </div>
 
             <Link 
@@ -375,6 +383,13 @@ export default function WebStudio() {
           {activeTab === 'help' && (
             <HelpCenter 
               onImportRecords={handleRosterImport}
+            />
+          )}
+
+          {activeTab === 'billing' && (
+            <BillingSystem 
+              records={records}
+              metadata={metadata}
             />
           )}
         </section>

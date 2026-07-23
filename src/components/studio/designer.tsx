@@ -676,8 +676,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
     const drawTechnicalMarks = (ctx: CanvasRenderingContext2D) => {
       if (is3DPreview) return; // Skip technical marks in 3D preview
-      const centerMarks = JSON.parse(localStorage.getItem('fivenest_pref_center_marks') || 'false');
-      const sizeWatermarks = JSON.parse(localStorage.getItem('fivenest_pref_size_watermarks') || 'false');
+      const savedCenter = localStorage.getItem('fivenest_pref_center_marks');
+      const centerMarks = savedCenter !== null ? JSON.parse(savedCenter) : true;
+      const savedWater = localStorage.getItem('fivenest_pref_size_watermarks');
+      const sizeWatermarks = savedWater !== null ? JSON.parse(savedWater) : true;
 
       if (centerMarks && panelKey !== 'a4Print') {
         ctx.save();
