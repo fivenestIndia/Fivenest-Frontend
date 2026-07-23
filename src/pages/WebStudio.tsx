@@ -11,7 +11,7 @@ import type { SizeDatabase } from '../components/studio/sizesDb';
 import { NestingView } from '../components/studio/nestingView';
 import { HelpCenter } from '../components/studio/helpCenter';
 import { LoginModal } from '../components/studio/loginModal';
-import { BillingSystem } from '../components/studio/billingSystem';
+import { BillingSystem, syncOrderToBillingRecords } from '../components/studio/billingSystem';
 
 export default function WebStudio() {
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>(() => {
@@ -44,6 +44,13 @@ export default function WebStudio() {
   const [currentUser, setCurrentUser] = useState<{ email: string; name: string; balance: number } | null>(null);
   const [testMode, setTestMode] = useState<boolean>(false);
   const [loginModalOpen, setLoginModalOpen] = useState<boolean>(false);
+
+  // Auto-sync active roster order into user-scoped Billing System whenever records or metadata change
+  useEffect(() => {
+    if (records && records.length > 0) {
+      syncOrderToBillingRecords(records, metadata, currentUser?.email);
+    }
+  }, [records, metadata, currentUser]);
 
   // Load saved size database & authentication on mount
   useEffect(() => {
@@ -409,6 +416,7 @@ export default function WebStudio() {
             <BillingSystem 
               records={records}
               metadata={metadata}
+              currentUser={currentUser}
             />
           )}
         </section>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Receipt, Plus, Download, Printer, Send, Trash2, Edit2, CheckCircle, 
-  Clock, DollarSign, Search, Sparkles, RefreshCw, FileText, X
+  Clock, DollarSign, Search, Sparkles, RefreshCw, FileText, X, User
 } from 'lucide-react';
 import type { PlayerRecord, OrderMetadata } from './orderEntry';
 
@@ -21,9 +21,10 @@ export interface BillingRecord {
 interface BillingSystemProps {
   records?: PlayerRecord[];
   metadata?: OrderMetadata;
+  currentUser?: { email: string; name: string; balance: number } | null;
 }
 
-// Initial sample data pre-populated directly from user screenshot
+// Initial sample data pre-populated for guest / demo users
 const initialBillingRecords: BillingRecord[] = [
   { id: '1', orderCode: 'FN-26-1605-03', date: '16-05-2026', customerName: 'Shirke', fileName: 'MAPL - 18 teams', whatsapp: '9773358920', qty: 191, rate: 3, designCharges: 560, status: 'Completed' },
   { id: '2', orderCode: 'FN-26-1805-03', date: '18-05-2026', customerName: 'Ramesh Bhosle', fileName: 'bhosle - 12 jersey data', whatsapp: '9320680327', qty: 12, rate: 5, designCharges: 0, status: 'Pending' },
@@ -35,25 +36,92 @@ const initialBillingRecords: BillingRecord[] = [
   { id: '8', orderCode: 'FN-26-1905-04', date: '19-05-2026', customerName: 'Sushant Shirke', fileName: "Sameer - 07 Azad Hero's", whatsapp: '', qty: 5, rate: 0, designCharges: 20, status: 'Pending' },
 ];
 
-export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], metadata }) => {
-  const [billingList, setBillingList] = useState<BillingRecord[]>(() => {
-    const saved = localStorage.getItem('fivenest_billing_records');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return initialBillingRecords;
-  });
+// Helper to auto-sync current order into billing table
+export const syncOrderToBillingRecords = (
+  records: PlayerRecord[], 
+  metadata?: OrderMetadata, 
+  userEmail?: string
+) => {
+  if (!records || records.length === 0) return;
 
+  const storageKey = userEmail 
+    ? `fivenest_billing_records_${userEmail.toLowerCase().trim()}` 
+    : 'fivenest_billing_records_guest';
+
+  const totalQty = records.reduce((sum, r) => sum + (r.qty || 1), 0);
+  const today = new Date();
+  const formattedDate = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
+  const orderNum = metadata?.orderNum || '01';
+  const orderCode = `FN-26-${String(today.getDate()).padStart(2, '0')}${String(today.getMonth() + 1).padStart(2, '0')}-${orderNum}`;
+
+  const existingDataStr = localStorage.getItem(storageKey);
+  let billingList: BillingRecord[] = existingDataStr ? JSON.parse(existingDataStr) : [];
+
+  const existingIdx = billingList.findIndex(r => r.orderCode === orderCode);
+  const customerName = metadata?.customerName || (userEmail ? userEmail.split('@')[0] : 'Studio Client');
+  const fileName = `Order #${orderNum} (${totalQty} pcs)`;
+  const rate = 15;
+
+  if (existingIdx !== -1) {
+    billingList[existingIdx] = {
+      ...billingList[existingIdx],
+      qty: totalQty,
+      customerName: customerName || billingList[existingIdx].customerName,
+      fileName: fileName,
+      date: formattedDate
+    };
+  } else {
+    const newRecord: BillingRecord = {
+      id: Date.now().toString(),
+      orderCode,
+      date: formattedDate,
+      customerName,
+      fileName,
+      whatsapp: '',
+      qty: totalQty,
+      rate: rate,
+      designCharges: 0,
+      status: 'Pending'
+    };
+    billingList.unshift(newRecord);
+  }
+
+  localStorage.setItem(storageKey, JSON.stringify(billingList));
+};
+
+export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], metadata, currentUser }) => {
+  // Scoped key per user
+  const userStorageKey = currentUser?.email 
+    ? `fivenest_billing_records_${currentUser.email.toLowerCase().trim()}` 
+    : 'fivenest_billing_records_guest';
+
+  const [billingList, setBillingList] = useState<BillingRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Completed' | 'Pending'>('All');
   const [selectedInvoice, setSelectedInvoice] = useState<BillingRecord | null>(null);
   const [editingRecord, setEditingRecord] = useState<BillingRecord | null>(null);
 
+  // Load user-scoped billing data whenever currentUser or key changes
   useEffect(() => {
-    localStorage.setItem('fivenest_billing_records', JSON.stringify(billingList));
-  }, [billingList]);
+    const saved = localStorage.getItem(userStorageKey);
+    if (saved) {
+      try {
+        setBillingList(JSON.parse(saved));
+      } catch (e) {
+        setBillingList(initialBillingRecords);
+      }
+    } else {
+      setBillingList(initialBillingRecords);
+      localStorage.setItem(userStorageKey, JSON.stringify(initialBillingRecords));
+    }
+  }, [userStorageKey]);
+
+  // Save billing data whenever billingList is modified by user
+  useEffect(() => {
+    if (billingList.length > 0) {
+      localStorage.setItem(userStorageKey, JSON.stringify(billingList));
+    }
+  }, [billingList, userStorageKey]);
 
   // Calculations
   const calculateTotal = (rec: BillingRecord) => rec.qty * rec.rate;
@@ -90,7 +158,7 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
       id: Date.now().toString(),
       orderCode: newCode,
       date: formattedDate,
-      customerName: 'New Client',
+      customerName: currentUser?.name || 'New Client',
       fileName: 'Sublimation Order',
       whatsapp: '',
       qty: 1,
@@ -113,7 +181,7 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
       id: Date.now().toString(),
       orderCode: newCode,
       date: formattedDate,
-      customerName: metadata?.customerName || 'Studio Client',
+      customerName: metadata?.customerName || currentUser?.name || 'Studio Client',
       fileName: `Order #${metadata?.orderNum || '01'} (${totalRosterQty} pcs)`,
       whatsapp: '',
       qty: totalRosterQty > 0 ? totalRosterQty : 1,
@@ -166,13 +234,26 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `FiveNest_Daily_Billing_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `FiveNest_${currentUser?.name || 'Client'}_Billing_${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
   };
 
   return (
     <div className="billing-system-container fade-in" style={{ padding: '4px' }}>
       
+      {/* Account User Badge */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', background: 'rgba(155, 77, 255, 0.08)', border: '1px solid rgba(155, 77, 255, 0.25)', padding: '10px 16px', borderRadius: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <User size={16} style={{ color: 'var(--color-primary)' }} />
+          <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'white' }}>
+            Account Billing Ledger: <span style={{ color: 'var(--color-primary)' }}>{currentUser ? `${currentUser.name} (${currentUser.email})` : 'Guest Mode (Local Data)'}</span>
+          </span>
+        </div>
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+          Private & Scoped to Account
+        </span>
+      </div>
+
       {/* Top Header Summary Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
         
