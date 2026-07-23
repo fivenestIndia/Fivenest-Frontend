@@ -7,46 +7,37 @@ import { supabase, fetchUserWallet } from '../../lib/supabaseClient';
 
 const getCanvasBlob = (canvas: HTMLCanvasElement): Promise<Blob> => {
   return new Promise((resolve) => {
-    let resolved = false;
-    
-    // Safety fallback: if toBlob hangs or fails, fallback to toDataURL after 1.5s
-    const timer = setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        try {
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-          const parts = dataUrl.split(',');
-          const byteString = atob(parts[1]);
-          const mimeString = parts[0].split(':')[1].split(';')[0];
-          const ab = new ArrayBuffer(byteString.length);
-          const ia = new Uint8Array(ab);
-          for (let i = 0; i < byteString.length; i++) {
-            ia[i] = byteString.charCodeAt(i);
-          }
-          resolve(new Blob([ab], { type: mimeString }));
-        } catch (e) {
-          resolve(new Blob());
-        }
-      }
-    }, 1500);
-
     try {
       canvas.toBlob((blob) => {
-        if (!resolved) {
-          resolved = true;
-          clearTimeout(timer);
-          resolve(blob || new Blob());
+        if (blob) {
+          resolve(blob);
+        } else {
+          try {
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            const parts = dataUrl.split(',');
+            const byteString = atob(parts[1]);
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) {
+              ia[i] = byteString.charCodeAt(i);
+            }
+            resolve(new Blob([ab], { type: 'image/jpeg' }));
+          } catch (e) {
+            resolve(new Blob());
+          }
         }
       }, 'image/jpeg', 0.85);
     } catch (err) {
-      if (!resolved) {
-        resolved = true;
-        clearTimeout(timer);
-        resolve(new Blob());
-      }
+      resolve(new Blob());
     }
   });
 };
+
+const logoPathCyan = typeof Path2D !== 'undefined' ? new Path2D("M32.55,0l3.08,2.98c.82.79.83,2.1.03,2.91l-14.83,14.9c-1.88,1.98-2.2,4.93-.21,6.95l4.84,4.94,13.51-13.47,2.99,2.72c.8.73,1.1,2.2.22,3.09l-8.72,8.82c-1.7,1.72-2.03,4.58-.29,6.38l3.18,3.3-4.6,4.57-1.44-1.69-14.48-14.7c-3.92-3.98-3.89-10.64.04-14.63L32.55,0Z") : null;
+const logoPathWhite = typeof Path2D !== 'undefined' ? new Path2D("M43.8,27.28c1.93-1.94,2.44-4.88.4-6.88l-4.99-4.88-13.44,13.22-2.84-2.54c-.35-.31-.94-.94-.94-1.63,0-.79.52-1.52.98-2.01l15.96-16.62,9.95,10.2c4.27,4.37,3.79,11.05-.3,15.32l-10.11,10.18-3.15-2.92c-.83-.88-.93-2,0-2.94l8.46-8.49h.02Z") : null;
+
+const fivenestLogoImageInstance = new Image();
+fivenestLogoImageInstance.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64.8 48.1"><path fill="#0acbf9" d="M32.55,0l3.08,2.98c.82.79.83,2.1.03,2.91l-14.83,14.9c-1.88,1.98-2.2,4.93-.21,6.95l4.84,4.94,13.51-13.47,2.99,2.72c.8.73,1.1,2.2.22,3.09l-8.72,8.82c-1.7,1.72-2.03,4.58-.29,6.38l3.18,3.3-4.6,4.57-1.44-1.69-14.48-14.7c-3.92-3.98-3.89-10.64.04-14.63L32.55,0Z"/><path fill="#ffffff" d="M43.8,27.28c1.93-1.94,2.44-4.88.4-6.88l-4.99-4.88-13.44,13.22-2.84-2.54c-.35-.31-.94-.94-.94-1.63,0-.79.52-1.52.98-2.01l15.96-16.62,9.95,10.2c4.27,4.37,3.79,11.05-.3,15.32l-10.11,10.18-3.15-2.92c-.83-.88-.93-2,0-2.94l8.46-8.49h.02Z"/></svg>`)}`;
 
 const injectJPDpi = (blob: Blob, dpiValue: number): Promise<Blob> => {
   return new Promise((resolve) => {
@@ -1187,12 +1178,17 @@ export const NestingView: React.FC<NestingViewProps> = ({
           ctx.translate(cx, cy);
           ctx.rotate(Math.PI); // Rotate 180 Degrees!
 
-          if (images.fivenestLogo) {
+          if (fivenestLogoImageInstance && fivenestLogoImageInstance.complete && fivenestLogoImageInstance.naturalWidth > 0) {
             ctx.globalAlpha = 0.85;
-            ctx.drawImage(images.fivenestLogo, -logoW / 2, -logoH / 2, logoW, logoH);
-          } else {
+            ctx.drawImage(fivenestLogoImageInstance, -logoW / 2, -logoH / 2, logoW, logoH);
+          } else if (logoPathCyan && logoPathWhite) {
+            // Pure 2D Vector Path fallback (100% instant, no image needed!)
+            ctx.scale(logoW / 64.8, logoH / 48.1);
+            ctx.translate(-64.8 / 2, -48.1 / 2);
             ctx.fillStyle = '#0acbf9';
-            ctx.fillRect(-logoW / 2, -logoH / 2, logoW, logoH);
+            ctx.fill(logoPathCyan);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill(logoPathWhite);
           }
           ctx.restore();
         }
@@ -1234,14 +1230,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
       const torsoLogo = conf.torsoLogo;
 
       const loadAllImages = async () => {
-        const images: { bg?: HTMLImageElement; leftLogo?: HTMLImageElement; rightLogo?: HTMLImageElement; torsoLogo?: HTMLImageElement; fivenestLogo?: HTMLImageElement } = {};
+        const images: { bg?: HTMLImageElement; leftLogo?: HTMLImageElement; rightLogo?: HTMLImageElement; torsoLogo?: HTMLImageElement } = {};
         const promises: Promise<void>[] = [];
-
-        if (includeWatermarkLogo) {
-          promises.push(
-            getCachedImage(FIVENEST_LOGO_SVG_DATA_URL).then(img => { if (img) images.fivenestLogo = img; })
-          );
-        }
 
         if (conf.backgroundType === 'upload' && bgUrl) {
           promises.push(
