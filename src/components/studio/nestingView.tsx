@@ -7,89 +7,158 @@ import { supabase, fetchUserWallet } from '../../lib/supabaseClient';
 
 const getCanvasBlob = (canvas: HTMLCanvasElement): Promise<Blob> => {
   return new Promise((resolve) => {
-    canvas.toBlob((blob) => {
-      resolve(blob || new Blob());
-    }, 'image/jpeg', 0.85); // Optimized quality to reduce file sizes (by ~2x) without losing print clarity
+    let resolved = false;
+    
+    // Safety fallback: if toBlob hangs or fails, fallback to toDataURL after 1.5s
+    const timer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        try {
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          const parts = dataUrl.split(',');
+          const byteString = atob(parts[1]);
+          const mimeString = parts[0].split(':')[1].split(';')[0];
+          const ab = new ArrayBuffer(byteString.length);
+          const ia = new Uint8Array(ab);
+          for (let i = 0; i < byteString.length; i++) {
+            ia[i] = byteString.charCodeAt(i);
+          }
+          resolve(new Blob([ab], { type: mimeString }));
+        } catch (e) {
+          resolve(new Blob());
+        }
+      }
+    }, 1500);
+
+    try {
+      canvas.toBlob((blob) => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          resolve(blob || new Blob());
+        }
+      }, 'image/jpeg', 0.85);
+    } catch (err) {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timer);
+        resolve(new Blob());
+      }
+    }
   });
 };
 
 const injectJPDpi = (blob: Blob, dpiValue: number): Promise<Blob> => {
   return new Promise((resolve) => {
+    let resolved = false;
+    const timer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        resolve(blob);
+      }
+    }, 1000);
+
     const reader = new FileReader();
     reader.onload = (e) => {
-      const buffer = e.target?.result as ArrayBuffer;
-      const view = new DataView(buffer);
-      
-      // Verify JPEG SOI marker (FF D8)
-      if (view.byteLength < 2 || view.getUint16(0) !== 0xFFD8) {
-        resolve(blob);
-        return;
-      }
-
-      let offset = 2;
-      let patched = false;
-
-      // Find APP0 marker (FF E0)
-      while (offset < buffer.byteLength - 4) {
-        const marker = view.getUint16(offset);
-        if (marker === 0xFFE0) {
-          // APP0 Segment found - verify identifier "JFIF\0"
-          if (view.getUint32(offset + 4) === 0x4A464946 && view.getUint8(offset + 8) === 0) {
-            view.setUint8(offset + 11, 1); // Set units to 1 (dots per inch)
-            view.setUint16(offset + 12, dpiValue); // X density
-            view.setUint16(offset + 14, dpiValue); // Y density
-            patched = true;
-          }
-          break;
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timer);
+      try {
+        const buffer = e.target?.result as ArrayBuffer;
+        if (!buffer) {
+          resolve(blob);
+          return;
         }
-        if (marker === 0xFFDA || marker === 0xFFD9) break;
-        const length = view.getUint16(offset + 2);
-        offset += 2 + length;
+        const view = new DataView(buffer);
+        
+        if (view.byteLength < 2 || view.getUint16(0) !== 0xFFD8) {
+          resolve(blob);
+          return;
+        }
+
+        let offset = 2;
+        let patched = false;
+
+        while (offset < buffer.byteLength - 4) {
+          const marker = view.getUint16(offset);
+          if (marker === 0xFFE0) {
+            if (view.getUint32(offset + 4) === 0x4A464946 && view.getUint8(offset + 8) === 0) {
+              view.setUint8(offset + 11, 1);
+              view.setUint16(offset + 12, dpiValue);
+              view.setUint16(offset + 14, dpiValue);
+              patched = true;
+            }
+            break;
+          }
+          if (marker === 0xFFDA || marker === 0xFFD9) break;
+          const length = view.getUint16(offset + 2);
+          offset += 2 + length;
+        }
+
+        if (!patched) {
+          const newBuffer = new ArrayBuffer(buffer.byteLength + 18);
+          const newView = new DataView(newBuffer);
+          const oldBytes = new Uint8Array(buffer);
+
+          newView.setUint16(0, 0xFFD8);
+          newView.setUint16(2, 0xFFE0);
+          newView.setUint16(4, 16);
+          newView.setUint8(6, 0x4A);
+          newView.setUint8(7, 0x46);
+          newView.setUint8(8, 0x49);
+          newView.setUint8(9, 0x46);
+          newView.setUint8(10, 0x00);
+          newView.setUint8(11, 1);
+          newView.setUint8(12, 1);
+          newView.setUint8(13, 1);
+          newView.setUint16(14, dpiValue);
+          newView.setUint16(16, dpiValue);
+          newView.setUint8(18, 0);
+          newView.setUint8(19, 0);
+
+          new Uint8Array(newBuffer).set(oldBytes.subarray(2), 20);
+          resolve(new Blob([newBuffer], { type: 'image/jpeg' }));
+          return;
+        }
+
+        resolve(new Blob([buffer], { type: 'image/jpeg' }));
+      } catch (err) {
+        resolve(blob);
       }
-
-      // If APP0 header is missing, construct one and insert right after SOI
-      if (!patched) {
-        const newBuffer = new ArrayBuffer(buffer.byteLength + 18);
-        const newView = new DataView(newBuffer);
-        const oldBytes = new Uint8Array(buffer);
-        const newBytes = new Uint8Array(newBuffer);
-
-        newView.setUint16(0, 0xFFD8); // SOI
-        newView.setUint16(2, 0xFFE0); // APP0 marker
-        newView.setUint16(4, 16);     // Segment length
-        newView.setUint8(6, 0x4A);    // 'J'
-        newView.setUint8(7, 0x46);    // 'F'
-        newView.setUint8(8, 0x49);    // 'I'
-        newView.setUint8(9, 0x46);    // 'F'
-        newView.setUint8(10, 0x00);   // '\0'
-        newView.setUint8(11, 1);      // Version Major
-        newView.setUint8(12, 1);      // Version Minor
-        newView.setUint8(13, 1);      // Units (1 = DPI)
-        newView.setUint16(14, dpiValue); // X density
-        newView.setUint16(16, dpiValue); // Y density
-        newView.setUint8(18, 0);      // Thumbnail width
-        newView.setUint8(19, 0);      // Thumbnail height
-
-        newBytes.set(oldBytes.subarray(2), 20);
-        resolve(new Blob([newBuffer], { type: 'image/jpeg' }));
-        return;
-      }
-
-      resolve(new Blob([buffer], { type: 'image/jpeg' }));
     };
-    reader.onerror = () => resolve(blob);
+    reader.onerror = () => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timer);
+      resolve(blob);
+    };
     reader.readAsArrayBuffer(blob);
   });
 };
+
+const FIVENEST_LOGO_SVG_DATA_URL = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64.8 48.1"><path fill="#0acbf9" d="M32.55,0l3.08,2.98c.82.79.83,2.1.03,2.91l-14.83,14.9c-1.88,1.98-2.2,4.93-.21,6.95l4.84,4.94,13.51-13.47,2.99,2.72c.8.73,1.1,2.2.22,3.09l-8.72,8.82c-1.7,1.72-2.03,4.58-.29,6.38l3.18,3.3-4.6,4.57-1.44-1.69-14.48-14.7c-3.92-3.98-3.89-10.64.04-14.63L32.55,0Z"/><path fill="#ffffff" d="M43.8,27.28c1.93-1.94,2.44-4.88.4-6.88l-4.99-4.88-13.44,13.22-2.84-2.54c-.35-.31-.94-.94-.94-1.63,0-.79.52-1.52.98-2.01l15.96-16.62,9.95,10.2c4.27,4.37,3.79,11.05-.3,15.32l-10.11,10.18-3.15-2.92c-.83-.88-.93-2,0-2.94l8.46-8.49h.02Z"/></svg>`)}`;
 
 const globalImageCache: Record<string, HTMLImageElement> = {};
 
 const loadImage = (url: string): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = (e) => reject(e);
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      img.crossOrigin = 'anonymous';
+    }
+
+    const timer = setTimeout(() => {
+      reject(new Error(`Image load timeout for ${url}`));
+    }, 3000);
+
+    img.onload = () => {
+      clearTimeout(timer);
+      resolve(img);
+    };
+    img.onerror = (e) => {
+      clearTimeout(timer);
+      reject(e);
+    };
     img.src = url;
   });
 };
@@ -1170,7 +1239,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
         if (includeWatermarkLogo) {
           promises.push(
-            getCachedImage('/logo.svg').then(img => { if (img) images.fivenestLogo = img; })
+            getCachedImage(FIVENEST_LOGO_SVG_DATA_URL).then(img => { if (img) images.fivenestLogo = img; })
           );
         }
 
