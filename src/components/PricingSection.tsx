@@ -79,7 +79,10 @@ const PricingSection = () => {
     setIsLoading(true);
 
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+      const DEFAULT_API_URL = "https://fivenest-backend.onrender.com";
+      const API_BASE_URL = (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL.startsWith('http'))
+        ? import.meta.env.VITE_API_URL
+        : DEFAULT_API_URL;
       const RENDER_API_URL = `${API_BASE_URL}/api/payment/create-link`;
 
       const response = await fetch(RENDER_API_URL, {
@@ -95,7 +98,13 @@ const PricingSection = () => {
         }),
       });
 
-      const data = await response.json();
+      const resText = await response.text();
+      let data: any = {};
+      try {
+        data = resText ? JSON.parse(resText) : {};
+      } catch (e) {
+        throw new Error(`Server error (${response.status}). Please try again.`);
+      }
       
       if (data.url) {
         window.location.href = data.url; // Send to Razorpay

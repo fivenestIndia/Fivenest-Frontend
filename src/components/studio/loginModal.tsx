@@ -283,13 +283,25 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
         setIsPaying(false);
         return;
       }
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+      const DEFAULT_API_URL = 'https://fivenest-backend.onrender.com';
+      const API_BASE_URL = (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL.startsWith('http')) 
+        ? import.meta.env.VITE_API_URL 
+        : DEFAULT_API_URL;
+
       const response = await fetch(`${API_BASE_URL}/api/payment/create-studio-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: rechargeAmount, userId: user.id, email: user.email })
       });
-      const orderData = await response.json();
+
+      const resText = await response.text();
+      let orderData: any = {};
+      try {
+        orderData = resText ? JSON.parse(resText) : {};
+      } catch (e) {
+        throw new Error(`Payment server error (${response.status}). Please try again.`);
+      }
+
       if (!response.ok || orderData.error) throw new Error(orderData.error || 'Failed to create order');
 
       const { orderId, amount, currency, keyId } = orderData;
@@ -314,7 +326,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
                 amount: rechargeAmount
               })
             });
-            const verifyData = await verifyRes.json();
+            const vText = await verifyRes.text();
+            let verifyData: any = {};
+            try {
+              verifyData = vText ? JSON.parse(vText) : {};
+            } catch (e) {}
             if (!verifyRes.ok || verifyData.error) throw new Error(verifyData.error || 'Verification failed');
             const details = await fetchUserWallet(user.id);
             const updated = { ...currentUser, balance: details.balance };
