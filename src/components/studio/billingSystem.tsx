@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Receipt, Plus, Download, Printer, Send, Trash2, Edit2, CheckCircle, 
-  Clock, DollarSign, Search, Sparkles, RefreshCw, FileText, X, User
+  Clock, DollarSign, Search, Sparkles, RefreshCw, FileText, X, User, QrCode, Settings
 } from 'lucide-react';
 import type { PlayerRecord, OrderMetadata } from './orderEntry';
 
@@ -100,6 +100,17 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
   const [statusFilter, setStatusFilter] = useState<'All' | 'Completed' | 'Pending'>('All');
   const [selectedInvoice, setSelectedInvoice] = useState<BillingRecord | null>(null);
   const [editingRecord, setEditingRecord] = useState<BillingRecord | null>(null);
+  const [showUpiSettings, setShowUpiSettings] = useState(false);
+
+  // Editable Studio UPI ID
+  const [upiId, setUpiId] = useState<string>(() => {
+    return localStorage.getItem('fivenest_upi_id') || 'vilesh332-1@okhdfcbank';
+  });
+
+  const handleUpiChange = (newVal: string) => {
+    setUpiId(newVal);
+    localStorage.setItem('fivenest_upi_id', newVal);
+  };
 
   // Load user-scoped billing data whenever currentUser or key changes
   useEffect(() => {
@@ -204,13 +215,45 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
     }
   };
 
+  // Professional WhatsApp Message Formatter matching Screenshot 2 exactly
   const handleWhatsAppSend = (rec: BillingRecord) => {
-    const finalAmount = calculateFinalTotal(rec);
-    const text = `Hi ${rec.customerName}, your Sublimation Order (${rec.orderCode} - ${rec.fileName}) billing total is ₹${finalAmount}. Total Quantity: ${rec.qty} pcs, Rate: ₹${rec.rate}/pc, Design Charges: ₹${rec.designCharges}. Please process payment to complete the order. Thank you!`;
+    const printingTotal = calculateTotal(rec);
+    const finalTotal = calculateFinalTotal(rec);
+    const currentUpi = upiId || 'vilesh332-1@okhdfcbank';
+
+    const upiUrlRaw = `upi://pay?pa=${currentUpi}&pn=FiveNest&am=${finalTotal}&cu=INR`;
+    const qrUrl = `https://quickchart.io/qr?size=500&text=${encodeURIComponent(upiUrlRaw)}`;
+
+    const messageText = 
+`Hello ${rec.customerName},
+
+Your Design Billing Details :
+________________________________________
+
+◆ Order Code : ${rec.orderCode}
+◆ Date : ${rec.date}
+◆ File Name : ${rec.fileName}
+◆ Quantity : ${rec.qty}
+◆ Rate : ₹${rec.rate}
+◆ Printing Total : ₹${printingTotal}
+◆ Design Charges : ₹${rec.designCharges}
+________________________________________
+
+◆ Final Total Payment : ₹${finalTotal}
+
+◆ Pay Now :
+${upiUrlRaw}
+
+◆ QR Payment :
+${qrUrl}
+
+◆ Thank You For Your Order
+— FiveNest`;
+
     const cleanPhone = rec.whatsapp.replace(/\D/g, '');
     const url = cleanPhone 
-      ? `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(text)}`
-      : `https://wa.me/?text=${encodeURIComponent(text)}`;
+      ? `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(messageText)}`
+      : `https://wa.me/?text=${encodeURIComponent(messageText)}`;
     window.open(url, '_blank');
   };
 
@@ -241,17 +284,28 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
   return (
     <div className="billing-system-container fade-in" style={{ padding: '4px' }}>
       
-      {/* Account User Badge */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', background: 'rgba(155, 77, 255, 0.08)', border: '1px solid rgba(155, 77, 255, 0.25)', padding: '10px 16px', borderRadius: '10px' }}>
+      {/* Account User Badge & UPI Config */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '16px', background: 'rgba(155, 77, 255, 0.08)', border: '1px solid rgba(155, 77, 255, 0.25)', padding: '10px 16px', borderRadius: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <User size={16} style={{ color: 'var(--color-primary)' }} />
           <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'white' }}>
             Account Billing Ledger: <span style={{ color: 'var(--color-primary)' }}>{currentUser ? `${currentUser.name} (${currentUser.email})` : 'Guest Mode (Local Data)'}</span>
           </span>
         </div>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-          Private & Scoped to Account
-        </span>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.3)', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <QrCode size={13} style={{ color: 'var(--color-success)' }} />
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>UPI ID:</span>
+            <input 
+              type="text" 
+              value={upiId}
+              onChange={(e) => handleUpiChange(e.target.value)}
+              style={{ background: 'none', border: 'none', color: '#00e676', fontSize: '11px', fontWeight: 'bold', width: '180px', outline: 'none' }}
+              title="Click to edit GPay/UPI VPA ID"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Top Header Summary Stats */}
@@ -637,7 +691,7 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
         </div>
       </div>
 
-      {/* 🧾 INVOICE GENERATOR MODAL */}
+      {/* 🧾 PROFESSIONAL TAX INVOICE & UPI PAY MODAL */}
       {selectedInvoice && (
         <div className="modal-backdrop" style={{
           position: 'fixed', inset: 0,
@@ -648,7 +702,7 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
         }} onClick={() => setSelectedInvoice(null)}>
           
           <div className="glass-card fade-in" style={{
-            width: '100%', maxWidth: '650px',
+            width: '100%', maxWidth: '680px',
             background: '#ffffff',
             color: '#111111',
             borderRadius: '12px',
@@ -780,10 +834,10 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
               </table>
 
               {/* Totals Breakdown */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderTop: '2px solid #eee', paddingTop: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderTop: '2px solid #eee', paddingTop: '16px', marginBottom: '20px' }}>
                 <div style={{ fontSize: '11px', color: '#666', maxWidth: '300px' }}>
                   <p style={{ margin: '0 0 4px', fontWeight: 'bold', color: '#333' }}>Payment Terms:</p>
-                  <p style={{ margin: 0 }}>Payment due upon invoice receipt. Please use UPI, NetBanking, or Razorpay link to settle balance.</p>
+                  <p style={{ margin: 0 }}>Payment due upon invoice receipt. Scan UPI QR Code or click Pay Now button to settle balance.</p>
                 </div>
 
                 <div style={{ width: '220px' }}>
@@ -804,8 +858,62 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
                 </div>
               </div>
 
+              {/* ⚡ Professional UPI Payment & QR Code Section */}
+              <div style={{ 
+                padding: '16px 20px', 
+                background: 'linear-gradient(135deg, #f5f3ff, #ede9fe)', 
+                borderRadius: '10px', 
+                border: '1.5px solid #c4b5fd', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                gap: '20px' 
+              }}>
+                <div>
+                  <h4 style={{ margin: '0 0 4px', fontSize: '13px', fontWeight: 'bold', color: '#6d28d9', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <QrCode size={16} /> Instant UPI Payment (GPay / PhonePe / Paytm / BHIM)
+                  </h4>
+                  <p style={{ margin: '0 0 8px', fontSize: '11px', color: '#4b5563', lineHeight: '1.4' }}>
+                    Scan QR code with GPay/PhonePe or click below to launch UPI app directly.
+                  </p>
+                  <div style={{ fontSize: '11px', color: '#1f2937', fontWeight: '600', marginBottom: '10px' }}>
+                    UPI ID: <span style={{ color: '#6d28d9', background: '#ffffff', padding: '3px 8px', borderRadius: '4px', border: '1px solid #ddd6fe', fontFamily: 'monospace' }}>{upiId}</span>
+                  </div>
+                  
+                  <a 
+                    href={`upi://pay?pa=${upiId}&pn=FiveNest&am=${calculateFinalTotal(selectedInvoice)}&cu=INR`}
+                    style={{ 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: '6px', 
+                      fontSize: '11px', 
+                      padding: '8px 16px', 
+                      borderRadius: '6px', 
+                      textDecoration: 'none', 
+                      background: '#6d28d9', 
+                      color: '#ffffff', 
+                      fontWeight: 'bold',
+                      boxShadow: '0 2px 6px rgba(109, 40, 217, 0.25)'
+                    }}
+                  >
+                    <DollarSign size={14} /> Pay ₹{calculateFinalTotal(selectedInvoice)} via GPay / PhonePe
+                  </a>
+                </div>
+
+                <div style={{ textAlign: 'center', background: '#ffffff', padding: '10px', borderRadius: '8px', border: '1px solid #c4b5fd', boxShadow: '0 4px 12px rgba(109, 40, 217, 0.12)' }}>
+                  <img 
+                    src={`https://quickchart.io/qr?size=300&text=${encodeURIComponent(`upi://pay?pa=${upiId}&pn=FiveNest&am=${calculateFinalTotal(selectedInvoice)}&cu=INR`)}`} 
+                    alt="UPI Payment QR Code" 
+                    style={{ width: '110px', height: '110px', display: 'block' }}
+                  />
+                  <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#6d28d9', display: 'block', marginTop: '4px' }}>
+                    SCAN TO PAY ₹{calculateFinalTotal(selectedInvoice)}
+                  </span>
+                </div>
+              </div>
+
               {/* Footer */}
-              <div style={{ marginTop: '30px', textAlign: 'center', borderTop: '1px solid #eee', paddingTop: '16px', fontSize: '11px', color: '#888' }}>
+              <div style={{ marginTop: '24px', textAlign: 'center', borderTop: '1px solid #eee', paddingTop: '14px', fontSize: '11px', color: '#888' }}>
                 Thank you for your business with FiveNest Web Studio! ⚡
               </div>
 
