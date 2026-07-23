@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Lock, User, X, Coins, LogOut, Eye, EyeOff, Loader2, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Mail, Lock, User, X, Coins, LogOut, Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react';
 import { supabase, fetchUserWallet } from '../../lib/supabaseClient';
+
+// Detect missing Supabase config at runtime (env vars not set in Vercel)
+const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || '';
+const SUPABASE_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
+const SUPABASE_CONFIGURED = !!SUPABASE_URL && !!SUPABASE_KEY && SUPABASE_URL.includes('supabase.co');
 
 interface LoginModalProps {
   onClose: () => void;
@@ -10,21 +15,22 @@ interface LoginModalProps {
 
 type Tab = 'login' | 'register' | 'wallet' | 'forgot';
 
-// Map common Supabase error messages to friendly ones
+// Map common Supabase auth error messages to friendly ones.
+// NOTE: We intentionally do NOT swallow generic 'fetch/network' errors here
+// because those are usually Supabase config issues, not real network problems.
 function friendlyError(msg: string): string {
   const m = msg.toLowerCase();
   if (m.includes('invalid login credentials') || m.includes('invalid_credentials'))
     return 'Incorrect email or password. Please try again.';
   if (m.includes('email not confirmed') || m.includes('confirm') || m.includes('verify'))
-    return 'Your email is not confirmed. Check your inbox (and spam folder) for the confirmation link.';
-  if (m.includes('user already registered') || m.includes('already been registered'))
-    return 'This email is already registered. Please sign in instead.';
-  if (m.includes('password should be at least'))
+    return 'Your email is not confirmed. Check your inbox (and spam folder) for the confirmation link, then come back to Sign In.';
+  if (m.includes('user already registered') || m.includes('already been registered') || m.includes('already registered'))
+    return 'This email is already registered. Please click "Sign In" instead.';
+  if (m.includes('password should be at least') || m.includes('password is too short'))
     return 'Password must be at least 6 characters long.';
-  if (m.includes('rate limit') || m.includes('too many'))
+  if (m.includes('rate limit') || m.includes('too many requests') || m.includes('too many'))
     return 'Too many attempts. Please wait a minute before trying again.';
-  if (m.includes('network') || m.includes('fetch'))
-    return 'Network error. Check your internet connection and try again.';
+  // Return raw message for everything else — helps diagnose config issues
   return msg;
 }
 
@@ -402,6 +408,19 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
               : 'Sign in to manage credits and export high-res panels'}
           </p>
         </div>
+
+        {/* Supabase config missing warning */}
+        {!SUPABASE_CONFIGURED && (
+          <div style={{
+            background: 'rgba(255, 160, 0, 0.12)', border: '1px solid rgba(255,160,0,0.4)',
+            color: '#ffb300', padding: '10px 14px', borderRadius: '8px',
+            fontSize: '11px', marginBottom: '16px', fontWeight: '500', lineHeight: '1.6'
+          }}>
+            ⚙️ <strong>Setup Required:</strong> Supabase environment variables are not configured in Vercel.<br />
+            Go to <strong>Vercel → Your Project → Settings → Environment Variables</strong> and add:<br />
+            <code style={{ background: 'rgba(0,0,0,0.3)', padding: '1px 4px', borderRadius: '3px' }}>VITE_SUPABASE_URL</code> and <code style={{ background: 'rgba(0,0,0,0.3)', padding: '1px 4px', borderRadius: '3px' }}>VITE_SUPABASE_ANON_KEY</code>
+          </div>
+        )}
 
         {/* Tab Switcher (only for login/register) */}
         {!currentUser && activeTab !== 'forgot' && (
