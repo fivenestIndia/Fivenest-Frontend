@@ -1451,10 +1451,10 @@ export const NestingView: React.FC<NestingViewProps> = ({
               const item = page.item;
               setExportProgress(`Rendering 72 DPI Test PDF Page (${i + 1}/${testPdfPages.length}): ${page.label}...`);
 
-              // Dynamic width & height per page based on item dimensions + spacious margins
-              const paddingSidePt = 40;  // 40pt side margins
-              const paddingTopPt = 30;   // 30pt top padding
-              const labelAreaHPt = 90;   // 90pt bottom label area
+              // Dynamic width & height per page with extra page margin space
+              const paddingSidePt = 50;  // 50pt side margins for spacious breathing room
+              const paddingTopPt = 48;   // 48pt top padding
+              const labelAreaHPt = 100;  // 100pt bottom label area
 
               const itemWPt = item.w * 72;
               const itemHPt = item.h * 72;
@@ -1491,30 +1491,30 @@ export const NestingView: React.FC<NestingViewProps> = ({
                 'FAST'
               );
 
-              // Large, bold font for page label (minimum 32pt bold font!)
-              const fontPt = Math.max(32, Math.round(pageWPt * 0.048));
+              // Slightly smaller, neat & elegant font size for file name label (16pt - 22pt bold text)
+              const fontPt = Math.max(16, Math.round(pageWPt * 0.026));
               testPdf.setFontSize(fontPt);
               testPdf.setFont("helvetica", "bold");
 
               // Draw high-contrast rounded pill box behind label text
               const textStr = page.label;
               const textWidth = testPdf.getTextWidth(textStr);
-              const pillW = textWidth + 40;
-              const pillH = fontPt + 22;
+              const pillW = textWidth + 28;
+              const pillH = fontPt + 14;
               const pillX = (pageWPt / 2) - (pillW / 2);
-              const pillY = (paddingTopPt + itemHPt + 20) / zipUUnit;
+              const pillY = (paddingTopPt + itemHPt + 28) / zipUUnit;
 
               testPdf.setFillColor(245, 245, 250);
               testPdf.setDrawColor(180, 180, 210);
-              testPdf.setLineWidth(2.0);
-              testPdf.roundedRect(pillX, pillY, pillW, pillH, 8, 8, 'FD');
+              testPdf.setLineWidth(1.5);
+              testPdf.roundedRect(pillX, pillY, pillW, pillH, 6, 6, 'FD');
 
               // Draw centered text inside pill box
-              testPdf.setTextColor(10, 10, 25);
+              testPdf.setTextColor(15, 15, 25);
               testPdf.text(
                 textStr,
                 pageWPt / 2,
-                pillY + (fontPt * 0.82),
+                pillY + (fontPt * 0.78),
                 { align: 'center' }
               );
             }
