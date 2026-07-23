@@ -1421,13 +1421,18 @@ export const NestingView: React.FC<NestingViewProps> = ({
           if (testPdfPages.length > 0) {
             const firstPage = testPdfPages[0];
             const maxItemHeight = testPdfPages.reduce((max, pg) => Math.max(max, pg.item.h), 0);
-            const maxItemHeightPt = (maxItemHeight * 72) + 40;
+            const maxItemHeightPt = (maxItemHeight * 72) + 60;
             const zipUUnit = maxItemHeightPt > 14400 ? Math.ceil(maxItemHeightPt / 14400) : 1.0;
 
+            const initialItemW = firstPage.item.w * 72;
+            const initialItemH = firstPage.item.h * 72;
+            const initialPageW = (initialItemW + 60) / zipUUnit;
+            const initialPageH = (initialItemH + 70) / zipUUnit;
+
             const testPdf = new jsPDF({
-              orientation: 'portrait',
+              orientation: initialPageW > initialPageH ? 'landscape' : 'portrait',
               unit: 'pt',
-              format: [ (firstPage.item.w * 72) / zipUUnit, ((firstPage.item.h * 72) + 40) / zipUUnit ],
+              format: [ initialPageW, initialPageH ],
               userUnit: zipUUnit
             });
 
@@ -1436,44 +1441,59 @@ export const NestingView: React.FC<NestingViewProps> = ({
               const item = page.item;
               setExportProgress(`Rendering 72 DPI Test PDF Page (${i + 1}/${testPdfPages.length}): ${page.label}...`);
 
-              const pageW = (item.w * 72) / zipUUnit;
-              const pageH = ((item.h * 72) + 40) / zipUUnit;
+              // Dynamic width & height per page based on item dimensions + spacious margins
+              const paddingSidePt = 30; // 30pt side margins
+              const paddingTopPt = 24;  // 24pt top padding
+              const labelAreaHPt = 54;  // 54pt bottom label area
+
+              const itemWPt = item.w * 72;
+              const itemHPt = item.h * 72;
+
+              const pageWPt = (itemWPt + (paddingSidePt * 2)) / zipUUnit;
+              const pageHPt = (itemHPt + paddingTopPt + labelAreaHPt) / zipUUnit;
+              const orientation = pageWPt > pageHPt ? 'landscape' : 'portrait';
 
               if (i > 0) {
-                testPdf.addPage([ pageW, pageH ], 'portrait');
+                testPdf.addPage([ pageWPt, pageHPt ], orientation);
               }
 
               // Solid white background
               testPdf.setFillColor(255, 255, 255);
-              testPdf.rect(0, 0, pageW, pageH, 'F');
+              testPdf.rect(0, 0, pageWPt, pageHPt, 'F');
 
+              // Render panel graphic at 72 DPI
               const previewItemCanvas = await renderPanelGraphic(item, 72);
               const previewImgData = previewItemCanvas.toDataURL('image/jpeg', 0.85);
 
-              const targetXPt = 0;
-              const targetYPt = 5;
-              const targetWPt = item.w * 72;
-              const targetHPt = item.h * 72;
+              const targetXPt = paddingSidePt / zipUUnit;
+              const targetYPt = paddingTopPt / zipUUnit;
+              const targetWPt = itemWPt / zipUUnit;
+              const targetHPt = itemHPt / zipUUnit;
 
               testPdf.addImage(
                 previewImgData, 
                 'JPEG', 
-                targetXPt / zipUUnit, 
-                targetYPt / zipUUnit, 
-                targetWPt / zipUUnit, 
-                targetHPt / zipUUnit, 
+                targetXPt, 
+                targetYPt, 
+                targetWPt, 
+                targetHPt, 
                 undefined, 
                 'FAST'
               );
 
-              // Add centered label below image in brackets
-              testPdf.setFontSize(13);
+              // Large, prominent readable font for page label (minimum 22pt bold text)
+              const fontSizePt = Math.max(22, Math.round(pageWPt * 0.038));
+
+              testPdf.setFontSize(fontSizePt);
               testPdf.setFont("helvetica", "bold");
-              testPdf.setTextColor(30, 30, 30);
+              testPdf.setTextColor(15, 15, 15);
+              
+              // Draw label centered below the panel image with clean vertical spacing
+              const labelYPt = (paddingTopPt + itemHPt + 36) / zipUUnit;
               testPdf.text(
                 page.label,
-                pageW / 2,
-                ((item.h * 72) + 26) / zipUUnit,
+                pageWPt / 2,
+                labelYPt,
                 { align: 'center' }
               );
             }
