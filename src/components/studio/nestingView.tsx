@@ -1161,8 +1161,18 @@ export const NestingView: React.FC<NestingViewProps> = ({
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, widthPx, heightPx);
 
-          const bgW = (conf.bgWidth !== undefined ? conf.bgWidth : item.w) * scaleDpi;
-          const bgH = (conf.bgHeight !== undefined ? conf.bgHeight : item.h) * scaleDpi;
+          // For sleeves, enforce background dimensions matching actual sleeve item dimensions to prevent cropping
+          let targetBgW = item.w;
+          let targetBgH = item.h;
+          if (conf.bgWidth !== undefined && !item.panelType.startsWith('sleeve')) {
+            targetBgW = conf.bgWidth;
+          }
+          if (conf.bgHeight !== undefined && !item.panelType.startsWith('sleeve')) {
+            targetBgH = conf.bgHeight;
+          }
+
+          const bgW = targetBgW * scaleDpi;
+          const bgH = targetBgH * scaleDpi;
           const bgX = (conf.bgX !== undefined ? conf.bgX : 0) * scaleDpi;
           const bgY = (conf.bgY !== undefined ? conf.bgY : 0) * scaleDpi;
 
@@ -1442,9 +1452,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
               setExportProgress(`Rendering 72 DPI Test PDF Page (${i + 1}/${testPdfPages.length}): ${page.label}...`);
 
               // Dynamic width & height per page based on item dimensions + spacious margins
-              const paddingSidePt = 30; // 30pt side margins
-              const paddingTopPt = 24;  // 24pt top padding
-              const labelAreaHPt = 54;  // 54pt bottom label area
+              const paddingSidePt = 40;  // 40pt side margins
+              const paddingTopPt = 30;   // 30pt top padding
+              const labelAreaHPt = 90;   // 90pt bottom label area
 
               const itemWPt = item.w * 72;
               const itemHPt = item.h * 72;
@@ -1481,19 +1491,30 @@ export const NestingView: React.FC<NestingViewProps> = ({
                 'FAST'
               );
 
-              // Large, prominent readable font for page label (minimum 22pt bold text)
-              const fontSizePt = Math.max(22, Math.round(pageWPt * 0.038));
-
-              testPdf.setFontSize(fontSizePt);
+              // Large, bold font for page label (minimum 32pt bold font!)
+              const fontPt = Math.max(32, Math.round(pageWPt * 0.048));
+              testPdf.setFontSize(fontPt);
               testPdf.setFont("helvetica", "bold");
-              testPdf.setTextColor(15, 15, 15);
-              
-              // Draw label centered below the panel image with clean vertical spacing
-              const labelYPt = (paddingTopPt + itemHPt + 36) / zipUUnit;
+
+              // Draw high-contrast rounded pill box behind label text
+              const textStr = page.label;
+              const textWidth = testPdf.getTextWidth(textStr);
+              const pillW = textWidth + 40;
+              const pillH = fontPt + 22;
+              const pillX = (pageWPt / 2) - (pillW / 2);
+              const pillY = (paddingTopPt + itemHPt + 20) / zipUUnit;
+
+              testPdf.setFillColor(245, 245, 250);
+              testPdf.setDrawColor(180, 180, 210);
+              testPdf.setLineWidth(2.0);
+              testPdf.roundedRect(pillX, pillY, pillW, pillH, 8, 8, 'FD');
+
+              // Draw centered text inside pill box
+              testPdf.setTextColor(10, 10, 25);
               testPdf.text(
-                page.label,
+                textStr,
                 pageWPt / 2,
-                labelYPt,
+                pillY + (fontPt * 0.82),
                 { align: 'center' }
               );
             }
