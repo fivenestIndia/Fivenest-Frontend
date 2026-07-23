@@ -82,6 +82,8 @@ const injectJPDpi = (blob: Blob, dpiValue: number): Promise<Blob> => {
   });
 };
 
+const globalImageCache: Record<string, HTMLImageElement> = {};
+
 const loadImage = (url: string): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -90,6 +92,19 @@ const loadImage = (url: string): Promise<HTMLImageElement> => {
     img.onerror = (e) => reject(e);
     img.src = url;
   });
+};
+
+const getCachedImage = async (url: string): Promise<HTMLImageElement | null> => {
+  if (!url) return null;
+  if (globalImageCache[url]) return globalImageCache[url];
+  try {
+    const img = await loadImage(url);
+    globalImageCache[url] = img;
+    return img;
+  } catch (e) {
+    console.warn(`Failed to load image at ${url}:`, e);
+    return null;
+  }
 };
 
 import type { SizeDatabase } from './sizesDb';
@@ -1155,41 +1170,31 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
         if (includeWatermarkLogo) {
           promises.push(
-            loadImage('/logo.svg')
-              .then(img => { images.fivenestLogo = img; })
-              .catch(err => console.warn("Failed to load FiveNest Logo:", err))
+            getCachedImage('/logo.svg').then(img => { if (img) images.fivenestLogo = img; })
           );
         }
 
         if (conf.backgroundType === 'upload' && bgUrl) {
           promises.push(
-            loadImage(bgUrl)
-              .then(img => { images.bg = img; })
-              .catch(err => console.warn("Failed to load background:", err))
+            getCachedImage(bgUrl).then(img => { if (img) images.bg = img; })
           );
         }
 
         if (leftLogo?.enabled && leftLogo?.uploadedUrl) {
           promises.push(
-            loadImage(leftLogo.uploadedUrl)
-              .then(img => { images.leftLogo = img; })
-              .catch(err => console.warn("Failed to load Left Chest Logo:", err))
+            getCachedImage(leftLogo.uploadedUrl).then(img => { if (img) images.leftLogo = img; })
           );
         }
 
         if (rightLogo?.enabled && rightLogo?.uploadedUrl) {
           promises.push(
-            loadImage(rightLogo.uploadedUrl)
-              .then(img => { images.rightLogo = img; })
-              .catch(err => console.warn("Failed to load Right Chest Logo:", err))
+            getCachedImage(rightLogo.uploadedUrl).then(img => { if (img) images.rightLogo = img; })
           );
         }
 
         if (torsoLogo?.enabled && torsoLogo?.uploadedUrl) {
           promises.push(
-            loadImage(torsoLogo.uploadedUrl)
-              .then(img => { images.torsoLogo = img; })
-              .catch(err => console.warn("Failed to load Torso Logo:", err))
+            getCachedImage(torsoLogo.uploadedUrl).then(img => { if (img) images.torsoLogo = img; })
           );
         }
 
@@ -1735,6 +1740,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
             const action = renderActions[i];
             setExportProgress(`Rendering ${action.folder || 'other'} panel: ${action.fileName} (${i + 1}/${renderActions.length}) at ${activeDpi} DPI...`);
 
+            // Yield control to main thread so browser repaints progress text
+            await new Promise(r => setTimeout(r, 0));
+
             const itemCanvas = await renderPanelGraphic(action.representativeItem, activeDpi);
             let blob = await getCanvasBlob(itemCanvas);
 
@@ -1746,6 +1754,10 @@ export const NestingView: React.FC<NestingViewProps> = ({
             } else {
               zip.file(action.fileName, blob);
             }
+
+            // Immediately release GPU canvas memory
+            itemCanvas.width = 0;
+            itemCanvas.height = 0;
           }
 
           setExportProgress("Compiling ZIP package...");
