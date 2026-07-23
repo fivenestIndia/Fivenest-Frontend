@@ -165,6 +165,11 @@ export const NestingView: React.FC<NestingViewProps> = ({
   const [rotateToFit, setRotateToFit] = useState<boolean>(true);
   const [dpi, setDpi] = useState<number>(100); // Render DPI: 72, 100, 150, 300
   
+  const savedLogoWatermark = localStorage.getItem('fivenest_pref_logo_watermark');
+  const [includeWatermarkLogo, setIncludeWatermarkLogo] = useState<boolean>(
+    savedLogoWatermark !== null ? JSON.parse(savedLogoWatermark) : true
+  );
+  
   const [nestingSheets, setNestingSheets] = useState<NestingSheet[]>([]);
   const [isNesting, setIsNesting] = useState<boolean>(false);
 
@@ -1062,22 +1067,51 @@ export const NestingView: React.FC<NestingViewProps> = ({
           const sizeQty = matchingRecords.reduce((acc, r) => acc + (r.qty || 1), 0);
           const qtyVal = sizeQty > 0 ? sizeQty : (item.qty || 1);
 
-          // Requirement: Format size watermark as "40 = Quantity" (e.g. "40 = 2")
-          const sizeQtyText = `${item.size} = ${qtyVal}`;
+          // Requirement: Format size watermark without spaces as "40=2"
+          const sizeQtyText = `${item.size}=${qtyVal}`;
           const templateText = sizeTagConf.text || '{size}';
           const displayText = templateText.includes('{size}')
             ? templateText.replace('{size}', sizeQtyText)
             : sizeQtyText;
 
+          // Slightly compressed width of size tag (0.80x scale) so it takes up less space
+          ctx.scale(0.80, 1.0);
+          const compressedDrawX = drawX / 0.80;
+
           if (sizeTagConf.strokeWidth > 0) {
-            ctx.strokeText(displayText, drawX, offsetPx);
+            ctx.strokeText(displayText, compressedDrawX, offsetPx);
           }
-          ctx.fillText(displayText, drawX, offsetPx);
+          ctx.fillText(displayText, compressedDrawX, offsetPx);
           ctx.restore();
         }
 
         // Draw center tick marks and corner watermark text labels
         drawTechnicalMarks();
+
+        // Draw FiveNest Watermark Logo in 180° (upside-down) at bottom-right of Front files if enabled
+        if (includeWatermarkLogo && item.panelType === 'front') {
+          ctx.save();
+          const logoW = Math.round(0.3 * scaleDpi); // 0.3 inches width
+          const logoH = Math.round((0.3 * (48.1 / 64.8)) * scaleDpi); // aspect ratio from logo.svg
+
+          const marginX = Math.round(0.4 * scaleDpi); // 0.4" from right
+          const marginY = Math.round(0.4 * scaleDpi); // 0.4" from bottom
+
+          const cx = widthPx - marginX;
+          const cy = heightPx - marginY;
+
+          ctx.translate(cx, cy);
+          ctx.rotate(Math.PI); // Rotate 180 Degrees!
+
+          if (images.fivenestLogo) {
+            ctx.globalAlpha = 0.85;
+            ctx.drawImage(images.fivenestLogo, -logoW / 2, -logoH / 2, logoW, logoH);
+          } else {
+            ctx.fillStyle = '#0acbf9';
+            ctx.fillRect(-logoW / 2, -logoH / 2, logoW, logoH);
+          }
+          ctx.restore();
+        }
 
         // Draw Test Mode watermark if active
         if (testMode) {
@@ -1116,8 +1150,16 @@ export const NestingView: React.FC<NestingViewProps> = ({
       const torsoLogo = conf.torsoLogo;
 
       const loadAllImages = async () => {
-        const images: { bg?: HTMLImageElement; leftLogo?: HTMLImageElement; rightLogo?: HTMLImageElement; torsoLogo?: HTMLImageElement } = {};
+        const images: { bg?: HTMLImageElement; leftLogo?: HTMLImageElement; rightLogo?: HTMLImageElement; torsoLogo?: HTMLImageElement; fivenestLogo?: HTMLImageElement } = {};
         const promises: Promise<void>[] = [];
+
+        if (includeWatermarkLogo) {
+          promises.push(
+            loadImage('/logo.svg')
+              .then(img => { images.fivenestLogo = img; })
+              .catch(err => console.warn("Failed to load FiveNest Logo:", err))
+          );
+        }
 
         if (conf.backgroundType === 'upload' && bgUrl) {
           promises.push(
@@ -1283,9 +1325,10 @@ export const NestingView: React.FC<NestingViewProps> = ({
       return;
     }
 
+    const activeRate = includeWatermarkLogo ? 3.00 : 5.00;
     const calculatedCost = items.reduce((acc, item) => {
       if (item.panelType === 'back') {
-        return acc + 3.00;
+        return acc + activeRate;
       } else if (item.panelType === 'a4-print') {
         return acc + 0.50;
       }
@@ -1344,7 +1387,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
               const list = frontSizeMap[size];
               testPdfPages.push({
                 item: list[0],
-                label: `[Front] ${size} = ${list.length} F`
+                label: `[Front] ${size}=${list.length} F`
               });
             });
           }
@@ -1371,7 +1414,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
               const list = backSizeMap[size];
               testPdfPages.push({
                 item: list[0],
-                label: `[Back] ${size} = ${list.length} B`
+                label: `[Back] ${size}=${list.length} B`
               });
             });
           }
@@ -1400,7 +1443,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
             testPdfPages.push({
               item: rep,
-              label: `[Sleeve] ${rep.size} = ${qty} ${sleeveCode}`
+              label: `[Sleeve] ${rep.size}=${qty} ${sleeveCode}`
             });
           });
 
@@ -1423,7 +1466,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
               const list = a4SizeMap[size];
               testPdfPages.push({
                 item: list[0],
-                label: `[A4] ${size} = ${list.length} A4`
+                label: `[A4] ${size}=${list.length} A4`
               });
             });
           }
@@ -2216,6 +2259,52 @@ export const NestingView: React.FC<NestingViewProps> = ({
                   <p style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--color-primary)' }}>
                     {testMode ? "72 DPI (Forced in Test Mode)" : `${dpi} DPI`} {enableNesting ? `(${dpi * rollW} x ${Math.round(dpi * (nestingSheets[activeSheetIndex]?.height || 0))} pixels)` : ''}
                   </p>
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '12px', marginTop: '4px' }}>
+                  <div style={{ 
+                    background: includeWatermarkLogo ? 'rgba(0, 230, 118, 0.06)' : 'rgba(255, 171, 0, 0.06)', 
+                    border: `1px solid ${includeWatermarkLogo ? 'rgba(0, 230, 118, 0.3)' : 'rgba(255, 171, 0, 0.3)'}`, 
+                    borderRadius: '8px', 
+                    padding: '12px 14px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 'bold' }}>FiveNest 180° Watermark Logo</span>
+                          <span style={{ 
+                            fontSize: '10px', 
+                            background: includeWatermarkLogo ? 'rgba(0, 230, 118, 0.2)' : 'rgba(255, 171, 0, 0.2)', 
+                            color: includeWatermarkLogo ? '#00e676' : '#ffab00', 
+                            padding: '2px 6px', 
+                            borderRadius: '4px', 
+                            fontWeight: 'bold' 
+                          }}>
+                            {includeWatermarkLogo ? '₹3 / pc (Discounted)' : '₹5 / pc (Standard)'}
+                          </span>
+                        </div>
+                        <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                          Renders small 0.3" FiveNest logo upside-down (180°) at bottom-right of Front files.
+                        </p>
+                      </div>
+
+                      <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '6px' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={includeWatermarkLogo}
+                          onChange={(e) => {
+                            const val = e.target.checked;
+                            setIncludeWatermarkLogo(val);
+                            localStorage.setItem('fivenest_pref_logo_watermark', JSON.stringify(val));
+                          }}
+                          style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#00e676' }}
+                        />
+                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: includeWatermarkLogo ? '#00e676' : '#ffab00' }}>
+                          {includeWatermarkLogo ? 'ON (₹3)' : 'OFF (₹5)'}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
