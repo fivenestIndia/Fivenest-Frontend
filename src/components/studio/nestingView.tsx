@@ -1098,7 +1098,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
         const sizeTagConf = conf.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
         if (sizeTagConf.enabled && item.panelType !== 'a4-print') {
           ctx.save();
-          const fontSizePx = Math.round((sizeTagConf.fontSize / 72) * scaleDpi);
+          const fontSizePx = Math.round(((sizeTagConf.fontSize * 0.78) / 72) * scaleDpi);
           ctx.font = `bold ${fontSizePx}px "${sizeTagConf.fontFamily}"`;
           
           const align = sizeTagConf.align || 'left';
@@ -1164,16 +1164,16 @@ export const NestingView: React.FC<NestingViewProps> = ({
         // Draw center tick marks and corner watermark text labels
         drawTechnicalMarks();
 
-        // Draw FiveNest Watermark Logo in 180° (upside-down) with full brand text "FiveNest" at bottom-right of Front files
+        // Draw FiveNest Watermark Logo in 180° (upside-down) with full brand text "FiveNest" in original colors without stroke
         if (includeWatermarkLogo && item.panelType === 'front') {
           ctx.save();
-          // Icon size: 0.36" width, 0.27" height
-          const logoW = Math.round(0.36 * scaleDpi);
-          const logoH = Math.round((0.36 * (48.1 / 64.8)) * scaleDpi);
+          // Slightly smaller logo size: 0.26" width, 0.19" height
+          const logoW = Math.round(0.26 * scaleDpi);
+          const logoH = Math.round((0.26 * (48.1 / 64.8)) * scaleDpi);
 
-          // Shift watermark slightly up & left into corner so entire logo + text fits inside guidelines
-          const marginX = Math.round(0.28 * scaleDpi);
-          const marginY = Math.round(0.32 * scaleDpi);
+          // Watermark position slightly down
+          const marginX = Math.round(0.22 * scaleDpi);
+          const marginY = Math.round(0.20 * scaleDpi);
 
           const cx = widthPx - marginX;
           const cy = heightPx - marginY;
@@ -1188,38 +1188,28 @@ export const NestingView: React.FC<NestingViewProps> = ({
             ctx.scale(logoW / 64.8, logoH / 48.1);
             ctx.translate(-64.8 / 2, -48.1 / 2);
 
-            // Outer White Border for maximum contrast & crispness
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 3.5;
-            ctx.stroke(logoPathCyan);
-
-            // Solid Black Main Shape
-            ctx.fillStyle = '#000000';
+            // Dark Maroon Main Shape (#650f24) - Original Brand Color, NO STROKE
+            ctx.fillStyle = '#650f24';
             ctx.fill(logoPathCyan);
 
-            // Crisp White Accent Path
-            ctx.fillStyle = '#ffffff';
+            // Orange Accent Path (#ee6f30) - Original Brand Color, NO STROKE
+            ctx.fillStyle = '#ee6f30';
             ctx.fill(logoPathWhite);
             ctx.restore();
           } else if (fivenestLogoImageInstance && fivenestLogoImageInstance.complete && fivenestLogoImageInstance.naturalWidth > 0) {
             ctx.drawImage(fivenestLogoImageInstance, -logoW / 2, -logoH / 2, logoW, logoH);
           }
 
-          // Draw full "FiveNest" brand text right below icon (inside 180° rotated canvas)
-          const textFontSize = Math.round(0.12 * scaleDpi); // Crisp ~9pt text size
+          // Draw full "FiveNest" brand text right below icon in Original Dark Maroon color (#650f24), NO STROKE
+          const textFontSize = Math.round(0.09 * scaleDpi); // ~6.5pt crisp text size
           ctx.font = `bold ${textFontSize}px system-ui, -apple-system, sans-serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'top';
 
-          const textY = (logoH / 2) + Math.round(0.04 * scaleDpi);
+          const textY = (logoH / 2) + Math.round(0.03 * scaleDpi);
 
-          // White outline for text
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = Math.max(2, Math.round(2 * (scaleDpi / 100)));
-          ctx.strokeText("FiveNest", 0, textY);
-
-          // Solid Black text fill
-          ctx.fillStyle = '#000000';
+          // Solid Dark Maroon text fill without any stroke
+          ctx.fillStyle = '#650f24';
           ctx.fillText("FiveNest", 0, textY);
 
           ctx.restore();
