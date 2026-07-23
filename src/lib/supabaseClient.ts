@@ -1,11 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const DEFAULT_SUPABASE_URL = 'https://qppfrmmfsfqjeciedlg.supabase.co';
 
-if (!supabaseUrl || !supabaseAnonKey) {
+export const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_URL.startsWith('http')) 
+  ? import.meta.env.VITE_SUPABASE_URL 
+  : DEFAULT_SUPABASE_URL;
+
+export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+if (!supabaseAnonKey) {
   console.warn(
-    "Supabase configuration missing! Please check your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables."
+    "Supabase ANON Key missing! Please check VITE_SUPABASE_ANON_KEY in Vercel environment variables."
   );
 }
 

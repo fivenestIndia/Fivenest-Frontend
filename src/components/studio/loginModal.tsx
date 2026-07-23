@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Lock, User, X, Coins, LogOut, Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react';
-import { supabase, fetchUserWallet } from '../../lib/supabaseClient';
+import { supabase, fetchUserWallet, supabaseUrl, supabaseAnonKey } from '../../lib/supabaseClient';
 
-// Detect missing Supabase config at runtime (env vars not set in Vercel)
-const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || '';
-const SUPABASE_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
-const SUPABASE_CONFIGURED = !!SUPABASE_URL && !!SUPABASE_KEY && SUPABASE_URL.includes('supabase.co');
+const SUPABASE_CONFIGURED = !!supabaseUrl && !!supabaseAnonKey;
 
 interface LoginModalProps {
   onClose: () => void;
@@ -416,9 +413,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
             color: '#ffb300', padding: '10px 14px', borderRadius: '8px',
             fontSize: '11px', marginBottom: '16px', fontWeight: '500', lineHeight: '1.6'
           }}>
-            ⚙️ <strong>Setup Required:</strong> Supabase environment variables are not configured in Vercel.<br />
-            Go to <strong>Vercel → Your Project → Settings → Environment Variables</strong> and add:<br />
-            <code style={{ background: 'rgba(0,0,0,0.3)', padding: '1px 4px', borderRadius: '3px' }}>VITE_SUPABASE_URL</code> and <code style={{ background: 'rgba(0,0,0,0.3)', padding: '1px 4px', borderRadius: '3px' }}>VITE_SUPABASE_ANON_KEY</code>
+            ⚙️ <strong>Setup Required:</strong> VITE_SUPABASE_ANON_KEY is missing in Vercel.<br />
+            Go to <strong>Vercel → Settings → Environment Variables</strong> and add:<br />
+            <code style={{ background: 'rgba(0,0,0,0.3)', padding: '1px 4px', borderRadius: '3px' }}>VITE_SUPABASE_ANON_KEY</code> (Value: Legacy anon public key from Supabase)
           </div>
         )}
 
