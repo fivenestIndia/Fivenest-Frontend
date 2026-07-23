@@ -1451,32 +1451,61 @@ export const NestingView: React.FC<NestingViewProps> = ({
               const item = page.item;
               setExportProgress(`Rendering 72 DPI Test PDF Page (${i + 1}/${testPdfPages.length}): ${page.label}...`);
 
-              // Dynamic width & height per page with extra page margin space
-              const paddingSidePt = 50;  // 50pt side margins for spacious breathing room
-              const paddingTopPt = 48;   // 48pt top padding
-              const labelAreaHPt = 100;  // 100pt bottom label area
+              // Page margins & top header layout
+              const paddingSidePt = 40;     // 40pt side padding
+              const paddingTopPt = 20;      // 20pt top page margin
+              const headerBarHPt = 48;      // 48pt top header bar area for file label
+              const gapBelowHeaderPt = 20;  // 20pt gap between header & panel image
+              const paddingBottomPt = 40;  // 40pt bottom page margin
 
               const itemWPt = item.w * 72;
               const itemHPt = item.h * 72;
 
               const pageWPt = (itemWPt + (paddingSidePt * 2)) / zipUUnit;
-              const pageHPt = (itemHPt + paddingTopPt + labelAreaHPt) / zipUUnit;
+              const pageHPt = (itemHPt + paddingTopPt + headerBarHPt + gapBelowHeaderPt + paddingBottomPt) / zipUUnit;
               const orientation = pageWPt > pageHPt ? 'landscape' : 'portrait';
 
               if (i > 0) {
                 testPdf.addPage([ pageWPt, pageHPt ], orientation);
               }
 
-              // Solid white background
+              // 1. Solid white background for full page
               testPdf.setFillColor(255, 255, 255);
               testPdf.rect(0, 0, pageWPt, pageHPt, 'F');
 
-              // Render panel graphic at 72 DPI
+              // 2. Draw Clean Header Bar & File Name Label at TOP of Page
+              const fontPt = Math.max(18, Math.round(pageWPt * 0.028));
+              testPdf.setFontSize(fontPt);
+              testPdf.setFont("helvetica", "bold");
+
+              const textStr = page.label;
+              const textWidth = testPdf.getTextWidth(textStr);
+              const pillW = Math.max(textWidth + 40, pageWPt * 0.35);
+              const pillH = fontPt + 16;
+              const pillX = (pageWPt / 2) - (pillW / 2);
+              const pillY = (paddingTopPt + (headerBarHPt - pillH) / 2) / zipUUnit;
+
+              // High-contrast rounded pill box for file label
+              testPdf.setFillColor(248, 249, 254);
+              testPdf.setDrawColor(180, 185, 210);
+              testPdf.setLineWidth(1.5);
+              testPdf.roundedRect(pillX, pillY, pillW, pillH, 6, 6, 'FD');
+
+              // Centered bold text in header pill
+              testPdf.setTextColor(15, 15, 30);
+              testPdf.text(
+                textStr,
+                pageWPt / 2,
+                pillY + (fontPt * 0.78),
+                { align: 'center' }
+              );
+
+              // 3. Render Panel Graphic BELOW Top Header Bar
               const previewItemCanvas = await renderPanelGraphic(item, 72);
               const previewImgData = previewItemCanvas.toDataURL('image/jpeg', 0.85);
 
               const targetXPt = paddingSidePt / zipUUnit;
-              const targetYPt = paddingTopPt / zipUUnit;
+              const targetYPt = (paddingTopPt + headerBarHPt + gapBelowHeaderPt) / zipUUnit;
               const targetWPt = itemWPt / zipUUnit;
               const targetHPt = itemHPt / zipUUnit;
 
@@ -1489,33 +1518,6 @@ export const NestingView: React.FC<NestingViewProps> = ({
                 targetHPt, 
                 undefined, 
                 'FAST'
-              );
-
-              // Slightly smaller, neat & elegant font size for file name label (16pt - 22pt bold text)
-              const fontPt = Math.max(16, Math.round(pageWPt * 0.026));
-              testPdf.setFontSize(fontPt);
-              testPdf.setFont("helvetica", "bold");
-
-              // Draw high-contrast rounded pill box behind label text
-              const textStr = page.label;
-              const textWidth = testPdf.getTextWidth(textStr);
-              const pillW = textWidth + 28;
-              const pillH = fontPt + 14;
-              const pillX = (pageWPt / 2) - (pillW / 2);
-              const pillY = (paddingTopPt + itemHPt + 28) / zipUUnit;
-
-              testPdf.setFillColor(245, 245, 250);
-              testPdf.setDrawColor(180, 180, 210);
-              testPdf.setLineWidth(1.5);
-              testPdf.roundedRect(pillX, pillY, pillW, pillH, 6, 6, 'FD');
-
-              // Draw centered text inside pill box
-              testPdf.setTextColor(15, 15, 25);
-              testPdf.text(
-                textStr,
-                pageWPt / 2,
-                pillY + (fontPt * 0.78),
-                { align: 'center' }
               );
             }
 
