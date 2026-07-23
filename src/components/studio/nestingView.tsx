@@ -1171,8 +1171,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
           const logoW = Math.round(0.26 * scaleDpi);
           const logoH = Math.round((0.26 * (48.1 / 64.8)) * scaleDpi);
 
-          // Watermark position slightly down
-          const marginX = Math.round(0.22 * scaleDpi);
+          // Position watermark shifted right towards right edge
+          const marginX = Math.round(0.10 * scaleDpi);
           const marginY = Math.round(0.20 * scaleDpi);
 
           const cx = widthPx - marginX;
