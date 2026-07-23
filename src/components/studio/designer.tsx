@@ -1175,6 +1175,51 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     }
   };
 
+  // Active text layer for alignment shortcuts ('name' | 'number')
+  const [activeTextLayer, setActiveTextLayer] = useState<'name' | 'number'>('name');
+
+  // Keyboard Shortcuts for Text Alignment: C (Center), T (Top), B (Bottom), L (Left), R (Right)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (
+        activeEl && (
+          activeEl.tagName === 'INPUT' ||
+          activeEl.tagName === 'TEXTAREA' ||
+          activeEl.tagName === 'SELECT' ||
+          (activeEl as HTMLElement).isContentEditable
+        )
+      ) {
+        return;
+      }
+
+      const key = e.key.toUpperCase();
+      if (['C', 'T', 'B', 'L', 'R'].includes(key)) {
+        const targetLayer: 'name' | 'number' = activeTextLayer || (activePanel.nameConfig?.enabled ? 'name' : 'number');
+        
+        if (key === 'C') {
+          // Center Horizontally & Vertically (50%)
+          updateTextConfig(targetLayer, { align: 'center', yPos: 50 });
+        } else if (key === 'T') {
+          // Align Top (15%)
+          updateTextConfig(targetLayer, { yPos: 15 });
+        } else if (key === 'B') {
+          // Align Bottom (85%)
+          updateTextConfig(targetLayer, { yPos: 85 });
+        } else if (key === 'L') {
+          // Align Left
+          updateTextConfig(targetLayer, { align: 'left' });
+        } else if (key === 'R') {
+          // Align Right
+          updateTextConfig(targetLayer, { align: 'right' });
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activePanel, activeTextLayer]);
+
   // Draw preview canvas
   useEffect(() => {
     if (activeTab === 'threeD') return;
@@ -2146,6 +2191,24 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
           {!collapsed.overlays && (
             <div>
+              {/* Hotkey Helper Banner */}
+              <div style={{ 
+                background: 'rgba(155, 77, 255, 0.08)', 
+                border: '1px solid rgba(155, 77, 255, 0.3)', 
+                padding: '8px 12px', 
+                borderRadius: '8px', 
+                marginBottom: '14px', 
+                fontSize: '11px', 
+                color: 'rgba(255,255,255,0.85)', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '8px' 
+              }}>
+                <span>⚡ <strong>Text Alignment Shortcuts:</strong> Press <code>C</code> (Center), <code>T</code> (Top), <code>B</code> (Bottom), <code>L</code> (Left), <code>R</code> (Right)</span>
+              </div>
+
               {/* Name Config */}
               <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '16px', marginBottom: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>

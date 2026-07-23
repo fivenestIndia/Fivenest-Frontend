@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, FileText, Check, Copy, RefreshCw, Sparkles, ExternalLink } from 'lucide-react';
+import { Send, FileText, Check, Copy, RefreshCw, Sparkles, ExternalLink, Camera, Upload, Loader2, Image as ImageIcon } from 'lucide-react';
 import type { PlayerRecord } from './orderEntry';
 
 interface HelpCenterProps {
@@ -45,6 +45,11 @@ export const HelpCenter: React.FC<HelpCenterProps> = ({ onImportRecords }) => {
   const [refinedCSV, setRefinedCSV] = useState<string>("");
   const [refinedRecords, setRefinedRecords] = useState<PlayerRecord[]>([]);
   const [copied, setCopied] = useState<boolean>(false);
+
+  // OCR Image Reader state
+  const [ocrLoading, setOcrLoading] = useState<boolean>(false);
+  const [ocrProgress, setOcrProgress] = useState<number>(0);
+  const [scannedImagePreview, setScannedImagePreview] = useState<string | null>(null);
 
   // Manual items database
   const helpManual: ManualItem[] = [
@@ -156,37 +161,41 @@ export const HelpCenter: React.FC<HelpCenterProps> = ({ onImportRecords }) => {
     }
   };
 
-  // --- Roster refiner parser logic ---
-  const handleRefineText = () => {
-    if (!unstructuredText.trim()) return;
+  // --- Smart Roster Refiner Parser ---
+  const handleRefineTextWithCustomText = (textInput: string) => {
+    if (!textInput.trim()) return;
 
-    const lines = unstructuredText.split('\n');
+    const lines = textInput.split('\n');
     const records: PlayerRecord[] = [];
     let idCounter = 1;
 
-    // Regular expressions for extracting parameters
-    const sizeRegex = /(?:size|sz)\s*([0-9]{2})/i;
-    const numRegex = /(?:number|num|#)\s*([0-9]+)/i;
-    const nameRegex = /(?:name|player)\s*([a-z\s]+?)(?=(?:\(qty|qty|size|number|#|\n|$))/i;
-    const qtyRegex = /(?:qty|quantity|count)\s*([0-9]+)/i;
-
     lines.forEach(line => {
       const trimmed = line.trim();
-      if (!trimmed || trimmed.length < 5) return;
+      if (!trimmed || trimmed.length < 2) return;
 
-      const sizeMatch = trimmed.match(sizeRegex);
-      const numMatch = trimmed.match(numRegex);
-      const nameMatch = trimmed.match(nameRegex);
-      const qtyMatch = trimmed.match(qtyRegex);
+      const sizeMatch = trimmed.match(/(?:size|sz)\s*([0-9]{2}|S|M|L|XL|XXL)/i) || trimmed.match(/\b(36|38|40|42|44|46|48|50|S|M|L|XL|XXL)\b/i);
+      const numMatch = trimmed.match(/(?:number|num|#)\s*([0-9]+)/i) || trimmed.match(/#([0-9]+)/);
+      const qtyMatch = trimmed.match(/(?:qty|quantity|count)\s*([0-9]+)/i) || trimmed.match(/(?:qty|\(qty|x)\s*([0-9]+)/i);
 
-      const size = sizeMatch ? sizeMatch[1] : "40"; // Default L
       const num = numMatch ? numMatch[1] : "";
-      const name = nameMatch ? nameMatch[1].replace(/^-|\s+$/g, '').trim() : "BLANK";
+      const size = sizeMatch ? sizeMatch[1].toUpperCase() : "40";
       const qty = qtyMatch ? parseInt(qtyMatch[1]) || 1 : 1;
+
+      let cleanName = trimmed
+        .replace(/(?:size|sz|number|num|qty|quantity|count)\s*[:=]?\s*[a-z0-9]+/gi, '')
+        .replace(/\b(36|38|40|42|44|46|48|50|S|M|L|XL|XXL)\b/gi, '')
+        .replace(/#[0-9]+/g, '')
+        .replace(/^[0-9]+[\s.\-)]+/, '')
+        .replace(/[^a-zA-Z\s]/g, ' ')
+        .trim();
+
+      if (!cleanName || cleanName.length < 2) {
+        cleanName = "BLANK";
+      }
 
       records.push({
         id: `refined-${idCounter++}-${Date.now()}`,
-        name: name.toUpperCase(),
+        name: cleanName.toUpperCase(),
         number: num,
         size: size,
         qty: qty,
@@ -201,13 +210,76 @@ export const HelpCenter: React.FC<HelpCenterProps> = ({ onImportRecords }) => {
 
     setRefinedRecords(records);
 
-    // Build CSV string
     let csv = "Player Name,Number,Size,Sleeve,Qty\n";
     records.forEach(r => {
       csv += `"${r.name}","${r.number}","${r.size}","${r.sleeve}",${r.qty}\n`;
     });
     setRefinedCSV(csv);
   };
+
+  const handleRefineText = () => {
+    handleRefineTextWithCustomText(unstructuredText);
+  };
+
+  // --- OCR Image Processor Engine ---
+  const processImageOCR = async (imageSource: string | File) => {
+    setOcrLoading(true);
+    setOcrProgress(15);
+    try {
+      if (typeof imageSource !== 'string') {
+        const previewUrl = URL.createObjectURL(imageSource);
+        setScannedImagePreview(previewUrl);
+      } else {
+        setScannedImagePreview(imageSource);
+      }
+
+      const { createWorker } = await import('tesseract.js');
+      const worker = await createWorker('eng');
+      setOcrProgress(50);
+      
+      const ret = await worker.recognize(imageSource);
+      setOcrProgress(90);
+      await worker.terminate();
+
+      const extractedText = ret.data.text;
+      setOcrProgress(100);
+      setOcrLoading(false);
+
+      if (extractedText && extractedText.trim().length > 0) {
+        setUnstructuredText(extractedText);
+        handleRefineTextWithCustomText(extractedText);
+      } else {
+        alert("No readable text found on the image. Please ensure high contrast and clear handwriting.");
+      }
+    } catch (err: any) {
+      console.error("OCR Error:", err);
+      setOcrLoading(false);
+      alert("Failed to read image text. Please try uploading a clearer image file.");
+    }
+  };
+
+  // Clipboard Paste Event Listener for Images (Ctrl+V / Cmd+V)
+  useEffect(() => {
+    if (activeSubTab !== 'refiner') return;
+
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const blob = items[i].getAsFile();
+          if (blob) {
+            processImageOCR(blob);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [activeSubTab]);
 
   const handleCopyToClipboard = () => {
     navigator.clipboard.writeText(refinedCSV);
@@ -270,6 +342,7 @@ export const HelpCenter: React.FC<HelpCenterProps> = ({ onImportRecords }) => {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          
           {/* ✨ Gemini Gem Banner */}
           <div className="glass-card" style={{ 
             background: 'linear-gradient(135deg, rgba(155, 77, 255, 0.18), rgba(0, 229, 255, 0.12))', 
@@ -308,90 +381,150 @@ export const HelpCenter: React.FC<HelpCenterProps> = ({ onImportRecords }) => {
             </div>
           </div>
 
-          <div className="grid-2">
-          {/* Unstructured Text Input */}
-          <div className="glass-card">
-            <h3 style={{ marginBottom: '12px' }}>📝 Paste Client Email / Unstructured Text</h3>
-            <p className="form-label" style={{ marginBottom: '16px' }}>
-              Paste raw emails or text lists. The refiner will extract player names, numbers, sizes, and quantities into a structured list.
-            </p>
-            
-            <textarea
-              className="form-input"
-              rows={12}
-              value={unstructuredText}
-              onChange={(e) => setUnstructuredText(e.target.value)}
-              style={{ fontFamily: 'ui-monospace, monospace', fontSize: '13px', lineHeight: '1.5', resize: 'vertical' }}
-            />
+          {/* 📸 Upload / Paste Image OCR Reader Card */}
+          <div className="glass-card" style={{ background: 'rgba(0, 229, 255, 0.04)', borderColor: 'rgba(0, 229, 255, 0.3)', padding: '18px 22px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', color: '#00e5ff' }}>
+                <Camera size={18} /> Image Roster OCR Reader (Upload or Paste Photo)
+              </h3>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                Press <strong>Ctrl + V</strong> to paste any image from clipboard
+              </span>
+            </div>
 
-            <button className="btn btn-primary" onClick={handleRefineText} style={{ width: '100%', marginTop: '16px' }}>
-              <RefreshCw size={16} /> Clean & Extract Roster List
-            </button>
-          </div>
+            <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <label 
+                className="btn btn-secondary" 
+                style={{ 
+                  padding: '10px 18px', 
+                  fontSize: '12px', 
+                  fontWeight: 'bold', 
+                  cursor: 'pointer',
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '8px',
+                  borderColor: 'rgba(0, 229, 255, 0.5)',
+                  color: '#00e5ff',
+                  background: 'rgba(0, 229, 255, 0.08)'
+                }}
+              >
+                <Upload size={16} /> Choose / Drop Image File
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) processImageOCR(file);
+                  }}
+                />
+              </label>
 
-          {/* Structured Output CSV */}
-          <div className="glass-card">
-            <h3 style={{ marginBottom: '12px' }}>📊 Structured Output (CSV Data)</h3>
-            
-            {refinedCSV ? (
-              <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
-                <div>
-                  <textarea
-                    className="form-input"
-                    rows={10}
-                    value={refinedCSV}
-                    readOnly
-                    style={{ fontFamily: 'ui-monospace, monospace', fontSize: '12px', background: 'rgba(0,0,0,0.4)', resize: 'vertical', color: 'var(--color-success)' }}
-                  />
-                  
-                  <div className="table-container" style={{ maxHeight: '180px', marginTop: '12px' }}>
-                    <table className="custom-table" style={{ fontSize: '11px' }}>
-                      <thead>
-                        <tr>
-                          <th>Name</th>
-                          <th>#</th>
-                          <th>Size</th>
-                          <th>Qty</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {refinedRecords.slice(0, 5).map(r => (
-                          <tr key={r.id}>
-                            <td>{r.name}</td>
-                            <td>{r.number}</td>
-                            <td>Size {r.size}</td>
-                            <td>{r.qty}</td>
-                          </tr>
-                        ))}
-                        {refinedRecords.length > 5 && (
-                          <tr>
-                            <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-                              + {refinedRecords.length - 5} more entries
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-                  <button className="btn btn-secondary" onClick={handleCopyToClipboard} style={{ flex: 1 }}>
-                    {copied ? <Check size={16} style={{ color: 'var(--color-success)' }} /> : <Copy size={16} />} 
-                    {copied ? "Copied!" : "Copy CSV"}
-                  </button>
-                  <button className="btn btn-success" onClick={handleImportToProject} style={{ flex: 1 }}>
-                    <Check size={16} /> Import into Active Order
-                  </button>
-                </div>
+              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)' }}>
+                or paste written roster images directly with <strong>Ctrl + V</strong>
               </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '80%', color: 'var(--text-muted)', fontStyle: 'italic', padding: '40px' }}>
-                <FileText size={48} style={{ opacity: 0.3, marginBottom: '12px' }} />
-                Click "Clean & Extract Roster List" to parse the text.
+
+              {ocrLoading && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#00e5ff', fontWeight: 'bold' }}>
+                  <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> OCR Reading text... ({ocrProgress}%)
+                </div>
+              )}
+            </div>
+
+            {scannedImagePreview && (
+              <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(0,0,0,0.4)', padding: '8px 12px', borderRadius: '8px' }}>
+                <img src={scannedImagePreview} alt="Scanned Roster" style={{ height: '48px', borderRadius: '4px', objectFit: 'cover' }} />
+                <span style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: 'bold' }}>
+                  ✅ Image scanned successfully! Extracted production roster below.
+                </span>
               </div>
             )}
           </div>
+
+          <div className="grid-2">
+            {/* Unstructured Text Input */}
+            <div className="glass-card">
+              <h3 style={{ marginBottom: '12px' }}>📝 Paste Client Email / Unstructured Text</h3>
+              <p className="form-label" style={{ marginBottom: '16px' }}>
+                Paste raw emails or text lists. The refiner will extract player names, numbers, sizes, and quantities into a structured list.
+              </p>
+              
+              <textarea
+                className="form-input"
+                rows={12}
+                value={unstructuredText}
+                onChange={(e) => setUnstructuredText(e.target.value)}
+                style={{ fontFamily: 'ui-monospace, monospace', fontSize: '13px', lineHeight: '1.5', resize: 'vertical' }}
+              />
+
+              <button className="btn btn-primary" onClick={handleRefineText} style={{ width: '100%', marginTop: '16px' }}>
+                <RefreshCw size={16} /> Clean & Extract Roster List
+              </button>
+            </div>
+
+            {/* Structured Output CSV */}
+            <div className="glass-card">
+              <h3 style={{ marginBottom: '12px' }}>📊 Structured Output (CSV Data)</h3>
+              
+              {refinedCSV ? (
+                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
+                  <div>
+                    <textarea
+                      className="form-input"
+                      rows={10}
+                      value={refinedCSV}
+                      readOnly
+                      style={{ fontFamily: 'ui-monospace, monospace', fontSize: '12px', background: 'rgba(0,0,0,0.4)', resize: 'vertical', color: 'var(--color-success)' }}
+                    />
+                    
+                    <div className="table-container" style={{ maxHeight: '180px', marginTop: '12px' }}>
+                      <table className="custom-table" style={{ fontSize: '11px' }}>
+                        <thead>
+                          <tr>
+                            <th>Name</th>
+                            <th>#</th>
+                            <th>Size</th>
+                            <th>Qty</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {refinedRecords.slice(0, 5).map(r => (
+                            <tr key={r.id}>
+                              <td>{r.name}</td>
+                              <td>{r.number}</td>
+                              <td>Size {r.size}</td>
+                              <td>{r.qty}</td>
+                            </tr>
+                          ))}
+                          {refinedRecords.length > 5 && (
+                            <tr>
+                              <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                                + {refinedRecords.length - 5} more entries
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+                    <button className="btn btn-secondary" onClick={handleCopyToClipboard} style={{ flex: 1 }}>
+                      {copied ? <Check size={16} style={{ color: 'var(--color-success)' }} /> : <Copy size={16} />} 
+                      {copied ? "Copied!" : "Copy CSV"}
+                    </button>
+                    <button className="btn btn-success" onClick={handleImportToProject} style={{ flex: 1 }}>
+                      <Check size={16} /> Import into Active Order
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '80%', color: 'var(--text-muted)', fontStyle: 'italic', padding: '40px' }}>
+                  <FileText size={48} style={{ opacity: 0.3, marginBottom: '12px' }} />
+                  Click "Clean & Extract Roster List" to parse the text.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
