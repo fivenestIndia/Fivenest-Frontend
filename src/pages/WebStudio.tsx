@@ -103,8 +103,32 @@ export default function WebStudio() {
       }
     });
 
+    // Anti-Piracy & Intellectual Property Protection
+    const handleContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'CANVAS' || target.closest('.canvas-container'))) {
+        e.preventDefault();
+      }
+    };
+
+    const handleKeyDownGuard = (e: KeyboardEvent) => {
+      if (
+        e.key === 'F12' ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'C' || e.key === 'c' || e.key === 'J' || e.key === 'j'))
+      ) {
+        if (import.meta.env.PROD) {
+          e.preventDefault();
+        }
+      }
+    };
+
+    document.addEventListener('contextmenu', handleContextMenu);
+    window.addEventListener('keydown', handleKeyDownGuard);
+
     return () => {
       subscription.unsubscribe();
+      document.removeEventListener('contextmenu', handleContextMenu);
+      window.removeEventListener('keydown', handleKeyDownGuard);
     };
   }, []);
 

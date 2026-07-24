@@ -1,50 +1,58 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Sparkles, Zap, ShieldCheck, ArrowRight, X } from "lucide-react";
+import { Check, Sparkles, ShieldCheck, ArrowRight, X } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const plans = [
   {
-    planId: "starter",
-    name: "Starter",
-    desc: "For small units handling up to 300 files/day",
+    planId: "web_starter",
+    name: "Web Studio Starter",
+    desc: "For small sportswear units (Up to 600 Panels / month)",
     original: "₹2,500",
     price: "₹1,750",
     numericPrice: 1750,
     period: "/ month",
-    features: ["Bulk CSV & Roster Import", "Auto Resize to Exact Inches", "Auto Rename by Order ID", "Print-Ready 300 DPI Export"],
+    features: [
+      "Full Web Studio Browser Access",
+      "Bulk CSV Roster Import",
+      "Auto Inch Size Grading",
+      "₹3/pc Watermark Logo Discount Rate",
+      "Print-Ready 300 DPI Export",
+    ],
     popular: false,
   },
   {
-    planId: "pro",
-    name: "Pro",
-    desc: "For growing production units",
+    planId: "web_pro",
+    name: "Web Studio Pro",
+    desc: "For growing production units (1,200 Panels / month)",
     original: "₹3,000",
     price: "₹2,000",
     numericPrice: 2000,
     period: "/ month",
-    features: ["Unlimited roster files", "AI Roster Image Reader", "180° Brand Watermark & Size Tags", "Priority 300 DPI Export"],
+    features: [
+      "Everything in Starter",
+      "AI Image Roster Reader (Paste Image Notes)",
+      "3D Live Jersey Preview Mode",
+      "Custom Size Grading Database",
+      "Priority 300 DPI Export Speed",
+    ],
     popular: true,
   },
   {
-    planId: "premium",
-    name: "Premium",
-    desc: "For enterprise scale production",
-    original: "₹4,000",
-    price: "₹2,500",
-    numericPrice: 2500,
-    period: "/ month",
-    features: ["Everything in Pro", "Multi-user Billing System", "Custom size grading tables", "Premium Support"],
-    popular: false,
-  },
-  {
-    planId: "enterprise",
-    name: "Enterprise",
-    desc: "For factories with custom needs",
+    planId: "web_enterprise",
+    name: "Web Studio Enterprise",
+    desc: "For large factories & high-volume manufacturers",
     original: "₹6,000",
     price: "₹4,000",
     numericPrice: 4000,
     period: "/ month",
-    features: ["Everything in Premium", "Dedicated account manager", "Custom plugin development", "On-site staff training"],
+    features: [
+      "Unlimited Panel Exports",
+      "Multi-User Billing & Invoice System",
+      "Dedicated Account Manager",
+      "Custom Sublimation Template Support",
+      "24/7 Priority WhatsApp Support",
+    ],
     popular: false,
   },
 ];
@@ -82,7 +90,7 @@ const PricingSection = () => {
           phone: phone,
           planName: selectedPlan.name,
           planId: selectedPlan.planId,
-          returnUrl: window.location.origin,
+          returnUrl: `${window.location.origin}/studio`,
         }),
       });
 
@@ -109,7 +117,6 @@ const PricingSection = () => {
 
   return (
     <section id="pricing" className="py-24 md:py-36 relative overflow-hidden">
-      {/* Background glow */}
       <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-cyan-500/5 rounded-full blur-[140px] pointer-events-none" />
 
       <div className="container mx-auto px-4 md:px-6 relative z-10">
@@ -121,17 +128,17 @@ const PricingSection = () => {
           className="text-center mb-16 max-w-3xl mx-auto"
         >
           <span className="text-xs font-bold uppercase tracking-widest text-cyan-400 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 mb-4 inline-block">
-            ⚡ Transparent Production Licensing
+            ⚡ Web Studio Pricing & Plans
           </span>
           <h2 className="text-3xl sm:text-5xl font-black text-white mb-4 tracking-tight">
-            Select Your <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Factory Capacity</span>
+            FiveNest <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Web Studio Access</span>
           </h2>
           <p className="text-slate-400 text-base md:text-lg">
-            No hidden setup fees. Instant online license activation for sportswear manufacturers.
+            Pay per panel or subscribe for unlimited monthly Web Studio production runs.
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto items-stretch">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
           {plans.map((plan, i) => (
             <motion.div
               initial={{ opacity: 0, y: 30 }}
@@ -149,7 +156,7 @@ const PricingSection = () => {
               {plan.popular && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 text-black text-xs font-extrabold shadow-lg shadow-cyan-500/30 flex items-center gap-1.5 whitespace-nowrap">
                   <Sparkles size={12} />
-                  Most Popular Factory Choice
+                  Most Popular Web Studio Plan
                 </div>
               )}
 
@@ -185,11 +192,20 @@ const PricingSection = () => {
                     : "bg-slate-800/80 text-white hover:bg-slate-800 border border-slate-700"
                 }`}
               >
-                <span>Get Started Now</span>
+                <span>Activate Web Studio</span>
                 <ArrowRight size={14} />
               </motion.button>
             </motion.div>
           ))}
+        </div>
+
+        {/* Free Web Studio Trial CTA */}
+        <div className="mt-12 text-center">
+          <Link to="/studio">
+            <button className="px-6 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-cyan-400 font-bold text-sm transition-all inline-flex items-center gap-2">
+              🧪 Want to test first? Try Web Studio Free (Test Mode) →
+            </button>
+          </Link>
         </div>
       </div>
 
@@ -218,10 +234,10 @@ const PricingSection = () => {
 
               <div className="flex items-center gap-2 mb-2 text-cyan-400 text-xs font-bold uppercase tracking-wider">
                 <ShieldCheck size={16} />
-                <span>Instant License Activation</span>
+                <span>Instant Web Studio Account Upgrade</span>
               </div>
-              <h3 className="text-2xl font-black text-white mb-1">Checkout: {selectedPlan.name} Plan</h3>
-              <p className="text-slate-400 text-xs mb-6">Enter your details to receive your software license & setup guide.</p>
+              <h3 className="text-2xl font-black text-white mb-1">Checkout: {selectedPlan.name}</h3>
+              <p className="text-slate-400 text-xs mb-6">Enter your details to receive your Web Studio login & account balance.</p>
 
               <form onSubmit={handlePaymentSubmit} className="space-y-4">
                 <div>

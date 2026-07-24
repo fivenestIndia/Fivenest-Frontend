@@ -928,10 +928,30 @@
 
 @media (max-width: 1024px) {
   .artwork-layout-designer {
-    flex-direction: column;
-    align-items: stretch;
-    height: auto;
-    overflow: visible;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    gap: 16px !important;
+  }
+
+  .canvas-container {
+    height: 420px !important;
+    max-height: 55vh !important;
+    min-height: 320px !important;
+    width: 100% !important;
+    position: sticky !important;
+    top: 53px !important;
+    z-index: 30 !important;
+    background: #05070a !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8) !important;
+  }
+
+  .designer-controls, .controls-panel {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
   }
 }
 
