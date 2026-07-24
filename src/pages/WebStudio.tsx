@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Palette, Users, Ruler, Sliders, HelpCircle, Award, ArrowLeft, Sun, Moon, Receipt } from 'lucide-react';
+import { Palette, Users, Ruler, Sliders, HelpCircle, Award, ArrowLeft, Sun, Moon, Receipt, Menu, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase, fetchUserWallet } from '../lib/supabaseClient';
 import { Designer, defaultDesignConfig } from '../components/studio/designer';
@@ -22,11 +22,13 @@ export default function WebStudio() {
   useEffect(() => {
     localStorage.setItem('fivenest_studio_theme', themeMode);
   }, [themeMode]);
+
   const [activeTab, setActiveTab] = useState<'designer' | 'order' | 'sizes' | 'nesting' | 'help' | 'billing'>('designer');
-  
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+
   // Roster records state
   const [records, setRecords] = useState<PlayerRecord[]>([]);
-  
+
   // Job metadata details
   const [metadata, setMetadata] = useState<OrderMetadata>({
     customerName: "",
@@ -126,75 +128,106 @@ export default function WebStudio() {
   const handleTestModeChange = (val: boolean) => {
     setTestMode(val);
     localStorage.setItem('fivenest_test_mode', JSON.stringify(val));
-    // Trigger event so other components know (like NestingView)
     window.dispatchEvent(new Event('storage-preference-changed'));
   };
 
+  const studioTabs = [
+    { id: 'designer', label: 'Artwork Setup', icon: Palette },
+    { id: 'order', label: 'Roster & Details', icon: Users },
+    { id: 'sizes', label: 'Grading Sizes', icon: Ruler },
+    { id: 'nesting', label: 'Nesting & Export', icon: Sliders },
+    { id: 'help', label: 'Help & AI Refine', icon: HelpCircle },
+    { id: 'billing', label: 'Billing System', icon: Receipt },
+  ];
+
   return (
     <div className={`app-layout ${themeMode}`}>
-      {/* Sidebar Navigation Panel */}
-      <aside className="sidebar">
+      {/* Mobile Top Header */}
+      <div className="md:hidden flex items-center justify-between p-3 bg-black/80 border-b border-white/10 sticky top-0 z-40 backdrop-blur-md">
+        <Link to="/" className="flex items-center gap-2">
+          <img src="/logo.svg" alt="FiveNest Logo" className="w-6 h-6 object-contain" />
+          <span className="font-extrabold text-white text-base">FiveNest Studio</span>
+        </Link>
+        
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 rounded-xl bg-white/5 border border-white/10 text-white"
+          >
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Horizontal Scrollable Tab Bar */}
+      <div className="md:hidden flex items-center gap-2 p-2 bg-slate-950 border-b border-slate-800 overflow-x-auto no-scrollbar scroll-smooth sticky top-[53px] z-30">
+        {studioTabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                isActive
+                  ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20'
+                  : 'bg-white/5 text-slate-300 border border-white/5'
+              }`}
+            >
+              <Icon size={14} />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Sidebar Navigation Panel (Responsive Drawer on Mobile) */}
+      <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div>
-          <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <div className="sidebar-brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px', cursor: 'pointer' }}>
-              <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <img 
-                  src="/logo.svg" 
-                  alt="FiveNest Logo" 
-                  style={{ width: '26px', height: '26px', objectFit: 'contain' }} 
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
-                <span style={{ fontSize: '18px', fontWeight: '800' }}>FiveNest Web</span>
+          <div className="flex items-center justify-between p-4 border-b border-white/10">
+            <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <div className="sidebar-brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px', cursor: 'pointer', padding: 0 }}>
+                <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <img 
+                    src="/logo.svg" 
+                    alt="FiveNest Logo" 
+                    style={{ width: '26px', height: '26px', objectFit: 'contain' }} 
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                  <span style={{ fontSize: '18px', fontWeight: '800' }}>FiveNest Web</span>
+                </div>
+                <span className="sidebar-version">Web Studio</span>
               </div>
-              <span className="sidebar-version">Web Studio</span>
-            </div>
-          </Link>
+            </Link>
+
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="md:hidden p-1.5 rounded-lg bg-white/5 text-white"
+            >
+              <X size={18} />
+            </button>
+          </div>
 
           <nav className="sidebar-menu">
-            <div 
-              className={`menu-item ${activeTab === 'designer' ? 'active' : ''}`}
-              onClick={() => setActiveTab('designer')}
-            >
-              <Palette size={18} />
-              Artwork Setup
-            </div>
-            <div 
-              className={`menu-item ${activeTab === 'order' ? 'active' : ''}`}
-              onClick={() => setActiveTab('order')}
-            >
-              <Users size={18} />
-              Roster & Details
-            </div>
-            <div 
-              className={`menu-item ${activeTab === 'sizes' ? 'active' : ''}`}
-              onClick={() => setActiveTab('sizes')}
-            >
-              <Ruler size={18} />
-              Grading Sizes
-            </div>
-            <div 
-              className={`menu-item ${activeTab === 'nesting' ? 'active' : ''}`}
-              onClick={() => setActiveTab('nesting')}
-            >
-              <Sliders size={18} />
-              Nesting & Export
-            </div>
-            <div 
-              className={`menu-item ${activeTab === 'help' ? 'active' : ''}`}
-              onClick={() => setActiveTab('help')}
-            >
-              <HelpCircle size={18} />
-              Help & AI Refine
-            </div>
-            <div 
-              className={`menu-item ${activeTab === 'billing' ? 'active' : ''}`}
-              onClick={() => setActiveTab('billing')}
-            >
-              <Receipt size={18} />
-              Billing System
-            </div>
+            {studioTabs.map((t) => {
+              const Icon = t.icon;
+              const isActive = activeTab === t.id;
+              return (
+                <div
+                  key={t.id}
+                  className={`menu-item ${isActive ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveTab(t.id as any);
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <Icon size={18} />
+                  {t.label}
+                </div>
+              );
+            })}
 
             <Link 
               to="/" 
@@ -266,24 +299,25 @@ export default function WebStudio() {
       {/* Main Content Area */}
       <main className="main-content">
         <header className="top-navbar">
-          <h1 className="navbar-title">
+          <h1 className="navbar-title text-sm md:text-base">
             {activeTab === 'designer' && "🎨 Step 1: Sublimation Artwork & Overlays"}
             {activeTab === 'order' && "📋 Step 2: Order Details & Player Roster"}
             {activeTab === 'sizes' && "📐 Step 3: Size grading dimensions database"}
             {activeTab === 'nesting' && "⚙️ Step 4: Nesting Engine & Panel Export"}
             {activeTab === 'help' && "🤖 Help Center & AI Smart Roster Refiner"}
+            {activeTab === 'billing' && "🧾 Billing System & Customer Invoices"}
           </h1>
           
-          <div className="navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div className="navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {/* Test Mode Toggle */}
             <label className="test-mode-toggle" style={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: '8px', 
+              gap: '6px', 
               cursor: 'pointer', 
               fontSize: '11px', 
               background: testMode ? 'rgba(255, 140, 0, 0.1)' : 'rgba(255,255,255,0.03)', 
-              padding: '6px 14px', 
+              padding: '6px 12px', 
               borderRadius: '30px', 
               border: testMode ? '1px solid var(--color-secondary)' : '1px solid var(--border-light)',
               userSelect: 'none',
@@ -296,7 +330,7 @@ export default function WebStudio() {
                 style={{ display: 'none' }} 
               />
               <span style={{ color: testMode ? 'var(--color-secondary)' : 'var(--text-muted)', fontWeight: 'bold' }}>
-                {testMode ? "🧪 Test Mode (72 DPI Free)" : "⚡ Production Mode (High DPI)"}
+                {testMode ? "🧪 Test Mode" : "⚡ Production Mode"}
               </span>
             </label>
 
@@ -311,7 +345,7 @@ export default function WebStudio() {
                   gap: '8px', 
                   background: 'rgba(155, 77, 255, 0.08)', 
                   border: '1px solid var(--border-active)', 
-                  padding: '6px 14px', 
+                  padding: '6px 12px', 
                   borderRadius: '30px', 
                   cursor: 'pointer',
                   fontSize: '11px',
@@ -325,7 +359,7 @@ export default function WebStudio() {
               <button 
                 className="btn btn-secondary" 
                 onClick={() => setLoginModalOpen(true)}
-                style={{ padding: '6px 14px', borderRadius: '30px', fontSize: '11px', fontWeight: 'bold' }}
+                style={{ padding: '6px 12px', borderRadius: '30px', fontSize: '11px', fontWeight: 'bold' }}
               >
                 Sign In
               </button>
@@ -336,7 +370,7 @@ export default function WebStudio() {
               className={`btn ${activeTab === 'billing' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setActiveTab('billing')}
               style={{ 
-                padding: '6px 14px', 
+                padding: '6px 12px', 
                 borderRadius: '30px', 
                 fontSize: '11px', 
                 fontWeight: 'bold', 
@@ -347,24 +381,8 @@ export default function WebStudio() {
                 color: activeTab === 'billing' ? 'white' : 'var(--color-success)'
               }}
             >
-              <Receipt size={14} /> Billing System
+              <Receipt size={14} /> Billing
             </button>
-
-            {/* Visual step tracker */}
-            <div className="wizard-steps" style={{ margin: 0, gap: '20px' }}>
-              <div className={`wizard-step ${activeTab === 'designer' ? 'active' : records.length > 0 ? 'completed' : ''}`} style={{ padding: 0 }}>
-                <span className="step-circle" style={{ width: '24px', height: '24px', fontSize: '11px' }}>1</span>
-              </div>
-              <div className={`wizard-step ${activeTab === 'order' ? 'active' : records.length > 0 ? 'completed' : ''}`} style={{ padding: 0 }}>
-                <span className="step-circle" style={{ width: '24px', height: '24px', fontSize: '11px' }}>2</span>
-              </div>
-              <div className={`wizard-step ${activeTab === 'sizes' ? 'active' : 'completed'}`} style={{ padding: 0 }}>
-                <span className="step-circle" style={{ width: '24px', height: '24px', fontSize: '11px' }}>3</span>
-              </div>
-              <div className={`wizard-step ${activeTab === 'nesting' ? 'active' : ''}`} style={{ padding: 0 }}>
-                <span className="step-circle" style={{ width: '24px', height: '24px', fontSize: '11px' }}>4</span>
-              </div>
-            </div>
           </div>
         </header>
 

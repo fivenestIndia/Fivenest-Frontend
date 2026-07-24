@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Check, Sparkles, Zap, ShieldCheck, ArrowRight, X } from "lucide-react";
 
 const plans = [
   {
@@ -9,7 +11,7 @@ const plans = [
     price: "₹1,750",
     numericPrice: 1750,
     period: "/ month",
-    features: ["Bulk CSV Import", "Auto Resize to Exact Inches", "Auto Rename by Order ID", "Print-Ready 300 DPI Export"],
+    features: ["Bulk CSV & Roster Import", "Auto Resize to Exact Inches", "Auto Rename by Order ID", "Print-Ready 300 DPI Export"],
     popular: false,
   },
   {
@@ -20,7 +22,7 @@ const plans = [
     price: "₹2,000",
     numericPrice: 2000,
     period: "/ month",
-    features: ["Unlimited files", "Advanced naming logic", "Faster processing", "Priority support"],
+    features: ["Unlimited roster files", "AI Roster Image Reader", "180° Brand Watermark & Size Tags", "Priority 300 DPI Export"],
     popular: true,
   },
   {
@@ -31,7 +33,7 @@ const plans = [
     price: "₹2,500",
     numericPrice: 2500,
     period: "/ month",
-    features: ["Unlimited files", "Multi-device logic", "Custom integrations", "Premium Support"],
+    features: ["Everything in Pro", "Multi-user Billing System", "Custom size grading tables", "Premium Support"],
     popular: false,
   },
   {
@@ -42,37 +44,23 @@ const plans = [
     price: "₹4,000",
     numericPrice: 4000,
     period: "/ month",
-    features: ["Everything in Premium", "Dedicated account manager", "Custom plugin development", "On-site training"],
+    features: ["Everything in Premium", "Dedicated account manager", "Custom plugin development", "On-site staff training"],
     popular: false,
   },
 ];
 
 const PricingSection = () => {
-  const ref = useRef<HTMLDivElement>(null);
-  const [inView, setInView] = useState(false);
-
-  // --- NEW: CHECKOUT STATE ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(([e]) => e.isIntersecting && setInView(true), { threshold: 0.1 });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
-  // --- NEW: HANDLE BUTTON CLICK ---
   const openCheckout = (plan: any) => {
     setSelectedPlan(plan);
     setIsModalOpen(true);
   };
 
-  // --- NEW: CONNECT TO RENDER BACKEND ---
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !phone) return alert("Please enter your email and phone number.");
@@ -94,7 +82,7 @@ const PricingSection = () => {
           phone: phone,
           planName: selectedPlan.name,
           planId: selectedPlan.planId,
-          returnUrl: window.location.origin, // Returns them to this website after paying
+          returnUrl: window.location.origin,
         }),
       });
 
@@ -105,9 +93,9 @@ const PricingSection = () => {
       } catch (e) {
         throw new Error(`Server error (${response.status}). Please try again.`);
       }
-      
+
       if (data.url) {
-        window.location.href = data.url; // Send to Razorpay
+        window.location.href = data.url;
       } else {
         alert("Failed to generate payment link. Please try again.");
         setIsLoading(false);
@@ -120,113 +108,157 @@ const PricingSection = () => {
   };
 
   return (
-    <section id="pricing" className="py-32 relative">
-      <div className="container mx-auto px-6">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-black mb-4">
-            Select Your <span className="text-gradient">Production Capacity</span>
-          </h2>
-          <p className="text-muted-foreground text-lg">Transparent pricing for manufacturing units of all sizes</p>
-        </div>
+    <section id="pricing" className="py-24 md:py-36 relative overflow-hidden">
+      {/* Background glow */}
+      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-cyan-500/5 rounded-full blur-[140px] pointer-events-none" />
 
-        <div ref={ref} className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+      <div className="container mx-auto px-4 md:px-6 relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-16 max-w-3xl mx-auto"
+        >
+          <span className="text-xs font-bold uppercase tracking-widest text-cyan-400 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 mb-4 inline-block">
+            ⚡ Transparent Production Licensing
+          </span>
+          <h2 className="text-3xl sm:text-5xl font-black text-white mb-4 tracking-tight">
+            Select Your <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Factory Capacity</span>
+          </h2>
+          <p className="text-slate-400 text-base md:text-lg">
+            No hidden setup fees. Instant online license activation for sportswear manufacturers.
+          </p>
+        </motion.div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto items-stretch">
           {plans.map((plan, i) => (
-            <div
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              whileHover={{ y: -6 }}
               key={plan.name}
-              className={`relative glass-card rounded-2xl p-6 flex flex-col transition-all duration-500 hover:-translate-y-2 ${
-                plan.popular ? "border-primary/40 glow-sm" : ""
-              } ${inView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}
-              style={{ transitionDelay: `${i * 100}ms` }}
+              className={`relative rounded-3xl p-6 md:p-8 flex flex-col justify-between backdrop-blur-xl transition-all duration-300 ${
+                plan.popular
+                  ? "bg-slate-900/90 border-2 border-cyan-500 shadow-2xl shadow-cyan-500/20"
+                  : "bg-slate-900/60 border border-slate-800 hover:border-cyan-500/30"
+              }`}
             >
               {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                  Most Popular
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 text-black text-xs font-extrabold shadow-lg shadow-cyan-500/30 flex items-center gap-1.5 whitespace-nowrap">
+                  <Sparkles size={12} />
+                  Most Popular Factory Choice
                 </div>
               )}
 
-              <h3 className="text-xl font-bold mb-1">{plan.name}</h3>
-              <p className="text-sm text-muted-foreground mb-4">{plan.desc}</p>
+              <div>
+                <h3 className="text-xl font-bold text-white mb-1">{plan.name}</h3>
+                <p className="text-xs text-slate-400 mb-6 min-h-[32px]">{plan.desc}</p>
 
-              <div className="mb-6">
-                <span className="text-sm text-muted-foreground line-through mr-2">{plan.original}</span>
-                <span className="text-3xl font-black text-gradient">{plan.price}</span>
-                <span className="text-sm text-muted-foreground">{plan.period}</span>
+                <div className="mb-6 pb-6 border-b border-slate-800">
+                  <span className="text-xs text-slate-500 line-through mr-2 font-semibold">{plan.original}</span>
+                  <span className="text-3xl font-black bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                    {plan.price}
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium ml-1">{plan.period}</span>
+                </div>
+
+                <ul className="space-y-3 mb-8">
+                  {plan.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2.5 text-xs md:text-sm text-slate-300">
+                      <Check size={16} className="text-cyan-400 flex-shrink-0 mt-0.5" />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
 
-              <ul className="space-y-3 mb-8 flex-1">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-sm">
-                    <span className="text-primary">✓</span>
-                    <span className="text-muted-foreground">{f}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {/* 🔥 UPDATED BUTTON: NOW OPENS THE CHECKOUT MODAL */}
-              <button
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => openCheckout(plan)}
-                className={`block w-full text-center py-3 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
+                className={`w-full py-3.5 rounded-xl text-sm font-extrabold transition-all duration-200 flex items-center justify-center gap-2 ${
                   plan.popular
-                    ? "bg-primary text-primary-foreground hover:opacity-90 glow-sm"
-                    : "border border-border hover:bg-secondary"
+                    ? "bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 text-black shadow-lg shadow-cyan-500/25"
+                    : "bg-slate-800/80 text-white hover:bg-slate-800 border border-slate-700"
                 }`}
               >
-                Get Started Now
-              </button>
-            </div>
+                <span>Get Started Now</span>
+                <ArrowRight size={14} />
+              </motion.button>
+            </motion.div>
           ))}
         </div>
       </div>
 
-      {/* 🔥 NEW: SECURE CHECKOUT MODAL */}
-      {isModalOpen && selectedPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-background border border-border rounded-2xl p-6 md:p-8 w-full max-w-md relative animate-in fade-in zoom-in duration-200">
-            <button 
-              onClick={() => setIsModalOpen(false)}
-              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground text-xl"
+      {/* SECURE CHECKOUT MODAL WITH ANIMATEPRESENCE */}
+      <AnimatePresence>
+        {isModalOpen && selectedPlan && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, y: 20, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 w-full max-w-md relative shadow-2xl shadow-cyan-500/10 text-left"
             >
-              ✕
-            </button>
-            
-            <h3 className="text-2xl font-bold mb-2">Checkout: {selectedPlan.name}</h3>
-            <p className="text-muted-foreground text-sm mb-6">Enter your details to receive your software license and setup guide.</p>
-            
-            <form onSubmit={handlePaymentSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Email Address</label>
-                <input 
-                  type="email" 
-                  required 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-2 bg-secondary border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="fivenest.india@gmail.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">WhatsApp Number</label>
-                <input 
-                  type="tel" 
-                  required 
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full px-4 py-2 bg-secondary border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="+91 98765 43210"
-                />
-              </div>
-              <button 
-                type="submit" 
-                disabled={isLoading}
-                className="w-full py-3 mt-4 bg-primary text-primary-foreground rounded-lg font-bold hover:opacity-90 disabled:opacity-50 transition-all flex justify-center items-center gap-2"
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white p-2 rounded-xl bg-white/5 border border-white/10"
               >
-                {isLoading ? "Connecting to Secure Gateway..." : `Pay ${selectedPlan.price} Securely`}
-                {!isLoading && <span>→</span>}
+                <X size={18} />
               </button>
-            </form>
-          </div>
-        </div>
-      )}
+
+              <div className="flex items-center gap-2 mb-2 text-cyan-400 text-xs font-bold uppercase tracking-wider">
+                <ShieldCheck size={16} />
+                <span>Instant License Activation</span>
+              </div>
+              <h3 className="text-2xl font-black text-white mb-1">Checkout: {selectedPlan.name} Plan</h3>
+              <p className="text-slate-400 text-xs mb-6">Enter your details to receive your software license & setup guide.</p>
+
+              <form onSubmit={handlePaymentSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all"
+                    placeholder="factory@gmail.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">WhatsApp Contact Number</label>
+                  <input
+                    type="tel"
+                    required
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all"
+                    placeholder="+91 98765 43210"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-4 mt-4 bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-extrabold rounded-xl hover:opacity-90 disabled:opacity-50 transition-all flex justify-center items-center gap-2 text-sm shadow-xl shadow-cyan-500/20"
+                >
+                  {isLoading ? "Connecting to Gateway..." : `Pay ${selectedPlan.price} Securely`}
+                  {!isLoading && <ArrowRight size={16} />}
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 };

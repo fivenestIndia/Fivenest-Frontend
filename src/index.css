@@ -308,6 +308,48 @@
   overflow: hidden;
 }
 
+@media (max-width: 768px) {
+  .app-layout {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow-y: auto !important;
+  }
+
+  .sidebar {
+    width: 100% !important;
+    display: none;
+  }
+
+  .sidebar.mobile-open {
+    display: flex !important;
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 999;
+    height: 100vh !important;
+  }
+
+  .main-content {
+    width: 100% !important;
+    height: auto !important;
+    overflow-y: visible !important;
+  }
+
+  .top-navbar {
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+    padding: 12px 14px !important;
+  }
+
+  .content-body {
+    padding: 12px !important;
+    overflow-y: visible !important;
+  }
+}
+
 .sidebar {
   width: 260px;
   background: var(--bg-sidebar);
