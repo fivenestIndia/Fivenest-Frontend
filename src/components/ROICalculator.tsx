@@ -1,35 +1,35 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { TrendingUp, Clock, IndianRupee, Zap, Sparkles, ArrowRight } from "lucide-react";
+import { Calculator, Clock, IndianRupee, Zap, Sparkles, ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const ROICalculator = () => {
-  const [files, setFiles] = useState(150);
-  const [hourlyCost, setHourlyCost] = useState(150);
-  const [days, setDays] = useState(26);
+  const [jerseysPerMonth, setJerseysPerMonth] = useState(250);
+  const [useWatermark, setUseWatermark] = useState(true);
 
-  const result = useMemo(() => {
-    // Manual: ~1.5 min per file. Fivenest: ~0.6 sec per file.
-    const manualMinPerDay = files * 1.5;
-    const fivenestMinPerDay = files * 0.01;
-    const minutesSavedPerDay = manualMinPerDay - fivenestMinPerDay;
-    const hoursSavedPerMonth = (minutesSavedPerDay * days) / 60;
-    const moneySavedPerMonth = Math.round(hoursSavedPerMonth * hourlyCost);
-    const moneySavedPerYear = moneySavedPerMonth * 12;
-    const planCost = 2000;
-    const roi = Math.round(((moneySavedPerMonth - planCost) / planCost) * 100);
+  const stats = useMemo(() => {
+    // Manual: ~1.5 mins per jersey panel set. FiveNest: ~0.05 mins (3 secs).
+    const manualHours = Math.round((jerseysPerMonth * 1.5 * 4) / 60); // 4 panels per kit
+    const fivenestMins = Math.round((jerseysPerMonth * 0.05 * 4));
+    
+    // Wallet cost: ₹3/pc with watermark, ₹5/pc without. Average 4 panels per jersey kit.
+    const ratePerPanel = useWatermark ? 3 : 5;
+    const walletCost = jerseysPerMonth * 4 * ratePerPanel;
+    
+    // Operator cost saved @ ₹150/hr
+    const operatorSavedCost = manualHours * 150;
+    const netMoneySaved = Math.max(operatorSavedCost - walletCost, 0);
+
     return {
-      hoursSavedPerMonth: Math.round(hoursSavedPerMonth),
-      moneySavedPerMonth,
-      moneySavedPerYear,
-      roi: Math.max(roi, 0),
+      manualHours,
+      fivenestMins,
+      walletCost,
+      netMoneySaved,
     };
-  }, [files, hourlyCost, days]);
+  }, [jerseysPerMonth, useWatermark]);
 
   return (
-    <section id="roi" className="py-24 md:py-36 relative overflow-hidden">
-      {/* Background Orbs */}
-      <div className="absolute top-1/3 right-1/4 w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[140px] pointer-events-none" />
-
+    <section id="roi" className="py-24 md:py-36 relative overflow-hidden bg-slate-950">
       <div className="container mx-auto px-4 md:px-6 relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -39,19 +39,19 @@ const ROICalculator = () => {
           className="text-center mb-16 max-w-3xl mx-auto"
         >
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 mb-4 shadow-lg shadow-cyan-500/10">
-            <Sparkles size={14} />
-            <span>Interactive ROI & Savings Estimator</span>
+            <Calculator size={14} />
+            <span>Interactive Factory Cost Calculator</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-black text-white mb-4 tracking-tight">
-            See How Much You'll <span className="bg-gradient-to-r from-cyan-400 to-emerald-400 bg-clip-text text-transparent">Save Every Month</span>
+            Calculate Your Factory's <span className="bg-gradient-to-r from-cyan-400 to-emerald-400 bg-clip-text text-transparent">Exact Monthly Savings</span>
           </h2>
           <p className="text-slate-400 text-base md:text-lg">
-            Drag the sliders below to calculate time & cost savings tailored to your factory's daily workload.
+            Drag the slider to match your monthly jersey order volume and see your wallet cost & time saved.
           </p>
         </motion.div>
 
-        <div className="grid lg:grid-cols-2 gap-8 max-w-6xl mx-auto items-stretch">
-          {/* Inputs Panel */}
+        <div className="grid lg:grid-cols-2 gap-8 max-w-5xl mx-auto items-stretch">
+          {/* Controls Panel */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -59,43 +59,68 @@ const ROICalculator = () => {
             transition={{ duration: 0.6 }}
             className="rounded-3xl p-6 md:p-8 bg-slate-900/60 border border-slate-800 backdrop-blur-xl shadow-2xl flex flex-col justify-between"
           >
-            <h3 className="text-xl font-black text-white mb-8 flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-cyan-400" />
-              Your Factory Production Numbers
-            </h3>
+            <div>
+              <h3 className="text-xl font-black text-white mb-8 flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-cyan-400" />
+                How Many Jerseys Do You Print Monthly?
+              </h3>
 
-            <div className="space-y-8">
-              <SliderInput
-                label="Daily Jersey Panels Printed"
-                value={files}
-                onChange={setFiles}
-                min={20}
-                max={1000}
-                step={10}
-                suffix="panels"
-              />
-              <SliderInput
-                label="Photoshop Operator Hourly Cost"
-                value={hourlyCost}
-                onChange={setHourlyCost}
-                min={50}
-                max={500}
-                step={10}
-                prefix="₹"
-              />
-              <SliderInput
-                label="Working Production Days / Month"
-                value={days}
-                onChange={setDays}
-                min={20}
-                max={30}
-                step={1}
-                suffix="days"
-              />
+              <div className="space-y-8">
+                <div>
+                  <div className="flex justify-between items-baseline mb-3">
+                    <label className="text-sm font-semibold text-slate-300">Monthly Jersey Volume</label>
+                    <span className="text-3xl font-black bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                      {jerseysPerMonth.toLocaleString("en-IN")} <span className="text-sm text-slate-400 font-medium">jerseys</span>
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={50}
+                    max={5000}
+                    step={50}
+                    value={jerseysPerMonth}
+                    onChange={(e) => setJerseysPerMonth(Number(e.target.value))}
+                    className="w-full h-3 bg-slate-800 rounded-full appearance-none cursor-pointer accent-cyan-400 touch-pan-x"
+                  />
+                  <div className="flex justify-between text-xs text-slate-500 mt-2 font-medium">
+                    <span>50 jerseys</span>
+                    <span>2,500 jerseys</span>
+                    <span>5,000 jerseys</span>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-800">
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-3">Watermark Logo Rate</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setUseWatermark(true)}
+                      className={`p-3 rounded-xl text-xs font-bold transition-all border text-left ${
+                        useWatermark
+                          ? "bg-cyan-500/20 border-cyan-500 text-cyan-300 shadow-lg shadow-cyan-500/10"
+                          : "bg-slate-950 border-slate-800 text-slate-400"
+                      }`}
+                    >
+                      <div className="font-extrabold text-sm text-white">₹3 / pc</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">Watermark Logo ON (Discount Rate)</div>
+                    </button>
+                    <button
+                      onClick={() => setUseWatermark(false)}
+                      className={`p-3 rounded-xl text-xs font-bold transition-all border text-left ${
+                        !useWatermark
+                          ? "bg-cyan-500/20 border-cyan-500 text-cyan-300 shadow-lg shadow-cyan-500/10"
+                          : "bg-slate-950 border-slate-800 text-slate-400"
+                      }`}
+                    >
+                      <div className="font-extrabold text-sm text-white">₹5 / pc</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">Watermark Logo OFF (Standard Rate)</div>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="mt-8 pt-6 border-t border-slate-800 text-xs text-slate-400">
-              💡 Based on average manual Photoshop RIP time of 1.5 mins vs 0.6 seconds with FiveNest.
+              💡 Calculated at 4 printable panels per kit (Front, Back, LHS, RHS) @ average operator cost of ₹150/hr.
             </div>
           </motion.div>
 
@@ -107,126 +132,50 @@ const ROICalculator = () => {
             transition={{ duration: 0.6 }}
             className="rounded-3xl p-6 md:p-8 bg-gradient-to-br from-slate-900/90 via-slate-900/70 to-slate-950/90 border border-cyan-500/30 backdrop-blur-xl shadow-2xl shadow-cyan-500/10 relative overflow-hidden flex flex-col justify-between"
           >
-            <div className="absolute -top-32 -right-32 w-64 h-64 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="relative z-10">
+            <div>
               <h3 className="text-xl font-black text-white mb-8 flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
-                Estimated Monthly Factory Return
+                Your Estimated Production Returns
               </h3>
 
               <div className="space-y-4">
-                <ResultCard
-                  icon={<Clock className="w-5 h-5" />}
-                  label="Time Saved / Month"
-                  value={`${result.hoursSavedPerMonth} Hours`}
-                />
-                <ResultCard
-                  icon={<IndianRupee className="w-5 h-5" />}
-                  label="Money Saved / Month"
-                  value={`₹${result.moneySavedPerMonth.toLocaleString("en-IN")}`}
-                  highlight
-                />
-                <ResultCard
-                  icon={<TrendingUp className="w-5 h-5" />}
-                  label="Money Saved / Year"
-                  value={`₹${result.moneySavedPerYear.toLocaleString("en-IN")}`}
-                />
-                <ResultCard
-                  icon={<Zap className="w-5 h-5" />}
-                  label="Estimated ROI Increase"
-                  value={`${result.roi}%`}
-                />
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-950/80 border border-slate-800">
+                  <span className="text-xs md:text-sm font-semibold text-slate-300">Manual Preparation Time</span>
+                  <span className="font-bold text-rose-400 text-lg">{stats.manualHours} Hours</span>
+                </div>
+
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-950/80 border border-slate-800">
+                  <span className="text-xs md:text-sm font-semibold text-slate-300">With FiveNest Web Studio</span>
+                  <span className="font-bold text-cyan-400 text-lg">{stats.fivenestMins} Minutes</span>
+                </div>
+
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/30">
+                  <span className="text-xs md:text-sm font-bold text-slate-200">Estimated Monthly Wallet Cost</span>
+                  <span className="font-black text-cyan-300 text-xl">₹{stats.walletCost.toLocaleString("en-IN")}</span>
+                </div>
+
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 shadow-lg shadow-emerald-500/10">
+                  <span className="text-xs md:text-sm font-black text-white">Net Factory Money Saved / Month</span>
+                  <span className="font-black text-emerald-300 text-2xl">₹{stats.netMoneySaved.toLocaleString("en-IN")}</span>
+                </div>
               </div>
             </div>
 
-            <a
-              href="#pricing"
-              className="relative z-10 block w-full mt-8"
-            >
+            <Link to="/studio" className="block w-full mt-8">
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 text-black font-extrabold text-base flex items-center justify-center gap-2 shadow-xl shadow-cyan-500/20"
+                className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 text-black font-extrabold text-base flex items-center justify-center gap-2 shadow-xl shadow-cyan-500/25 cursor-pointer"
               >
-                Claim Your Savings Now
+                Start Saving Today — Create Free Account
                 <ArrowRight size={18} />
               </motion.button>
-            </a>
+            </Link>
           </motion.div>
         </div>
       </div>
     </section>
   );
 };
-
-const SliderInput = ({
-  label,
-  value,
-  onChange,
-  min,
-  max,
-  step,
-  prefix,
-  suffix,
-}: {
-  label: string;
-  value: number;
-  onChange: (n: number) => void;
-  min: number;
-  max: number;
-  step: number;
-  prefix?: string;
-  suffix?: string;
-}) => (
-  <div>
-    <div className="flex justify-between items-baseline mb-3">
-      <label className="text-sm font-semibold text-slate-300">{label}</label>
-      <span className="text-2xl font-black bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
-        {prefix}
-        {value.toLocaleString("en-IN")} {suffix}
-      </span>
-    </div>
-    <input
-      type="range"
-      min={min}
-      max={max}
-      step={step}
-      value={value}
-      onChange={(e) => onChange(Number(e.target.value))}
-      className="w-full h-2.5 bg-slate-800 rounded-full appearance-none cursor-pointer accent-cyan-400 touch-pan-x"
-    />
-  </div>
-);
-
-const ResultCard = ({
-  icon,
-  label,
-  value,
-  highlight,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) => (
-  <div
-    className={`flex items-center justify-between p-4 rounded-2xl transition-all duration-300 ${
-      highlight
-        ? "bg-cyan-500/10 border border-cyan-500/30 shadow-lg shadow-cyan-500/5"
-        : "bg-slate-950/60 border border-slate-800/80"
-    }`}
-  >
-    <div className="flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${highlight ? "bg-cyan-500 text-black font-bold" : "bg-slate-800 text-cyan-400"}`}>
-        {icon}
-      </div>
-      <span className="text-xs md:text-sm font-semibold text-slate-300">{label}</span>
-    </div>
-    <span className={`font-black ${highlight ? "text-2xl bg-gradient-to-r from-cyan-300 to-emerald-400 bg-clip-text text-transparent" : "text-xl text-white"}`}>
-      {value}
-    </span>
-  </div>
-);
 
 export default ROICalculator;

@@ -45,7 +45,7 @@ const FeaturesSection = () => {
             </span>
           </h2>
           <p className="text-slate-400 text-base md:text-lg max-w-2xl mx-auto">
-            Eliminate manual Photoshop scaling & repetitive file renaming. Process 100+ player rosters with one click.
+            Eliminate manual design scaling & repetitive file renaming. Process 100+ player rosters with one click.
           </p>
         </motion.div>
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, ArrowRight, Sparkles, BookOpen } from "lucide-react";
+import { Menu, X, ArrowRight, Wallet, Plus, ShieldCheck } from "lucide-react";
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -17,13 +17,14 @@ const Navbar = () => {
   }, []);
 
   const navLinks = [
-    { name: "Workflow Comparison", href: "/#before-after" },
-    { name: "Demo Video", href: "/#workflow-demo" },
-    { name: "Software Showcase", href: "/#dashboard-showcase" },
+    { name: "How It Works", href: "/#how-it-works" },
+    { name: "Live Demo", href: "/#workflow-demo" },
+    { name: "Supported Formats", href: "/#supported-formats" },
+    { name: "Error Prevention", href: "/#error-prevention" },
     { name: "Case Studies", href: "/#case-studies" },
     { name: "Academy", href: "/academy", isRoute: true },
-    { name: "Pricing", href: "/#pricing" },
-    { name: "30+ FAQ", href: "/#faq" },
+    { name: "Wallet Pricing", href: "/#pricing" },
+    { name: "FAQ", href: "/#faq" },
   ];
 
   return (
@@ -44,12 +45,12 @@ const Navbar = () => {
               </div>
             </div>
             <span className="font-extrabold text-white text-lg tracking-tight">
-              FiveNest <span className="text-cyan-400 text-xs uppercase tracking-widest font-mono">Web</span>
+              FiveNest <span className="text-cyan-400 text-xs uppercase tracking-widest font-mono">Cloud</span>
             </span>
           </Link>
 
           {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-6 text-xs font-semibold text-slate-300">
+          <nav className="hidden lg:flex items-center gap-5 text-xs font-semibold text-slate-300">
             {navLinks.map((link) =>
               link.isRoute ? (
                 <Link
@@ -73,22 +74,34 @@ const Navbar = () => {
             )}
           </nav>
 
-          {/* CTA & Mobile Toggle */}
+          {/* Wallet Balance Indicator & CTA */}
           <div className="flex items-center gap-3">
-            <Link to="/studio" className="hidden sm:block">
+            {/* Wallet Balance Pill */}
+            <Link to="/studio">
+              <div className="hidden sm:flex items-center gap-2 bg-slate-900 border border-cyan-500/30 px-3 py-1.5 rounded-full text-xs font-bold hover:border-cyan-400 transition-all cursor-pointer shadow-lg shadow-cyan-500/5">
+                <Wallet size={14} className="text-cyan-400" />
+                <span className="text-slate-400 font-medium">Wallet:</span>
+                <span className="text-emerald-400 font-black">₹125.00</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-extrabold flex items-center gap-0.5">
+                  <Plus size={10} /> Recharge
+                </span>
+              </div>
+            </Link>
+
+            <Link to="/studio">
               <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                className="px-5 py-2.5 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-extrabold text-xs flex items-center gap-1.5 shadow-lg shadow-cyan-500/20 cursor-pointer"
+                className="px-4 py-2 md:px-5 md:py-2.5 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-extrabold text-xs flex items-center gap-1.5 shadow-lg shadow-cyan-500/20 cursor-pointer"
               >
-                <span>Launch Web Studio</span>
+                <span>Create Free Account</span>
                 <ArrowRight size={14} />
               </motion.button>
             </Link>
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-xl bg-white/5 border border-white/10 text-white"
+              className="lg:hidden p-2 rounded-xl bg-white/5 border border-white/10 text-white"
             >
               {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
@@ -103,9 +116,20 @@ const Navbar = () => {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="md:hidden mt-3 container mx-auto max-w-md rounded-3xl bg-slate-900 border border-slate-800 p-6 backdrop-blur-2xl shadow-2xl"
+            className="lg:hidden mt-3 container mx-auto max-w-md rounded-3xl bg-slate-900 border border-slate-800 p-6 backdrop-blur-2xl shadow-2xl"
           >
             <div className="flex flex-col gap-4 text-sm font-semibold text-slate-300">
+              <Link to="/studio" onClick={() => setMobileMenuOpen(false)}>
+                <div className="flex items-center justify-between bg-slate-950 p-3 rounded-2xl border border-cyan-500/30 mb-2">
+                  <div className="flex items-center gap-2">
+                    <Wallet size={16} className="text-cyan-400" />
+                    <span className="text-xs text-slate-400">Wallet Balance:</span>
+                    <span className="text-sm font-black text-emerald-400">₹125.00</span>
+                  </div>
+                  <span className="text-xs font-bold text-cyan-400">Recharge →</span>
+                </div>
+              </Link>
+
               {navLinks.map((link) =>
                 link.isRoute ? (
                   <Link
@@ -130,7 +154,7 @@ const Navbar = () => {
 
               <Link to="/studio" onClick={() => setMobileMenuOpen(false)} className="pt-2">
                 <button className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20">
-                  <span>Launch Web Studio</span>
+                  <span>Create Free Factory Account</span>
                   <ArrowRight size={14} />
                 </button>
               </Link>

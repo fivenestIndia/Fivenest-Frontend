@@ -2,14 +2,19 @@ import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
 import TrustBadges from "@/components/TrustBadges";
 import BeforeAfterSection from "@/components/BeforeAfterSection";
+import RealFactorySection from "@/components/RealFactorySection";
 import ProductionWorkflowVideo from "@/components/ProductionWorkflowVideo";
+import ErrorPreventionSection from "@/components/ErrorPreventionSection";
 import FeaturesSection from "@/components/FeaturesSection";
 import HowItWorksSection from "@/components/HowItWorksSection";
 import DashboardShowcaseSection from "@/components/DashboardShowcaseSection";
+import SupportedFileTypesSection from "@/components/SupportedFileTypesSection";
 import ROICalculator from "@/components/ROICalculator";
 import CaseStudiesSection from "@/components/CaseStudiesSection";
 import TestimonialsSection from "@/components/TestimonialsSection";
-import PricingSection from "@/components/PricingSection";
+import WalletProductionSection from "@/components/WalletProductionSection";
+import WalletHistoryPreview from "@/components/WalletHistoryPreview";
+import SecurityPrivacySection from "@/components/SecurityPrivacySection";
 import FAQSection from "@/components/FAQSection";
 import Footer from "@/components/Footer";
 import WhatsAppButton from "@/components/WhatsAppButton";
@@ -21,14 +26,19 @@ const Index = () => {
       <HeroSection />
       <TrustBadges />
       <div id="before-after"><BeforeAfterSection /></div>
+      <RealFactorySection />
       <div id="workflow-demo"><ProductionWorkflowVideo /></div>
+      <ErrorPreventionSection />
       <FeaturesSection />
-      <HowItWorksSection />
+      <div id="how-it-works"><HowItWorksSection /></div>
       <div id="dashboard-showcase"><DashboardShowcaseSection /></div>
+      <div id="supported-formats"><SupportedFileTypesSection /></div>
       <ROICalculator />
       <div id="case-studies"><CaseStudiesSection /></div>
       <TestimonialsSection />
-      <PricingSection />
+      <div id="pricing"><WalletProductionSection /></div>
+      <WalletHistoryPreview />
+      <SecurityPrivacySection />
       <FAQSection />
       <Footer />
       <WhatsAppButton />
