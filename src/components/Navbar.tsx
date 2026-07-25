@@ -1,147 +1,144 @@
 import { useState, useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, ArrowRight, Menu, X } from "lucide-react";
-import { Link } from "react-router-dom";
-
-const navLinks = [
-  { href: "/#features", label: "Features" },
-  { href: "/#how-it-works", label: "How it Works" },
-  { href: "/#pricing", label: "Pricing" },
-  { href: "/#faq", label: "FAQ" },
-  { href: "/studio", label: "Web Studio", highlight: true },
-];
+import { Menu, X, ArrowRight, Sparkles, BookOpen } from "lucide-react";
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  useEffect(() => {
-    if (open) document.body.style.overflow = "hidden";
-    else document.body.style.overflow = "";
-    return () => { document.body.style.overflow = ""; };
-  }, [open]);
+  const navLinks = [
+    { name: "Workflow Comparison", href: "/#before-after" },
+    { name: "Demo Video", href: "/#workflow-demo" },
+    { name: "Software Showcase", href: "/#dashboard-showcase" },
+    { name: "Case Studies", href: "/#case-studies" },
+    { name: "Academy", href: "/academy", isRoute: true },
+    { name: "Pricing", href: "/#pricing" },
+    { name: "30+ FAQ", href: "/#faq" },
+  ];
 
   return (
-    <motion.nav
-      initial={{ y: -100, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? "py-3" : "py-5"
-      }`}
-    >
-      <div className="container mx-auto px-4 md:px-6">
-        <div
-          className={`flex items-center justify-between px-5 py-2.5 rounded-2xl transition-all duration-300 ${
-            scrolled
-              ? "bg-black/60 backdrop-blur-xl border border-white/10 shadow-2xl shadow-cyan-500/5"
-              : "bg-transparent border border-transparent"
-          }`}
-        >
-          <a href="/" className="flex items-center gap-2 text-xl md:text-2xl font-black tracking-tight z-50">
-            <img src="/logo.svg" alt="Fivenest Logo" className="h-8 md:h-9 w-auto object-contain" />
-            <span className="bg-gradient-to-r from-white via-slate-200 to-cyan-400 bg-clip-text text-transparent">
-              FiveNest<span className="text-cyan-400">.</span>
+    <header className="fixed top-0 left-0 right-0 z-50 px-4 py-4 transition-all duration-300">
+      <div
+        className={`container mx-auto max-w-6xl rounded-full transition-all duration-300 ${
+          scrolled
+            ? "bg-slate-900/90 border border-slate-800 backdrop-blur-xl shadow-2xl py-3 px-6"
+            : "bg-slate-950/40 border border-white/10 backdrop-blur-md py-3.5 px-6"
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2.5 group">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 p-0.5 shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform">
+              <div className="w-full h-full rounded-[10px] bg-slate-950 flex items-center justify-center">
+                <img src="/logo.svg" alt="FiveNest" className="w-5 h-5 object-contain" />
+              </div>
+            </div>
+            <span className="font-extrabold text-white text-lg tracking-tight">
+              FiveNest <span className="text-cyan-400 text-xs uppercase tracking-widest font-mono">Web</span>
             </span>
-          </a>
+          </Link>
 
-          {/* Desktop Navigation Links */}
-          <div className="hidden md:flex items-center gap-6">
-            {navLinks.map((l) => (
-              <a
-                key={l.href}
-                href={l.href}
-                className={`text-sm font-medium transition-all duration-200 hover:text-cyan-400 relative py-1 ${
-                  l.highlight
-                    ? "text-cyan-400 font-semibold px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20"
-                    : "text-slate-300"
-                }`}
-              >
-                {l.label}
-              </a>
-            ))}
-            
-            <Link to="/studio">
+          {/* Desktop Nav */}
+          <nav className="hidden md:flex items-center gap-6 text-xs font-semibold text-slate-300">
+            {navLinks.map((link) =>
+              link.isRoute ? (
+                <Link
+                  key={link.name}
+                  to={link.href}
+                  className={`hover:text-cyan-400 transition-colors ${
+                    location.pathname === link.href ? "text-cyan-400 font-bold" : ""
+                  }`}
+                >
+                  {link.name}
+                </Link>
+              ) : (
+                <a
+                  key={link.name}
+                  href={link.href}
+                  className="hover:text-cyan-400 transition-colors"
+                >
+                  {link.name}
+                </a>
+              )
+            )}
+          </nav>
+
+          {/* CTA & Mobile Toggle */}
+          <div className="flex items-center gap-3">
+            <Link to="/studio" className="hidden sm:block">
               <motion.button
-                whileHover={{ scale: 1.05, boxShadow: "0 0 25px rgba(10, 203, 249, 0.5)" }}
-                whileTap={{ scale: 0.98 }}
-                className="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600 text-black text-sm font-bold flex items-center gap-2 shadow-lg shadow-cyan-500/20"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className="px-5 py-2.5 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-extrabold text-xs flex items-center gap-1.5 shadow-lg shadow-cyan-500/20 cursor-pointer"
               >
-                <Sparkles size={16} />
-                Launch Studio
+                <span>Launch Web Studio</span>
                 <ArrowRight size={14} />
               </motion.button>
             </Link>
+
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 rounded-xl bg-white/5 border border-white/10 text-white"
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
-
-          {/* Mobile hamburger button */}
-          <button
-            onClick={() => setOpen(!open)}
-            className="md:hidden z-50 p-2 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none"
-            aria-label="Toggle menu"
-          >
-            {open ? <X size={20} /> : <Menu size={20} />}
-          </button>
-
-          {/* Mobile Animated Menu Overlay */}
-          <AnimatePresence>
-            {open && (
-              <motion.div
-                initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
-                animate={{ opacity: 1, backdropFilter: "blur(24px)" }}
-                exit={{ opacity: 0, backdropFilter: "blur(0px)" }}
-                transition={{ duration: 0.3 }}
-                className="fixed inset-0 bg-black/90 z-40 flex flex-col items-center justify-center p-6 md:hidden"
-              >
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.9, opacity: 0 }}
-                  className="w-full max-w-sm flex flex-col items-center gap-6 text-center"
-                >
-                  {navLinks.map((l, i) => (
-                    <motion.a
-                      initial={{ y: 20, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      transition={{ delay: i * 0.08 }}
-                      key={l.href}
-                      href={l.href}
-                      onClick={() => setOpen(false)}
-                      className={`text-xl font-bold transition-colors ${
-                        l.highlight ? "text-cyan-400" : "text-slate-200"
-                      }`}
-                    >
-                      {l.label}
-                    </motion.a>
-                  ))}
-
-                  <motion.div
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.4 }}
-                    className="w-full pt-4 border-t border-white/10 mt-2"
-                  >
-                    <Link to="/studio" onClick={() => setOpen(false)} className="w-full block">
-                      <button className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-black font-bold text-base flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/25">
-                        <Sparkles size={18} />
-                        Launch Web Studio
-                        <ArrowRight size={16} />
-                      </button>
-                    </Link>
-                  </motion.div>
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
       </div>
-    </motion.nav>
+
+      {/* Mobile Drawer Menu */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="md:hidden mt-3 container mx-auto max-w-md rounded-3xl bg-slate-900 border border-slate-800 p-6 backdrop-blur-2xl shadow-2xl"
+          >
+            <div className="flex flex-col gap-4 text-sm font-semibold text-slate-300">
+              {navLinks.map((link) =>
+                link.isRoute ? (
+                  <Link
+                    key={link.name}
+                    to={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="hover:text-cyan-400 transition-colors py-1"
+                  >
+                    {link.name}
+                  </Link>
+                ) : (
+                  <a
+                    key={link.name}
+                    href={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="hover:text-cyan-400 transition-colors py-1"
+                  >
+                    {link.name}
+                  </a>
+                )
+              )}
+
+              <Link to="/studio" onClick={() => setMobileMenuOpen(false)} className="pt-2">
+                <button className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20">
+                  <span>Launch Web Studio</span>
+                  <ArrowRight size={14} />
+                </button>
+              </Link>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </header>
   );
 };
 
