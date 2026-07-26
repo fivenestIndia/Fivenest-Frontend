@@ -1,17 +1,7 @@
 import { useState, useEffect } from 'react';
-import { 
-  Building2, Package, Users as UsersIcon, Palette, Sliders, Printer, Receipt, 
-  TrendingUp, Wallet, Settings, ArrowLeft, Sun, Moon, Menu, X, Award
-} from 'lucide-react';
+import { Palette, Users, Ruler, Sliders, HelpCircle, ArrowLeft, Sun, Moon, Menu, X, Award, ExternalLink, Package } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase, fetchUserWallet } from '../lib/supabaseClient';
-import { FactoryDashboard } from '../components/studio/factoryDashboard';
-import { FactoryOrders } from '../components/studio/factoryOrders';
-import { FactoryCustomers } from '../components/studio/factoryCustomers';
-import { FactoryProduction } from '../components/studio/factoryProduction';
-import { FactoryPrintQueue } from '../components/studio/factoryPrintQueue';
-import { FactoryReports } from '../components/studio/factoryReports';
-import { FactorySettings } from '../components/studio/factorySettings';
 import { Designer, defaultDesignConfig } from '../components/studio/designer';
 import type { ArtDesignConfig } from '../components/studio/designer';
 import { OrderEntry } from '../components/studio/orderEntry';
@@ -21,7 +11,6 @@ import type { SizeDatabase } from '../components/studio/sizesDb';
 import { NestingView } from '../components/studio/nestingView';
 import { HelpCenter } from '../components/studio/helpCenter';
 import { LoginModal } from '../components/studio/loginModal';
-import { BillingSystem, syncOrderToBillingRecords } from '../components/studio/billingSystem';
 
 export default function WebStudio() {
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>(() => {
@@ -33,11 +22,8 @@ export default function WebStudio() {
     localStorage.setItem('fivenest_studio_theme', themeMode);
   }, [themeMode]);
 
-  // Default home tab is now "dashboard" (Today's Factory)
-  const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'orders' | 'customers' | 'templates' | 'production' | 'printQueue' | 'billing' | 'reports' | 'wallet' | 'settings'
-  >('dashboard');
-
+  // Production Studio tabs for designers & printers ONLY
+  const [activeTab, setActiveTab] = useState<'designer' | 'order' | 'sizes' | 'nesting' | 'help'>('designer');
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
   // Roster records state
@@ -45,8 +31,8 @@ export default function WebStudio() {
 
   // Job metadata details
   const [metadata, setMetadata] = useState<OrderMetadata>({
-    customerName: "ABC Sports Manufacturers",
-    orderNum: "5412",
+    customerName: "",
+    orderNum: "01",
     blankKit: false,
     a4BackPrint: false,
     raglanStyle: false,
@@ -60,13 +46,6 @@ export default function WebStudio() {
   const [currentUser, setCurrentUser] = useState<{ email: string; name: string; balance: number } | null>(null);
   const [testMode, setTestMode] = useState<boolean>(false);
   const [loginModalOpen, setLoginModalOpen] = useState<boolean>(false);
-
-  // Auto-sync active roster order into user-scoped Billing System
-  useEffect(() => {
-    if (records && records.length > 0) {
-      syncOrderToBillingRecords(records, metadata, currentUser?.email);
-    }
-  }, [records, metadata, currentUser]);
 
   useEffect(() => {
     const saved = localStorage.getItem('teedex_size_database');
@@ -146,17 +125,27 @@ export default function WebStudio() {
   const [designConfig, setDesignConfig] = useState<ArtDesignConfig>(defaultDesignConfig);
   const totalQty = records.reduce((acc, r) => acc + r.qty, 0);
 
-  const factoryModules = [
-    { id: 'dashboard', label: 'Dashboard', icon: Building2 },
-    { id: 'orders', label: 'Orders', icon: Package },
-    { id: 'customers', label: 'Customers', icon: UsersIcon },
-    { id: 'templates', label: 'Templates & Artwork', icon: Palette },
-    { id: 'production', label: 'Production', icon: Sliders },
-    { id: 'printQueue', label: 'Print Queue', icon: Printer },
-    { id: 'billing', label: 'Billing', icon: Receipt },
-    { id: 'reports', label: 'Reports', icon: TrendingUp },
-    { id: 'wallet', label: 'Wallet', icon: Wallet },
-    { id: 'settings', label: 'Settings', icon: Settings },
+  const handleSizeDatabaseChange = (newDb: SizeDatabase) => {
+    setSizeDB(newDb);
+  };
+
+  const handleRosterImport = (imported: PlayerRecord[]) => {
+    setRecords(imported);
+    setActiveTab('order');
+  };
+
+  const handleTestModeChange = (val: boolean) => {
+    setTestMode(val);
+    localStorage.setItem('fivenest_test_mode', JSON.stringify(val));
+    window.dispatchEvent(new Event('storage-preference-changed'));
+  };
+
+  const productionTabs = [
+    { id: 'designer', label: 'Artwork Setup', icon: Palette },
+    { id: 'order', label: 'Roster & Details', icon: Users },
+    { id: 'sizes', label: 'Grading Sizes', icon: Ruler },
+    { id: 'nesting', label: 'Nesting & Export', icon: Sliders },
+    { id: 'help', label: 'Help & AI Refine', icon: HelpCircle },
   ];
 
   return (
@@ -165,7 +154,7 @@ export default function WebStudio() {
       <div className="md:hidden flex items-center justify-between p-3 bg-black/80 border-b border-white/10 sticky top-0 z-40 backdrop-blur-md">
         <Link to="/" className="flex items-center gap-2">
           <img src="/logo.svg" alt="FiveNest Logo" className="w-6 h-6 object-contain" />
-          <span className="font-extrabold text-white text-base">FiveNest Factory OS</span>
+          <span className="font-extrabold text-white text-base">FiveNest Production</span>
         </Link>
         
         <div className="flex items-center gap-2">
@@ -178,15 +167,15 @@ export default function WebStudio() {
         </div>
       </div>
 
-      {/* Mobile Horizontal Scrollable Module Bar */}
+      {/* Mobile Horizontal Scrollable Tab Bar */}
       <div className="md:hidden flex items-center gap-2 p-2 bg-slate-950 border-b border-slate-800 overflow-x-auto no-scrollbar scroll-smooth sticky top-[53px] z-30">
-        {factoryModules.map((m) => {
-          const Icon = m.icon;
-          const isActive = activeTab === m.id;
+        {productionTabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
           return (
             <button
-              key={m.id}
-              onClick={() => setActiveTab(m.id as any)}
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                 isActive
                   ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20'
@@ -194,13 +183,13 @@ export default function WebStudio() {
               }`}
             >
               <Icon size={14} />
-              {m.label}
+              {tab.label}
             </button>
           );
         })}
       </div>
 
-      {/* Sidebar Navigation Drawer */}
+      {/* Sidebar Navigation Panel (Responsive Drawer) */}
       <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div>
           <div className="flex items-center justify-between p-4 border-b border-white/10">
@@ -208,9 +197,9 @@ export default function WebStudio() {
               <div className="sidebar-brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px', cursor: 'pointer', padding: 0 }}>
                 <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <img src="/logo.svg" alt="FiveNest" style={{ width: '26px', height: '26px', objectFit: 'contain' }} />
-                  <span style={{ fontSize: '18px', fontWeight: '800' }}>FiveNest</span>
+                  <span style={{ fontSize: '18px', fontWeight: '800' }}>FiveNest Studio</span>
                 </div>
-                <span className="sidebar-version text-cyan-400 font-bold" style={{ fontSize: '10px' }}>Factory OS</span>
+                <span className="sidebar-version text-cyan-400 font-bold" style={{ fontSize: '10px' }}>Production Engine</span>
               </div>
             </Link>
 
@@ -223,33 +212,46 @@ export default function WebStudio() {
           </div>
 
           <nav className="sidebar-menu">
-            {factoryModules.map((m) => {
-              const Icon = m.icon;
-              const isActive = activeTab === m.id;
+            {productionTabs.map((t) => {
+              const Icon = t.icon;
+              const isActive = activeTab === t.id;
               return (
                 <div
-                  key={m.id}
+                  key={t.id}
                   className={`menu-item ${isActive ? 'active' : ''}`}
                   onClick={() => {
-                    setActiveTab(m.id as any);
+                    setActiveTab(t.id as any);
                     setMobileMenuOpen(false);
                   }}
                 >
                   <Icon size={18} />
-                  {m.label}
+                  {t.label}
                 </div>
               );
             })}
 
+            {/* Direct Switch to Order Management Portal */}
             <Link 
-              to="/" 
+              to="/orders" 
               className="menu-item"
               style={{ 
                 marginTop: '16px', 
                 borderTop: '1px solid var(--border-light)', 
                 paddingTop: '16px',
-                color: 'var(--color-primary)',
-                fontWeight: '600'
+                color: 'var(--color-secondary)',
+                fontWeight: '700'
+              }}
+            >
+              <Package size={18} />
+              Order & Billing Portal
+            </Link>
+
+            <Link 
+              to="/" 
+              className="menu-item"
+              style={{ 
+                color: 'var(--text-muted)',
+                fontWeight: '500'
               }}
             >
               <ArrowLeft size={18} />
@@ -258,14 +260,51 @@ export default function WebStudio() {
           </nav>
         </div>
 
-        {/* Sidebar Footer */}
+        {/* Sidebar Footer info */}
         <div className="sidebar-footer">
-          <div className="glass-card" style={{ padding: '12px', background: 'rgba(0, 229, 255, 0.04)', borderColor: 'var(--border-active)', textAlign: 'left' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', padding: '0 4px' }}>
+            <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-muted)' }}>Theme:</span>
+            <button 
+              onClick={() => setThemeMode(themeMode === 'dark' ? 'light' : 'dark')}
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid var(--border-light)',
+                borderRadius: '20px',
+                padding: '4px 10px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                color: 'var(--text-primary)',
+                fontSize: '11px',
+                fontWeight: '600',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {themeMode === 'dark' ? (
+                <>
+                  <Moon size={12} style={{ color: 'var(--color-primary)' }} />
+                  Dark
+                </>
+              ) : (
+                <>
+                  <Sun size={12} style={{ color: 'var(--color-secondary)' }} />
+                  Light
+                </>
+              )}
+            </button>
+          </div>
+
+          <div className="glass-card" style={{ padding: '12px', background: 'rgba(155, 77, 255, 0.04)', borderColor: 'var(--border-active)', textAlign: 'left' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
               <Award size={14} style={{ color: 'var(--color-secondary)' }} />
-              <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--color-secondary)' }}>FACTORY OPERATING SYSTEM</span>
+              <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--color-secondary)' }}>PRODUCTION STUDIO</span>
             </div>
-            <p style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Pay-As-You-Go Active.</p>
+            <p style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Sublimation Plotter RIP Active.</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', fontSize: '10px', color: 'var(--text-primary)' }}>
+              <span>Total Panels Qty:</span>
+              <span style={{ fontWeight: 'bold' }}>{totalQty}</span>
+            </div>
           </div>
         </div>
       </aside>
@@ -274,19 +313,60 @@ export default function WebStudio() {
       <main className="main-content">
         <header className="top-navbar">
           <h1 className="navbar-title text-sm md:text-base font-black">
-            {activeTab === 'dashboard' && "📊 Today's Factory Dashboard"}
-            {activeTab === 'orders' && "📋 Factory Orders Hub"}
-            {activeTab === 'customers' && "👥 Customer Memory CRM"}
-            {activeTab === 'templates' && "📐 Sublimation Templates & Artwork Setup"}
-            {activeTab === 'production' && "⚙️ Production Floor Bottleneck Tracker"}
-            {activeTab === 'printQueue' && "🖨️ Live 300 DPI Print Queue"}
-            {activeTab === 'billing' && "🧾 Multi-User Invoices & Billing"}
-            {activeTab === 'reports' && "📈 Factory Analytics & Revenue Reports"}
-            {activeTab === 'wallet' && "💳 Pay-As-You-Go Wallet Balance"}
-            {activeTab === 'settings' && "⚙️ Factory OS Configuration & Bleeds"}
+            {activeTab === 'designer' && "🎨 Step 1: Sublimation Artwork & Overlays"}
+            {activeTab === 'order' && "📋 Step 2: Order Details & Player Roster"}
+            {activeTab === 'sizes' && "📐 Step 3: Size grading dimensions database"}
+            {activeTab === 'nesting' && "⚙️ Step 4: Nesting Engine & Panel Export"}
+            {activeTab === 'help' && "🤖 Help Center & AI Smart Roster Refiner"}
           </h1>
           
           <div className="navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Direct Switch to Order Management Portal */}
+            <Link to="/orders">
+              <button 
+                className="btn btn-secondary"
+                style={{ 
+                  padding: '6px 12px', 
+                  borderRadius: '30px', 
+                  fontSize: '11px', 
+                  fontWeight: 'bold', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px',
+                  borderColor: 'rgba(0, 229, 255, 0.4)',
+                  color: 'var(--color-secondary)'
+                }}
+              >
+                <Package size={14} /> Order Management (/orders)
+              </button>
+            </Link>
+
+            {/* Test Mode Toggle */}
+            <label className="test-mode-toggle" style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px', 
+              cursor: 'pointer', 
+              fontSize: '11px', 
+              background: testMode ? 'rgba(255, 140, 0, 0.1)' : 'rgba(255,255,255,0.03)', 
+              padding: '6px 12px', 
+              borderRadius: '30px', 
+              border: testMode ? '1px solid var(--color-secondary)' : '1px solid var(--border-light)',
+              userSelect: 'none',
+              transition: 'all 0.2s ease'
+            }}>
+              <input 
+                type="checkbox" 
+                checked={testMode} 
+                onChange={(e) => handleTestModeChange(e.target.checked)} 
+                style={{ display: 'none' }} 
+              />
+              <span style={{ color: testMode ? 'var(--color-secondary)' : 'var(--text-muted)', fontWeight: 'bold' }}>
+                {testMode ? "🧪 Test Mode" : "⚡ Production Mode"}
+              </span>
+            </label>
+
+            {/* Profile / Wallet Control Button */}
             {currentUser ? (
               <div 
                 className="user-wallet-pill"
@@ -295,7 +375,7 @@ export default function WebStudio() {
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: '8px', 
-                  background: 'rgba(0, 229, 255, 0.08)', 
+                  background: 'rgba(155, 77, 255, 0.08)', 
                   border: '1px solid var(--border-active)', 
                   padding: '6px 12px', 
                   borderRadius: '30px', 
@@ -320,24 +400,7 @@ export default function WebStudio() {
         </header>
 
         <section className="content-body">
-          {activeTab === 'dashboard' && (
-            <FactoryDashboard 
-              onNavigateTab={(tab) => setActiveTab(tab as any)}
-              walletBalance={currentUser ? currentUser.balance : 2450}
-            />
-          )}
-
-          {activeTab === 'orders' && (
-            <FactoryOrders 
-              onNavigateTab={(tab) => setActiveTab(tab as any)}
-            />
-          )}
-
-          {activeTab === 'customers' && (
-            <FactoryCustomers />
-          )}
-
-          {activeTab === 'templates' && (
+          {activeTab === 'designer' && (
             <Designer 
               designConfig={designConfig} 
               onDesignConfigChange={setDesignConfig} 
@@ -345,27 +408,23 @@ export default function WebStudio() {
             />
           )}
 
-          {activeTab === 'production' && (
-            <FactoryProduction />
-          )}
-
-          {activeTab === 'printQueue' && (
-            <FactoryPrintQueue />
-          )}
-
-          {activeTab === 'billing' && (
-            <BillingSystem 
-              records={records}
+          {activeTab === 'order' && (
+            <OrderEntry 
+              records={records} 
+              onRecordsChange={setRecords}
               metadata={metadata}
-              currentUser={currentUser}
+              onMetadataChange={setMetadata}
+              availableSizes={Object.keys(sizeDB)}
             />
           )}
 
-          {activeTab === 'reports' && (
-            <FactoryReports />
+          {activeTab === 'sizes' && (
+            <SizesDb 
+              onDatabaseChange={handleSizeDatabaseChange} 
+            />
           )}
 
-          {activeTab === 'wallet' && (
+          {activeTab === 'nesting' && (
             <NestingView 
               records={records}
               metadata={metadata}
@@ -378,13 +437,15 @@ export default function WebStudio() {
             />
           )}
 
-          {activeTab === 'settings' && (
-            <FactorySettings />
+          {activeTab === 'help' && (
+            <HelpCenter 
+              onImportRecords={handleRosterImport}
+            />
           )}
         </section>
       </main>
 
-      {/* Login Modal */}
+      {/* Login Modal Overlay */}
       {loginModalOpen && (
         <LoginModal 
           onClose={() => setLoginModalOpen(false)} 

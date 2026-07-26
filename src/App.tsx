@@ -8,6 +8,7 @@ import Success from "./pages/Success.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import WebStudio from "./pages/WebStudio.tsx";
 import Academy from "./pages/Academy.tsx";
+import OrderManagement from "./pages/OrderManagement.tsx";
 
 const queryClient = new QueryClient();
 
@@ -21,6 +22,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/success" element={<Success />} />
           <Route path="/studio" element={<WebStudio />} />
+          <Route path="/orders" element={<OrderManagement />} />
           <Route path="/academy" element={<Academy />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
