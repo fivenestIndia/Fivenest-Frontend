@@ -1,7 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Palette, Users, Ruler, Sliders, HelpCircle, Award, ArrowLeft, Sun, Moon, Receipt, Menu, X } from 'lucide-react';
+import { 
+  Building2, Package, Users as UsersIcon, Palette, Sliders, Printer, Receipt, 
+  TrendingUp, Wallet, Settings, ArrowLeft, Sun, Moon, Menu, X, Award
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase, fetchUserWallet } from '../lib/supabaseClient';
+import { FactoryDashboard } from '../components/studio/factoryDashboard';
+import { FactoryOrders } from '../components/studio/factoryOrders';
+import { FactoryCustomers } from '../components/studio/factoryCustomers';
+import { FactoryProduction } from '../components/studio/factoryProduction';
+import { FactoryPrintQueue } from '../components/studio/factoryPrintQueue';
+import { FactoryReports } from '../components/studio/factoryReports';
+import { FactorySettings } from '../components/studio/factorySettings';
 import { Designer, defaultDesignConfig } from '../components/studio/designer';
 import type { ArtDesignConfig } from '../components/studio/designer';
 import { OrderEntry } from '../components/studio/orderEntry';
@@ -23,7 +33,11 @@ export default function WebStudio() {
     localStorage.setItem('fivenest_studio_theme', themeMode);
   }, [themeMode]);
 
-  const [activeTab, setActiveTab] = useState<'designer' | 'order' | 'sizes' | 'nesting' | 'help' | 'billing'>('designer');
+  // Default home tab is now "dashboard" (Today's Factory)
+  const [activeTab, setActiveTab] = useState<
+    'dashboard' | 'orders' | 'customers' | 'templates' | 'production' | 'printQueue' | 'billing' | 'reports' | 'wallet' | 'settings'
+  >('dashboard');
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
   // Roster records state
@@ -31,8 +45,8 @@ export default function WebStudio() {
 
   // Job metadata details
   const [metadata, setMetadata] = useState<OrderMetadata>({
-    customerName: "",
-    orderNum: "01",
+    customerName: "ABC Sports Manufacturers",
+    orderNum: "5412",
     blankKit: false,
     a4BackPrint: false,
     raglanStyle: false,
@@ -47,14 +61,13 @@ export default function WebStudio() {
   const [testMode, setTestMode] = useState<boolean>(false);
   const [loginModalOpen, setLoginModalOpen] = useState<boolean>(false);
 
-  // Auto-sync active roster order into user-scoped Billing System whenever records or metadata change
+  // Auto-sync active roster order into user-scoped Billing System
   useEffect(() => {
     if (records && records.length > 0) {
       syncOrderToBillingRecords(records, metadata, currentUser?.email);
     }
   }, [records, metadata, currentUser]);
 
-  // Load saved size database & authentication on mount
   useEffect(() => {
     const saved = localStorage.getItem('teedex_size_database');
     if (saved) {
@@ -73,7 +86,6 @@ export default function WebStudio() {
       } catch (e) {}
     }
 
-    // Connect Supabase Auth Session
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
@@ -89,7 +101,6 @@ export default function WebStudio() {
     };
     checkSession();
 
-    // Listen to changes in auth state
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         const details = await fetchUserWallet(session.user.id);
@@ -103,7 +114,7 @@ export default function WebStudio() {
       }
     });
 
-    // Anti-Piracy & Intellectual Property Protection
+    // Client-side anti-piracy protections
     const handleContextMenu = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (target && (target.tagName === 'CANVAS' || target.closest('.canvas-container'))) {
@@ -132,36 +143,20 @@ export default function WebStudio() {
     };
   }, []);
 
-  // Artwork layers positioning configuration state
   const [designConfig, setDesignConfig] = useState<ArtDesignConfig>(defaultDesignConfig);
-
-  // Quick stats computed on the fly
   const totalQty = records.reduce((acc, r) => acc + r.qty, 0);
 
-  // Sync size database changes
-  const handleSizeDatabaseChange = (newDb: SizeDatabase) => {
-    setSizeDB(newDb);
-  };
-
-  // Sync roster record imports from the unstructured text cleaner
-  const handleRosterImport = (imported: PlayerRecord[]) => {
-    setRecords(imported);
-    setActiveTab('order'); // switch user to order table automatically
-  };
-
-  const handleTestModeChange = (val: boolean) => {
-    setTestMode(val);
-    localStorage.setItem('fivenest_test_mode', JSON.stringify(val));
-    window.dispatchEvent(new Event('storage-preference-changed'));
-  };
-
-  const studioTabs = [
-    { id: 'designer', label: 'Artwork Setup', icon: Palette },
-    { id: 'order', label: 'Roster & Details', icon: Users },
-    { id: 'sizes', label: 'Grading Sizes', icon: Ruler },
-    { id: 'nesting', label: 'Nesting & Export', icon: Sliders },
-    { id: 'help', label: 'Help & AI Refine', icon: HelpCircle },
-    { id: 'billing', label: 'Billing System', icon: Receipt },
+  const factoryModules = [
+    { id: 'dashboard', label: 'Dashboard', icon: Building2 },
+    { id: 'orders', label: 'Orders', icon: Package },
+    { id: 'customers', label: 'Customers', icon: UsersIcon },
+    { id: 'templates', label: 'Templates & Artwork', icon: Palette },
+    { id: 'production', label: 'Production', icon: Sliders },
+    { id: 'printQueue', label: 'Print Queue', icon: Printer },
+    { id: 'billing', label: 'Billing', icon: Receipt },
+    { id: 'reports', label: 'Reports', icon: TrendingUp },
+    { id: 'wallet', label: 'Wallet', icon: Wallet },
+    { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   return (
@@ -170,7 +165,7 @@ export default function WebStudio() {
       <div className="md:hidden flex items-center justify-between p-3 bg-black/80 border-b border-white/10 sticky top-0 z-40 backdrop-blur-md">
         <Link to="/" className="flex items-center gap-2">
           <img src="/logo.svg" alt="FiveNest Logo" className="w-6 h-6 object-contain" />
-          <span className="font-extrabold text-white text-base">FiveNest Studio</span>
+          <span className="font-extrabold text-white text-base">FiveNest Factory OS</span>
         </Link>
         
         <div className="flex items-center gap-2">
@@ -183,15 +178,15 @@ export default function WebStudio() {
         </div>
       </div>
 
-      {/* Mobile Horizontal Scrollable Tab Bar */}
+      {/* Mobile Horizontal Scrollable Module Bar */}
       <div className="md:hidden flex items-center gap-2 p-2 bg-slate-950 border-b border-slate-800 overflow-x-auto no-scrollbar scroll-smooth sticky top-[53px] z-30">
-        {studioTabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
+        {factoryModules.map((m) => {
+          const Icon = m.icon;
+          const isActive = activeTab === m.id;
           return (
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              key={m.id}
+              onClick={() => setActiveTab(m.id as any)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                 isActive
                   ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20'
@@ -199,30 +194,23 @@ export default function WebStudio() {
               }`}
             >
               <Icon size={14} />
-              {tab.label}
+              {m.label}
             </button>
           );
         })}
       </div>
 
-      {/* Sidebar Navigation Panel (Responsive Drawer on Mobile) */}
+      {/* Sidebar Navigation Drawer */}
       <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div>
           <div className="flex items-center justify-between p-4 border-b border-white/10">
             <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
               <div className="sidebar-brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px', cursor: 'pointer', padding: 0 }}>
                 <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <img 
-                    src="/logo.svg" 
-                    alt="FiveNest Logo" 
-                    style={{ width: '26px', height: '26px', objectFit: 'contain' }} 
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                  <span style={{ fontSize: '18px', fontWeight: '800' }}>FiveNest Web</span>
+                  <img src="/logo.svg" alt="FiveNest" style={{ width: '26px', height: '26px', objectFit: 'contain' }} />
+                  <span style={{ fontSize: '18px', fontWeight: '800' }}>FiveNest</span>
                 </div>
-                <span className="sidebar-version">Web Studio</span>
+                <span className="sidebar-version text-cyan-400 font-bold" style={{ fontSize: '10px' }}>Factory OS</span>
               </div>
             </Link>
 
@@ -235,20 +223,20 @@ export default function WebStudio() {
           </div>
 
           <nav className="sidebar-menu">
-            {studioTabs.map((t) => {
-              const Icon = t.icon;
-              const isActive = activeTab === t.id;
+            {factoryModules.map((m) => {
+              const Icon = m.icon;
+              const isActive = activeTab === m.id;
               return (
                 <div
-                  key={t.id}
+                  key={m.id}
                   className={`menu-item ${isActive ? 'active' : ''}`}
                   onClick={() => {
-                    setActiveTab(t.id as any);
+                    setActiveTab(m.id as any);
                     setMobileMenuOpen(false);
                   }}
                 >
                   <Icon size={18} />
-                  {t.label}
+                  {m.label}
                 </div>
               );
             })}
@@ -270,52 +258,14 @@ export default function WebStudio() {
           </nav>
         </div>
 
-        {/* Sidebar Footer info */}
+        {/* Sidebar Footer */}
         <div className="sidebar-footer">
-          {/* Theme Mode Toggle Button */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', padding: '0 4px' }}>
-            <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-muted)' }}>Theme:</span>
-            <button 
-              onClick={() => setThemeMode(themeMode === 'dark' ? 'light' : 'dark')}
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid var(--border-light)',
-                borderRadius: '20px',
-                padding: '4px 10px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                cursor: 'pointer',
-                color: 'var(--text-primary)',
-                fontSize: '11px',
-                fontWeight: '600',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              {themeMode === 'dark' ? (
-                <>
-                  <Moon size={12} style={{ color: 'var(--color-primary)' }} />
-                  Dark
-                </>
-              ) : (
-                <>
-                  <Sun size={12} style={{ color: 'var(--color-secondary)' }} />
-                  Light
-                </>
-              )}
-            </button>
-          </div>
-
-          <div className="glass-card" style={{ padding: '12px', background: 'rgba(155, 77, 255, 0.04)', borderColor: 'var(--border-active)', textAlign: 'left' }}>
+          <div className="glass-card" style={{ padding: '12px', background: 'rgba(0, 229, 255, 0.04)', borderColor: 'var(--border-active)', textAlign: 'left' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
               <Award size={14} style={{ color: 'var(--color-secondary)' }} />
-              <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--color-secondary)' }}>ENTERPRISE LICENSED</span>
+              <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--color-secondary)' }}>FACTORY OPERATING SYSTEM</span>
             </div>
-            <p style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Unlimited Local exports.</p>
-            <div style={{ display: 'flex', justifySelf: 'space-between', marginTop: '10px', fontSize: '10px', color: 'var(--text-primary)' }}>
-              <span>Total Panels Qty:</span>
-              <span style={{ fontWeight: 'bold' }}>{totalQty}</span>
-            </div>
+            <p style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Pay-As-You-Go Active.</p>
           </div>
         </div>
       </aside>
@@ -323,42 +273,20 @@ export default function WebStudio() {
       {/* Main Content Area */}
       <main className="main-content">
         <header className="top-navbar">
-          <h1 className="navbar-title text-sm md:text-base">
-            {activeTab === 'designer' && "🎨 Step 1: Sublimation Artwork & Overlays"}
-            {activeTab === 'order' && "📋 Step 2: Order Details & Player Roster"}
-            {activeTab === 'sizes' && "📐 Step 3: Size grading dimensions database"}
-            {activeTab === 'nesting' && "⚙️ Step 4: Nesting Engine & Panel Export"}
-            {activeTab === 'help' && "🤖 Help Center & AI Smart Roster Refiner"}
-            {activeTab === 'billing' && "🧾 Billing System & Customer Invoices"}
+          <h1 className="navbar-title text-sm md:text-base font-black">
+            {activeTab === 'dashboard' && "📊 Today's Factory Dashboard"}
+            {activeTab === 'orders' && "📋 Factory Orders Hub"}
+            {activeTab === 'customers' && "👥 Customer Memory CRM"}
+            {activeTab === 'templates' && "📐 Sublimation Templates & Artwork Setup"}
+            {activeTab === 'production' && "⚙️ Production Floor Bottleneck Tracker"}
+            {activeTab === 'printQueue' && "🖨️ Live 300 DPI Print Queue"}
+            {activeTab === 'billing' && "🧾 Multi-User Invoices & Billing"}
+            {activeTab === 'reports' && "📈 Factory Analytics & Revenue Reports"}
+            {activeTab === 'wallet' && "💳 Pay-As-You-Go Wallet Balance"}
+            {activeTab === 'settings' && "⚙️ Factory OS Configuration & Bleeds"}
           </h1>
           
           <div className="navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {/* Test Mode Toggle */}
-            <label className="test-mode-toggle" style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '6px', 
-              cursor: 'pointer', 
-              fontSize: '11px', 
-              background: testMode ? 'rgba(255, 140, 0, 0.1)' : 'rgba(255,255,255,0.03)', 
-              padding: '6px 12px', 
-              borderRadius: '30px', 
-              border: testMode ? '1px solid var(--color-secondary)' : '1px solid var(--border-light)',
-              userSelect: 'none',
-              transition: 'all 0.2s ease'
-            }}>
-              <input 
-                type="checkbox" 
-                checked={testMode} 
-                onChange={(e) => handleTestModeChange(e.target.checked)} 
-                style={{ display: 'none' }} 
-              />
-              <span style={{ color: testMode ? 'var(--color-secondary)' : 'var(--text-muted)', fontWeight: 'bold' }}>
-                {testMode ? "🧪 Test Mode" : "⚡ Production Mode"}
-              </span>
-            </label>
-
-            {/* Profile / Wallet Control Button */}
             {currentUser ? (
               <div 
                 className="user-wallet-pill"
@@ -367,7 +295,7 @@ export default function WebStudio() {
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: '8px', 
-                  background: 'rgba(155, 77, 255, 0.08)', 
+                  background: 'rgba(0, 229, 255, 0.08)', 
                   border: '1px solid var(--border-active)', 
                   padding: '6px 12px', 
                   borderRadius: '30px', 
@@ -377,7 +305,7 @@ export default function WebStudio() {
                 }}
               >
                 <span style={{ color: 'white' }}>{currentUser.name.split(' ')[0]}</span>
-                <span style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>₹{currentUser.balance.toFixed(2)}</span>
+                <span style={{ color: 'var(--color-status-success)', fontWeight: 'bold' }}>₹{currentUser.balance.toFixed(2)}</span>
               </div>
             ) : (
               <button 
@@ -388,30 +316,28 @@ export default function WebStudio() {
                 Sign In
               </button>
             )}
-
-            {/* Header Billing System Button Shortcut */}
-            <button
-              className={`btn ${activeTab === 'billing' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setActiveTab('billing')}
-              style={{ 
-                padding: '6px 12px', 
-                borderRadius: '30px', 
-                fontSize: '11px', 
-                fontWeight: 'bold', 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '6px',
-                borderColor: activeTab === 'billing' ? 'var(--color-primary)' : 'rgba(0, 230, 118, 0.3)',
-                color: activeTab === 'billing' ? 'white' : 'var(--color-success)'
-              }}
-            >
-              <Receipt size={14} /> Billing
-            </button>
           </div>
         </header>
 
         <section className="content-body">
-          {activeTab === 'designer' && (
+          {activeTab === 'dashboard' && (
+            <FactoryDashboard 
+              onNavigateTab={(tab) => setActiveTab(tab as any)}
+              walletBalance={currentUser ? currentUser.balance : 2450}
+            />
+          )}
+
+          {activeTab === 'orders' && (
+            <FactoryOrders 
+              onNavigateTab={(tab) => setActiveTab(tab as any)}
+            />
+          )}
+
+          {activeTab === 'customers' && (
+            <FactoryCustomers />
+          )}
+
+          {activeTab === 'templates' && (
             <Designer 
               designConfig={designConfig} 
               onDesignConfigChange={setDesignConfig} 
@@ -419,23 +345,27 @@ export default function WebStudio() {
             />
           )}
 
-          {activeTab === 'order' && (
-            <OrderEntry 
-              records={records} 
-              onRecordsChange={setRecords}
+          {activeTab === 'production' && (
+            <FactoryProduction />
+          )}
+
+          {activeTab === 'printQueue' && (
+            <FactoryPrintQueue />
+          )}
+
+          {activeTab === 'billing' && (
+            <BillingSystem 
+              records={records}
               metadata={metadata}
-              onMetadataChange={setMetadata}
-              availableSizes={Object.keys(sizeDB)}
+              currentUser={currentUser}
             />
           )}
 
-          {activeTab === 'sizes' && (
-            <SizesDb 
-              onDatabaseChange={handleSizeDatabaseChange} 
-            />
+          {activeTab === 'reports' && (
+            <FactoryReports />
           )}
 
-          {activeTab === 'nesting' && (
+          {activeTab === 'wallet' && (
             <NestingView 
               records={records}
               metadata={metadata}
@@ -448,23 +378,13 @@ export default function WebStudio() {
             />
           )}
 
-          {activeTab === 'help' && (
-            <HelpCenter 
-              onImportRecords={handleRosterImport}
-            />
-          )}
-
-          {activeTab === 'billing' && (
-            <BillingSystem 
-              records={records}
-              metadata={metadata}
-              currentUser={currentUser}
-            />
+          {activeTab === 'settings' && (
+            <FactorySettings />
           )}
         </section>
       </main>
 
-      {/* Login Modal Overlay */}
+      {/* Login Modal */}
       {loginModalOpen && (
         <LoginModal 
           onClose={() => setLoginModalOpen(false)} 
