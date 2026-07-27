@@ -71,38 +71,34 @@ export function FactoryDashboard({
       totalQty += Number(row.halfQty || 0) + Number(row.fullQty || 0);
     });
 
-    const isPrintOnly = o.orderScope === "printing-only";
     const advanceReceived = Number(o.advance1 || 0) + Number(o.advance2 || 0) + Number(o.advance3 || 0);
-    const designDebit = o.designCost !== undefined ? o.designCost : (isPrintOnly ? totalQty * 3 : 0);
+    const designDebit = o.designCost !== undefined ? o.designCost : totalQty * 3;
 
-    if (isPrintOnly) {
-      totalDesignCost += designDebit;
-    } else {
-      totalRevenue += advanceReceived;
-    }
+    totalRevenue += advanceReceived;
+    totalDesignCost += designDebit;
   });
 
   const netOverallBudget = totalRevenue - totalDesignCost;
 
   const statCards = [
     { 
-      title: "Manufacturing Revenue Received", 
+      title: "Total Revenue Received", 
       value: `+₹${totalRevenue.toLocaleString("en-IN")}`, 
-      sub: `${manufacturingCount} Manufacturing Orders`, 
+      sub: `${totalActiveOrders} Total Orders (Client Payments)`, 
       color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10", 
       icon: TrendingUp 
     },
     { 
-      title: "Production Design Cost (Minus)", 
+      title: "Software Design Export Cost", 
       value: `-₹${totalDesignCost.toLocaleString("en-IN")}`, 
-      sub: `${printingOnlyCount} Print Orders (${totalDesignCost > 0 ? '₹3/₹5 panel debits' : '0 debits'})`, 
+      sub: `RIP Plotter Debits (${totalDesignCost > 0 ? '₹3/pc panels' : '0 debits'})`, 
       color: "text-rose-400 border-rose-500/30 bg-rose-500/10", 
       icon: TrendingDown 
     },
     { 
-      title: "Net Overall Factory Budget", 
+      title: "Actual Net Factory Balance", 
       value: `₹${netOverallBudget.toLocaleString("en-IN")}`, 
-      sub: netOverallBudget >= 0 ? "Positive Factory Profit" : "Budget Allocation Needed", 
+      sub: netOverallBudget >= 0 ? "Actual Net Profit" : "Budget Allocation Needed", 
       color: "text-purple-400 border-purple-500/30 bg-purple-500/10", 
       icon: Wallet 
     },
@@ -281,16 +277,11 @@ export function FactoryDashboard({
 
                   <div className="flex items-center gap-4">
                     <div className="text-right text-xs">
-                      {isPrintOnly ? (
-                        <>
-                          <span className="text-slate-400 block text-[10px]">Print Design Cost (Debit)</span>
-                          <span className="font-bold text-rose-400">-₹{orderDesignCost.toLocaleString("en-IN")}</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="text-slate-400 block text-[10px]">Client Payment Received</span>
-                          <span className="font-bold text-emerald-400">+₹{clientAdvance.toLocaleString("en-IN")}</span>
-                        </>
+                      {clientAdvance > 0 && (
+                        <div className="text-emerald-400 font-bold">+₹{clientAdvance.toLocaleString("en-IN")} <span className="text-[10px] text-slate-400 font-normal">(Client Payment)</span></div>
+                      )}
+                      {orderDesignCost > 0 && (
+                        <div className="text-rose-400 font-bold">-₹{orderDesignCost.toLocaleString("en-IN")} <span className="text-[10px] text-slate-400 font-normal">(Export Cost)</span></div>
                       )}
                     </div>
 

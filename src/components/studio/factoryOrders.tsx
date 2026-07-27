@@ -155,8 +155,8 @@ export function FactoryOrders({
       calcTotalQty += Number(row.halfQty || 0) + Number(row.fullQty || 0);
     });
 
-    const perPieceRate = Number(formRate || (formOrderScope === 'printing-only' ? 3 : 320));
-    const calculatedDesignCost = formOrderScope === 'printing-only' ? calcTotalQty * (perPieceRate <= 10 ? perPieceRate : 3) : 0;
+    const perPieceRate = Number(formRate || (formOrderScope === 'printing-only' ? 50 : 320));
+    const calculatedDesignCost = calcTotalQty * 3;
 
     const newOrd: OrderItem = {
       id: `ord-${Date.now()}`,
