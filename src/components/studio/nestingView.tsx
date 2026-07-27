@@ -2097,6 +2097,35 @@ export const NestingView: React.FC<NestingViewProps> = ({
           previewPdf.save(`${cleanCust}_${cleanOrder}_Preview_72dpi.pdf`);
         }
 
+        // Auto-log Print Production Export Billing Entry in Invoices & Billing
+        try {
+          const activeRate = includeWatermarkLogo ? 3.00 : 5.00;
+          const designDebitCost = totalPieces * activeRate;
+          const userEmail = currentUserEmail || 'guest';
+          const storageKey = `fivenest_studio_export_billing_${userEmail.toLowerCase().trim()}`;
+
+          const newRecord = {
+            id: `RIP-EXP-${cleanOrder}-${Date.now()}`,
+            orderCode: `RIP-EXP-${cleanOrder}`,
+            date: new Date().toLocaleDateString("en-GB").replace(/\//g, "-"),
+            customerName: cleanCust,
+            fileName: `🖨️ 300 DPI Plotter RIP Export (${totalPieces} Panels)`,
+            whatsapp: "",
+            qty: totalPieces,
+            rate: activeRate,
+            designCharges: designDebitCost,
+            status: "Completed",
+            advance: 0
+          };
+
+          const existingStr = localStorage.getItem(storageKey);
+          let list: any[] = existingStr ? JSON.parse(existingStr) : [];
+          list.unshift(newRecord);
+          localStorage.setItem(storageKey, JSON.stringify(list));
+        } catch (e) {
+          console.error("Failed to auto-log print production billing entry:", e);
+        }
+
         setIsExporting(false);
         setExportProgress("");
 

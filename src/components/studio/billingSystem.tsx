@@ -56,10 +56,19 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
     localStorage.setItem('fivenest_upi_id', newVal);
   };
 
-  // Load user-scoped billing data whenever currentUser or orders prop changes
+  // Load user-scoped billing data combining BOTH Order Dockets and Web Studio Print Production Exports
   useEffect(() => {
+    const userEmail = currentUser?.email || 'guest';
+    const studioExportsKey = `fivenest_studio_export_billing_${userEmail.toLowerCase().trim()}`;
+    const studioExportsStr = localStorage.getItem(studioExportsKey);
+    let studioExports: BillingRecord[] = [];
+    if (studioExportsStr) {
+      try { studioExports = JSON.parse(studioExportsStr); } catch (e) {}
+    }
+
+    let syncedFromOrders: BillingRecord[] = [];
     if (orders && orders.length > 0) {
-      const syncedFromOrders: BillingRecord[] = orders.map((o) => {
+      syncedFromOrders = orders.map((o) => {
         let totalQty = 0;
         o.sizeGrid.forEach((row) => {
           totalQty += Number(row.halfQty || 0) + Number(row.fullQty || 0);
@@ -71,10 +80,10 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
 
         return {
           id: o.id,
-          orderCode: `INV-${o.orderNo}`,
+          orderCode: `ORD-#${o.orderNo}`,
           date: o.deliveryDate || 'TBD',
           customerName: o.customerName,
-          fileName: `${isPrintOnly ? '🖨️ Print Production' : '🏭 Full Manufacturing'} (${totalQty} pcs)`,
+          fileName: `${isPrintOnly ? '🖨️ Order Docket (Print)' : '🏭 Order Docket (Mfg)'} (${totalQty} pcs)`,
           whatsapp: '',
           qty: totalQty,
           rate: o.ratePerPiece,
@@ -83,22 +92,12 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
           advance: advance,
         };
       });
-
-      setBillingList(syncedFromOrders);
-      localStorage.setItem(userStorageKey, JSON.stringify(syncedFromOrders));
-    } else {
-      const saved = localStorage.getItem(userStorageKey);
-      if (saved) {
-        try {
-          setBillingList(JSON.parse(saved));
-        } catch (e) {
-          setBillingList([]);
-        }
-      } else {
-        setBillingList([]);
-      }
     }
-  }, [orders, userStorageKey]);
+
+    // Combine studio 300 DPI exports + order dockets into master billing ledger
+    const combinedList = [...studioExports, ...syncedFromOrders];
+    setBillingList(combinedList);
+  }, [orders, userStorageKey, currentUser?.email]);
 
   // Save billing data whenever billingList is modified by user
   useEffect(() => {

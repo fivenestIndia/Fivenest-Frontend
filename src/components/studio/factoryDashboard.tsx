@@ -65,6 +65,18 @@ export function FactoryDashboard({
   let totalRevenue = 0;
   let totalDesignCost = 0;
 
+  // Calculate Web Studio 300 DPI RIP Plotter Package Export Debits
+  try {
+    const studioExportsKey = `fivenest_studio_export_billing_guest`;
+    const studioExportsStr = localStorage.getItem(studioExportsKey);
+    if (studioExportsStr) {
+      const list: any[] = JSON.parse(studioExportsStr);
+      list.forEach((item) => {
+        totalDesignCost += Number(item.designCharges || 0);
+      });
+    }
+  } catch (e) {}
+
   orders.forEach((o) => {
     let totalQty = 0;
     o.sizeGrid.forEach((row) => {
