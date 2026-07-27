@@ -92,7 +92,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     uploadedFileUrl: null,
     nameConfig: { enabled: false, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     numberConfig: { enabled: false, yPos: 44, fontSize: 3.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 3, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.08 },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [2.0, 8.5, 11.0, 13.5, 20.0], horizontal: [7.0, 10.0, 12.0, 27.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 15.0, yPos: 8.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 7.0, yPos: 8.5, lockAspectRatio: true },
@@ -106,7 +106,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     uploadedFileUrl: null,
     nameConfig: { enabled: true, yPos: 24, fontSize: 2.5, color: '#000000', strokeColor: '#ffffff', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 11, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.18 },
     numberConfig: { enabled: true, yPos: 47, fontSize: 9.0, color: '#000000', strokeColor: '#ffffff', strokeWidth: 5, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8.5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.2 },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 30, color: '#000000', strokeColor: '#ffffff', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0.06 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 30, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0.06 },
     guidelines: { vertical: [2.0, 11.0, 20.0], horizontal: [2.5, 6.0, 8.0, 9.5, 16.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
@@ -120,7 +120,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     uploadedFileUrl: null,
     nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [9.5], horizontal: [8.0] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
@@ -134,7 +134,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     uploadedFileUrl: null,
     nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [9.5], horizontal: [8.0] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
@@ -681,34 +681,38 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const savedWater = localStorage.getItem('fivenest_pref_size_watermarks');
       const sizeWatermarks = savedWater !== null ? JSON.parse(savedWater) : true;
 
+      const stroke7ptPx = Math.max(1, Math.round((7 / 72) * scale));
+
       if (centerMarks && panelKey !== 'a4Print') {
         ctx.save();
-        ctx.fillStyle = '#ff1744';
         ctx.shadowColor = 'transparent';
 
         const wPx = Math.round(0.1 * scale);
         const hPx = Math.round(0.2 * scale);
-
         const leftEdgeXPx = Math.round(width / 2 - wPx / 2);
 
-        // Top center solid patch
-        ctx.fillRect(leftEdgeXPx, 0, wPx, hPx);
+        // White 7pt outside stroke for technical center marks
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = stroke7ptPx;
+        ctx.strokeRect(leftEdgeXPx - stroke7ptPx / 2, 0, wPx + stroke7ptPx, hPx + stroke7ptPx / 2);
+        ctx.strokeRect(leftEdgeXPx - stroke7ptPx / 2, height - hPx - stroke7ptPx / 2, wPx + stroke7ptPx, hPx + stroke7ptPx / 2);
 
-        // Bottom center solid patch
+        // Top & Bottom center solid patch in Red
+        ctx.fillStyle = '#ff1744';
+        ctx.fillRect(leftEdgeXPx, 0, wPx, hPx);
         ctx.fillRect(leftEdgeXPx, height - hPx, wPx, hPx);
         ctx.restore();
       }
 
       if (sizeWatermarks && panelKey !== 'a4Print') {
         ctx.save();
-        ctx.fillStyle = '#ff1744';
         const fontSizePx = Math.round((14 / 72) * scale); // 14 pt
         ctx.font = `bold ${fontSizePx}px system-ui`;
         ctx.shadowColor = 'transparent';
 
         const offset = Math.round(0.04 * scale);
 
-        // 2. Sleeve Style on top-right of Back panel only
+        // Sleeve Style on top-right of Back panel
         if (panelKey === 'back') {
           ctx.textAlign = 'right';
           ctx.textBaseline = 'top';
@@ -716,6 +720,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           const typeStr = previewSleeveType === 'full'
             ? (isRaglan ? 'RAGLAN FULL' : 'FULL')
             : (isRaglan ? 'RAGLAN HALF' : 'HALF');
+
+          // White 7pt outside stroke
+          ctx.lineJoin = 'round';
+          ctx.lineCap = 'round';
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = stroke7ptPx * 2;
+          ctx.strokeText(typeStr, width - offset, offset);
+
+          // Red Fill
+          ctx.fillStyle = '#ff1744';
           ctx.fillText(typeStr, width - offset, offset);
         }
         ctx.restore();
@@ -731,9 +745,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         const align = conf.align || 'center';
         ctx.textAlign = align;
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = conf.color;
-        ctx.strokeStyle = conf.strokeColor;
-        ctx.lineWidth = conf.strokeWidth;
+
+        // Proportional outside stroke calculation (scaled directly with font size / panel height)
+        const strokePx = Math.max(1, Math.round((conf.strokeWidth / 100) * fontSizePx));
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
 
         // Calculate custom position based on alignment
         let targetX = textX;
@@ -782,8 +798,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ctx.save();
             ctx.rotate(charAngle);
             if (conf.strokeWidth > 0) {
+              ctx.strokeStyle = conf.strokeColor;
+              ctx.lineWidth = strokePx * 2;
               ctx.strokeText(char, 0, -radius);
             }
+            ctx.fillStyle = conf.color;
             ctx.fillText(char, 0, -radius);
             ctx.restore();
           }
@@ -795,8 +814,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ctx.scale(maxLimitPx / measuredW, 1);
           }
           if (conf.strokeWidth > 0) {
+            ctx.strokeStyle = conf.strokeColor;
+            ctx.lineWidth = strokePx * 2;
             ctx.strokeText(displayName, 0, 0);
           }
+          ctx.fillStyle = conf.color;
           ctx.fillText(displayName, 0, 0);
         }
         ctx.restore();
@@ -811,7 +833,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
 
       // Draw customizable Size Tag (Top Left) - skip for A4 and skip if 3D preview
-      const sizeTagConf = panel.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
+      const sizeTagConf = panel.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
       if (!is3DPreview && sizeTagConf.enabled && panelKey !== 'a4Print') {
         ctx.save();
         const fontSizePx = Math.round((sizeTagConf.fontSize / 72) * scale);
@@ -820,9 +842,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         const align = sizeTagConf.align || 'left';
         ctx.textAlign = align;
         ctx.textBaseline = 'top';
-        ctx.fillStyle = sizeTagConf.color;
-        ctx.strokeStyle = sizeTagConf.strokeColor;
-        ctx.lineWidth = sizeTagConf.strokeWidth;
+        ctx.lineJoin = 'round';
 
         const offsetPx = Math.round(0.15 * scale);
         
@@ -856,9 +876,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         const templateText = sizeTagConf.text || '{size}';
         const displayText = templateText.replace('{size}', "40");
 
-        if (sizeTagConf.strokeWidth > 0) {
-          ctx.strokeText(displayText, adjustedX, offsetPx);
-        }
+        const sw = sizeTagConf.strokeWidth > 0 ? sizeTagConf.strokeWidth : 7;
+        const swPx = Math.max(1, Math.round((sw / 72) * scale));
+
+        ctx.strokeStyle = sizeTagConf.strokeColor || '#ffffff';
+        ctx.lineWidth = swPx * 2;
+        ctx.strokeText(displayText, adjustedX, offsetPx);
+
+        ctx.fillStyle = sizeTagConf.color || '#ff1744';
         ctx.fillText(displayText, adjustedX, offsetPx);
         ctx.restore();
       }

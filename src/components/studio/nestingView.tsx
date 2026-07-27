@@ -844,11 +844,12 @@ export const NestingView: React.FC<NestingViewProps> = ({
     canvas.height = sheet.height * scale;
 
     // Background roll color
-    ctx.fillStyle = '#1e1e24';
+    const isLightMode = document.querySelector('.app-layout')?.classList.contains('light');
+    ctx.fillStyle = isLightMode ? '#e2e8f0' : '#1e1e24';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Draw gridlines
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.strokeStyle = isLightMode ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)';
     ctx.lineWidth = 1;
     for (let x = 0; x < canvas.width; x += 30) {
       ctx.strokeRect(x, 0, 0.1, canvas.height);
@@ -958,37 +959,42 @@ export const NestingView: React.FC<NestingViewProps> = ({
       const sizeWatermarks = savedWater !== null ? JSON.parse(savedWater) : true;
 
       const drawTechnicalMarks = () => {
+        const stroke7ptPx = Math.max(1, Math.round((7 / 72) * scaleDpi));
+
         if (centerMarks && item.panelType !== 'a4-print') {
           ctx.save();
-          ctx.fillStyle = '#ff1744';
           ctx.shadowColor = 'transparent';
           
           const wPx = Math.round(0.1 * scaleDpi);
           const hPx = Math.round(0.2 * scaleDpi);
+          const leftEdgeXPx = Math.round(widthPx / 2 - wPx / 2);
 
-          // Top Center solid patch
-          ctx.fillRect(widthPx / 2 - wPx / 2, 0, wPx, hPx);
+          // White 7pt outside stroke for technical center marks
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = stroke7ptPx;
+          ctx.strokeRect(leftEdgeXPx - stroke7ptPx / 2, 0, wPx + stroke7ptPx, hPx + stroke7ptPx / 2);
+          ctx.strokeRect(leftEdgeXPx - stroke7ptPx / 2, heightPx - hPx - stroke7ptPx / 2, wPx + stroke7ptPx, hPx + stroke7ptPx / 2);
 
-          // Bottom Center solid patch
-          ctx.fillRect(widthPx / 2 - wPx / 2, heightPx - hPx, wPx, hPx);
+          // Top Center & Bottom Center solid patch in Red
+          ctx.fillStyle = '#ff1744';
+          ctx.fillRect(leftEdgeXPx, 0, wPx, hPx);
+          ctx.fillRect(leftEdgeXPx, heightPx - hPx, wPx, hPx);
           ctx.restore();
         }
 
         if (sizeWatermarks && item.panelType !== 'a4-print') {
           ctx.save();
-          ctx.fillStyle = '#ff1744';
           const fontSizePx = Math.round((14 / 72) * scaleDpi); // 14 pt
           ctx.font = `bold ${fontSizePx}px system-ui`;
           ctx.shadowColor = 'transparent';
 
           const offset = Math.round(0.04 * scaleDpi);
 
-          // 2. Sleeve Style on top-right of Back panel only
+          // Sleeve Style on top-right of Back panel
           if (item.panelType === 'back') {
             ctx.textAlign = 'right';
             ctx.textBaseline = 'top';
 
-            // Find the record for this item to determine the sleeve type
             const record = records.find(r => item.recordId.startsWith(r.id));
             const sleeveStyle = record?.sleeve || 'none';
             if (sleeveStyle !== 'none') {
@@ -996,6 +1002,16 @@ export const NestingView: React.FC<NestingViewProps> = ({
               const typeStr = sleeveStyle === 'full'
                 ? (isRaglan ? 'RAGLAN FULL' : 'FULL')
                 : (isRaglan ? 'RAGLAN HALF' : 'HALF');
+
+              // White 7pt outside stroke
+              ctx.lineJoin = 'round';
+              ctx.lineCap = 'round';
+              ctx.strokeStyle = '#ffffff';
+              ctx.lineWidth = stroke7ptPx * 2;
+              ctx.strokeText(typeStr, widthPx - offset, offset);
+
+              // Red Fill
+              ctx.fillStyle = '#ff1744';
               ctx.fillText(typeStr, widthPx - offset, offset);
             }
           }
@@ -1011,9 +1027,11 @@ export const NestingView: React.FC<NestingViewProps> = ({
         const align = textConf.align || 'center';
         ctx.textAlign = align;
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = textConf.color;
-        ctx.strokeStyle = textConf.strokeColor;
-        ctx.lineWidth = textConf.strokeWidth * (scaleDpi / 100);
+
+        // Proportional stroke calculation matching screen preview
+        const strokePx = Math.max(1, Math.round((textConf.strokeWidth / 100) * fontSizePx));
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
 
         // Calculate custom position based on alignment
         let targetX = textX;
@@ -1063,8 +1081,11 @@ export const NestingView: React.FC<NestingViewProps> = ({
             ctx.save();
             ctx.rotate(charAngle);
             if (textConf.strokeWidth > 0) {
+              ctx.strokeStyle = textConf.strokeColor;
+              ctx.lineWidth = strokePx * 2;
               ctx.strokeText(char, 0, -radius);
             }
+            ctx.fillStyle = textConf.color;
             ctx.fillText(char, 0, -radius);
             ctx.restore();
           }
@@ -1076,8 +1097,11 @@ export const NestingView: React.FC<NestingViewProps> = ({
             ctx.scale(maxLimitPx / measuredW, 1);
           }
           if (textConf.strokeWidth > 0) {
+            ctx.strokeStyle = textConf.strokeColor;
+            ctx.lineWidth = strokePx * 2;
             ctx.strokeText(displayName, 0, 0);
           }
+          ctx.fillStyle = textConf.color;
           ctx.fillText(displayName, 0, 0);
         }
         ctx.restore();
@@ -1107,7 +1131,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
         }
 
         // Draw customizable Size Tag (Top Left)
-        const sizeTagConf = conf.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
+        const sizeTagConf = conf.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
         if (sizeTagConf.enabled && item.panelType !== 'a4-print') {
           ctx.save();
           const fontSizePx = Math.round(((sizeTagConf.fontSize * 0.78) / 72) * scaleDpi);
@@ -1116,9 +1140,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
           const align = sizeTagConf.align || 'left';
           ctx.textAlign = align;
           ctx.textBaseline = 'top';
-          ctx.fillStyle = sizeTagConf.color;
-          ctx.strokeStyle = sizeTagConf.strokeColor;
-          ctx.lineWidth = sizeTagConf.strokeWidth * (scaleDpi / 100);
+          ctx.lineJoin = 'round';
 
           const offsetX = Math.round(0.06 * scaleDpi); // ~4px at 72dpi, flush to top-left
           const offsetY = Math.round(0.05 * scaleDpi); // ~3.5px at 72dpi
@@ -1166,9 +1188,14 @@ export const NestingView: React.FC<NestingViewProps> = ({
           ctx.scale(0.80, 1.0);
           const compressedDrawX = drawX / 0.80;
 
-          if (sizeTagConf.strokeWidth > 0) {
-            ctx.strokeText(displayText, compressedDrawX, offsetY);
-          }
+          const sw = sizeTagConf.strokeWidth > 0 ? sizeTagConf.strokeWidth : 7;
+          const swPx = Math.max(1, Math.round((sw / 72) * scaleDpi));
+
+          ctx.strokeStyle = sizeTagConf.strokeColor || '#ffffff';
+          ctx.lineWidth = swPx * 2;
+          ctx.strokeText(displayText, compressedDrawX, offsetY);
+
+          ctx.fillStyle = sizeTagConf.color || '#ff1744';
           ctx.fillText(displayText, compressedDrawX, offsetY);
           ctx.restore();
         }

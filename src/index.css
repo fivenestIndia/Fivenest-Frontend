@@ -301,6 +301,43 @@
   --bg-table-tr-hover: rgba(0, 0, 0, 0.015);
 }
 
+/* Light mode window & workspace background overrides */
+.app-layout.light {
+  background-color: var(--bg-main) !important;
+  color: var(--text-primary) !important;
+}
+
+.app-layout.light .canvas-container {
+  background: #f1f5f9 !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
+}
+
+.app-layout.light .nesting-roll-canvas {
+  background: #e2e8f0 !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+.app-layout.light .artwork-layout-designer {
+  background: #f8fafc !important;
+}
+
+.app-layout.light .glass-card,
+.app-layout.light .sidebar,
+.app-layout.light .top-navbar {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  color: #111827 !important;
+}
+
+.app-layout.light .form-input,
+.app-layout.light .form-select {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+
 .app-layout {
   display: flex;
   min-height: 100vh;
