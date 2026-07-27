@@ -1,52 +1,93 @@
 import { useState } from "react";
 import { 
   Building2, Package, Play, CheckCircle2, Truck, IndianRupee, Wallet, 
-  Plus, ArrowRight, Clock, AlertTriangle, Sparkles, Sliders, RefreshCcw, Eye
+  Plus, ArrowRight, Clock, AlertTriangle, Sparkles, Sliders, RefreshCcw, Eye, FolderOpen
 } from "lucide-react";
+
+export interface SizeQtyRow {
+  size: string;
+  halfQty: number;
+  fullQty: number;
+}
+
+export interface OrderItem {
+  id: string;
+  orderNo: string;
+  customerName: string;
+  deliveryDate: string;
+  ratePerPiece: number;
+  
+  fabricType: string;
+  printDetails: string;
+  collarType: string;
+  collarColor: string;
+  handColor: string;
+  handStripePiping: string;
+
+  statusDesign: "Done" | "Pending";
+  statusFabric: "Done" | "Pending";
+  statusPrint: "Done" | "Pending";
+  statusStitch: "Done" | "Pending";
+
+  sizeGrid: SizeQtyRow[];
+
+  advance1: number;
+  advance2: number;
+  advance3: number;
+}
 
 interface FactoryDashboardProps {
   onNavigateTab: (tab: string) => void;
   walletBalance?: number;
+  orders?: OrderItem[];
+  onRequestNewOrder?: () => void;
 }
 
-export function FactoryDashboard({ onNavigateTab, walletBalance = 2450 }: FactoryDashboardProps) {
-  const statCards = [
-    { title: "Total Active Orders", value: "18 Orders", sub: "4 Needs Approval", color: "text-amber-400 border-amber-500/30 bg-amber-500/10", icon: Package },
-    { title: "Plotter Printing Running", value: "7 Orders", sub: "Roll Plotters Active", color: "text-blue-400 border-blue-500/30 bg-blue-500/10", icon: Play },
-    { title: "Ready to Dispatch Today", value: "6 Orders", sub: "Courier Scheduled", color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10", icon: Truck },
-    { title: "Today's Revenue Collected", value: "₹38,600", sub: "14 Orders Settled", color: "text-purple-400 border-purple-500/30 bg-purple-500/10", icon: IndianRupee },
-  ];
+export function FactoryDashboard({ 
+  onNavigateTab, 
+  walletBalance = 2450, 
+  orders = [],
+  onRequestNewOrder
+}: FactoryDashboardProps) {
 
-  const activeOrdersList = [
-    {
-      id: "ord-1",
-      orderNo: "1",
-      customerName: "Vakratunda Musical Group",
-      deliveryDate: "14-04-26",
-      qty: "21 Jerseys",
-      rate: "₹320/pc",
-      status: "Pending Print",
-      statusColor: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+  // Dynamic calculations from real user orders
+  const totalActiveOrders = orders.length;
+  const printingRunning = orders.filter((o) => o.statusPrint === "Done" && o.statusStitch === "Pending").length;
+  const readyToDispatch = orders.filter((o) => o.statusStitch === "Done").length;
+  
+  let todayRevenue = 0;
+  orders.forEach((o) => {
+    todayRevenue += Number(o.advance1 || 0) + Number(o.advance2 || 0) + Number(o.advance3 || 0);
+  });
+
+  const statCards = [
+    { 
+      title: "Total Active Orders", 
+      value: `${totalActiveOrders} Orders`, 
+      sub: totalActiveOrders > 0 ? `${orders.filter(o => o.statusDesign === 'Pending').length} Needs Approval` : "No Orders Pending", 
+      color: "text-amber-400 border-amber-500/30 bg-amber-500/10", 
+      icon: Package 
     },
-    {
-      id: "ord-2",
-      orderNo: "2",
-      customerName: "National Cricket Academy",
-      deliveryDate: "28-04-26",
-      qty: "65 Jerseys",
-      rate: "₹350/pc",
-      status: "Printing Active",
-      statusColor: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+    { 
+      title: "Plotter Printing Running", 
+      value: `${printingRunning} Orders`, 
+      sub: printingRunning > 0 ? "Roll Plotters Active" : "No Active Plotters", 
+      color: "text-blue-400 border-blue-500/30 bg-blue-500/10", 
+      icon: Play 
     },
-    {
-      id: "ord-3",
-      orderNo: "3",
-      customerName: "Delhi Warriors League",
-      deliveryDate: "30-04-26",
-      qty: "120 Jerseys",
-      rate: "₹300/pc",
-      status: "Ready for Dispatch",
-      statusColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+    { 
+      title: "Ready to Dispatch Today", 
+      value: `${readyToDispatch} Orders`, 
+      sub: readyToDispatch > 0 ? "Courier Scheduled" : "None Pending", 
+      color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10", 
+      icon: Truck 
+    },
+    { 
+      title: "Today's Revenue Collected", 
+      value: `₹${todayRevenue.toLocaleString("en-IN")}`, 
+      sub: `${orders.length} Orders Logged`, 
+      color: "text-purple-400 border-purple-500/30 bg-purple-500/10", 
+      icon: IndianRupee 
     },
   ];
 
@@ -60,11 +101,11 @@ export function FactoryDashboard({ onNavigateTab, walletBalance = 2450 }: Factor
         </div>
         <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">Today's Factory Overview</h1>
         <p className="text-xs md:text-sm text-slate-400 mt-1 max-w-2xl">
-          Simple 3-step dashboard: Monitor live order counts, create new job dockets, and view active order sheets.
+          Live dynamic overview: Monitor active order counts, create new job dockets, and view order sheets.
         </p>
       </div>
 
-      {/* Step 1: 4 Key Metric Cards (At a Glance) */}
+      {/* Step 1: 4 Key Metric Cards (Dynamically calculated from real orders) */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((card) => {
           const Icon = card.icon;
@@ -97,7 +138,10 @@ export function FactoryDashboard({ onNavigateTab, walletBalance = 2450 }: Factor
         
         <div className="grid sm:grid-cols-3 gap-4">
           <button
-            onClick={() => onNavigateTab("orders")}
+            onClick={() => {
+              onNavigateTab("orders");
+              if (onRequestNewOrder) onRequestNewOrder();
+            }}
             className="p-5 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white text-left transition-all shadow-lg shadow-purple-500/20 group cursor-pointer"
           >
             <div className="flex items-center justify-between mb-2">
@@ -134,7 +178,7 @@ export function FactoryDashboard({ onNavigateTab, walletBalance = 2450 }: Factor
         </div>
       </div>
 
-      {/* Step 3: Orders Needing Action Today List */}
+      {/* Step 3: Orders Needing Action Today List (Dynamic render) */}
       <div className="rounded-3xl p-6 bg-slate-900/60 border border-slate-800 backdrop-blur-xl space-y-4 shadow-2xl">
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
           <div>
@@ -150,42 +194,79 @@ export function FactoryDashboard({ onNavigateTab, walletBalance = 2450 }: Factor
           </button>
         </div>
 
-        <div className="space-y-3 pt-2">
-          {activeOrdersList.map((ord) => (
-            <div
-              key={ord.id}
-              onClick={() => onNavigateTab("orders")}
-              className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800/80 hover:border-cyan-500/40 transition-all cursor-pointer flex flex-wrap items-center justify-between gap-4"
-            >
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-cyan-400 font-bold text-xs bg-cyan-500/10 px-2.5 py-1 rounded-lg border border-cyan-500/20">
-                  #{ord.orderNo}
-                </span>
-                <div>
-                  <h3 className="font-bold text-white text-sm">{ord.customerName}</h3>
-                  <div className="text-xs text-slate-400 mt-0.5">{ord.qty} @ {ord.rate} · Delivery: {ord.deliveryDate}</div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${ord.statusColor}`}>
-                  {ord.status}
-                </span>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onNavigateTab("orders");
-                  }}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all"
-                >
-                  <Eye size={14} className="text-cyan-400" />
-                  <span>View Docket Sheet</span>
-                </button>
-              </div>
+        {orders.length === 0 ? (
+          /* CLEAN EMPTY STATE WHEN 0 ORDERS EXIST */
+          <div className="py-12 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-slate-800 border border-slate-700 text-slate-400 flex items-center justify-center mx-auto">
+              <FolderOpen size={24} />
             </div>
-          ))}
-        </div>
+            <div className="font-bold text-white text-sm">No Active Order Dockets Found</div>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+              There are currently 0 order dockets saved in your hub. Click "+ Create New Order Docket" to create your first order.
+            </p>
+            <button
+              onClick={() => {
+                onNavigateTab("orders");
+                if (onRequestNewOrder) onRequestNewOrder();
+              }}
+              className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs shadow-lg shadow-purple-500/20 inline-flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <Plus size={16} />
+              <span>+ Create First Order Docket</span>
+            </button>
+          </div>
+        ) : (
+          /* DYNAMIC LIST OF ACTIVE ORDERS */
+          <div className="space-y-3 pt-2">
+            {orders.map((ord) => {
+              let totalQty = 0;
+              ord.sizeGrid.forEach((row) => {
+                totalQty += Number(row.halfQty || 0) + Number(row.fullQty || 0);
+              });
+
+              return (
+                <div
+                  key={ord.id}
+                  onClick={() => onNavigateTab("orders")}
+                  className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800/80 hover:border-cyan-500/40 transition-all cursor-pointer flex flex-wrap items-center justify-between gap-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-cyan-400 font-bold text-xs bg-cyan-500/10 px-2.5 py-1 rounded-lg border border-cyan-500/20">
+                      #{ord.orderNo}
+                    </span>
+                    <div>
+                      <h3 className="font-bold text-white text-sm">{ord.customerName}</h3>
+                      <div className="text-xs text-slate-400 mt-0.5">{totalQty} Jerseys @ ₹{ord.ratePerPiece}/pc · Delivery: {ord.deliveryDate}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                      ord.statusPrint === "Done" && ord.statusStitch === "Done"
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                        : ord.statusPrint === "Done"
+                        ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                        : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                    }`}>
+                      {ord.statusPrint === "Done" && ord.statusStitch === "Done" ? "Ready for Dispatch" : ord.statusPrint === "Done" ? "Printing Active" : "Pending Print"}
+                    </span>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onNavigateTab("orders");
+                      }}
+                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all"
+                    >
+                      <Eye size={14} className="text-cyan-400" />
+                      <span>View Docket Sheet</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

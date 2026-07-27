@@ -40,6 +40,30 @@ export default function OrderManagement() {
     halfSleeveMerge: false,
     manualMode: false
   });
+  // Central user-scoped orders state for live Dashboard sync
+  const ordersStorageKey = currentUser?.email ? `fivenest_factory_orders_${currentUser.email}` : 'fivenest_factory_orders_default';
+
+  const [orders, setOrders] = useState<any[]>(() => {
+    const saved = localStorage.getItem(ordersStorageKey);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    const saved = localStorage.getItem(ordersStorageKey);
+    if (saved) {
+      try { setOrders(JSON.parse(saved)); } catch (e) { setOrders([]); }
+    } else {
+      setOrders([]);
+    }
+  }, [ordersStorageKey]);
+
+  const handleOrdersChange = (newOrders: any[]) => {
+    setOrders(newOrders);
+    localStorage.setItem(ordersStorageKey, JSON.stringify(newOrders));
+  };
 
   useEffect(() => {
     const checkSession = async () => {
@@ -264,6 +288,7 @@ export default function OrderManagement() {
         <section className="content-body">
           {activeTab === 'dashboard' && (
             <FactoryDashboard 
+              orders={orders}
               onNavigateTab={(tab) => {
                 if (tab === 'templates' || tab === 'printQueue') {
                   window.location.href = '/studio';
@@ -278,6 +303,8 @@ export default function OrderManagement() {
           {activeTab === 'orders' && (
             <FactoryOrders 
               currentUserEmail={currentUser?.email}
+              orders={orders}
+              onOrdersChange={handleOrdersChange}
               onNavigateTab={(tab) => {
                 if (tab === 'printQueue') {
                   window.location.href = '/studio';

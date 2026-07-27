@@ -47,24 +47,42 @@ const defaultSizesList = ["20", "22", "24", "26", "28", "30", "32", "34", "36", 
 interface FactoryOrdersProps {
   onNavigateTab?: (tab: string) => void;
   currentUserEmail?: string;
+  orders?: OrderItem[];
+  onOrdersChange?: (orders: OrderItem[]) => void;
 }
 
-export function FactoryOrders({ onNavigateTab, currentUserEmail }: FactoryOrdersProps) {
+export function FactoryOrders({ 
+  onNavigateTab, 
+  currentUserEmail,
+  orders: externalOrders,
+  onOrdersChange
+}: FactoryOrdersProps) {
   // User-scoped storage key
   const storageKey = currentUserEmail ? `fivenest_factory_orders_${currentUserEmail}` : 'fivenest_factory_orders_default';
 
-  const [orders, setOrders] = useState<OrderItem[]>(() => {
+  const [internalOrders, setInternalOrders] = useState<OrderItem[]>(() => {
     const saved = localStorage.getItem(storageKey);
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
-    // Clean default empty state for fresh logins
     return [];
   });
 
+  const orders = externalOrders !== undefined ? externalOrders : internalOrders;
+
+  const setOrders = (newOrders: OrderItem[]) => {
+    if (onOrdersChange) {
+      onOrdersChange(newOrders);
+    } else {
+      setInternalOrders(newOrders);
+    }
+  };
+
   useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(orders));
-  }, [orders, storageKey]);
+    if (externalOrders === undefined) {
+      localStorage.setItem(storageKey, JSON.stringify(internalOrders));
+    }
+  }, [internalOrders, externalOrders, storageKey]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(orders.length > 0 ? orders[0] : null);
