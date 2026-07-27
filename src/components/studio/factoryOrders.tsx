@@ -19,6 +19,10 @@ export interface OrderItem {
   deliveryDate: string;
   ratePerPiece: number;
   
+  // Order Scope: Full Garment Manufacturing vs Printing Production Only
+  orderScope?: 'full-manufacturing' | 'printing-only';
+  designCost?: number; // Auto-calculated design/export production cost (minus balance item)
+
   // Fabric & Styling Specs
   fabricType: string;
   printDetails: string;
@@ -89,6 +93,7 @@ export function FactoryOrders({
   const [newOrderModalOpen, setNewOrderModalOpen] = useState(false);
 
   // New order modal form state
+  const [formOrderScope, setFormOrderScope] = useState<'full-manufacturing' | 'printing-only'>('full-manufacturing');
   const [formOrderNo, setFormOrderNo] = useState(`${orders.length + 1}`);
   const [formCustomerName, setFormCustomerName] = useState("");
   const [formDeliveryDate, setFormDeliveryDate] = useState("");
@@ -145,24 +150,32 @@ export function FactoryOrders({
       return;
     }
 
+    let calcTotalQty = 0;
+    formSizeGrid.forEach((row) => {
+      calcTotalQty += Number(row.halfQty || 0) + Number(row.fullQty || 0);
+    });
+
     const newOrd: OrderItem = {
       id: `ord-${Date.now()}`,
       orderNo: formOrderNo || `${orders.length + 1}`,
       customerName: formCustomerName,
       deliveryDate: formDeliveryDate || "TBD",
-      ratePerPiece: Number(formRate || 320),
+      ratePerPiece: Number(formRate || (formOrderScope === 'printing-only' ? 50 : 320)),
 
-      fabricType: formFabric,
+      orderScope: formOrderScope,
+      designCost: formOrderScope === 'printing-only' ? calcTotalQty * 5 : calcTotalQty * 3,
+
+      fabricType: formOrderScope === 'printing-only' ? 'Paper Sublimation' : formFabric,
       printDetails: formPrintDetails,
-      collarType: formCollarType,
-      collarColor: formCollarColor,
-      handColor: formHandColor,
-      handStripePiping: formHandStripe,
+      collarType: formOrderScope === 'printing-only' ? 'N/A' : formCollarType,
+      collarColor: formOrderScope === 'printing-only' ? 'N/A' : formCollarColor,
+      handColor: formOrderScope === 'printing-only' ? 'N/A' : formHandColor,
+      handStripePiping: formOrderScope === 'printing-only' ? 'N/A' : formHandStripe,
 
       statusDesign: "Done",
       statusFabric: "Done",
       statusPrint: "Pending",
-      statusStitch: "Pending",
+      statusStitch: formOrderScope === 'printing-only' ? "Done" : "Pending",
 
       sizeGrid: formSizeGrid,
 
@@ -566,6 +579,34 @@ export function FactoryOrders({
 
               {/* Form Grid */}
               <div className="grid md:grid-cols-2 gap-4 text-xs">
+                <div className="md:col-span-2 p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                  <label className="block text-slate-300 font-bold">SELECT ORDER PRODUCTION SCOPE</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setFormOrderScope('full-manufacturing')}
+                      className={`p-3 rounded-xl border font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                        formOrderScope === 'full-manufacturing'
+                          ? 'bg-purple-600/20 border-purple-500 text-purple-300'
+                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                      }`}
+                    >
+                      <span>🏭 Full Garment Manufacturing</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormOrderScope('printing-only')}
+                      className={`p-3 rounded-xl border font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                        formOrderScope === 'printing-only'
+                          ? 'bg-cyan-600/20 border-cyan-500 text-cyan-300'
+                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                      }`}
+                    >
+                      <span>🖨️ Printing Production Only</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-slate-300 font-bold mb-1">Order NO</label>
                   <input

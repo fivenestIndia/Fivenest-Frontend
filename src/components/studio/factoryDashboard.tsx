@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { 
   Building2, Package, Play, CheckCircle2, Truck, IndianRupee, Wallet, 
-  Plus, ArrowRight, Clock, AlertTriangle, Sparkles, Sliders, RefreshCcw, Eye, FolderOpen
+  Plus, ArrowRight, Clock, AlertTriangle, Sparkles, Sliders, RefreshCcw, Eye, FolderOpen,
+  Printer, Scissors, TrendingUp, TrendingDown
 } from "lucide-react";
 
 export interface SizeQtyRow {
@@ -17,6 +18,9 @@ export interface OrderItem {
   deliveryDate: string;
   ratePerPiece: number;
   
+  orderScope?: 'full-manufacturing' | 'printing-only';
+  designCost?: number;
+
   fabricType: string;
   printDetails: string;
   collarType: string;
@@ -52,42 +56,55 @@ export function FactoryDashboard({
 
   // Dynamic calculations from real user orders
   const totalActiveOrders = orders.length;
+  const manufacturingCount = orders.filter((o) => o.orderScope !== "printing-only").length;
+  const printingOnlyCount = orders.filter((o) => o.orderScope === "printing-only").length;
+
   const printingRunning = orders.filter((o) => o.statusPrint === "Done" && o.statusStitch === "Pending").length;
   const readyToDispatch = orders.filter((o) => o.statusStitch === "Done").length;
   
-  let todayRevenue = 0;
+  let totalRevenue = 0;
+  let totalDesignCost = 0;
+
   orders.forEach((o) => {
-    todayRevenue += Number(o.advance1 || 0) + Number(o.advance2 || 0) + Number(o.advance3 || 0);
+    let totalQty = 0;
+    o.sizeGrid.forEach((row) => {
+      totalQty += Number(row.halfQty || 0) + Number(row.fullQty || 0);
+    });
+
+    totalRevenue += Number(o.advance1 || 0) + Number(o.advance2 || 0) + Number(o.advance3 || 0);
+    totalDesignCost += o.designCost !== undefined ? o.designCost : (o.orderScope === "printing-only" ? totalQty * 5 : totalQty * 3);
   });
+
+  const netOverallBudget = totalRevenue - totalDesignCost;
 
   const statCards = [
     { 
-      title: "Total Active Orders", 
-      value: `${totalActiveOrders} Orders`, 
-      sub: totalActiveOrders > 0 ? `${orders.filter(o => o.statusDesign === 'Pending').length} Needs Approval` : "No Orders Pending", 
-      color: "text-amber-400 border-amber-500/30 bg-amber-500/10", 
-      icon: Package 
-    },
-    { 
-      title: "Plotter Printing Running", 
-      value: `${printingRunning} Orders`, 
-      sub: printingRunning > 0 ? "Roll Plotters Active" : "No Active Plotters", 
-      color: "text-blue-400 border-blue-500/30 bg-blue-500/10", 
-      icon: Play 
-    },
-    { 
-      title: "Ready to Dispatch Today", 
-      value: `${readyToDispatch} Orders`, 
-      sub: readyToDispatch > 0 ? "Courier Scheduled" : "None Pending", 
+      title: "Manufacturing Revenue Received", 
+      value: `+₹${totalRevenue.toLocaleString("en-IN")}`, 
+      sub: `${manufacturingCount} Manufacturing Orders`, 
       color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10", 
-      icon: Truck 
+      icon: TrendingUp 
     },
     { 
-      title: "Today's Revenue Collected", 
-      value: `₹${todayRevenue.toLocaleString("en-IN")}`, 
-      sub: `${orders.length} Orders Logged`, 
+      title: "Production Design Cost (Minus)", 
+      value: `-₹${totalDesignCost.toLocaleString("en-IN")}`, 
+      sub: `${printingOnlyCount} Print Orders (${totalDesignCost > 0 ? '₹3/₹5 panel debits' : '0 debits'})`, 
+      color: "text-rose-400 border-rose-500/30 bg-rose-500/10", 
+      icon: TrendingDown 
+    },
+    { 
+      title: "Net Overall Factory Budget", 
+      value: `₹${netOverallBudget.toLocaleString("en-IN")}`, 
+      sub: netOverallBudget >= 0 ? "Positive Factory Profit" : "Budget Allocation Needed", 
       color: "text-purple-400 border-purple-500/30 bg-purple-500/10", 
-      icon: IndianRupee 
+      icon: Wallet 
+    },
+    { 
+      title: "Order Scope Breakdown", 
+      value: `${totalActiveOrders} Dockets`, 
+      sub: `${manufacturingCount} Full Mfg · ${printingOnlyCount} Print Only`, 
+      color: "text-cyan-400 border-cyan-500/30 bg-cyan-500/10", 
+      icon: Package 
     },
   ];
 
@@ -97,15 +114,15 @@ export function FactoryDashboard({
       <div className="bg-slate-900/60 p-6 md:p-8 rounded-3xl border border-slate-800 backdrop-blur-xl">
         <div className="flex items-center gap-2 text-cyan-400 text-xs font-bold uppercase tracking-wider mb-2">
           <Building2 size={16} />
-          <span>FiveNest Factory Dashboard</span>
+          <span>FiveNest Dual Scope Factory Dashboard</span>
         </div>
-        <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">Today's Factory Overview</h1>
+        <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">Overall Factory Financial Budget</h1>
         <p className="text-xs md:text-sm text-slate-400 mt-1 max-w-2xl">
-          Live dynamic overview: Monitor active order counts, create new job dockets, and view order sheets.
+          Tracks client revenue vs 300 DPI design production costs (minus balance debits) to calculate your net factory profit.
         </p>
       </div>
 
-      {/* Step 1: 4 Key Metric Cards (Dynamically calculated from real orders) */}
+      {/* Step 1: 4 Key Metric Cards (Dynamic Financial & Scope Breakdown) */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((card) => {
           const Icon = card.icon;
@@ -149,7 +166,7 @@ export function FactoryDashboard({
               <ArrowRight size={16} className="text-purple-200" />
             </div>
             <div className="font-extrabold text-base">Create New Order Docket</div>
-            <div className="text-xs text-purple-200 mt-1">Open job docket form for new customer batch</div>
+            <div className="text-xs text-purple-200 mt-1">Full Manufacturing or Print-Only batch</div>
           </button>
 
           <button
@@ -178,12 +195,12 @@ export function FactoryDashboard({
         </div>
       </div>
 
-      {/* Step 3: Orders Needing Action Today List (Dynamic render) */}
+      {/* Step 3: Orders Needing Action Today List (Dynamic render with Scope Badges) */}
       <div className="rounded-3xl p-6 bg-slate-900/60 border border-slate-800 backdrop-blur-xl space-y-4 shadow-2xl">
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
           <div>
-            <h2 className="text-lg font-black text-white">Active Orders Today</h2>
-            <p className="text-xs text-slate-400">Click "View Docket Sheet" to open the job card and print for factory operators.</p>
+            <h2 className="text-lg font-black text-white">Active Orders & Production Costs</h2>
+            <p className="text-xs text-slate-400">Shows order scope, client rate, and design production cost debits.</p>
           </div>
 
           <button
@@ -216,13 +233,15 @@ export function FactoryDashboard({
             </button>
           </div>
         ) : (
-          /* DYNAMIC LIST OF ACTIVE ORDERS */
+          /* DYNAMIC LIST OF ACTIVE ORDERS WITH SCOPE BADGES & DESIGN DEBIT COSTS */
           <div className="space-y-3 pt-2">
             {orders.map((ord) => {
               let totalQty = 0;
               ord.sizeGrid.forEach((row) => {
                 totalQty += Number(row.halfQty || 0) + Number(row.fullQty || 0);
               });
+
+              const orderDesignCost = ord.designCost !== undefined ? ord.designCost : (ord.orderScope === "printing-only" ? totalQty * 5 : totalQty * 3);
 
               return (
                 <div
@@ -235,21 +254,27 @@ export function FactoryDashboard({
                       #{ord.orderNo}
                     </span>
                     <div>
-                      <h3 className="font-bold text-white text-sm">{ord.customerName}</h3>
-                      <div className="text-xs text-slate-400 mt-0.5">{totalQty} Jerseys @ ₹{ord.ratePerPiece}/pc · Delivery: {ord.deliveryDate}</div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-white text-sm">{ord.customerName}</h3>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                          ord.orderScope === "printing-only"
+                            ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                            : "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                        }`}>
+                          {ord.orderScope === "printing-only" ? "🖨️ Print Only" : "🏭 Full Mfg"}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-400 mt-0.5">
+                        {totalQty} Jerseys @ ₹{ord.ratePerPiece}/pc · Delivery: {ord.deliveryDate}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
-                      ord.statusPrint === "Done" && ord.statusStitch === "Done"
-                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                        : ord.statusPrint === "Done"
-                        ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
-                        : "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                    }`}>
-                      {ord.statusPrint === "Done" && ord.statusStitch === "Done" ? "Ready for Dispatch" : ord.statusPrint === "Done" ? "Printing Active" : "Pending Print"}
-                    </span>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right text-xs">
+                      <span className="text-slate-400 block text-[10px]">Design Cost (Debit)</span>
+                      <span className="font-bold text-rose-400">-₹{orderDesignCost.toLocaleString("en-IN")}</span>
+                    </div>
 
                     <button
                       onClick={(e) => {
