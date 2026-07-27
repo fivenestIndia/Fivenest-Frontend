@@ -71,8 +71,9 @@ export function FactoryDashboard({
       totalQty += Number(row.halfQty || 0) + Number(row.fullQty || 0);
     });
 
+    const isPrintOnly = o.orderScope === "printing-only";
     const advanceReceived = Number(o.advance1 || 0) + Number(o.advance2 || 0) + Number(o.advance3 || 0);
-    const designDebit = o.designCost !== undefined ? o.designCost : totalQty * 3;
+    const designDebit = o.designCost !== undefined ? o.designCost : (isPrintOnly ? totalQty * 3 : 0);
 
     totalRevenue += advanceReceived;
     totalDesignCost += designDebit;

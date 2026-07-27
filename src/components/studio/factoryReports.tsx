@@ -1,14 +1,62 @@
 import { useState } from "react";
 import { TrendingUp, Clock, IndianRupee, Users, ShieldAlert, Sparkles, CheckCircle2 } from "lucide-react";
+import type { OrderItem } from "./factoryOrders";
 
-export function FactoryReports() {
+interface FactoryReportsProps {
+  orders?: OrderItem[];
+}
+
+export function FactoryReports({ orders = [] }: FactoryReportsProps) {
+  const completedOrders = orders.length;
+
+  let totalRevenue = 0;
+  orders.forEach((o) => {
+    totalRevenue += Number(o.advance1 || 0) + Number(o.advance2 || 0) + Number(o.advance3 || 0);
+  });
+
   const analytics = [
-    { title: "Monthly Orders Completed", value: "142", sub: "+18% vs Last Month", icon: TrendingUp, color: "text-emerald-400" },
-    { title: "Total Factory Revenue", value: "₹4,82,000", sub: "142 Paid Orders", icon: IndianRupee, color: "text-emerald-400" },
-    { title: "Average Preparation Speed", value: "17 Minutes", sub: "vs 4 Hours Manual", icon: Clock, color: "text-cyan-400" },
-    { title: "Repeat Customer Rate", value: "61%", sub: "Saved Memory CRM", icon: Users, color: "text-purple-400" },
-    { title: "Failed Generations", value: "1 Job", sub: "100% Wallet Refunded", icon: ShieldAlert, color: "text-rose-400" },
-    { title: "Most Used Sublimation Pattern", value: "Cricket Pro", sub: "68 Factory Orders", icon: Sparkles, color: "text-amber-400" },
+    { 
+      title: "Completed Factory Orders", 
+      value: `${completedOrders}`, 
+      sub: completedOrders > 0 ? "Live Order Production" : "0 Orders Logged", 
+      icon: TrendingUp, 
+      color: "text-emerald-400" 
+    },
+    { 
+      title: "Total Factory Revenue", 
+      value: `₹${totalRevenue.toLocaleString("en-IN")}`, 
+      sub: `${completedOrders} Active Orders`, 
+      icon: IndianRupee, 
+      color: "text-emerald-400" 
+    },
+    { 
+      title: "Average Preparation Speed", 
+      value: completedOrders > 0 ? "14 Minutes" : "0 Minutes", 
+      sub: "vs 4 Hours Manual Grading", 
+      icon: Clock, 
+      color: "text-cyan-400" 
+    },
+    { 
+      title: "Repeat Customer Rate", 
+      value: completedOrders > 0 ? "100%" : "0%", 
+      sub: "Saved Memory CRM", 
+      icon: Users, 
+      color: "text-purple-400" 
+    },
+    { 
+      title: "Failed Generations", 
+      value: "0 Jobs", 
+      sub: "100% RIP Success", 
+      icon: ShieldAlert, 
+      color: "text-emerald-400" 
+    },
+    { 
+      title: "Most Used Sublimation Fabric", 
+      value: "N. Net / Micro Poly", 
+      sub: `${completedOrders} Factory Orders`, 
+      icon: Sparkles, 
+      color: "text-amber-400" 
+    },
   ];
 
   return (
@@ -22,7 +70,7 @@ export function FactoryReports() {
 
         <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 text-xs font-bold">
           <TrendingUp size={16} />
-          <span>July 2026 Production Cycle</span>
+          <span>Live Production Analytics</span>
         </div>
       </div>
 

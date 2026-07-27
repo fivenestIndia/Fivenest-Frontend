@@ -320,6 +320,7 @@ export default function OrderManagement() {
               records={records}
               metadata={metadata}
               currentUser={currentUser}
+              orders={orders}
             />
           )}
 
@@ -328,7 +329,7 @@ export default function OrderManagement() {
           )}
 
           {activeTab === 'reports' && (
-            <FactoryReports />
+            <FactoryReports orders={orders} />
           )}
         </section>
       </main>

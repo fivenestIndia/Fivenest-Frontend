@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import type { PlayerRecord, OrderMetadata } from './orderEntry';
 
+import type { OrderItem } from './factoryOrders';
+
 export interface BillingRecord {
   id: string;
   orderCode: string;
@@ -16,80 +18,22 @@ export interface BillingRecord {
   rate: number;
   designCharges: number;
   status: 'Completed' | 'Pending' | 'Cancelled';
+  advance?: number;
 }
 
 interface BillingSystemProps {
   records?: PlayerRecord[];
   metadata?: OrderMetadata;
   currentUser?: { email: string; name: string; balance: number } | null;
+  orders?: OrderItem[];
 }
 
 // Initial sample data pre-populated for guest / demo users
 const initialBillingRecords: BillingRecord[] = [
   { id: '1', orderCode: 'FN-26-1605-03', date: '16-05-2026', customerName: 'Shirke', fileName: 'MAPL - 18 teams', whatsapp: '9773358920', qty: 191, rate: 3, designCharges: 560, status: 'Completed' },
-  { id: '2', orderCode: 'FN-26-1805-03', date: '18-05-2026', customerName: 'Ramesh Bhosle', fileName: 'bhosle - 12 jersey data', whatsapp: '9320680327', qty: 12, rate: 5, designCharges: 0, status: 'Pending' },
-  { id: '3', orderCode: 'FN-26-1805-03', date: '17-05-2026', customerName: 'Inega Model', fileName: 'Inega Sports Tshirt', whatsapp: '9702415263', qty: 12, rate: 250, designCharges: 0, status: 'Completed' },
-  { id: '4', orderCode: 'FN-26-1805-04', date: '18-05-2026', customerName: 'Mit- MST', fileName: 'MST - 01 White & Blue Bike Design', whatsapp: '9619438122', qty: 22, rate: 10, designCharges: 0, status: 'Completed' },
-  { id: '5', orderCode: 'FN-26-1805-01', date: '18-05-2026', customerName: 'Tyger', fileName: 'tyger - Golf (3)', whatsapp: '', qty: 28, rate: 5, designCharges: 0, status: 'Pending' },
-  { id: '6', orderCode: 'FN-26-1805-04', date: '18-05-2026', customerName: 'Shubham', fileName: 'shubham - Nike Design', whatsapp: '9892705753', qty: 13, rate: 5, designCharges: 50, status: 'Completed' },
-  { id: '7', orderCode: 'FN-26-1905-01', date: '19-05-2026', customerName: 'shanon', fileName: 'shanon 2 Teams', whatsapp: '9152195957', qty: 54, rate: 5, designCharges: 200, status: 'Completed' },
-  { id: '8', orderCode: 'FN-26-1905-04', date: '19-05-2026', customerName: 'Sushant Shirke', fileName: "Sameer - 07 Azad Hero's", whatsapp: '', qty: 5, rate: 0, designCharges: 20, status: 'Pending' },
 ];
 
-// Helper to auto-sync current order into billing table
-export const syncOrderToBillingRecords = (
-  records: PlayerRecord[], 
-  metadata?: OrderMetadata, 
-  userEmail?: string
-) => {
-  if (!records || records.length === 0) return;
-
-  const storageKey = userEmail 
-    ? `fivenest_billing_records_${userEmail.toLowerCase().trim()}` 
-    : 'fivenest_billing_records_guest';
-
-  const totalQty = records.reduce((sum, r) => sum + (r.qty || 1), 0);
-  const today = new Date();
-  const formattedDate = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
-  const orderNum = metadata?.orderNum || '01';
-  const orderCode = `FN-26-${String(today.getDate()).padStart(2, '0')}${String(today.getMonth() + 1).padStart(2, '0')}-${orderNum}`;
-
-  const existingDataStr = localStorage.getItem(storageKey);
-  let billingList: BillingRecord[] = existingDataStr ? JSON.parse(existingDataStr) : [];
-
-  const existingIdx = billingList.findIndex(r => r.orderCode === orderCode);
-  const customerName = metadata?.customerName || (userEmail ? userEmail.split('@')[0] : 'Studio Client');
-  const fileName = `Order #${orderNum} (${totalQty} pcs)`;
-  const rate = 15;
-
-  if (existingIdx !== -1) {
-    billingList[existingIdx] = {
-      ...billingList[existingIdx],
-      qty: totalQty,
-      customerName: customerName || billingList[existingIdx].customerName,
-      fileName: fileName,
-      date: formattedDate
-    };
-  } else {
-    const newRecord: BillingRecord = {
-      id: Date.now().toString(),
-      orderCode,
-      date: formattedDate,
-      customerName,
-      fileName,
-      whatsapp: '',
-      qty: totalQty,
-      rate: rate,
-      designCharges: 0,
-      status: 'Pending'
-    };
-    billingList.unshift(newRecord);
-  }
-
-  localStorage.setItem(storageKey, JSON.stringify(billingList));
-};
-
-export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], metadata, currentUser }) => {
+export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], metadata, currentUser, orders = [] }) => {
   // Scoped key per user
   const userStorageKey = currentUser?.email 
     ? `fivenest_billing_records_${currentUser.email.toLowerCase().trim()}` 
@@ -112,20 +56,49 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
     localStorage.setItem('fivenest_upi_id', newVal);
   };
 
-  // Load user-scoped billing data whenever currentUser or key changes
+  // Load user-scoped billing data whenever currentUser or orders prop changes
   useEffect(() => {
-    const saved = localStorage.getItem(userStorageKey);
-    if (saved) {
-      try {
-        setBillingList(JSON.parse(saved));
-      } catch (e) {
-        setBillingList(initialBillingRecords);
-      }
+    if (orders && orders.length > 0) {
+      const syncedFromOrders: BillingRecord[] = orders.map((o) => {
+        let totalQty = 0;
+        o.sizeGrid.forEach((row) => {
+          totalQty += Number(row.halfQty || 0) + Number(row.fullQty || 0);
+        });
+
+        const advance = Number(o.advance1 || 0) + Number(o.advance2 || 0) + Number(o.advance3 || 0);
+        const isPrintOnly = o.orderScope === 'printing-only';
+        const designCost = o.designCost !== undefined ? o.designCost : (isPrintOnly ? totalQty * 3 : 0);
+
+        return {
+          id: o.id,
+          orderCode: `INV-${o.orderNo}`,
+          date: o.deliveryDate || 'TBD',
+          customerName: o.customerName,
+          fileName: `${isPrintOnly ? '🖨️ Print Production' : '🏭 Full Manufacturing'} (${totalQty} pcs)`,
+          whatsapp: '',
+          qty: totalQty,
+          rate: o.ratePerPiece,
+          designCharges: designCost,
+          status: o.statusPrint === 'Done' && o.statusStitch === 'Done' ? 'Completed' : 'Pending',
+          advance: advance,
+        };
+      });
+
+      setBillingList(syncedFromOrders);
+      localStorage.setItem(userStorageKey, JSON.stringify(syncedFromOrders));
     } else {
-      setBillingList(initialBillingRecords);
-      localStorage.setItem(userStorageKey, JSON.stringify(initialBillingRecords));
+      const saved = localStorage.getItem(userStorageKey);
+      if (saved) {
+        try {
+          setBillingList(JSON.parse(saved));
+        } catch (e) {
+          setBillingList([]);
+        }
+      } else {
+        setBillingList([]);
+      }
     }
-  }, [userStorageKey]);
+  }, [orders, userStorageKey]);
 
   // Save billing data whenever billingList is modified by user
   useEffect(() => {
