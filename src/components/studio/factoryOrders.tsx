@@ -1,81 +1,121 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  Search, Plus, Filter, CheckCircle2, Clock, AlertTriangle, ArrowRight, X, 
-  FileSpreadsheet, Palette, Cpu, Download, Receipt, Send, Sparkles, User, Truck
+  Search, Plus, Printer, CheckCircle2, Clock, AlertTriangle, ArrowRight, X, 
+  FileSpreadsheet, Palette, Cpu, Download, Receipt, Send, Sparkles, User, Truck,
+  Scissors, DollarSign, Calendar, Sliders
 } from "lucide-react";
+
+export interface SizeQtyRow {
+  size: string;
+  halfQty: number;
+  fullQty: number;
+}
 
 export interface OrderItem {
   id: string;
-  orderNum: string;
+  orderNo: string;
   customerName: string;
-  jerseysCount: number;
-  status: "printing" | "pending" | "completed" | "generating";
-  statusText: string;
-  dueDate: string;
-  totalAmount: number;
-  advancePaid: number;
-  csvUploaded: boolean;
-  artworkApproved: boolean;
-  templateName: string;
+  deliveryDate: string;
+  ratePerPiece: number;
+  
+  // Fabric & Styling Specs
+  fabricType: string;
+  printDetails: string;
+  collarType: string;
+  collarColor: string;
+  handColor: string;
+  handStripePiping: string;
+
+  // Factory Stage Statuses
+  statusDesign: "Done" | "Pending";
+  statusFabric: "Done" | "Pending";
+  statusPrint: "Done" | "Pending";
+  statusStitch: "Done" | "Pending";
+
+  // Size Grid (Sizes 20 to 50)
+  sizeGrid: SizeQtyRow[];
+
+  // Payment Tranches
+  advance1: number;
+  advance2: number;
+  advance3: number;
 }
+
+const defaultSizesList = ["20", "22", "24", "26", "28", "30", "32", "34", "36", "38", "40", "42", "44", "46", "48", "50"];
 
 const sampleOrders: OrderItem[] = [
   {
-    id: "ord-5412",
-    orderNum: "#5412",
-    customerName: "ABC Sports Manufacturers",
-    jerseysCount: 200,
-    status: "printing",
-    statusText: "Printing",
-    dueDate: "Due Tomorrow",
-    totalAmount: 24000,
-    advancePaid: 10000,
-    csvUploaded: true,
-    artworkApproved: true,
-    templateName: "Cricket Pro 2026",
+    id: "ord-1",
+    orderNo: "1",
+    customerName: "Vakratunda Musical Group",
+    deliveryDate: "14-04-26",
+    ratePerPiece: 320,
+
+    fabricType: "N. Net",
+    printDetails: "Full Sublimation",
+    collarType: "Ready made",
+    collarColor: "Black",
+    handColor: "Printed",
+    handStripePiping: "Black",
+
+    statusDesign: "Done",
+    statusFabric: "Done",
+    statusPrint: "Pending",
+    statusStitch: "Pending",
+
+    sizeGrid: [
+      { size: "20", halfQty: 0, fullQty: 0 },
+      { size: "22", halfQty: 0, fullQty: 0 },
+      { size: "24", halfQty: 0, fullQty: 0 },
+      { size: "26", halfQty: 0, fullQty: 0 },
+      { size: "28", halfQty: 0, fullQty: 0 },
+      { size: "30", halfQty: 0, fullQty: 0 },
+      { size: "32", halfQty: 4, fullQty: 0 },
+      { size: "34", halfQty: 1, fullQty: 0 },
+      { size: "36", halfQty: 2, fullQty: 0 },
+      { size: "38", halfQty: 9, fullQty: 0 },
+      { size: "40", halfQty: 3, fullQty: 0 },
+      { size: "42", halfQty: 2, fullQty: 0 },
+      { size: "44", halfQty: 0, fullQty: 0 },
+      { size: "46", halfQty: 0, fullQty: 0 },
+      { size: "48", halfQty: 0, fullQty: 0 },
+      { size: "50", halfQty: 0, fullQty: 0 },
+    ],
+
+    advance1: 3000,
+    advance2: 3720,
+    advance3: 0,
   },
   {
-    id: "ord-5413",
-    orderNum: "#5413",
-    customerName: "School Tournament League",
-    jerseysCount: 120,
-    status: "pending",
-    statusText: "Approval Pending",
-    dueDate: "Due Jul 28",
-    totalAmount: 14400,
-    advancePaid: 5000,
-    csvUploaded: true,
-    artworkApproved: false,
-    templateName: "Football Striker",
-  },
-  {
-    id: "ord-5414",
-    orderNum: "#5414",
-    customerName: "Mumbai Club Apparel",
-    jerseysCount: 300,
-    status: "completed",
-    statusText: "Completed",
-    dueDate: "Completed Today",
-    totalAmount: 36000,
-    advancePaid: 36000,
-    csvUploaded: true,
-    artworkApproved: true,
-    templateName: "Kabaddi Champion",
-  },
-  {
-    id: "ord-5415",
-    orderNum: "#5415",
-    customerName: "Delhi Academy Sports",
-    jerseysCount: 85,
-    status: "generating",
-    statusText: "Generating...",
-    dueDate: "Due Jul 29",
-    totalAmount: 10200,
-    advancePaid: 3000,
-    csvUploaded: true,
-    artworkApproved: true,
-    templateName: "Basketball Slam",
+    id: "ord-2",
+    orderNo: "2",
+    customerName: "National Cricket Academy",
+    deliveryDate: "28-04-26",
+    ratePerPiece: 350,
+
+    fabricType: "Micro Poly",
+    printDetails: "Full Sublimation",
+    collarType: "Chinese Collar",
+    collarColor: "Navy Blue",
+    handColor: "Navy Blue",
+    handStripePiping: "White Piping",
+
+    statusDesign: "Done",
+    statusFabric: "Done",
+    statusPrint: "Done",
+    statusStitch: "Pending",
+
+    sizeGrid: [
+      { size: "36", halfQty: 10, fullQty: 5 },
+      { size: "38", halfQty: 15, fullQty: 10 },
+      { size: "40", halfQty: 12, fullQty: 8 },
+      { size: "42", halfQty: 5, fullQty: 5 },
+    ],
+
+    advance1: 10000,
+    advance2: 5000,
+    advance3: 0,
   },
 ];
 
@@ -86,93 +126,137 @@ interface FactoryOrdersProps {
 export function FactoryOrders({ onNavigateTab }: FactoryOrdersProps) {
   const [orders, setOrders] = useState<OrderItem[]>(sampleOrders);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<"all" | "printing" | "pending" | "completed">("all");
+  const [activeFilter, setActiveFilter] = useState<"all" | "pending" | "completed">("all");
   const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(sampleOrders[0]);
+  const [newOrderModalOpen, setNewOrderModalOpen] = useState(false);
+
+  // New order modal form state
+  const [formOrderNo, setFormOrderNo] = useState(`${orders.length + 1}`);
+  const [formCustomerName, setFormCustomerName] = useState("");
+  const [formDeliveryDate, setFormDeliveryDate] = useState("");
+  const [formRate, setFormRate] = useState(320);
+
+  const [formFabric, setFormFabric] = useState("N. Net");
+  const [formPrintDetails, setFormPrintDetails] = useState("Full Sublimation");
+  const [formCollarType, setFormCollarType] = useState("Ready made");
+  const [formCollarColor, setFormCollarColor] = useState("Black");
+  const [formHandColor, setFormHandColor] = useState("Printed");
+  const [formHandStripe, setFormHandStripe] = useState("Black");
+
+  const [formAdvance1, setFormAdvance1] = useState(0);
+  const [formAdvance2, setFormAdvance2] = useState(0);
+
+  const [formSizeGrid, setFormSizeGrid] = useState<SizeQtyRow[]>(
+    defaultSizesList.map((sz) => ({ size: sz, halfQty: 0, fullQty: 0 }))
+  );
+
+  const printDocketRef = useRef<HTMLDivElement>(null);
+
+  const calculateTotals = (ord: OrderItem) => {
+    let totalHalf = 0;
+    let totalFull = 0;
+    ord.sizeGrid.forEach((row) => {
+      totalHalf += Number(row.halfQty || 0);
+      totalFull += Number(row.fullQty || 0);
+    });
+    const totalQty = totalHalf + totalFull;
+    const totalOrderValue = totalQty * ord.ratePerPiece;
+    const totalAdvanceReceived = Number(ord.advance1 || 0) + Number(ord.advance2 || 0) + Number(ord.advance3 || 0);
+    const balanceAmount = totalOrderValue - totalAdvanceReceived;
+
+    return { totalHalf, totalFull, totalQty, totalOrderValue, totalAdvanceReceived, balanceAmount };
+  };
+
+  const handlePrintDocket = () => {
+    window.print();
+  };
+
+  const handleCreateOrder = () => {
+    if (!formCustomerName) {
+      alert("Please enter customer name");
+      return;
+    }
+
+    const newOrd: OrderItem = {
+      id: `ord-${Date.now()}`,
+      orderNo: formOrderNo,
+      customerName: formCustomerName,
+      deliveryDate: formDeliveryDate || "TBD",
+      ratePerPiece: Number(formRate || 320),
+
+      fabricType: formFabric,
+      printDetails: formPrintDetails,
+      collarType: formCollarType,
+      collarColor: formCollarColor,
+      handColor: formHandColor,
+      handStripePiping: formHandStripe,
+
+      statusDesign: "Done",
+      statusFabric: "Done",
+      statusPrint: "Pending",
+      statusStitch: "Pending",
+
+      sizeGrid: formSizeGrid,
+
+      advance1: Number(formAdvance1 || 0),
+      advance2: Number(formAdvance2 || 0),
+      advance3: 0,
+    };
+
+    setOrders([newOrd, ...orders]);
+    setSelectedOrder(newOrd);
+    setNewOrderModalOpen(false);
+  };
 
   const filteredOrders = orders.filter((ord) => {
-    const matchesFilter = activeFilter === "all" || ord.status === activeFilter;
     const matchesSearch =
       ord.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ord.orderNum.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesFilter && matchesSearch;
+      ord.orderNo.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
   });
 
   return (
     <div className="space-y-6 font-sans p-2 md:p-4 text-left">
-      {/* Top Header & Search Bar */}
+      {/* Top Header & New Order Action */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-900/60 p-6 rounded-3xl border border-slate-800 backdrop-blur-xl">
         <div>
-          <h1 className="text-2xl md:text-3xl font-black text-white">Factory Orders Hub</h1>
-          <p className="text-xs md:text-sm text-slate-400 mt-1">Order-centric management: artwork, CSV, production, and invoices in one view.</p>
+          <h1 className="text-2xl md:text-3xl font-black text-white">Factory Production Dockets</h1>
+          <p className="text-xs md:text-sm text-slate-400 mt-1">
+            Complete job docket: fabric, collar styling, sizes 20-50 matrix, production stages & payment tranches.
+          </p>
         </div>
 
-        <button
-          onClick={() => {
-            const newOrd: OrderItem = {
-              id: `ord-${Date.now()}`,
-              orderNum: `#${Math.floor(5400 + Math.random() * 100)}`,
-              customerName: "New Factory Client",
-              jerseysCount: 100,
-              status: "pending",
-              statusText: "Approval Pending",
-              dueDate: "Due Tomorrow",
-              totalAmount: 12000,
-              advancePaid: 4000,
-              csvUploaded: false,
-              artworkApproved: false,
-              templateName: "Cricket Pro 2026",
-            };
-            setOrders([newOrd, ...orders]);
-            setSelectedOrder(newOrd);
-          }}
-          className="px-5 py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-purple-500/25 transition-all cursor-pointer"
-        >
-          <Plus size={18} />
-          <span>+ New Order</span>
-        </button>
-      </div>
-
-      {/* Filter Tabs & Search Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search orders by customer or order # (e.g. ABC Sports, #5412)..."
-            className="w-full pl-11 pr-4 py-3 bg-slate-900/80 border border-slate-800 rounded-2xl text-white text-xs md:text-sm focus:outline-none focus:border-cyan-400 transition-all"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 overflow-x-auto">
-          {[
-            { id: "all", label: "All Orders" },
-            { id: "printing", label: "Printing" },
-            { id: "pending", label: "Approval Pending" },
-            { id: "completed", label: "Completed" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveFilter(tab.id as any)}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                activeFilter === tab.id
-                  ? "bg-cyan-500 text-black shadow-lg shadow-cyan-500/20"
-                  : "bg-slate-900/60 text-slate-400 border border-slate-800 hover:text-white"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setNewOrderModalOpen(true)}
+            className="px-5 py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-purple-500/25 transition-all cursor-pointer"
+          >
+            <Plus size={18} />
+            <span>+ New Production Docket</span>
+          </button>
         </div>
       </div>
 
-      {/* Order List & Order Details Unified View */}
+      {/* Search Bar */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search dockets by customer or Order No (e.g. Vakratunda, Order #1)..."
+          className="w-full pl-11 pr-4 py-3 bg-slate-900/80 border border-slate-800 rounded-2xl text-white text-xs md:text-sm focus:outline-none focus:border-cyan-400 transition-all"
+        />
+      </div>
+
+      {/* Main Order Docket Layout */}
       <div className="grid lg:grid-cols-12 gap-8 items-start">
-        {/* Order Cards List */}
-        <div className="lg:col-span-6 space-y-4">
+        {/* Left: Orders Selection Cards */}
+        <div className="lg:col-span-4 space-y-4">
           {filteredOrders.map((ord) => {
             const isSelected = selectedOrder?.id === ord.id;
+            const { totalQty, totalOrderValue, balanceAmount } = calculateTotals(ord);
+
             return (
               <div
                 key={ord.id}
@@ -184,141 +268,477 @@ export function FactoryOrders({ onNavigateTab }: FactoryOrdersProps) {
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <span className="font-mono text-cyan-400 font-bold text-sm bg-cyan-500/10 px-2.5 py-1 rounded-lg border border-cyan-500/20">
-                      {ord.orderNum}
+                      #{ord.orderNo}
                     </span>
-                    <h3 className="font-bold text-white text-base">{ord.customerName}</h3>
+                    <h3 className="font-bold text-white text-sm line-clamp-1">{ord.customerName}</h3>
                   </div>
 
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      ord.status === "completed"
-                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
-                        : ord.status === "printing"
-                        ? "bg-blue-500/10 text-blue-400 border border-blue-500/30"
-                        : ord.status === "generating"
-                        ? "bg-purple-500/10 text-purple-400 border border-purple-500/30"
-                        : "bg-amber-500/10 text-amber-400 border border-amber-500/30"
-                    }`}
-                  >
-                    {ord.statusText}
-                  </span>
+                  <span className="text-xs font-mono font-bold text-slate-400">{ord.deliveryDate}</span>
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
-                  <span>{ord.jerseysCount} Jerseys · Template: {ord.templateName}</span>
-                  <span className="font-black text-white text-sm">₹{ord.totalAmount.toLocaleString("en-IN")}</span>
+                <div className="flex items-center justify-between text-xs text-slate-400">
+                  <span>{totalQty} Jerseys @ ₹{ord.ratePerPiece}/pc</span>
+                  <span className="font-black text-white text-sm">₹{totalOrderValue.toLocaleString("en-IN")}</span>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-800/80">
+                  <span className="text-slate-400">Fabric: <strong className="text-white">{ord.fabricType}</strong></span>
+                  <span className={`font-bold ${balanceAmount === 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                    Balance: ₹{balanceAmount.toLocaleString("en-IN")}
+                  </span>
                 </div>
               </div>
             );
           })}
         </div>
 
-        {/* Order Details Single Unified View Panel */}
+        {/* Right: Exact Factory Production Docket Sheet (Matching User Image) */}
         {selectedOrder && (
-          <div className="lg:col-span-6 rounded-3xl bg-slate-900/90 border border-cyan-500/40 p-6 md:p-8 backdrop-blur-xl shadow-2xl space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xl font-mono font-black text-cyan-400">{selectedOrder.orderNum}</span>
-                  <h2 className="text-xl font-black text-white">{selectedOrder.customerName}</h2>
+          <div className="lg:col-span-8 bg-white text-black p-6 md:p-8 rounded-3xl shadow-2xl space-y-6 border border-slate-300 print:p-0 print:shadow-none font-sans">
+            {/* Top Toolbar Action for Printing */}
+            <div className="flex items-center justify-between pb-4 border-b border-gray-200 print:hidden">
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 bg-black text-white text-xs font-bold rounded-lg font-mono">
+                  Order Docket #{selectedOrder.orderNo}
+                </span>
+                <span className="text-xs text-gray-500 font-semibold">Exact Factory Job Card Sheet</span>
+              </div>
+
+              <button
+                onClick={handlePrintDocket}
+                className="px-4 py-2 bg-black hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
+              >
+                <Printer size={14} />
+                <span>Print Job Docket Sheet</span>
+              </button>
+            </div>
+
+            {/* EXACT SPREADSHEET TABLE LAYOUT MATCHING USER IMAGE */}
+            <div ref={printDocketRef} className="space-y-4 text-xs font-sans text-black">
+              {/* Header Table */}
+              <table className="w-full border-collapse border-2 border-black text-left">
+                <tbody>
+                  <tr className="border-b border-black font-bold">
+                    <td className="p-2 border-r border-black w-24 bg-gray-100 uppercase">Order NO</td>
+                    <td className="p-2 border-r border-black font-black text-base uppercase" colSpan={2}>
+                      {selectedOrder.customerName}
+                    </td>
+                    <td className="p-2 border-r border-black w-28 bg-gray-100 uppercase">Delivery Date</td>
+                    <td className="p-2 w-24 font-bold text-center">{selectedOrder.deliveryDate}</td>
+                  </tr>
+                  <tr className="border-b border-black">
+                    <td className="p-2 border-r border-black font-bold text-center bg-gray-100">{selectedOrder.orderNo}</td>
+                    <td className="p-2 border-r border-black font-bold" colSpan={2}>CUSTOMER NAME: {selectedOrder.customerName}</td>
+                    <td className="p-2 border-r border-black bg-gray-100 font-bold uppercase text-right">Rate</td>
+                    <td className="p-2 font-black text-center text-sm">₹{selectedOrder.ratePerPiece}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {/* Main 2-Column Section: Left (Order Details + Status + Payments), Right (Quantity Details Size Table) */}
+              <div className="grid grid-cols-12 gap-0 border-2 border-black">
+                {/* LEFT SECTION (7 Cols): ORDER DETAILS + STATUS + PAYMENT DETAILS */}
+                <div className="col-span-7 border-r-2 border-black flex flex-col justify-between">
+                  {/* 1. ORDER DETAILS TABLE */}
+                  <div>
+                    <div className="bg-gray-200 p-2 font-black uppercase tracking-wider text-center border-b border-black">
+                      ORDER DETAILS
+                    </div>
+                    <table className="w-full border-collapse text-left text-[11px]">
+                      <tbody>
+                        <tr className="border-b border-gray-300">
+                          <td className="p-1.5 border-r border-black w-8 text-center font-bold">1</td>
+                          <td className="p-1.5 border-r border-black font-bold w-36">Fabric</td>
+                          <td className="p-1.5 font-bold">{selectedOrder.fabricType}</td>
+                        </tr>
+                        <tr className="border-b border-gray-300">
+                          <td className="p-1.5 border-r border-black w-8 text-center font-bold">2</td>
+                          <td className="p-1.5 border-r border-black font-bold">Print details</td>
+                          <td className="p-1.5 font-bold">{selectedOrder.printDetails}</td>
+                        </tr>
+                        <tr className="border-b border-gray-300">
+                          <td className="p-1.5 border-r border-black w-8 text-center font-bold">3</td>
+                          <td className="p-1.5 border-r border-black font-bold">Collar Type</td>
+                          <td className="p-1.5 font-bold">{selectedOrder.collarType}</td>
+                        </tr>
+                        <tr className="border-b border-gray-300">
+                          <td className="p-1.5 border-r border-black w-8 text-center font-bold">4</td>
+                          <td className="p-1.5 border-r border-black font-bold">Collar color</td>
+                          <td className="p-1.5 font-bold">{selectedOrder.collarColor}</td>
+                        </tr>
+                        <tr className="border-b border-gray-300">
+                          <td className="p-1.5 border-r border-black w-8 text-center font-bold">5</td>
+                          <td className="p-1.5 border-r border-black font-bold">Hand color</td>
+                          <td className="p-1.5 font-bold">{selectedOrder.handColor}</td>
+                        </tr>
+                        <tr className="border-b border-black">
+                          <td className="p-1.5 border-r border-black w-8 text-center font-bold">6</td>
+                          <td className="p-1.5 border-r border-black font-bold">Hand stripe or piping</td>
+                          <td className="p-1.5 font-bold">{selectedOrder.handStripePiping}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    {/* 2. ORDER STATUS TABLE */}
+                    <div className="bg-gray-200 p-2 font-black uppercase tracking-wider text-center border-t border-b border-black">
+                      ORDER STATUS
+                    </div>
+                    <table className="w-full border-collapse text-left text-[11px]">
+                      <tbody>
+                        <tr className="border-b border-gray-300">
+                          <td className="p-1.5 border-r border-black w-8 text-center font-bold">1</td>
+                          <td className="p-1.5 border-r border-black font-bold w-36">Design</td>
+                          <td className="p-1.5 font-bold">
+                            <span className={selectedOrder.statusDesign === "Done" ? "text-emerald-700" : "text-amber-700"}>
+                              {selectedOrder.statusDesign}
+                            </span>
+                          </td>
+                        </tr>
+                        <tr className="border-b border-gray-300">
+                          <td className="p-1.5 border-r border-black w-8 text-center font-bold">2</td>
+                          <td className="p-1.5 border-r border-black font-bold">Fabric</td>
+                          <td className="p-1.5 font-bold">
+                            <span className={selectedOrder.statusFabric === "Done" ? "text-emerald-700" : "text-amber-700"}>
+                              {selectedOrder.statusFabric}
+                            </span>
+                          </td>
+                        </tr>
+                        <tr className="border-b border-gray-300">
+                          <td className="p-1.5 border-r border-black w-8 text-center font-bold">3</td>
+                          <td className="p-1.5 border-r border-black font-bold">Print</td>
+                          <td className="p-1.5 font-bold">
+                            <span className={selectedOrder.statusPrint === "Done" ? "text-emerald-700" : "text-amber-700"}>
+                              {selectedOrder.statusPrint}
+                            </span>
+                          </td>
+                        </tr>
+                        <tr className="border-b border-black">
+                          <td className="p-1.5 border-r border-black w-8 text-center font-bold">4</td>
+                          <td className="p-1.5 border-r border-black font-bold">Stitch</td>
+                          <td className="p-1.5 font-bold">
+                            <span className={selectedOrder.statusStitch === "Done" ? "text-emerald-700" : "text-amber-700"}>
+                              {selectedOrder.statusStitch}
+                            </span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* 3. PAYMENT DETAILS TABLE */}
+                  <div>
+                    <div className="bg-gray-200 p-2 font-black uppercase tracking-wider text-center border-t border-b border-black">
+                      PAYMENT DETAILS
+                    </div>
+                    <table className="w-full border-collapse text-left text-[11px]">
+                      <tbody>
+                        <tr className="border-b border-gray-300">
+                          <td className="p-1.5 border-r border-black w-8 text-center font-bold">1</td>
+                          <td className="p-1.5 border-r border-black font-bold w-44">Advance payment 1</td>
+                          <td className="p-1.5 font-black text-emerald-600 text-right">
+                            {selectedOrder.advance1 ? selectedOrder.advance1.toLocaleString("en-IN") : ""}
+                          </td>
+                        </tr>
+                        <tr className="border-b border-gray-300">
+                          <td className="p-1.5 border-r border-black w-8 text-center font-bold">2</td>
+                          <td className="p-1.5 border-r border-black font-bold">Advance payment 2</td>
+                          <td className="p-1.5 font-black text-right">
+                            {selectedOrder.advance2 ? selectedOrder.advance2.toLocaleString("en-IN") : ""}
+                          </td>
+                        </tr>
+                        <tr className="border-b border-black">
+                          <td className="p-1.5 border-r border-black w-8 text-center font-bold">3</td>
+                          <td className="p-1.5 border-r border-black font-bold">Advance payment 3</td>
+                          <td className="p-1.5 font-black text-right">
+                            {selectedOrder.advance3 ? selectedOrder.advance3.toLocaleString("en-IN") : ""}
+                          </td>
+                        </tr>
+                        <tr className="border-b border-black bg-gray-100 font-bold">
+                          <td className="p-2 border-r border-black font-black uppercase" colSpan={2}>TOTAL AMOUNT</td>
+                          <td className="p-2 font-black text-right text-sm">
+                            ₹{calculateTotals(selectedOrder).totalAdvanceReceived.toLocaleString("en-IN")}
+                          </td>
+                        </tr>
+                        <tr className="font-bold bg-gray-50">
+                          <td className="p-2 border-r border-black font-black uppercase" colSpan={2}>Balance Amount</td>
+                          <td className={`p-2 font-black text-right text-sm ${calculateTotals(selectedOrder).balanceAmount === 0 ? "text-emerald-700" : "text-red-600"}`}>
+                            ₹{calculateTotals(selectedOrder).balanceAmount.toLocaleString("en-IN")}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-                <span className="text-xs text-slate-400">{selectedOrder.jerseysCount} Jerseys · {selectedOrder.dueDate}</span>
-              </div>
 
-              {/* PRIMARY AI ACTION BUTTON (PURPLE) */}
-              <button
-                onClick={() => {
-                  alert(`AI Nesting & 300 DPI Export initiated for Order ${selectedOrder.orderNum}`);
-                  if (onNavigateTab) onNavigateTab("printQueue");
-                }}
-                className="px-5 py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-purple-500/30 transition-all cursor-pointer"
-              >
-                <Sparkles size={16} />
-                <span>Generate Files (AI)</span>
-              </button>
-            </div>
+                {/* RIGHT SECTION (5 Cols): QUANTITY DETAILS (SIZES 20 to 50 MATRIX) */}
+                <div className="col-span-5 flex flex-col justify-between">
+                  <div>
+                    <div className="bg-gray-200 p-2 font-black uppercase tracking-wider text-center border-b border-black">
+                      Quantity Details
+                    </div>
+                    <table className="w-full border-collapse text-center text-[11px]">
+                      <thead>
+                        <tr className="border-b border-black font-bold bg-gray-100">
+                          <th className="p-1.5 border-r border-black w-1/3">Size</th>
+                          <th className="p-1.5 border-r border-black w-1/3">Half</th>
+                          <th className="p-1.5 w-1/3">Full</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {defaultSizesList.map((sz) => {
+                          const matchingRow = selectedOrder.sizeGrid.find((r) => r.size === sz);
+                          const half = matchingRow?.halfQty || 0;
+                          const full = matchingRow?.fullQty || 0;
+                          return (
+                            <tr key={sz} className="border-b border-gray-300">
+                              <td className="p-1 border-r border-black font-bold bg-gray-50">{sz}</td>
+                              <td className="p-1 border-r border-black font-bold">{half > 0 ? half : ""}</td>
+                              <td className="p-1 font-bold">{full > 0 ? full : ""}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
 
-            {/* Unified Order Specs Grid */}
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
-                <span className="text-slate-400 font-semibold block mb-1">Customer CRM</span>
-                <span className="font-bold text-white flex items-center gap-1.5">
-                  <User size={14} className="text-cyan-400" />
-                  {selectedOrder.customerName}
-                </span>
+                  {/* Quantity Totals Footer */}
+                  <div className="border-t-2 border-black bg-gray-100">
+                    <div className="flex border-b border-black font-bold text-center">
+                      <div className="w-1/3 p-1.5 border-r border-black uppercase font-black">Total</div>
+                      <div className="w-1/3 p-1.5 border-r border-black font-black text-sm">
+                        {calculateTotals(selectedOrder).totalHalf || 0}
+                      </div>
+                      <div className="w-1/3 p-1.5 font-black text-sm">
+                        {calculateTotals(selectedOrder).totalFull || 0}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-2 font-black text-sm uppercase">
+                      <span>Total Quantity</span>
+                      <span className="text-base font-black bg-black text-white px-3 py-1 rounded">
+                        {calculateTotals(selectedOrder).totalQty}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
-
-              <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
-                <span className="text-slate-400 font-semibold block mb-1">Artwork Status</span>
-                <span className={`font-bold flex items-center gap-1.5 ${selectedOrder.artworkApproved ? "text-emerald-400" : "text-amber-400"}`}>
-                  <Palette size={14} />
-                  {selectedOrder.artworkApproved ? "Approved ✓" : "Pending Review"}
-                </span>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
-                <span className="text-slate-400 font-semibold block mb-1">Roster CSV File</span>
-                <span className={`font-bold flex items-center gap-1.5 ${selectedOrder.csvUploaded ? "text-emerald-400" : "text-amber-400"}`}>
-                  <FileSpreadsheet size={14} />
-                  {selectedOrder.csvUploaded ? "Uploaded ✓" : "Missing CSV"}
-                </span>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
-                <span className="text-slate-400 font-semibold block mb-1">Selected Pattern</span>
-                <span className="font-bold text-white flex items-center gap-1.5">
-                  <Cpu size={14} className="text-purple-400" />
-                  {selectedOrder.templateName}
-                </span>
-              </div>
-            </div>
-
-            {/* Payment & Invoice Summary */}
-            <div className="p-4 rounded-2xl bg-slate-950/90 border border-slate-800 text-xs space-y-2">
-              <div className="flex justify-between text-slate-300">
-                <span>Total Order Value:</span>
-                <span className="font-bold text-white">₹{selectedOrder.totalAmount.toLocaleString("en-IN")}</span>
-              </div>
-              <div className="flex justify-between text-slate-300">
-                <span>Advance Paid:</span>
-                <span className="font-bold text-emerald-400">₹{selectedOrder.advancePaid.toLocaleString("en-IN")}</span>
-              </div>
-              <div className="flex justify-between text-slate-300 pt-2 border-t border-slate-800">
-                <span className="font-bold text-white">Remaining Balance:</span>
-                <span className="font-black text-amber-400 text-sm">
-                  ₹{(selectedOrder.totalAmount - selectedOrder.advancePaid).toLocaleString("en-IN")}
-                </span>
-              </div>
-            </div>
-
-            {/* Secondary Actions Row */}
-            <div className="flex flex-wrap items-center gap-3 pt-2">
-              <button
-                onClick={() => {
-                  alert(`Invoice Payment link sent for Order ${selectedOrder.orderNum}`);
-                }}
-                className="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
-              >
-                <Send size={14} className="text-cyan-400" />
-                <span>Send Invoice Link</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  alert(`Downloading ready files for Order ${selectedOrder.orderNum}`);
-                }}
-                className="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
-              >
-                <Download size={14} className="text-emerald-400" />
-                <span>Download ZIP</span>
-              </button>
             </div>
           </div>
         )}
       </div>
+
+      {/* NEW ORDER MODAL DOCKET CREATION */}
+      <AnimatePresence>
+        {newOrderModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 max-w-3xl w-full text-white space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto text-left"
+            >
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                <h2 className="text-xl font-black">Create New Production Docket Sheet</h2>
+                <button
+                  onClick={() => setNewOrderModalOpen(false)}
+                  className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Form Grid */}
+              <div className="grid md:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Order NO</label>
+                  <input
+                    type="text"
+                    value={formOrderNo}
+                    onChange={(e) => setFormOrderNo(e.target.value)}
+                    className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">CUSTOMER NAME *</label>
+                  <input
+                    type="text"
+                    value={formCustomerName}
+                    onChange={(e) => setFormCustomerName(e.target.value)}
+                    placeholder="e.g. Vakratunda Musical Group"
+                    className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-cyan-400 font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Delivery Date</label>
+                  <input
+                    type="text"
+                    value={formDeliveryDate}
+                    onChange={(e) => setFormDeliveryDate(e.target.value)}
+                    placeholder="DD-MM-YY (e.g. 14-04-26)"
+                    className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Rate per pc (₹)</label>
+                  <input
+                    type="number"
+                    value={formRate}
+                    onChange={(e) => setFormRate(Number(e.target.value))}
+                    className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-cyan-400 font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Fabric Type</label>
+                  <input
+                    type="text"
+                    value={formFabric}
+                    onChange={(e) => setFormFabric(e.target.value)}
+                    placeholder="N. Net, Micro Poly, Spandex"
+                    className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Print Details</label>
+                  <input
+                    type="text"
+                    value={formPrintDetails}
+                    onChange={(e) => setFormPrintDetails(e.target.value)}
+                    placeholder="Full Sublimation, Front Only"
+                    className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Collar Type</label>
+                  <input
+                    type="text"
+                    value={formCollarType}
+                    onChange={(e) => setFormCollarType(e.target.value)}
+                    placeholder="Ready made, Chinese Collar, V-Neck"
+                    className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Collar Color</label>
+                  <input
+                    type="text"
+                    value={formCollarColor}
+                    onChange={(e) => setFormCollarColor(e.target.value)}
+                    placeholder="Black, Navy, White"
+                    className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Hand/Sleeve Color</label>
+                  <input
+                    type="text"
+                    value={formHandColor}
+                    onChange={(e) => setFormHandColor(e.target.value)}
+                    placeholder="Printed, Solid Black"
+                    className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Hand Stripe / Piping</label>
+                  <input
+                    type="text"
+                    value={formHandStripe}
+                    onChange={(e) => setFormHandStripe(e.target.value)}
+                    placeholder="Black Piping, White Stripe"
+                    className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Advance Payment 1 (₹)</label>
+                  <input
+                    type="number"
+                    value={formAdvance1}
+                    onChange={(e) => setFormAdvance1(Number(e.target.value))}
+                    className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-emerald-400 outline-none focus:border-cyan-400 font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Advance Payment 2 (₹)</label>
+                  <input
+                    type="number"
+                    value={formAdvance2}
+                    onChange={(e) => setFormAdvance2(Number(e.target.value))}
+                    className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-cyan-400 font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Size Grid Quantity Matrix */}
+              <div className="space-y-2 text-xs pt-2 border-t border-slate-800">
+                <span className="block font-bold text-white">Size-Wise Quantity Matrix (Sizes 20 to 50)</span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto p-2 bg-slate-950 rounded-2xl border border-slate-800">
+                  {formSizeGrid.map((row, idx) => (
+                    <div key={row.size} className="p-2 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                      <span className="font-bold text-cyan-400 block text-center">Size {row.size}</span>
+                      <div className="flex gap-1">
+                        <input
+                          type="number"
+                          placeholder="Half"
+                          value={row.halfQty || ""}
+                          onChange={(e) => {
+                            const updated = [...formSizeGrid];
+                            updated[idx].halfQty = Number(e.target.value);
+                            setFormSizeGrid(updated);
+                          }}
+                          className="w-1/2 p-1 text-center bg-slate-950 border border-slate-700 rounded text-[11px] text-white"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Full"
+                          value={row.fullQty || ""}
+                          onChange={(e) => {
+                            const updated = [...formSizeGrid];
+                            updated[idx].fullQty = Number(e.target.value);
+                            setFormSizeGrid(updated);
+                          }}
+                          className="w-1/2 p-1 text-center bg-slate-950 border border-slate-700 rounded text-[11px] text-white"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
+                <button
+                  onClick={() => setNewOrderModalOpen(false)}
+                  className="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={handleCreateOrder}
+                  className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs shadow-lg shadow-purple-500/25"
+                >
+                  Save & Generate Production Docket
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
