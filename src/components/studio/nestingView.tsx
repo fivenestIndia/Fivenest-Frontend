@@ -1415,7 +1415,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
       const designDebitCost = totalPieces * activeRate;
       const cleanCust = metadata?.customerName || "Studio Client";
       const cleanOrder = metadata?.orderNum || "01";
-      const userEmail = currentUserEmail || 'guest';
+      const userEmail = currentUser?.email || 'guest';   // ← use currentUser prop
       const timestamp = Date.now();
       const exportId = `RIP-EXP-${cleanOrder}-${timestamp}`;
 
@@ -1433,6 +1433,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
         advance: 0
       };
 
+      // Write to all 3 keys so billing page always finds it
       const keysToUpdate = [
         `fivenest_studio_export_billing_${userEmail.toLowerCase().trim()}`,
         `fivenest_studio_export_billing_guest`,
@@ -1446,7 +1447,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
         localStorage.setItem(k, JSON.stringify(list));
       });
 
-      console.log("Logged Print Production Export Billing Entry:", newRecord);
+      console.log(`[FiveNest] Logged billing entry: ${exportId} — ${totalPieces} panels × ₹${activeRate} = ₹${designDebitCost}`);
     } catch (err) {
       console.error("Failed to log print export billing entry:", err);
     }

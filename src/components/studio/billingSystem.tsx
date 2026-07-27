@@ -57,7 +57,7 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
   };
 
   // Load user-scoped billing data combining BOTH Order Dockets and Web Studio Print Production Exports
-  useEffect(() => {
+  const loadBillingData = React.useCallback(() => {
     const userEmail = currentUser?.email || 'guest';
     const keysToCheck = [
       `fivenest_studio_export_billing_${userEmail.toLowerCase().trim()}`,
@@ -113,7 +113,23 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
     // Combine studio 300 DPI exports + order dockets into master billing ledger
     const combinedList = [...studioExports, ...syncedFromOrders];
     setBillingList(combinedList);
-  }, [orders, userStorageKey, currentUser?.email]);
+  }, [orders, currentUser?.email]);
+
+  // Run on mount and whenever orders or user changes
+  useEffect(() => {
+    loadBillingData();
+  }, [loadBillingData]);
+
+  // Auto-refresh billing when Studio writes a print export entry to localStorage
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key && e.key.startsWith('fivenest_studio_export_billing_')) {
+        loadBillingData();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [loadBillingData]);
 
   // Save billing data whenever billingList is modified by user
   useEffect(() => {
