@@ -959,7 +959,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
       const sizeWatermarks = savedWater !== null ? JSON.parse(savedWater) : true;
 
       const drawTechnicalMarks = () => {
-        const stroke7ptPx = Math.max(1, Math.round((7 / 72) * scaleDpi));
+        const stroke3ptPx = Math.max(1, Math.round((3 / 72) * scaleDpi));
 
         if (centerMarks && item.panelType !== 'a4-print') {
           ctx.save();
@@ -969,11 +969,11 @@ export const NestingView: React.FC<NestingViewProps> = ({
           const hPx = Math.round(0.2 * scaleDpi);
           const leftEdgeXPx = Math.round(widthPx / 2 - wPx / 2);
 
-          // White 7pt outside stroke for technical center marks
+          // White 3pt outside stroke for technical center marks
           ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = stroke7ptPx;
-          ctx.strokeRect(leftEdgeXPx - stroke7ptPx / 2, 0, wPx + stroke7ptPx, hPx + stroke7ptPx / 2);
-          ctx.strokeRect(leftEdgeXPx - stroke7ptPx / 2, heightPx - hPx - stroke7ptPx / 2, wPx + stroke7ptPx, hPx + stroke7ptPx / 2);
+          ctx.lineWidth = stroke3ptPx;
+          ctx.strokeRect(leftEdgeXPx - stroke3ptPx / 2, 0, wPx + stroke3ptPx, hPx + stroke3ptPx / 2);
+          ctx.strokeRect(leftEdgeXPx - stroke3ptPx / 2, heightPx - hPx - stroke3ptPx / 2, wPx + stroke3ptPx, hPx + stroke3ptPx / 2);
 
           // Top Center & Bottom Center solid patch in Red
           ctx.fillStyle = '#ff1744';
@@ -1003,11 +1003,11 @@ export const NestingView: React.FC<NestingViewProps> = ({
                 ? (isRaglan ? 'RAGLAN FULL' : 'FULL')
                 : (isRaglan ? 'RAGLAN HALF' : 'HALF');
 
-              // White 7pt outside stroke
+              // White 3pt outside stroke
               ctx.lineJoin = 'round';
               ctx.lineCap = 'round';
               ctx.strokeStyle = '#ffffff';
-              ctx.lineWidth = stroke7ptPx * 2;
+              ctx.lineWidth = stroke3ptPx * 2;
               ctx.strokeText(typeStr, widthPx - offset, offset);
 
               // Red Fill
@@ -1131,7 +1131,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
         }
 
         // Draw customizable Size Tag (Top Left)
-        const sizeTagConf = conf.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
+        const sizeTagConf = conf.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
         if (sizeTagConf.enabled && item.panelType !== 'a4-print') {
           ctx.save();
           const fontSizePx = Math.round(((sizeTagConf.fontSize * 0.78) / 72) * scaleDpi);
@@ -1188,7 +1188,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
           ctx.scale(0.80, 1.0);
           const compressedDrawX = drawX / 0.80;
 
-          const sw = sizeTagConf.strokeWidth > 0 ? sizeTagConf.strokeWidth : 7;
+          const sw = sizeTagConf.strokeWidth > 0 ? sizeTagConf.strokeWidth : 3;
           const swPx = Math.max(1, Math.round((sw / 72) * scaleDpi));
 
           ctx.strokeStyle = sizeTagConf.strokeColor || '#ffffff';

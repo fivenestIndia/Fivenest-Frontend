@@ -92,7 +92,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     uploadedFileUrl: null,
     nameConfig: { enabled: false, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     numberConfig: { enabled: false, yPos: 44, fontSize: 3.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 3, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.08 },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [2.0, 8.5, 11.0, 13.5, 20.0], horizontal: [7.0, 10.0, 12.0, 27.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 15.0, yPos: 8.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 7.0, yPos: 8.5, lockAspectRatio: true },
@@ -106,7 +106,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     uploadedFileUrl: null,
     nameConfig: { enabled: true, yPos: 24, fontSize: 2.5, color: '#000000', strokeColor: '#ffffff', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 11, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.18 },
     numberConfig: { enabled: true, yPos: 47, fontSize: 9.0, color: '#000000', strokeColor: '#ffffff', strokeWidth: 5, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8.5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.2 },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 30, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0.06 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 30, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0.06 },
     guidelines: { vertical: [2.0, 11.0, 20.0], horizontal: [2.5, 6.0, 8.0, 9.5, 16.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
@@ -120,7 +120,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     uploadedFileUrl: null,
     nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [9.5], horizontal: [8.0] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
@@ -134,7 +134,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     uploadedFileUrl: null,
     nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [9.5], horizontal: [8.0] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
@@ -681,7 +681,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const savedWater = localStorage.getItem('fivenest_pref_size_watermarks');
       const sizeWatermarks = savedWater !== null ? JSON.parse(savedWater) : true;
 
-      const stroke7ptPx = Math.max(1, Math.round((7 / 72) * scale));
+      const stroke3ptPx = Math.max(1, Math.round((3 / 72) * scale));
 
       if (centerMarks && panelKey !== 'a4Print') {
         ctx.save();
@@ -691,11 +691,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         const hPx = Math.round(0.2 * scale);
         const leftEdgeXPx = Math.round(width / 2 - wPx / 2);
 
-        // White 7pt outside stroke for technical center marks
+        // White 3pt outside stroke for technical center marks
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = stroke7ptPx;
-        ctx.strokeRect(leftEdgeXPx - stroke7ptPx / 2, 0, wPx + stroke7ptPx, hPx + stroke7ptPx / 2);
-        ctx.strokeRect(leftEdgeXPx - stroke7ptPx / 2, height - hPx - stroke7ptPx / 2, wPx + stroke7ptPx, hPx + stroke7ptPx / 2);
+        ctx.lineWidth = stroke3ptPx;
+        ctx.strokeRect(leftEdgeXPx - stroke3ptPx / 2, 0, wPx + stroke3ptPx, hPx + stroke3ptPx / 2);
+        ctx.strokeRect(leftEdgeXPx - stroke3ptPx / 2, height - hPx - stroke3ptPx / 2, wPx + stroke3ptPx, hPx + stroke3ptPx / 2);
 
         // Top & Bottom center solid patch in Red
         ctx.fillStyle = '#ff1744';
@@ -721,11 +721,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ? (isRaglan ? 'RAGLAN FULL' : 'FULL')
             : (isRaglan ? 'RAGLAN HALF' : 'HALF');
 
-          // White 7pt outside stroke
+          // White 3pt outside stroke
           ctx.lineJoin = 'round';
           ctx.lineCap = 'round';
           ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = stroke7ptPx * 2;
+          ctx.lineWidth = stroke3ptPx * 2;
           ctx.strokeText(typeStr, width - offset, offset);
 
           // Red Fill
@@ -889,70 +889,87 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
     };
 
+    const rulersEnabled = !is3DPreview && JSON.parse(localStorage.getItem('fivenest_pref_rulers') || 'true');
+    const rulerOffset = rulersEnabled ? Math.round(0.35 * scale) : 0;
+
     const drawRulersAndGrid = (ctx: CanvasRenderingContext2D) => {
-      if (is3DPreview) return; // Skip rulers/grids in 3D preview
-      const rulersEnabled = JSON.parse(localStorage.getItem('fivenest_pref_rulers') || 'true');
-      if (!rulersEnabled) return;
+      if (is3DPreview || !rulersEnabled) return;
+
+      const isLightMode = document.querySelector('.app-layout')?.classList.contains('light');
 
       ctx.save();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.lineWidth = 1;
-
-      ctx.font = `${Math.max(8, Math.round(0.12 * scale))}px system-ui`;
       ctx.shadowColor = 'transparent';
 
-      // Guidelines customizable spacing
+      // 1. Gridlines inside artwork area (offset by rulerOffset)
       const gridSpacing = JSON.parse(localStorage.getItem('fivenest_pref_guideline_spacing') || '2');
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.strokeStyle = isLightMode ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.06)';
+      ctx.lineWidth = 0.5;
       ctx.setLineDash([Math.round(0.05 * scale), Math.round(0.05 * scale)]);
       for (let x = gridSpacing; x < physicalW; x += gridSpacing) {
-        const xPx = Math.round(x * scale);
+        const xPx = rulerOffset + Math.round(x * scale);
         ctx.beginPath();
-        ctx.moveTo(xPx, 0);
-        ctx.lineTo(xPx, height);
+        ctx.moveTo(xPx, rulerOffset);
+        ctx.lineTo(xPx, rulerOffset + height);
         ctx.stroke();
       }
       for (let y = gridSpacing; y < physicalH; y += gridSpacing) {
-        const yPx = Math.round(y * scale);
+        const yPx = rulerOffset + Math.round(y * scale);
         ctx.beginPath();
-        ctx.moveTo(0, yPx);
-        ctx.lineTo(width, yPx);
+        ctx.moveTo(rulerOffset, yPx);
+        ctx.lineTo(rulerOffset + width, yPx);
         ctx.stroke();
       }
-      ctx.setLineDash([]); // Reset dashed lines
+      ctx.setLineDash([]);
 
-      // Ruler size: 0.35 inches
-      const rulerHeightPx = Math.round(0.35 * scale);
-      
-      // Background bar
-      ctx.fillStyle = 'rgba(15, 15, 22, 0.9)';
-      ctx.fillRect(0, 0, width, rulerHeightPx);
-      ctx.fillRect(0, 0, rulerHeightPx, height);
+      // 2. Photoshop Ruler Background bars (OUTSIDE panel image area)
+      const rulerBg = isLightMode ? '#cbd5e1' : '#1e1e24';
+      const tickColor = isLightMode ? '#0f172a' : '#f8fafc';
+      const borderLineColor = isLightMode ? '#94a3b8' : '#334155';
 
-      // Borders
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+      // Top Ruler track (0 .. rulerOffset y)
+      ctx.fillStyle = rulerBg;
+      ctx.fillRect(rulerOffset, 0, width, rulerOffset);
+
+      // Left Ruler track (0 .. rulerOffset x)
+      ctx.fillRect(0, rulerOffset, rulerOffset, height);
+
+      // Top-Left Corner Junction Box
+      ctx.fillStyle = isLightMode ? '#94a3b8' : '#2a2a36';
+      ctx.fillRect(0, 0, rulerOffset, rulerOffset);
+
+      // Divider borders separating ruler from artwork area
+      ctx.strokeStyle = borderLineColor;
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(0, rulerHeightPx);
-      ctx.lineTo(width, rulerHeightPx);
-      ctx.moveTo(rulerHeightPx, 0);
-      ctx.lineTo(rulerHeightPx, height);
+      // Line under top ruler
+      ctx.moveTo(0, rulerOffset);
+      ctx.lineTo(rulerOffset + width, rulerOffset);
+      // Line to right of left ruler
+      ctx.moveTo(rulerOffset, 0);
+      ctx.lineTo(rulerOffset, rulerOffset + height);
       ctx.stroke();
 
-      ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = '#ffffff';
+      // Corner junction text "in"
+      ctx.fillStyle = tickColor;
+      ctx.font = `bold ${Math.max(8, Math.round(0.11 * scale))}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('in', rulerOffset / 2, rulerOffset / 2);
 
       // Top ticks
+      ctx.font = `${Math.max(8, Math.round(0.12 * scale))}px system-ui`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
+      ctx.strokeStyle = tickColor;
+      ctx.fillStyle = tickColor;
+
       for (let x = 0; x <= physicalW; x += 0.5) {
-        const xPx = Math.round(x * scale);
-        if (xPx < rulerHeightPx) continue;
+        const xPx = rulerOffset + Math.round(x * scale);
         const isWhole = x % 1 === 0;
-        const tickLen = isWhole ? Math.round(0.08 * scale) : Math.round(0.04 * scale);
+        const tickLen = isWhole ? Math.round(0.10 * scale) : Math.round(0.05 * scale);
         ctx.beginPath();
-        ctx.moveTo(xPx, rulerHeightPx - tickLen);
-        ctx.lineTo(xPx, rulerHeightPx);
+        ctx.moveTo(xPx, rulerOffset - tickLen);
+        ctx.lineTo(xPx, rulerOffset);
         ctx.stroke();
 
         if (isWhole && x > 0) {
@@ -964,13 +981,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
       for (let y = 0; y <= physicalH; y += 0.5) {
-        const yPx = Math.round(y * scale);
-        if (yPx < rulerHeightPx) continue;
+        const yPx = rulerOffset + Math.round(y * scale);
         const isWhole = y % 1 === 0;
-        const tickLen = isWhole ? Math.round(0.08 * scale) : Math.round(0.04 * scale);
+        const tickLen = isWhole ? Math.round(0.10 * scale) : Math.round(0.05 * scale);
         ctx.beginPath();
-        ctx.moveTo(rulerHeightPx - tickLen, yPx);
-        ctx.lineTo(rulerHeightPx, yPx);
+        ctx.moveTo(rulerOffset - tickLen, yPx);
+        ctx.lineTo(rulerOffset, yPx);
         ctx.stroke();
 
         if (isWhole && y > 0) {
@@ -978,147 +994,78 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         }
       }
 
-      // Draw custom guidelines
+      // 3. Custom Guidelines
       if (showGuidelines) {
         const customGuides = panel.guidelines || { vertical: [], horizontal: [] };
         ctx.save();
         ctx.strokeStyle = '#00f0ff'; // Cyan guideline color
-        ctx.lineWidth = 0.5; // Decreased thickness
+        ctx.lineWidth = 0.6;
         ctx.setLineDash([4, 4]);
 
         ctx.fillStyle = '#00f0ff';
         ctx.font = `bold ${Math.max(9, Math.round(0.12 * scale))}px system-ui`;
-        
-        // 1. Vertical Guides (constant X position)
+
         (customGuides.vertical || []).forEach(xVal => {
-          const xPx = Math.abs(xVal - physicalWidth / 2) < 0.01 ? Math.round(width / 2) : Math.round(xVal * scale);
-          if (xPx >= rulerHeightPx && xPx < width) {
+          const rawPx = Math.abs(xVal - physicalW / 2) < 0.01 ? Math.round(width / 2) : Math.round(xVal * scale);
+          const xPx = rulerOffset + rawPx;
+          if (xPx >= rulerOffset && xPx <= rulerOffset + width) {
             ctx.beginPath();
-            ctx.moveTo(xPx, rulerHeightPx);
-            ctx.lineTo(xPx, height);
+            ctx.moveTo(xPx, rulerOffset);
+            ctx.lineTo(xPx, rulerOffset + height);
             ctx.stroke();
 
-            // Draw a label tag on top ruler
+            // Label tag on top ruler
             ctx.save();
-            ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
-            ctx.fillRect(xPx - 16, 2, 32, rulerHeightPx - 4);
+            ctx.fillStyle = 'rgba(0, 240, 255, 0.25)';
+            ctx.fillRect(xPx - 16, 2, 32, rulerOffset - 4);
             ctx.fillStyle = '#00f0ff';
             ctx.textAlign = 'center';
-            ctx.textBaseline = 'top';
-            ctx.fillText(`${xVal.toFixed(1)}`, xPx, 4);
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${xVal.toFixed(1)}"`, xPx, rulerOffset / 2);
             ctx.restore();
           }
         });
 
-        // 2. Horizontal Guides (constant Y position)
         (customGuides.horizontal || []).forEach(yVal => {
-          const yPx = Math.abs(yVal - physicalHeight / 2) < 0.01 ? Math.round(height / 2) : Math.round(yVal * scale);
-          if (yPx >= rulerHeightPx && yPx < height) {
+          const yPx = rulerOffset + Math.round(yVal * scale);
+          if (yPx >= rulerOffset && yPx <= rulerOffset + height) {
             ctx.beginPath();
-            ctx.moveTo(rulerHeightPx, yPx);
-            ctx.lineTo(width, yPx);
+            ctx.moveTo(rulerOffset, yPx);
+            ctx.lineTo(rulerOffset + width, yPx);
             ctx.stroke();
 
-            // Draw a label tag on left ruler
+            // Label tag on left ruler
             ctx.save();
-            ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
-            ctx.fillRect(2, yPx - 7, rulerHeightPx - 4, 14);
+            ctx.fillStyle = 'rgba(0, 240, 255, 0.25)';
+            ctx.fillRect(2, yPx - 8, rulerOffset - 4, 16);
             ctx.fillStyle = '#00f0ff';
-            ctx.textAlign = 'left';
+            ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(`${yVal.toFixed(1)}`, 4, yPx);
+            ctx.fillText(`${yVal.toFixed(1)}"`, rulerOffset / 2, yPx);
             ctx.restore();
           }
         });
         ctx.restore();
       }
-
       ctx.restore();
     };
 
-    const drawLogos = (ctx: CanvasRenderingContext2D) => {
-      const hideOverlays = metadata?.blankKit ?? false;
-      if (hideOverlays) return;
-      
-      const drawSingleLogo = (logo: LogoConfig | undefined, isTorso: boolean = false) => {
-        if (!logo || !logo.enabled) return;
+    const drawPanelArtwork = () => {
+      ctx.save();
+      if (rulerOffset > 0) {
+        ctx.translate(rulerOffset, rulerOffset);
+      }
 
-        if (isTorso && logo.text && logo.text.trim()) {
-          ctx.save();
-          const xPx = logo.xPos * scale;
-          const yPx = logo.yPos * scale;
-          const wPx = logo.width * scale;
-          const hPx = logo.height * scale;
+      let bgUrl = panel.uploadedFileUrl;
+      if (panelKey.startsWith('sleeve')) {
+        bgUrl = previewSleeveType === 'full' 
+          ? (panel.uploadedFileFullUrl || panel.uploadedFileUrl) 
+          : (panel.uploadedFileHalfUrl || panel.uploadedFileUrl);
+      }
 
-          ctx.font = `bold ${hPx}px OldSport02AthleticNcv-E0gj, Impact, sans-serif`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillStyle = '#ffffff';
-          ctx.strokeStyle = '#000000';
-          ctx.lineWidth = Math.max(1, Math.round(0.06 * hPx));
-
-          ctx.strokeText(logo.text, xPx, yPx, wPx);
-          ctx.fillText(logo.text, xPx, yPx, wPx);
-          ctx.restore();
-          return;
-        }
-
-        if (!logo.uploadedUrl) return;
-        const cachedImg = logoImagesRef.current[logo.uploadedUrl];
-        if (!cachedImg) {
-          // Asynchronously load the logo and cache it, then trigger redraw
-          const img = new Image();
-          img.onload = () => {
-            logoImagesRef.current[logo.uploadedUrl!] = img;
-            setPrefTrigger(prev => prev + 1);
-          };
-          img.src = logo.uploadedUrl;
-          return;
-        }
-
-        ctx.save();
-        const wPx = logo.width * scale;
-        const hPx = logo.height * scale;
-        const xPx = logo.xPos * scale;
-        const yPx = logo.yPos * scale;
-
-        ctx.drawImage(cachedImg, xPx - wPx / 2, yPx - hPx / 2, wPx, hPx);
-        ctx.restore();
-      };
-
-      drawSingleLogo(panel.leftChestLogo, false);
-      drawSingleLogo(panel.rightChestLogo, false);
-      drawSingleLogo(panel.torsoLogo, true);
-    };
-
-    // Draw Background
-    let bgUrl = panel.uploadedFileUrl;
-    if (panelKey.startsWith('sleeve')) {
-      bgUrl = previewSleeveType === 'full' 
-        ? (panel.uploadedFileFullUrl || panel.uploadedFileUrl) 
-        : (panel.uploadedFileHalfUrl || panel.uploadedFileUrl);
-    }
-
-    if (panel.backgroundType === 'upload' && bgUrl) {
-      const cachedImg = logoImagesRef.current[bgUrl];
-      if (cachedImg && cachedImg.complete) {
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, width, height);
-
-        const bgW = (panel.bgWidth !== undefined ? panel.bgWidth : physicalW) * scale;
-        const bgH = (panel.bgHeight !== undefined ? panel.bgHeight : physicalH) * scale;
-        const bgX = (panel.bgX !== undefined ? panel.bgX : 0) * scale;
-        const bgY = (panel.bgY !== undefined ? panel.bgY : 0) * scale;
-
-        ctx.drawImage(cachedImg, bgX, bgY, bgW, bgH);
-        drawLogos(ctx);
-        drawTexts(ctx);
-        drawTechnicalMarks(ctx);
-        drawRulersAndGrid(ctx);
-      } else {
-        const img = new Image();
-        img.onload = () => {
-          logoImagesRef.current[bgUrl] = img;
+      if (panel.backgroundType === 'upload' && bgUrl) {
+        const cachedImg = logoImagesRef.current[bgUrl];
+        if (cachedImg && cachedImg.complete) {
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, width, height);
 
@@ -1127,83 +1074,82 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           const bgX = (panel.bgX !== undefined ? panel.bgX : 0) * scale;
           const bgY = (panel.bgY !== undefined ? panel.bgY : 0) * scale;
 
-          ctx.drawImage(img, bgX, bgY, bgW, bgH);
+          ctx.drawImage(cachedImg, bgX, bgY, bgW, bgH);
           drawLogos(ctx);
           drawTexts(ctx);
           drawTechnicalMarks(ctx);
-          drawRulersAndGrid(ctx);
-          setPrefTrigger(prev => prev + 1);
-        };
-        img.onerror = () => {
+        } else {
+          const img = new Image();
+          img.onload = () => {
+            logoImagesRef.current[bgUrl] = img;
+            setPrefTrigger(prev => prev + 1);
+          };
+          img.src = bgUrl;
           ctx.fillStyle = panelKey === 'a4Print' ? '#ffffff' : '#1c1c24';
           ctx.fillRect(0, 0, width, height);
           drawLogos(ctx);
           drawTexts(ctx);
           drawTechnicalMarks(ctx);
-          drawRulersAndGrid(ctx);
-        };
-        img.src = bgUrl;
-      }
-    } else {
-      const c1 = panel.generatedColor1;
-      const c2 = panel.generatedColor2;
-      
-      if (panel.generatedStyle === 'neon-gradient') {
-        const gradient = ctx.createRadialGradient(width/2, height/2, 50, width/2, height/2, width*0.8);
-        gradient.addColorStop(0, c1);
-        gradient.addColorStop(1, c2);
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, width, height);
-      } else if (panel.generatedStyle === 'classic-stripes') {
-        ctx.fillStyle = c2;
-        ctx.fillRect(0, 0, width, height);
-        
-        ctx.fillStyle = c1;
-        ctx.beginPath();
-        for (let i = -100; i < width + height; i += 60) {
-          ctx.moveTo(i, 0);
-          ctx.lineTo(i + 30, 0);
-          ctx.lineTo(i - 100 + 30, height);
-          ctx.lineTo(i - 100, height);
         }
-        ctx.fill();
-      } else if (panel.generatedStyle === 'camo-glow') {
-        ctx.fillStyle = '#111';
-        ctx.fillRect(0, 0, width, height);
-        
-        ctx.fillStyle = c1;
-        ctx.beginPath();
-        ctx.arc(width * 0.3, height * 0.25, 80, 0, Math.PI * 2);
-        ctx.arc(width * 0.7, height * 0.75, 120, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.fillStyle = c2;
-        ctx.beginPath();
-        ctx.arc(width * 0.8, height * 0.25, 60, 0, Math.PI * 2);
-        ctx.arc(width * 0.2, height * 0.8, 90, 0, Math.PI * 2);
-        ctx.fill();
       } else {
-        ctx.fillStyle = panelKey === 'a4Print' ? '#ffffff' : '#1c1c24';
-        ctx.fillRect(0, 0, width, height);
+        const c1 = panel.generatedColor1;
+        const c2 = panel.generatedColor2;
+        
+        if (panel.generatedStyle === 'neon-gradient') {
+          const gradient = ctx.createRadialGradient(width/2, height/2, 50, width/2, height/2, width*0.8);
+          gradient.addColorStop(0, c1);
+          gradient.addColorStop(1, c2);
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, width, height);
+        } else if (panel.generatedStyle === 'classic-stripes') {
+          ctx.fillStyle = c2;
+          ctx.fillRect(0, 0, width, height);
+          
+          ctx.fillStyle = c1;
+          ctx.beginPath();
+          for (let i = -100; i < width + height; i += 60) {
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i + 30, 0);
+            ctx.lineTo(i - 100 + 30, height);
+            ctx.lineTo(i - 100, height);
+          }
+          ctx.fill();
+        } else if (panel.generatedStyle === 'camo-glow') {
+          ctx.fillStyle = '#111';
+          ctx.fillRect(0, 0, width, height);
+          
+          ctx.fillStyle = c1;
+          ctx.beginPath();
+          ctx.arc(width * 0.3, height * 0.25, 80, 0, Math.PI * 2);
+          ctx.arc(width * 0.7, height * 0.75, 120, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.fillStyle = c2;
+          ctx.beginPath();
+          ctx.arc(width * 0.8, height * 0.25, 60, 0, Math.PI * 2);
+          ctx.arc(width * 0.2, height * 0.8, 90, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillStyle = panelKey === 'a4Print' ? '#ffffff' : '#1c1c24';
+          ctx.fillRect(0, 0, width, height);
+        }
+        
+        if (!is3DPreview) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(10, 10, width - 20, height - 20);
+        }
+        
+        drawLogos(ctx);
+        drawTexts(ctx);
+        drawTechnicalMarks(ctx);
       }
-      
-      if (!is3DPreview) {
-        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(10, 10, width - 20, height - 20);
-      }
-      
-      drawLogos(ctx);
-      drawTexts(ctx);
-      drawTechnicalMarks(ctx);
-      drawRulersAndGrid(ctx);
-    }
+      ctx.restore();
+    };
+
+    drawPanelArtwork();
+    drawRulersAndGrid(ctx);
   };
-
-  // Active text layer for alignment shortcuts ('name' | 'number')
-  const [activeTextLayer, setActiveTextLayer] = useState<'name' | 'number'>('name');
-
-  // Keyboard Shortcuts for Text Alignment: C (Center), T (Top), B (Bottom), L (Left), R (Right)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement;
@@ -1254,8 +1200,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = width * zoom;
-    canvas.height = height * zoom;
+    const rulersEnabled = JSON.parse(localStorage.getItem('fivenest_pref_rulers') || 'true');
+    const rulerOffset = rulersEnabled ? Math.round(0.35 * scale) : 0;
+
+    canvas.width = (width + rulerOffset) * zoom;
+    canvas.height = (height + rulerOffset) * zoom;
     ctx.scale(zoom, zoom);
 
     renderPanelToCanvas(activeTab, ctx, width, height, scale, false);
