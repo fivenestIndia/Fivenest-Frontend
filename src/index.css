@@ -303,9 +303,10 @@
 
 .app-layout {
   display: flex;
-  height: 100vh;
+  min-height: 100vh;
   width: 100vw;
-  overflow: hidden;
+  max-width: 100%;
+  overflow-y: auto;
 }
 
 @media (max-width: 768px) {
@@ -440,7 +441,8 @@
   flex-grow: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
+  min-height: 100vh;
 }
 
 .top-navbar {
@@ -453,6 +455,9 @@
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 
 .navbar-title {
@@ -468,9 +473,9 @@
 
 .content-body {
   flex-grow: 1;
-  overflow: hidden;
+  overflow-y: auto;
   padding: 24px;
-  height: calc(100vh - 70px);
+  min-height: calc(100vh - 70px);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
