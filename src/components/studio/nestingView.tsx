@@ -1409,6 +1409,49 @@ export const NestingView: React.FC<NestingViewProps> = ({
     });
   };
 
+  const logPrintProductionExportBillingEntry = (totalPieces: number) => {
+    try {
+      const activeRate = includeWatermarkLogo ? 3.00 : 5.00;
+      const designDebitCost = totalPieces * activeRate;
+      const cleanCust = metadata?.customerName || "Studio Client";
+      const cleanOrder = metadata?.orderNum || "01";
+      const userEmail = currentUserEmail || 'guest';
+      const timestamp = Date.now();
+      const exportId = `RIP-EXP-${cleanOrder}-${timestamp}`;
+
+      const newRecord = {
+        id: exportId,
+        orderCode: `RIP-EXP-${cleanOrder}`,
+        date: new Date().toLocaleDateString("en-GB").replace(/\//g, "-"),
+        customerName: cleanCust,
+        fileName: `🖨️ 300 DPI Plotter RIP Export (${totalPieces} Panels)`,
+        whatsapp: "",
+        qty: totalPieces,
+        rate: activeRate,
+        designCharges: designDebitCost,
+        status: "Completed",
+        advance: 0
+      };
+
+      const keysToUpdate = [
+        `fivenest_studio_export_billing_${userEmail.toLowerCase().trim()}`,
+        `fivenest_studio_export_billing_guest`,
+        `fivenest_studio_export_billing_all`
+      ];
+
+      keysToUpdate.forEach(k => {
+        const existingStr = localStorage.getItem(k);
+        let list: any[] = existingStr ? JSON.parse(existingStr) : [];
+        list.unshift(newRecord);
+        localStorage.setItem(k, JSON.stringify(list));
+      });
+
+      console.log("Logged Print Production Export Billing Entry:", newRecord);
+    } catch (err) {
+      console.error("Failed to log print export billing entry:", err);
+    }
+  };
+
   // Compile full nesting sheets and save PDF
   const handleExportPDF = async () => {
     if (enableNesting && nestingSheets.length === 0) {
@@ -1863,6 +1906,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
           link.click();
           document.body.removeChild(link);
 
+          // Auto-log Print Production Export Billing Entry on ZIP export
+          logPrintProductionExportBillingEntry(totalPieces);
+
           // Now, generate and download a 72 DPI preview PDF alongside if activeDpi > 72 and not in testMode
           const needPreviewPdf = !testMode && activeDpi > 72;
           if (needPreviewPdf && renderActions.length > 0) {
@@ -1975,6 +2021,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
               previewPdf.save(`${cleanCust}_${cleanOrder}_Preview_72dpi.pdf`);
             }
           }
+
+          // Auto-log Print Production Export Billing Entry
+          logPrintProductionExportBillingEntry(totalPieces);
 
           setIsExporting(false);
           setExportProgress("");
@@ -2098,33 +2147,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
         }
 
         // Auto-log Print Production Export Billing Entry in Invoices & Billing
-        try {
-          const activeRate = includeWatermarkLogo ? 3.00 : 5.00;
-          const designDebitCost = totalPieces * activeRate;
-          const userEmail = currentUserEmail || 'guest';
-          const storageKey = `fivenest_studio_export_billing_${userEmail.toLowerCase().trim()}`;
-
-          const newRecord = {
-            id: `RIP-EXP-${cleanOrder}-${Date.now()}`,
-            orderCode: `RIP-EXP-${cleanOrder}`,
-            date: new Date().toLocaleDateString("en-GB").replace(/\//g, "-"),
-            customerName: cleanCust,
-            fileName: `🖨️ 300 DPI Plotter RIP Export (${totalPieces} Panels)`,
-            whatsapp: "",
-            qty: totalPieces,
-            rate: activeRate,
-            designCharges: designDebitCost,
-            status: "Completed",
-            advance: 0
-          };
-
-          const existingStr = localStorage.getItem(storageKey);
-          let list: any[] = existingStr ? JSON.parse(existingStr) : [];
-          list.unshift(newRecord);
-          localStorage.setItem(storageKey, JSON.stringify(list));
-        } catch (e) {
-          console.error("Failed to auto-log print production billing entry:", e);
-        }
+        logPrintProductionExportBillingEntry(totalPieces);
 
         setIsExporting(false);
         setExportProgress("");

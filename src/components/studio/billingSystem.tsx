@@ -59,12 +59,28 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
   // Load user-scoped billing data combining BOTH Order Dockets and Web Studio Print Production Exports
   useEffect(() => {
     const userEmail = currentUser?.email || 'guest';
-    const studioExportsKey = `fivenest_studio_export_billing_${userEmail.toLowerCase().trim()}`;
-    const studioExportsStr = localStorage.getItem(studioExportsKey);
-    let studioExports: BillingRecord[] = [];
-    if (studioExportsStr) {
-      try { studioExports = JSON.parse(studioExportsStr); } catch (e) {}
-    }
+    const keysToCheck = [
+      `fivenest_studio_export_billing_${userEmail.toLowerCase().trim()}`,
+      `fivenest_studio_export_billing_all`,
+      `fivenest_studio_export_billing_guest`
+    ];
+
+    let studioExportsMap = new Map<string, BillingRecord>();
+    keysToCheck.forEach(k => {
+      const str = localStorage.getItem(k);
+      if (str) {
+        try {
+          const list: BillingRecord[] = JSON.parse(str);
+          list.forEach(item => {
+            if (item && item.id && !studioExportsMap.has(item.id)) {
+              studioExportsMap.set(item.id, item);
+            }
+          });
+        } catch (e) {}
+      }
+    });
+
+    const studioExports = Array.from(studioExportsMap.values());
 
     let syncedFromOrders: BillingRecord[] = [];
     if (orders && orders.length > 0) {
