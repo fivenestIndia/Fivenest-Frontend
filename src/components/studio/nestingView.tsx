@@ -1409,13 +1409,13 @@ export const NestingView: React.FC<NestingViewProps> = ({
     });
   };
 
-  const logPrintProductionExportBillingEntry = (totalPieces: number) => {
+  const logPrintProductionExportBillingEntry = (backPanelCount: number) => {
     try {
       const activeRate = includeWatermarkLogo ? 3.00 : 5.00;
-      const designDebitCost = totalPieces * activeRate;
+      const designDebitCost = backPanelCount * activeRate;   // charged per back panel (jersey)
       const cleanCust = metadata?.customerName || "Studio Client";
       const cleanOrder = metadata?.orderNum || "01";
-      const userEmail = currentUser?.email || 'guest';   // ← use currentUser prop
+      const userEmail = currentUser?.email || 'guest';
       const timestamp = Date.now();
       const exportId = `RIP-EXP-${cleanOrder}-${timestamp}`;
 
@@ -1424,9 +1424,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
         orderCode: `RIP-EXP-${cleanOrder}`,
         date: new Date().toLocaleDateString("en-GB").replace(/\//g, "-"),
         customerName: cleanCust,
-        fileName: `🖨️ 300 DPI Plotter RIP Export (${totalPieces} Panels)`,
+        fileName: `🖨️ 300 DPI Plotter RIP Export (${backPanelCount} Jerseys)`,
         whatsapp: "",
-        qty: totalPieces,
+        qty: backPanelCount,
         rate: activeRate,
         designCharges: designDebitCost,
         status: "Completed",
@@ -1447,7 +1447,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
         localStorage.setItem(k, JSON.stringify(list));
       });
 
-      console.log(`[FiveNest] Logged billing entry: ${exportId} — ${totalPieces} panels × ₹${activeRate} = ₹${designDebitCost}`);
+      console.log(`[FiveNest] Logged billing entry: ${exportId} — ${backPanelCount} jerseys × ₹${activeRate} = ₹${designDebitCost}`);
     } catch (err) {
       console.error("Failed to log print export billing entry:", err);
     }
@@ -1462,6 +1462,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
     const items = getItemsToExport();
     const totalPieces = items.length;
+    // Only back panels are billed (one per jersey)
+    const billedJerseyCount = items.filter(i => i.panelType === 'back').length || totalPieces;
     if (totalPieces === 0) {
       alert("No items to export.");
       return;
@@ -1907,8 +1909,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
           link.click();
           document.body.removeChild(link);
 
-          // Auto-log Print Production Export Billing Entry on ZIP export
-          logPrintProductionExportBillingEntry(totalPieces);
+          // Billing is logged once at end of full export (not here, to avoid duplicates)
 
           // Now, generate and download a 72 DPI preview PDF alongside if activeDpi > 72 and not in testMode
           const needPreviewPdf = !testMode && activeDpi > 72;
@@ -2023,8 +2024,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
             }
           }
 
-          // Auto-log Print Production Export Billing Entry
-          logPrintProductionExportBillingEntry(totalPieces);
+          // Auto-log Print Production Export Billing Entry (Test Mode)
+          logPrintProductionExportBillingEntry(billedJerseyCount);
 
           setIsExporting(false);
           setExportProgress("");
@@ -2148,7 +2149,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
         }
 
         // Auto-log Print Production Export Billing Entry in Invoices & Billing
-        logPrintProductionExportBillingEntry(totalPieces);
+        logPrintProductionExportBillingEntry(billedJerseyCount);
 
         setIsExporting(false);
         setExportProgress("");

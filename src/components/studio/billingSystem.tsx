@@ -66,13 +66,22 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
     ];
 
     let studioExportsMap = new Map<string, BillingRecord>();
+
+    // Load deleted IDs so user-deleted entries stay deleted across refreshes
+    const deletedKey = `fivenest_billing_deleted_ids_${(currentUser?.email || 'guest').toLowerCase().trim()}`;
+    let deletedIds: Set<string> = new Set();
+    try {
+      const deletedStr = localStorage.getItem(deletedKey);
+      if (deletedStr) deletedIds = new Set(JSON.parse(deletedStr));
+    } catch (e) {}
+
     keysToCheck.forEach(k => {
       const str = localStorage.getItem(k);
       if (str) {
         try {
           const list: BillingRecord[] = JSON.parse(str);
           list.forEach(item => {
-            if (item && item.id && !studioExportsMap.has(item.id)) {
+            if (item && item.id && !studioExportsMap.has(item.id) && !deletedIds.has(item.id)) {
               studioExportsMap.set(item.id, item);
             }
           });
@@ -216,6 +225,17 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
   const handleDeleteRecord = (id: string) => {
     if (window.confirm('Are you sure you want to delete this billing entry?')) {
       setBillingList(billingList.filter(r => r.id !== id));
+
+      // Persist deleted ID so studio export entries don't reappear on refresh
+      const deletedKey = `fivenest_billing_deleted_ids_${(currentUser?.email || 'guest').toLowerCase().trim()}`;
+      try {
+        const existing = localStorage.getItem(deletedKey);
+        const deletedList: string[] = existing ? JSON.parse(existing) : [];
+        if (!deletedList.includes(id)) {
+          deletedList.push(id);
+          localStorage.setItem(deletedKey, JSON.stringify(deletedList));
+        }
+      } catch (e) {}
     }
   };
 
