@@ -71,8 +71,15 @@ export function FactoryDashboard({
       totalQty += Number(row.halfQty || 0) + Number(row.fullQty || 0);
     });
 
-    totalRevenue += Number(o.advance1 || 0) + Number(o.advance2 || 0) + Number(o.advance3 || 0);
-    totalDesignCost += o.designCost !== undefined ? o.designCost : (o.orderScope === "printing-only" ? totalQty * 5 : totalQty * 3);
+    const isPrintOnly = o.orderScope === "printing-only";
+    const advanceReceived = Number(o.advance1 || 0) + Number(o.advance2 || 0) + Number(o.advance3 || 0);
+    const designDebit = o.designCost !== undefined ? o.designCost : (isPrintOnly ? totalQty * 3 : 0);
+
+    if (isPrintOnly) {
+      totalDesignCost += designDebit;
+    } else {
+      totalRevenue += advanceReceived;
+    }
   });
 
   const netOverallBudget = totalRevenue - totalDesignCost;
@@ -241,7 +248,9 @@ export function FactoryDashboard({
                 totalQty += Number(row.halfQty || 0) + Number(row.fullQty || 0);
               });
 
-              const orderDesignCost = ord.designCost !== undefined ? ord.designCost : (ord.orderScope === "printing-only" ? totalQty * 5 : totalQty * 3);
+              const isPrintOnly = ord.orderScope === "printing-only";
+              const orderDesignCost = ord.designCost !== undefined ? ord.designCost : (isPrintOnly ? totalQty * 3 : 0);
+              const clientAdvance = Number(ord.advance1 || 0) + Number(ord.advance2 || 0) + Number(ord.advance3 || 0);
 
               return (
                 <div
@@ -257,11 +266,11 @@ export function FactoryDashboard({
                       <div className="flex items-center gap-2">
                         <h3 className="font-bold text-white text-sm">{ord.customerName}</h3>
                         <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
-                          ord.orderScope === "printing-only"
+                          isPrintOnly
                             ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
                             : "bg-purple-500/20 text-purple-300 border border-purple-500/30"
                         }`}>
-                          {ord.orderScope === "printing-only" ? "🖨️ Print Only" : "🏭 Full Mfg"}
+                          {isPrintOnly ? "🖨️ Print Only" : "🏭 Full Mfg"}
                         </span>
                       </div>
                       <div className="text-xs text-slate-400 mt-0.5">
@@ -272,8 +281,17 @@ export function FactoryDashboard({
 
                   <div className="flex items-center gap-4">
                     <div className="text-right text-xs">
-                      <span className="text-slate-400 block text-[10px]">Design Cost (Debit)</span>
-                      <span className="font-bold text-rose-400">-₹{orderDesignCost.toLocaleString("en-IN")}</span>
+                      {isPrintOnly ? (
+                        <>
+                          <span className="text-slate-400 block text-[10px]">Print Design Cost (Debit)</span>
+                          <span className="font-bold text-rose-400">-₹{orderDesignCost.toLocaleString("en-IN")}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-slate-400 block text-[10px]">Client Payment Received</span>
+                          <span className="font-bold text-emerald-400">+₹{clientAdvance.toLocaleString("en-IN")}</span>
+                        </>
+                      )}
                     </div>
 
                     <button
