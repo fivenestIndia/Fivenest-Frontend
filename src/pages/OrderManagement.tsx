@@ -277,6 +277,7 @@ export default function OrderManagement() {
 
           {activeTab === 'orders' && (
             <FactoryOrders 
+              currentUserEmail={currentUser?.email}
               onNavigateTab={(tab) => {
                 if (tab === 'printQueue') {
                   window.location.href = '/studio';
@@ -296,7 +297,7 @@ export default function OrderManagement() {
           )}
 
           {activeTab === 'customers' && (
-            <FactoryCustomers />
+            <FactoryCustomers currentUserEmail={currentUser?.email} />
           )}
 
           {activeTab === 'reports' && (

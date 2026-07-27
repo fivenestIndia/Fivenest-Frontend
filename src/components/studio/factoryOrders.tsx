@@ -1,9 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Search, Plus, Printer, CheckCircle2, Clock, AlertTriangle, ArrowRight, X, 
   FileSpreadsheet, Palette, Cpu, Download, Receipt, Send, Sparkles, User, Truck,
-  Scissors, DollarSign, Calendar, Sliders
+  Scissors, DollarSign, Calendar, Sliders, Trash2, FolderOpen
 } from "lucide-react";
 
 export interface SizeQtyRow {
@@ -44,89 +44,30 @@ export interface OrderItem {
 
 const defaultSizesList = ["20", "22", "24", "26", "28", "30", "32", "34", "36", "38", "40", "42", "44", "46", "48", "50"];
 
-const sampleOrders: OrderItem[] = [
-  {
-    id: "ord-1",
-    orderNo: "1",
-    customerName: "Vakratunda Musical Group",
-    deliveryDate: "14-04-26",
-    ratePerPiece: 320,
-
-    fabricType: "N. Net",
-    printDetails: "Full Sublimation",
-    collarType: "Ready made",
-    collarColor: "Black",
-    handColor: "Printed",
-    handStripePiping: "Black",
-
-    statusDesign: "Done",
-    statusFabric: "Done",
-    statusPrint: "Pending",
-    statusStitch: "Pending",
-
-    sizeGrid: [
-      { size: "20", halfQty: 0, fullQty: 0 },
-      { size: "22", halfQty: 0, fullQty: 0 },
-      { size: "24", halfQty: 0, fullQty: 0 },
-      { size: "26", halfQty: 0, fullQty: 0 },
-      { size: "28", halfQty: 0, fullQty: 0 },
-      { size: "30", halfQty: 0, fullQty: 0 },
-      { size: "32", halfQty: 4, fullQty: 0 },
-      { size: "34", halfQty: 1, fullQty: 0 },
-      { size: "36", halfQty: 2, fullQty: 0 },
-      { size: "38", halfQty: 9, fullQty: 0 },
-      { size: "40", halfQty: 3, fullQty: 0 },
-      { size: "42", halfQty: 2, fullQty: 0 },
-      { size: "44", halfQty: 0, fullQty: 0 },
-      { size: "46", halfQty: 0, fullQty: 0 },
-      { size: "48", halfQty: 0, fullQty: 0 },
-      { size: "50", halfQty: 0, fullQty: 0 },
-    ],
-
-    advance1: 3000,
-    advance2: 3720,
-    advance3: 0,
-  },
-  {
-    id: "ord-2",
-    orderNo: "2",
-    customerName: "National Cricket Academy",
-    deliveryDate: "28-04-26",
-    ratePerPiece: 350,
-
-    fabricType: "Micro Poly",
-    printDetails: "Full Sublimation",
-    collarType: "Chinese Collar",
-    collarColor: "Navy Blue",
-    handColor: "Navy Blue",
-    handStripePiping: "White Piping",
-
-    statusDesign: "Done",
-    statusFabric: "Done",
-    statusPrint: "Done",
-    statusStitch: "Pending",
-
-    sizeGrid: [
-      { size: "36", halfQty: 10, fullQty: 5 },
-      { size: "38", halfQty: 15, fullQty: 10 },
-      { size: "40", halfQty: 12, fullQty: 8 },
-      { size: "42", halfQty: 5, fullQty: 5 },
-    ],
-
-    advance1: 10000,
-    advance2: 5000,
-    advance3: 0,
-  },
-];
-
 interface FactoryOrdersProps {
   onNavigateTab?: (tab: string) => void;
+  currentUserEmail?: string;
 }
 
-export function FactoryOrders({ onNavigateTab }: FactoryOrdersProps) {
-  const [orders, setOrders] = useState<OrderItem[]>(sampleOrders);
+export function FactoryOrders({ onNavigateTab, currentUserEmail }: FactoryOrdersProps) {
+  // User-scoped storage key
+  const storageKey = currentUserEmail ? `fivenest_factory_orders_${currentUserEmail}` : 'fivenest_factory_orders_default';
+
+  const [orders, setOrders] = useState<OrderItem[]>(() => {
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    // Clean default empty state for fresh logins
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem(storageKey, JSON.stringify(orders));
+  }, [orders, storageKey]);
+
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(sampleOrders[0]);
+  const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(orders.length > 0 ? orders[0] : null);
   const [newOrderModalOpen, setNewOrderModalOpen] = useState(false);
 
   // New order modal form state
@@ -170,6 +111,16 @@ export function FactoryOrders({ onNavigateTab }: FactoryOrdersProps) {
     window.print();
   };
 
+  const handleDeleteOrder = (id: string) => {
+    if (window.confirm("Are you sure you want to delete this order docket? This action cannot be undone.")) {
+      const updated = orders.filter((o) => o.id !== id);
+      setOrders(updated);
+      if (selectedOrder?.id === id) {
+        setSelectedOrder(updated.length > 0 ? updated[0] : null);
+      }
+    }
+  };
+
   const handleCreateOrder = () => {
     if (!formCustomerName) {
       alert("Please enter customer name");
@@ -178,7 +129,7 @@ export function FactoryOrders({ onNavigateTab }: FactoryOrdersProps) {
 
     const newOrd: OrderItem = {
       id: `ord-${Date.now()}`,
-      orderNo: formOrderNo,
+      orderNo: formOrderNo || `${orders.length + 1}`,
       customerName: formCustomerName,
       deliveryDate: formDeliveryDate || "TBD",
       ratePerPiece: Number(formRate || 320),
@@ -202,7 +153,8 @@ export function FactoryOrders({ onNavigateTab }: FactoryOrdersProps) {
       advance3: 0,
     };
 
-    setOrders([newOrd, ...orders]);
+    const updated = [newOrd, ...orders];
+    setOrders(updated);
     setSelectedOrder(newOrd);
     setNewOrderModalOpen(false);
   };
@@ -248,284 +200,326 @@ export function FactoryOrders({ onNavigateTab }: FactoryOrdersProps) {
         />
       </div>
 
-      {/* Main Order Docket Layout */}
-      <div className="grid lg:grid-cols-12 gap-8 items-start">
-        {/* Left: Orders Selection Cards */}
-        <div className="lg:col-span-4 space-y-4">
-          {filteredOrders.map((ord) => {
-            const isSelected = selectedOrder?.id === ord.id;
-            const { totalQty, totalOrderValue, balanceAmount } = calculateTotals(ord);
-
-            return (
-              <div
-                key={ord.id}
-                onClick={() => setSelectedOrder(ord)}
-                className={`p-5 rounded-3xl border transition-all cursor-pointer space-y-3 ${
-                  isSelected
-                    ? "bg-slate-900/90 border-cyan-500/60 shadow-xl shadow-cyan-500/10"
-                    : "bg-slate-900/40 border-slate-800 hover:border-slate-700"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-cyan-400 font-bold text-xs bg-cyan-500/10 px-2.5 py-1 rounded-lg border border-cyan-500/20">
-                      #{ord.orderNo}
-                    </span>
-                    <h3 className="font-bold text-white text-sm line-clamp-1">{ord.customerName}</h3>
-                  </div>
-
-                  <span className="text-xs font-mono font-semibold text-slate-400">{ord.deliveryDate}</span>
-                </div>
-
-                <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span>{totalQty} Jerseys @ ₹{ord.ratePerPiece}/pc</span>
-                  <span className="font-black text-white text-sm">₹{totalOrderValue.toLocaleString("en-IN")}</span>
-                </div>
-
-                <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-800/80">
-                  <span className="text-slate-400">Fabric: <strong className="text-white">{ord.fabricType}</strong></span>
-                  <span className={`font-bold ${balanceAmount === 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                    Balance: ₹{balanceAmount.toLocaleString("en-IN")}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Right: Exact Factory Production Docket Sheet (Matching User Image) */}
-        {selectedOrder && (
-          <div className="lg:col-span-8 bg-white text-black p-6 md:p-8 rounded-3xl shadow-2xl space-y-6 border border-slate-300 print:p-0 print:shadow-none font-sans">
-            {/* Top Toolbar Action for Printing */}
-            <div className="flex items-center justify-between pb-4 border-b border-gray-200 print:hidden">
-              <div className="flex items-center gap-2">
-                <span className="px-3 py-1 bg-black text-white text-xs font-bold rounded-lg font-mono">
-                  Order Docket #{selectedOrder.orderNo}
-                </span>
-                <span className="text-xs text-gray-500 font-semibold">Exact Factory Job Card Sheet</span>
-              </div>
-
-              <button
-                onClick={handlePrintDocket}
-                className="px-4 py-2 bg-black hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
-              >
-                <Printer size={14} />
-                <span>Print Job Docket Sheet</span>
-              </button>
-            </div>
-
-            {/* EXACT SPREADSHEET TABLE LAYOUT WITH PERFECT ALIGNMENT & FONT SPACING */}
-            <div ref={printDocketRef} className="space-y-4 text-xs font-sans text-black">
-              {/* Header Table */}
-              <table className="w-full border-collapse border-2 border-black text-left">
-                <tbody>
-                  <tr className="border-b border-black font-bold">
-                    <td className="p-2.5 border-r border-black w-24 bg-gray-100 uppercase tracking-wider text-[11px]">Order NO</td>
-                    <td className="p-2.5 border-r border-black font-black text-base uppercase tracking-tight" colSpan={2}>
-                      {selectedOrder.customerName}
-                    </td>
-                    <td className="p-2.5 border-r border-black w-32 bg-gray-100 uppercase tracking-wider text-[11px]">Delivery Date</td>
-                    <td className="p-2.5 w-28 font-bold text-center text-sm">{selectedOrder.deliveryDate}</td>
-                  </tr>
-                  <tr className="border-b border-black">
-                    <td className="p-2.5 border-r border-black font-black text-center bg-gray-100 text-sm">{selectedOrder.orderNo}</td>
-                    <td className="p-2.5 border-r border-black font-bold" colSpan={2}>CUSTOMER NAME: {selectedOrder.customerName}</td>
-                    <td className="p-2.5 border-r border-black bg-gray-100 font-bold uppercase tracking-wider text-right">Rate</td>
-                    <td className="p-2.5 font-black text-center text-base">₹{selectedOrder.ratePerPiece}</td>
-                  </tr>
-                </tbody>
-              </table>
-
-              {/* Main 2-Column Section: Left (Order Details + Status + Payments), Right (Quantity Details Size Table) */}
-              <div className="grid grid-cols-12 gap-0 border-2 border-black">
-                {/* LEFT SECTION (7 Cols): ORDER DETAILS + STATUS + PAYMENT DETAILS */}
-                <div className="col-span-7 border-r-2 border-black flex flex-col justify-between">
-                  {/* 1. ORDER DETAILS TABLE */}
-                  <div>
-                    <div className="bg-gray-200 p-2.5 font-black uppercase tracking-wider text-center border-b border-black text-xs">
-                      ORDER DETAILS
-                    </div>
-                    <table className="w-full border-collapse text-left text-xs">
-                      <tbody>
-                        <tr className="border-b border-gray-300">
-                          <td className="p-2 border-r border-black w-8 text-center font-bold">1</td>
-                          <td className="p-2 border-r border-black font-bold w-40">Fabric</td>
-                          <td className="p-2 font-bold text-slate-900">{selectedOrder.fabricType}</td>
-                        </tr>
-                        <tr className="border-b border-gray-300">
-                          <td className="p-2 border-r border-black w-8 text-center font-bold">2</td>
-                          <td className="p-2 border-r border-black font-bold">Print details</td>
-                          <td className="p-2 font-bold text-slate-900">{selectedOrder.printDetails}</td>
-                        </tr>
-                        <tr className="border-b border-gray-300">
-                          <td className="p-2 border-r border-black w-8 text-center font-bold">3</td>
-                          <td className="p-2 border-r border-black font-bold">Collar Type</td>
-                          <td className="p-2 font-bold text-slate-900">{selectedOrder.collarType}</td>
-                        </tr>
-                        <tr className="border-b border-gray-300">
-                          <td className="p-2 border-r border-black w-8 text-center font-bold">4</td>
-                          <td className="p-2 border-r border-black font-bold">Collar color</td>
-                          <td className="p-2 font-bold text-slate-900">{selectedOrder.collarColor}</td>
-                        </tr>
-                        <tr className="border-b border-gray-300">
-                          <td className="p-2 border-r border-black w-8 text-center font-bold">5</td>
-                          <td className="p-2 border-r border-black font-bold">Hand color</td>
-                          <td className="p-2 font-bold text-slate-900">{selectedOrder.handColor}</td>
-                        </tr>
-                        <tr className="border-b border-black">
-                          <td className="p-2 border-r border-black w-8 text-center font-bold">6</td>
-                          <td className="p-2 border-r border-black font-bold">Hand stripe or piping</td>
-                          <td className="p-2 font-bold text-slate-900">{selectedOrder.handStripePiping}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-
-                    {/* 2. ORDER STATUS TABLE */}
-                    <div className="bg-gray-200 p-2.5 font-black uppercase tracking-wider text-center border-t border-b border-black text-xs">
-                      ORDER STATUS
-                    </div>
-                    <table className="w-full border-collapse text-left text-xs">
-                      <tbody>
-                        <tr className="border-b border-gray-300">
-                          <td className="p-2 border-r border-black w-8 text-center font-bold">1</td>
-                          <td className="p-2 border-r border-black font-bold w-40">Design</td>
-                          <td className="p-2 font-bold">
-                            <span className={selectedOrder.statusDesign === "Done" ? "text-emerald-700 font-extrabold" : "text-amber-700"}>
-                              {selectedOrder.statusDesign}
-                            </span>
-                          </td>
-                        </tr>
-                        <tr className="border-b border-gray-300">
-                          <td className="p-2 border-r border-black w-8 text-center font-bold">2</td>
-                          <td className="p-2 border-r border-black font-bold">Fabric</td>
-                          <td className="p-2 font-bold">
-                            <span className={selectedOrder.statusFabric === "Done" ? "text-emerald-700 font-extrabold" : "text-amber-700"}>
-                              {selectedOrder.statusFabric}
-                            </span>
-                          </td>
-                        </tr>
-                        <tr className="border-b border-gray-300">
-                          <td className="p-2 border-r border-black w-8 text-center font-bold">3</td>
-                          <td className="p-2 border-r border-black font-bold">Print</td>
-                          <td className="p-2 font-bold">
-                            <span className={selectedOrder.statusPrint === "Done" ? "text-emerald-700 font-extrabold" : "text-amber-700"}>
-                              {selectedOrder.statusPrint}
-                            </span>
-                          </td>
-                        </tr>
-                        <tr className="border-b border-black">
-                          <td className="p-2 border-r border-black w-8 text-center font-bold">4</td>
-                          <td className="p-2 border-r border-black font-bold">Stitch</td>
-                          <td className="p-2 font-bold">
-                            <span className={selectedOrder.statusStitch === "Done" ? "text-emerald-700 font-extrabold" : "text-amber-700"}>
-                              {selectedOrder.statusStitch}
-                            </span>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* 3. PAYMENT DETAILS TABLE */}
-                  <div>
-                    <div className="bg-gray-200 p-2.5 font-black uppercase tracking-wider text-center border-t border-b border-black text-xs">
-                      PAYMENT DETAILS
-                    </div>
-                    <table className="w-full border-collapse text-left text-xs">
-                      <tbody>
-                        <tr className="border-b border-gray-300">
-                          <td className="p-2 border-r border-black w-8 text-center font-bold">1</td>
-                          <td className="p-2 border-r border-black font-bold w-48">Advance payment 1</td>
-                          <td className="p-2 font-black text-emerald-600 text-right text-sm">
-                            {selectedOrder.advance1 ? selectedOrder.advance1.toLocaleString("en-IN") : ""}
-                          </td>
-                        </tr>
-                        <tr className="border-b border-gray-300">
-                          <td className="p-2 border-r border-black w-8 text-center font-bold">2</td>
-                          <td className="p-2 border-r border-black font-bold">Advance payment 2</td>
-                          <td className="p-2 font-black text-right text-sm">
-                            {selectedOrder.advance2 ? selectedOrder.advance2.toLocaleString("en-IN") : ""}
-                          </td>
-                        </tr>
-                        <tr className="border-b border-black">
-                          <td className="p-2 border-r border-black w-8 text-center font-bold">3</td>
-                          <td className="p-2 border-r border-black font-bold">Advance payment 3</td>
-                          <td className="p-2 font-black text-right text-sm">
-                            {selectedOrder.advance3 ? selectedOrder.advance3.toLocaleString("en-IN") : ""}
-                          </td>
-                        </tr>
-                        <tr className="border-b border-black bg-gray-100 font-bold">
-                          <td className="p-2.5 border-r border-black font-black uppercase tracking-wider" colSpan={2}>TOTAL AMOUNT</td>
-                          <td className="p-2.5 font-black text-right text-base">
-                            ₹{calculateTotals(selectedOrder).totalAdvanceReceived.toLocaleString("en-IN")}
-                          </td>
-                        </tr>
-                        <tr className="font-bold bg-gray-50">
-                          <td className="p-2.5 border-r border-black font-black uppercase tracking-wider" colSpan={2}>Balance Amount</td>
-                          <td className={`p-2.5 font-black text-right text-base ${calculateTotals(selectedOrder).balanceAmount === 0 ? "text-emerald-700" : "text-red-600"}`}>
-                            ₹{calculateTotals(selectedOrder).balanceAmount.toLocaleString("en-IN")}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* RIGHT SECTION (5 Cols): QUANTITY DETAILS (SIZES 20 to 50 MATRIX) */}
-                <div className="col-span-5 flex flex-col justify-between">
-                  <div>
-                    <div className="bg-gray-200 p-2.5 font-black uppercase tracking-wider text-center border-b border-black text-xs">
-                      Quantity Details
-                    </div>
-                    <table className="w-full border-collapse text-center text-xs">
-                      <thead>
-                        <tr className="border-b border-black font-bold bg-gray-100">
-                          <th className="p-2 border-r border-black w-1/3 uppercase">Size</th>
-                          <th className="p-2 border-r border-black w-1/3 uppercase">Half</th>
-                          <th className="p-2 w-1/3 uppercase">Full</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {defaultSizesList.map((sz) => {
-                          const matchingRow = selectedOrder.sizeGrid.find((r) => r.size === sz);
-                          const half = matchingRow?.halfQty || 0;
-                          const full = matchingRow?.fullQty || 0;
-                          return (
-                            <tr key={sz} className="border-b border-gray-300">
-                              <td className="p-1.5 border-r border-black font-bold bg-gray-50 text-slate-800">{sz}</td>
-                              <td className="p-1.5 border-r border-black font-extrabold text-slate-900">{half > 0 ? half : ""}</td>
-                              <td className="p-1.5 font-extrabold text-slate-900">{full > 0 ? full : ""}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Quantity Totals Footer */}
-                  <div className="border-t-2 border-black bg-gray-100">
-                    <div className="flex border-b border-black font-bold text-center">
-                      <div className="w-1/3 p-2 border-r border-black uppercase font-black">Total</div>
-                      <div className="w-1/3 p-2 border-r border-black font-black text-base">
-                        {calculateTotals(selectedOrder).totalHalf || 0}
-                      </div>
-                      <div className="w-1/3 p-2 font-black text-base">
-                        {calculateTotals(selectedOrder).totalFull || 0}
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between p-3 font-black text-sm uppercase">
-                      <span>Total Quantity</span>
-                      <span className="text-base font-black bg-black text-white px-3 py-1 rounded">
-                        {calculateTotals(selectedOrder).totalQty}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+      {/* EMPTY STATE WHEN NO ORDERS EXIST FOR FRESH LOGIN */}
+      {orders.length === 0 ? (
+        <div className="rounded-3xl p-12 bg-slate-900/40 border border-slate-800 text-center space-y-4 max-w-2xl mx-auto my-8">
+          <div className="w-16 h-16 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-400 flex items-center justify-center mx-auto">
+            <FolderOpen size={32} />
           </div>
-        )}
-      </div>
+          <h2 className="text-xl font-bold text-white">Your Production Docket Hub is Clear</h2>
+          <p className="text-xs md:text-sm text-slate-400 leading-relaxed max-w-md mx-auto">
+            All your customer order dockets and job cards are securely isolated under your account. Click below to create your first order docket.
+          </p>
+          <button
+            onClick={() => setNewOrderModalOpen(true)}
+            className="px-6 py-3.5 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs shadow-lg shadow-purple-500/30 transition-all cursor-pointer inline-flex items-center gap-2"
+          >
+            <Plus size={18} />
+            <span>+ Create First Order Docket</span>
+          </button>
+        </div>
+      ) : (
+        /* Main Order Docket Layout */
+        <div className="grid lg:grid-cols-12 gap-8 items-start">
+          {/* Left: Orders Selection Cards */}
+          <div className="lg:col-span-4 space-y-4">
+            {filteredOrders.map((ord) => {
+              const isSelected = selectedOrder?.id === ord.id;
+              const { totalQty, totalOrderValue, balanceAmount } = calculateTotals(ord);
+
+              return (
+                <div
+                  key={ord.id}
+                  onClick={() => setSelectedOrder(ord)}
+                  className={`p-5 rounded-3xl border transition-all cursor-pointer space-y-3 relative group ${
+                    isSelected
+                      ? "bg-slate-900/90 border-cyan-500/60 shadow-xl shadow-cyan-500/10"
+                      : "bg-slate-900/40 border-slate-800 hover:border-slate-700"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-cyan-400 font-bold text-xs bg-cyan-500/10 px-2.5 py-1 rounded-lg border border-cyan-500/20">
+                        #{ord.orderNo}
+                      </span>
+                      <h3 className="font-bold text-white text-sm line-clamp-1">{ord.customerName}</h3>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono font-semibold text-slate-400">{ord.deliveryDate}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteOrder(ord.id);
+                        }}
+                        title="Delete Order Docket"
+                        className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white transition-all"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-slate-400">
+                    <span>{totalQty} Jerseys @ ₹{ord.ratePerPiece}/pc</span>
+                    <span className="font-black text-white text-sm">₹{totalOrderValue.toLocaleString("en-IN")}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-800/80">
+                    <span className="text-slate-400">Fabric: <strong className="text-white">{ord.fabricType}</strong></span>
+                    <span className={`font-bold ${balanceAmount === 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                      Balance: ₹{balanceAmount.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Right: Exact Factory Production Docket Sheet (Matching User Image) */}
+          {selectedOrder && (
+            <div className="lg:col-span-8 bg-white text-black p-6 md:p-8 rounded-3xl shadow-2xl space-y-6 border border-slate-300 print:p-0 print:shadow-none font-sans">
+              {/* Top Toolbar Action for Printing & Deleting */}
+              <div className="flex items-center justify-between pb-4 border-b border-gray-200 print:hidden">
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 bg-black text-white text-xs font-bold rounded-lg font-mono">
+                    Order Docket #{selectedOrder.orderNo}
+                  </span>
+                  <span className="text-xs text-gray-500 font-semibold">Exact Factory Job Card Sheet</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleDeleteOrder(selectedOrder.id)}
+                    className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500 text-rose-600 hover:text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border border-rose-200"
+                  >
+                    <Trash2 size={14} />
+                    <span>Delete Docket</span>
+                  </button>
+
+                  <button
+                    onClick={handlePrintDocket}
+                    className="px-4 py-2 bg-black hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
+                  >
+                    <Printer size={14} />
+                    <span>Print Job Docket Sheet</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* EXACT SPREADSHEET TABLE LAYOUT WITH PERFECT ALIGNMENT & FONT SPACING */}
+              <div ref={printDocketRef} className="space-y-4 text-xs font-sans text-black">
+                {/* Header Table */}
+                <table className="w-full border-collapse border-2 border-black text-left">
+                  <tbody>
+                    <tr className="border-b border-black font-bold">
+                      <td className="p-2.5 border-r border-black w-24 bg-gray-100 uppercase tracking-wider text-[11px]">Order NO</td>
+                      <td className="p-2.5 border-r border-black font-black text-base uppercase tracking-tight" colSpan={2}>
+                        {selectedOrder.customerName}
+                      </td>
+                      <td className="p-2.5 border-r border-black w-32 bg-gray-100 uppercase tracking-wider text-[11px]">Delivery Date</td>
+                      <td className="p-2.5 w-28 font-bold text-center text-sm">{selectedOrder.deliveryDate}</td>
+                    </tr>
+                    <tr className="border-b border-black">
+                      <td className="p-2.5 border-r border-black font-black text-center bg-gray-100 text-sm">{selectedOrder.orderNo}</td>
+                      <td className="p-2.5 border-r border-black font-bold" colSpan={2}>CUSTOMER NAME: {selectedOrder.customerName}</td>
+                      <td className="p-2.5 border-r border-black bg-gray-100 font-bold uppercase tracking-wider text-right">Rate</td>
+                      <td className="p-2.5 font-black text-center text-base">₹{selectedOrder.ratePerPiece}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* Main 2-Column Section: Left (Order Details + Status + Payments), Right (Quantity Details Size Table) */}
+                <div className="grid grid-cols-12 gap-0 border-2 border-black">
+                  {/* LEFT SECTION (7 Cols): ORDER DETAILS + STATUS + PAYMENT DETAILS */}
+                  <div className="col-span-7 border-r-2 border-black flex flex-col justify-between">
+                    {/* 1. ORDER DETAILS TABLE */}
+                    <div>
+                      <div className="bg-gray-200 p-2.5 font-black uppercase tracking-wider text-center border-b border-black text-xs">
+                        ORDER DETAILS
+                      </div>
+                      <table className="w-full border-collapse text-left text-xs">
+                        <tbody>
+                          <tr className="border-b border-gray-300">
+                            <td className="p-2 border-r border-black w-8 text-center font-bold">1</td>
+                            <td className="p-2 border-r border-black font-bold w-40">Fabric</td>
+                            <td className="p-2 font-bold text-slate-900">{selectedOrder.fabricType}</td>
+                          </tr>
+                          <tr className="border-b border-gray-300">
+                            <td className="p-2 border-r border-black w-8 text-center font-bold">2</td>
+                            <td className="p-2 border-r border-black font-bold">Print details</td>
+                            <td className="p-2 font-bold text-slate-900">{selectedOrder.printDetails}</td>
+                          </tr>
+                          <tr className="border-b border-gray-300">
+                            <td className="p-2 border-r border-black w-8 text-center font-bold">3</td>
+                            <td className="p-2 border-r border-black font-bold">Collar Type</td>
+                            <td className="p-2 font-bold text-slate-900">{selectedOrder.collarType}</td>
+                          </tr>
+                          <tr className="border-b border-gray-300">
+                            <td className="p-2 border-r border-black w-8 text-center font-bold">4</td>
+                            <td className="p-2 border-r border-black font-bold">Collar color</td>
+                            <td className="p-2 font-bold text-slate-900">{selectedOrder.collarColor}</td>
+                          </tr>
+                          <tr className="border-b border-gray-300">
+                            <td className="p-2 border-r border-black w-8 text-center font-bold">5</td>
+                            <td className="p-2 border-r border-black font-bold">Hand color</td>
+                            <td className="p-2 font-bold text-slate-900">{selectedOrder.handColor}</td>
+                          </tr>
+                          <tr className="border-b border-black">
+                            <td className="p-2 border-r border-black w-8 text-center font-bold">6</td>
+                            <td className="p-2 border-r border-black font-bold">Hand stripe or piping</td>
+                            <td className="p-2 font-bold text-slate-900">{selectedOrder.handStripePiping}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+
+                      {/* 2. ORDER STATUS TABLE */}
+                      <div className="bg-gray-200 p-2.5 font-black uppercase tracking-wider text-center border-t border-b border-black text-xs">
+                        ORDER STATUS
+                      </div>
+                      <table className="w-full border-collapse text-left text-xs">
+                        <tbody>
+                          <tr className="border-b border-gray-300">
+                            <td className="p-2 border-r border-black w-8 text-center font-bold">1</td>
+                            <td className="p-2 border-r border-black font-bold w-40">Design</td>
+                            <td className="p-2 font-bold">
+                              <span className={selectedOrder.statusDesign === "Done" ? "text-emerald-700 font-extrabold" : "text-amber-700"}>
+                                {selectedOrder.statusDesign}
+                              </span>
+                            </td>
+                          </tr>
+                          <tr className="border-b border-gray-300">
+                            <td className="p-2 border-r border-black w-8 text-center font-bold">2</td>
+                            <td className="p-2 border-r border-black font-bold">Fabric</td>
+                            <td className="p-2 font-bold">
+                              <span className={selectedOrder.statusFabric === "Done" ? "text-emerald-700 font-extrabold" : "text-amber-700"}>
+                                {selectedOrder.statusFabric}
+                              </span>
+                            </td>
+                          </tr>
+                          <tr className="border-b border-gray-300">
+                            <td className="p-2 border-r border-black w-8 text-center font-bold">3</td>
+                            <td className="p-2 border-r border-black font-bold">Print</td>
+                            <td className="p-2 font-bold">
+                              <span className={selectedOrder.statusPrint === "Done" ? "text-emerald-700 font-extrabold" : "text-amber-700"}>
+                                {selectedOrder.statusPrint}
+                              </span>
+                            </td>
+                          </tr>
+                          <tr className="border-b border-black">
+                            <td className="p-2 border-r border-black w-8 text-center font-bold">4</td>
+                            <td className="p-2 border-r border-black font-bold">Stitch</td>
+                            <td className="p-2 font-bold">
+                              <span className={selectedOrder.statusStitch === "Done" ? "text-emerald-700 font-extrabold" : "text-amber-700"}>
+                                {selectedOrder.statusStitch}
+                              </span>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* 3. PAYMENT DETAILS TABLE */}
+                    <div>
+                      <div className="bg-gray-200 p-2.5 font-black uppercase tracking-wider text-center border-t border-b border-black text-xs">
+                        PAYMENT DETAILS
+                      </div>
+                      <table className="w-full border-collapse text-left text-xs">
+                        <tbody>
+                          <tr className="border-b border-gray-300">
+                            <td className="p-2 border-r border-black w-8 text-center font-bold">1</td>
+                            <td className="p-2 border-r border-black font-bold w-48">Advance payment 1</td>
+                            <td className="p-2 font-black text-emerald-600 text-right text-sm">
+                              {selectedOrder.advance1 ? selectedOrder.advance1.toLocaleString("en-IN") : ""}
+                            </td>
+                          </tr>
+                          <tr className="border-b border-gray-300">
+                            <td className="p-2 border-r border-black w-8 text-center font-bold">2</td>
+                            <td className="p-2 border-r border-black font-bold">Advance payment 2</td>
+                            <td className="p-2 font-black text-right text-sm">
+                              {selectedOrder.advance2 ? selectedOrder.advance2.toLocaleString("en-IN") : ""}
+                            </td>
+                          </tr>
+                          <tr className="border-b border-black">
+                            <td className="p-2 border-r border-black w-8 text-center font-bold">3</td>
+                            <td className="p-2 border-r border-black font-bold">Advance payment 3</td>
+                            <td className="p-2 font-black text-right text-sm">
+                              {selectedOrder.advance3 ? selectedOrder.advance3.toLocaleString("en-IN") : ""}
+                            </td>
+                          </tr>
+                          <tr className="border-b border-black bg-gray-100 font-bold">
+                            <td className="p-2.5 border-r border-black font-black uppercase tracking-wider" colSpan={2}>TOTAL AMOUNT</td>
+                            <td className="p-2.5 font-black text-right text-base">
+                              ₹{calculateTotals(selectedOrder).totalAdvanceReceived.toLocaleString("en-IN")}
+                            </td>
+                          </tr>
+                          <tr className="font-bold bg-gray-50">
+                            <td className="p-2.5 border-r border-black font-black uppercase tracking-wider" colSpan={2}>Balance Amount</td>
+                            <td className={`p-2.5 font-black text-right text-base ${calculateTotals(selectedOrder).balanceAmount === 0 ? "text-emerald-700" : "text-red-600"}`}>
+                              ₹{calculateTotals(selectedOrder).balanceAmount.toLocaleString("en-IN")}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* RIGHT SECTION (5 Cols): QUANTITY DETAILS (SIZES 20 to 50 MATRIX) */}
+                  <div className="col-span-5 flex flex-col justify-between">
+                    <div>
+                      <div className="bg-gray-200 p-2.5 font-black uppercase tracking-wider text-center border-b border-black text-xs">
+                        Quantity Details
+                      </div>
+                      <table className="w-full border-collapse text-center text-xs">
+                        <thead>
+                          <tr className="border-b border-black font-bold bg-gray-100">
+                            <th className="p-2 border-r border-black w-1/3 uppercase">Size</th>
+                            <th className="p-2 border-r border-black w-1/3 uppercase">Half</th>
+                            <th className="p-2 w-1/3 uppercase">Full</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {defaultSizesList.map((sz) => {
+                            const matchingRow = selectedOrder.sizeGrid.find((r) => r.size === sz);
+                            const half = matchingRow?.halfQty || 0;
+                            const full = matchingRow?.fullQty || 0;
+                            return (
+                              <tr key={sz} className="border-b border-gray-300">
+                                <td className="p-1.5 border-r border-black font-bold bg-gray-50 text-slate-800">{sz}</td>
+                                <td className="p-1.5 border-r border-black font-extrabold text-slate-900">{half > 0 ? half : ""}</td>
+                                <td className="p-1.5 font-extrabold text-slate-900">{full > 0 ? full : ""}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Quantity Totals Footer */}
+                    <div className="border-t-2 border-black bg-gray-100">
+                      <div className="flex border-b border-black font-bold text-center">
+                        <div className="w-1/3 p-2 border-r border-black uppercase font-black">Total</div>
+                        <div className="w-1/3 p-2 border-r border-black font-black text-base">
+                          {calculateTotals(selectedOrder).totalHalf || 0}
+                        </div>
+                        <div className="w-1/3 p-2 font-black text-base">
+                          {calculateTotals(selectedOrder).totalFull || 0}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between p-3 font-black text-sm uppercase">
+                        <span>Total Quantity</span>
+                        <span className="text-base font-black bg-black text-white px-3 py-1 rounded">
+                          {calculateTotals(selectedOrder).totalQty}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* NEW ORDER MODAL DOCKET CREATION */}
       <AnimatePresence>

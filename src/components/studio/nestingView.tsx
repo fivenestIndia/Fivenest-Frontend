@@ -412,20 +412,32 @@ export const NestingView: React.FC<NestingViewProps> = ({
   }, []);
 
   // Trigger Nesting layout calculations
-  // Helper to compile the list of all panel pieces to export on the fly
+  // Helper to compile the list of all panel pieces to export on the fly with Selective Panel Filtering
   const getItemsToExport = (): PlacedItem[] => {
     const items: PlacedItem[] = [];
+
+    // Check panel upload / activity status
+    const frontUploaded = Boolean(designConfig?.front?.uploadedFileUrl || (designConfig?.front?.backgroundType === 'upload' && designConfig?.front?.uploadedFileUrl) || designConfig?.front?.leftChestLogo?.enabled || designConfig?.front?.rightChestLogo?.enabled || designConfig?.front?.torsoLogo?.enabled);
+    const backUploaded = Boolean(designConfig?.back?.uploadedFileUrl || (designConfig?.back?.backgroundType === 'upload' && designConfig?.back?.uploadedFileUrl) || designConfig?.back?.nameConfig?.enabled || designConfig?.back?.numberConfig?.enabled || designConfig?.back?.leftChestLogo?.enabled || designConfig?.back?.rightChestLogo?.enabled || designConfig?.back?.torsoLogo?.enabled);
+    const sleeveUploaded = Boolean(designConfig?.sleeveLeft?.uploadedFileUrl || designConfig?.sleeveLeft?.uploadedFileHalfUrl || designConfig?.sleeveLeft?.uploadedFileFullUrl || designConfig?.sleeveRight?.uploadedFileUrl || (designConfig?.sleeveLeft?.backgroundType === 'upload') || (designConfig?.sleeveRight?.backgroundType === 'upload'));
+
+    // Determine panel inclusion rules:
+    // If explicit upload mode is active and client uploaded ONLY Front, export ONLY Front!
+    const onlyFrontUploaded = frontUploaded && !backUploaded && !sleeveUploaded;
+    const onlyBackUploaded = backUploaded && !frontUploaded && !sleeveUploaded;
+    const onlySleeveUploaded = sleeveUploaded && !frontUploaded && !backUploaded;
+
     records.forEach((player, idx) => {
       const sizeConf = sizeDB[player.size] || sizeDB["40"];
-      const isSleeveOnly = player.name.toUpperCase() === 'SLEEVE';
-      const isFrontOnly = player.name.toUpperCase() === 'FRONT';
-      const isBackOnly = player.name.toUpperCase() === 'BACK';
+      const isSleeveOnly = player.name.toUpperCase() === 'SLEEVE' || onlySleeveUploaded;
+      const isFrontOnly = player.name.toUpperCase() === 'FRONT' || onlyFrontUploaded;
+      const isBackOnly = player.name.toUpperCase() === 'BACK' || onlyBackUploaded;
       
       for (let q = 0; q < player.qty; q++) {
         const itemIndex = `${player.id}-item-${idx}-${q}`;
         
-        // Front panel
-        if (!isSleeveOnly && !isBackOnly) {
+        // Front panel: Include if not sleeve-only and not back-only
+        if (!isSleeveOnly && !isBackOnly && (frontUploaded || !backUploaded)) {
           items.push({
             recordId: itemIndex,
             playerName: player.name,
@@ -440,8 +452,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
           });
         }
         
-        // Back panel (exported even in blank kit mode)
-        if (!isSleeveOnly && !isFrontOnly) {
+        // Back panel: Include if back is active and client didn't upload ONLY Front
+        if (!isSleeveOnly && !isFrontOnly && (backUploaded || (!onlyFrontUploaded && !sleeveUploaded))) {
           items.push({
             recordId: itemIndex,
             playerName: player.name,
@@ -456,8 +468,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
           });
         }
 
-        // Sleeve panels
-        if (!isFrontOnly && !isBackOnly && player.sleeve !== 'none') {
+        // Sleeve panels: Include if sleeves active, roster has sleeve, and client didn't upload ONLY Front/Back
+        if (!isFrontOnly && !isBackOnly && player.sleeve !== 'none' && (sleeveUploaded || (!onlyFrontUploaded && !onlyBackUploaded))) {
           let sleeveW = 0;
           let sleeveH = 0;
           if (player.sleeve === 'full') {
@@ -931,11 +943,11 @@ export const NestingView: React.FC<NestingViewProps> = ({
       let panelTypeKey: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print';
       if (item.panelType === 'front') panelTypeKey = 'front';
       else if (item.panelType === 'back') panelTypeKey = 'back';
-      else if (item.panelType === 'sleeve-left') panelTypeKey = 'sleeveLeft';
+      else if (item.panelType === 'sleeve-left' || item.panelType === 'sleeve-merged') panelTypeKey = 'sleeveLeft';
       else if (item.panelType === 'sleeve-right') panelTypeKey = 'sleeveRight';
       else if (item.panelType === 'a4-print') panelTypeKey = 'a4Print';
       else {
-        panelTypeKey = 'front';
+        panelTypeKey = 'sleeveLeft';
       }
       const conf = designConfig[panelTypeKey] || designConfig.front;
 
