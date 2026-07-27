@@ -289,6 +289,7 @@ export default function OrderManagement() {
           {activeTab === 'dashboard' && (
             <FactoryDashboard 
               orders={orders}
+              currentUser={currentUser}
               onNavigateTab={(tab) => {
                 if (tab === 'templates' || tab === 'printQueue') {
                   window.location.href = '/studio';

@@ -45,13 +45,15 @@ interface FactoryDashboardProps {
   walletBalance?: number;
   orders?: OrderItem[];
   onRequestNewOrder?: () => void;
+  currentUser?: { email: string; name: string; balance: number } | null;
 }
 
 export function FactoryDashboard({ 
   onNavigateTab, 
   walletBalance = 2450, 
   orders = [],
-  onRequestNewOrder
+  onRequestNewOrder,
+  currentUser
 }: FactoryDashboardProps) {
 
   // Dynamic calculations from real user orders
@@ -65,16 +67,37 @@ export function FactoryDashboard({
   let totalRevenue = 0;
   let totalDesignCost = 0;
 
-  // Calculate Web Studio 300 DPI RIP Plotter Package Export Debits
+  // Calculate Web Studio 300 DPI RIP Plotter Package Export Debits (scoped + deduplicated + respects deletes)
   try {
-    const studioExportsKey = `fivenest_studio_export_billing_guest`;
-    const studioExportsStr = localStorage.getItem(studioExportsKey);
-    if (studioExportsStr) {
-      const list: any[] = JSON.parse(studioExportsStr);
-      list.forEach((item) => {
-        totalDesignCost += Number(item.designCharges || 0);
-      });
-    }
+    const userEmail = (currentUser?.email || 'guest').toLowerCase().trim();
+    const keysToCheck = [
+      `fivenest_studio_export_billing_${userEmail}`,
+      `fivenest_studio_export_billing_all`,
+      `fivenest_studio_export_billing_guest`
+    ];
+
+    const deletedKey = `fivenest_billing_deleted_ids_${userEmail}`;
+    let deletedIds: Set<string> = new Set();
+    try {
+      const deletedStr = localStorage.getItem(deletedKey);
+      if (deletedStr) deletedIds = new Set(JSON.parse(deletedStr));
+    } catch (e) {}
+
+    const seen = new Set<string>();
+    keysToCheck.forEach(k => {
+      const str = localStorage.getItem(k);
+      if (str) {
+        try {
+          const list: any[] = JSON.parse(str);
+          list.forEach((item) => {
+            if (item?.id && !seen.has(item.id) && !deletedIds.has(item.id)) {
+              seen.add(item.id);
+              totalDesignCost += Number(item.designCharges || 0);
+            }
+          });
+        } catch (e) {}
+      }
+    });
   } catch (e) {}
 
   orders.forEach((o) => {
