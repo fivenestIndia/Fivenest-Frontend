@@ -240,10 +240,14 @@ export const NestingView: React.FC<NestingViewProps> = ({
   const [rotateToFit, setRotateToFit] = useState<boolean>(true);
   const [dpi, setDpi] = useState<number>(100); // Render DPI: 72, 100, 150, 300
   
-  const savedLogoWatermark = localStorage.getItem('fivenest_pref_logo_watermark');
-  const [includeWatermarkLogo, setIncludeWatermarkLogo] = useState<boolean>(
-    savedLogoWatermark !== null ? JSON.parse(savedLogoWatermark) : true
-  );
+  const [includeWatermarkLogo, setIncludeWatermarkLogo] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('fivenest_pref_logo_watermark');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch (e) {
+      return true;
+    }
+  });
   
   const [nestingSheets, setNestingSheets] = useState<NestingSheet[]>([]);
   const [isNesting, setIsNesting] = useState<boolean>(false);

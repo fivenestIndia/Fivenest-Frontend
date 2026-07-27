@@ -677,9 +677,15 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const drawTechnicalMarks = (ctx: CanvasRenderingContext2D) => {
       if (is3DPreview) return; // Skip technical marks in 3D preview
       const savedCenter = localStorage.getItem('fivenest_pref_center_marks');
-      const centerMarks = savedCenter !== null ? JSON.parse(savedCenter) : true;
+      let centerMarks = true;
+      if (savedCenter !== null) {
+        try { centerMarks = JSON.parse(savedCenter); } catch (e) {}
+      }
       const savedWater = localStorage.getItem('fivenest_pref_size_watermarks');
-      const sizeWatermarks = savedWater !== null ? JSON.parse(savedWater) : true;
+      let sizeWatermarks = true;
+      if (savedWater !== null) {
+        try { sizeWatermarks = JSON.parse(savedWater); } catch (e) {}
+      }
 
       const stroke3ptPx = Math.max(1, Math.round((3 / 72) * scale));
 
@@ -889,7 +895,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
     };
 
-    const rulersEnabled = !is3DPreview && JSON.parse(localStorage.getItem('fivenest_pref_rulers') || 'true');
+    let rulersPref = true;
+    try {
+      const savedR = localStorage.getItem('fivenest_pref_rulers');
+      if (savedR !== null) rulersPref = JSON.parse(savedR);
+    } catch (e) {}
+    const rulersEnabled = !is3DPreview && rulersPref;
     const rulerOffset = rulersEnabled ? Math.round(0.35 * scale) : 0;
 
     const drawRulersAndGrid = (ctx: CanvasRenderingContext2D) => {
@@ -901,7 +912,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       ctx.shadowColor = 'transparent';
 
       // 1. Gridlines inside artwork area (offset by rulerOffset)
-      const gridSpacing = JSON.parse(localStorage.getItem('fivenest_pref_guideline_spacing') || '2');
+      let gridSpacing = 2;
+      try {
+        const savedG = localStorage.getItem('fivenest_pref_guideline_spacing');
+        if (savedG !== null) gridSpacing = JSON.parse(savedG);
+      } catch (e) {}
       ctx.strokeStyle = isLightMode ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.06)';
       ctx.lineWidth = 0.5;
       ctx.setLineDash([Math.round(0.05 * scale), Math.round(0.05 * scale)]);
@@ -1200,8 +1215,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const rulersEnabled = JSON.parse(localStorage.getItem('fivenest_pref_rulers') || 'true');
-    const rulerOffset = rulersEnabled ? Math.round(0.35 * scale) : 0;
+    let rulersPref = true;
+    try {
+      const savedR = localStorage.getItem('fivenest_pref_rulers');
+      if (savedR !== null) rulersPref = JSON.parse(savedR);
+    } catch (e) {}
+    const rulerOffset = rulersPref ? Math.round(0.35 * scale) : 0;
 
     canvas.width = (width + rulerOffset) * zoom;
     canvas.height = (height + rulerOffset) * zoom;

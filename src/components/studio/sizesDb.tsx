@@ -55,12 +55,20 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
   const [selectedSize, setSelectedSize] = useState<string>("40");
   const [saveMessage, setSaveMessage] = useState<string>("");
   const [centerMarks, setCenterMarks] = useState<boolean>(() => {
-    const saved = localStorage.getItem('fivenest_pref_center_marks');
-    return saved !== null ? JSON.parse(saved) : true;
+    try {
+      const saved = localStorage.getItem('fivenest_pref_center_marks');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch (e) {
+      return true;
+    }
   });
   const [sizeWatermarks, setSizeWatermarks] = useState<boolean>(() => {
-    const saved = localStorage.getItem('fivenest_pref_size_watermarks');
-    return saved !== null ? JSON.parse(saved) : true;
+    try {
+      const saved = localStorage.getItem('fivenest_pref_size_watermarks');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch (e) {
+      return true;
+    }
   });
   const [showRulers, setShowRulers] = useState<boolean>(true);
   const [gridSpacing, setGridSpacing] = useState<number>(2);
