@@ -184,6 +184,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [dragStart, setDragStart] = useState<{ x: number; y: number; zoom: number } | null>(null);
   const [spaceKeyPressed, setSpaceKeyPressed] = useState<boolean>(false);
   const [panStart, setPanStart] = useState<{ scrollLeft: number; scrollTop: number; x: number; y: number } | null>(null);
+  const [activeTextLayer, setActiveTextLayer] = useState<'name' | 'number'>('name');
 
   const [showGuidelines, setShowGuidelines] = useState<boolean>(true);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
