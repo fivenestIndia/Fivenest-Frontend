@@ -1712,10 +1712,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           style={{ 
             flexGrow: 1, 
             width: '100%', 
+            height: '100%',
             overflow: 'auto', 
-            display: 'block', 
+            display: 'flex', 
+            alignItems: 'center',
+            justifyContent: 'center',
             minHeight: 0,
-            padding: '8px 0',
+            padding: '16px',
+            boxSizing: 'border-box',
             cursor: spaceKeyPressed ? (panStart ? 'grabbing' : 'grab') : (zKeyPressed ? (dragStart ? 'grabbing' : 'zoom-in') : 'default'),
             userSelect: (spaceKeyPressed || zKeyPressed) ? 'none' : 'auto',
             position: 'relative'
@@ -1773,20 +1777,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          {/* Centering inner container that expands dynamically when zoomed */}
+          {/* Centering inner container */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            minWidth: '100%',
-            minHeight: '100%',
-            width: (zoom === 1 || activeTab === 'threeD') ? '100%' : `${width * zoom + 160}px`,
-            height: (zoom === 1 || activeTab === 'threeD') ? '100%' : `${height * zoom + 160}px`,
-            boxSizing: 'border-box',
-            padding: (zoom === 1 || activeTab === 'threeD') ? '0' : '80px'
+            width: '100%',
+            height: '100%',
+            boxSizing: 'border-box'
           }}>
             {activeTab === 'threeD' ? (
-              <div style={{ width: '100%', height: '100%', minHeight: '520px', flexGrow: 1 }}>
+              <div style={{ width: '100%', height: '100%', minHeight: '450px', flexGrow: 1 }}>
                 <ThreeDPreview 
                   designConfig={designConfig} 
                   renderPanelToCanvas={renderPanelToCanvas}
@@ -1802,13 +1803,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 onMouseLeave={() => setCursorPos(null)}
                 style={{ 
                   borderRadius: '8px', 
-                  border: '1px solid rgba(0, 229, 255, 0.3)', 
-                  boxShadow: '0 0 30px rgba(0,0,0,0.85)',
+                  border: '2px solid rgba(0, 240, 255, 0.4)', 
+                  boxShadow: '0 0 40px rgba(0,0,0,0.95)',
                   cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : 'pointer',
                   width: `${width * zoom}px`,
                   height: `${height * zoom}px`,
                   maxWidth: '100%',
-                  maxHeight: 'calc(100% - 10px)',
+                  maxHeight: '100%',
                   objectFit: 'contain',
                   flexShrink: 0
                 }} 

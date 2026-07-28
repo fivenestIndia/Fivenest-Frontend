@@ -403,7 +403,7 @@ export default function WebStudio() {
           </div>
         </header>
 
-        <section className="content-body">
+        <section className="content-body" style={activeTab === 'designer' ? { padding: 0, height: 'calc(100vh - 53px)', overflow: 'hidden' } : undefined}>
           {activeTab === 'designer' && (
             <Designer 
               designConfig={designConfig} 
