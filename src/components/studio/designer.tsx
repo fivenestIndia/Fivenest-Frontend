@@ -1566,14 +1566,19 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           <div 
             className="cd-canvas-container" 
             style={{ 
+              display: 'flex',
               flexDirection: 'column', 
-              gap: '16px',
+              alignItems: 'center',
+              width: '100%',
+              height: '100%',
+              flex: 1,
+              minWidth: 0,
+              minHeight: 0,
+              gap: '12px',
               position: 'relative',
               border: isDragging ? '2px dashed var(--color-primary)' : 'none',
               background: isDragging ? 'rgba(155, 77, 255, 0.03)' : 'transparent',
-              transition: 'all 0.2s ease-in-out',
-              height: '100%',
-              maxHeight: '100%'
+              transition: 'all 0.2s ease-in-out'
             }}
         onDragOver={(e) => {
           e.preventDefault();
