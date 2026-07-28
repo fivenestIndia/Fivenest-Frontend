@@ -1802,13 +1802,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 onMouseLeave={() => setCursorPos(null)}
                 style={{ 
                   borderRadius: '8px', 
-                  border: '1px solid rgba(255,255,255,0.1)', 
-                  boxShadow: '0 0 30px rgba(0,0,0,0.8)',
+                  border: '1px solid rgba(0, 229, 255, 0.3)', 
+                  boxShadow: '0 0 30px rgba(0,0,0,0.85)',
                   cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : 'pointer',
-                  width: zoom === 1 ? undefined : `${width * zoom}px`,
-                  height: zoom === 1 ? undefined : `${height * zoom}px`,
-                  maxWidth: zoom === 1 ? '100%' : 'none',
-                  maxHeight: zoom === 1 ? 'calc(100% - 10px)' : 'none',
+                  width: `${width * zoom}px`,
+                  height: `${height * zoom}px`,
+                  maxWidth: '100%',
+                  maxHeight: 'calc(100% - 10px)',
                   objectFit: 'contain',
                   flexShrink: 0
                 }} 
