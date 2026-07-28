@@ -1571,7 +1571,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               alignItems: 'center',
               width: '100%',
               height: '100%',
-              flex: 1,
+              flex: '1 1 0%',
               minWidth: 0,
               minHeight: 0,
               gap: '12px',
