@@ -1564,7 +1564,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         <div className="cd-canvas-area">
           {/* 2D Canvas Mock Renderer */}
           <div 
-            className="canvas-container" 
+            className="cd-canvas-container" 
             style={{ 
               flexDirection: 'column', 
               gap: '16px',
@@ -1843,8 +1843,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       </div>
       </div>
 
-      {/* Editor Panel Controls */}
-      <div className="controls-panel">
+      {/* CorelDRAW Right Docker Panel */}
+      <div className="cd-docker-panel">
         {/* Bulk ZIP Importer Card */}
         <div className="glass-card" style={{ padding: '20px' }}>
           <h3 
