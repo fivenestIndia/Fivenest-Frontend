@@ -11,6 +11,7 @@ import type { SizeDatabase } from '../components/studio/sizesDb';
 import { NestingView } from '../components/studio/nestingView';
 import { HelpCenter } from '../components/studio/helpCenter';
 import { LoginModal } from '../components/studio/loginModal';
+import { LocalDataManager } from '../components/studio/localDataManager';
 
 export default function WebStudio() {
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>(() => {
@@ -295,7 +296,10 @@ export default function WebStudio() {
             </button>
           </div>
 
-          <div className="glass-card" style={{ padding: '12px', background: 'rgba(155, 77, 255, 0.04)', borderColor: 'var(--border-active)', textAlign: 'left' }}>
+          {/* Save / Restore Local Data */}
+          <LocalDataManager />
+
+          <div className="glass-card" style={{ padding: '12px', background: 'rgba(155, 77, 255, 0.04)', borderColor: 'var(--border-active)', textAlign: 'left', marginTop: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
               <Award size={14} style={{ color: 'var(--color-secondary)' }} />
               <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--color-secondary)' }}>PRODUCTION STUDIO</span>

@@ -258,6 +258,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
   const [pendingExportAction, setPendingExportAction] = useState<(() => Promise<void>) | null>(null);
   const [simulatedPaymentLoading, setSimulatedPaymentLoading] = useState<boolean>(false);
   const [upiPaymentMethod, setUpiPaymentMethod] = useState<'wallet' | 'upi'>('wallet');
+  // Custom top-up amount the user wants to add to wallet
+  const [customTopupAmount, setCustomTopupAmount] = useState<string>('');
 
   const executePaymentWithWallet = async () => {
     if (!currentUser) return;
@@ -350,6 +352,48 @@ export const NestingView: React.FC<NestingViewProps> = ({
         setShowPaymentModal(false);
       }
     }, 1500);
+  };
+
+  // Add a custom amount to wallet via Supabase
+  const [topupLoading, setTopupLoading] = useState(false);
+  const [topupMessage, setTopupMessage] = useState<{ text: string; ok: boolean } | null>(null);
+
+  const handleCustomTopup = async () => {
+    const amt = parseFloat(customTopupAmount);
+    if (!amt || amt <= 0) {
+      setTopupMessage({ text: 'Enter a valid amount (e.g. ₹100)', ok: false });
+      return;
+    }
+    if (!currentUser) {
+      setTopupMessage({ text: 'Please sign in first.', ok: false });
+      return;
+    }
+    setTopupLoading(true);
+    setTopupMessage(null);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Session expired');
+
+      const { error } = await supabase.from('credit_transactions').insert({
+        user_id: user.id,
+        amount: amt,
+        transaction_type: 'topup',
+        description: `Manual wallet top-up ₹${amt}`
+      });
+      if (error) throw new Error(error.message);
+
+      const details = await fetchUserWallet(user.id);
+      const updatedUser = { ...currentUser, balance: details.balance };
+      localStorage.setItem('fivenest_active_user', JSON.stringify(updatedUser));
+      onUserChange(updatedUser);
+      setCustomTopupAmount('');
+      setTopupMessage({ text: `✅ ₹${amt} added! New balance: ₹${details.balance.toFixed(2)}`, ok: true });
+      setTimeout(() => setTopupMessage(null), 4000);
+    } catch (err: any) {
+      setTopupMessage({ text: err.message || 'Top-up failed', ok: false });
+    } finally {
+      setTopupLoading(false);
+    }
   };
   const [activeSheetIndex, setActiveSheetIndex] = useState<number>(0);
   const [exportProgress, setExportProgress] = useState<string>("");
@@ -2643,17 +2687,77 @@ export const NestingView: React.FC<NestingViewProps> = ({
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div style={{ color: 'var(--color-danger)', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
-                      <AlertTriangle size={14} /> Insufficient balance. Please recharge or choose UPI QR.
+                      <AlertTriangle size={14} /> Insufficient balance (₹{currentUser.balance.toFixed(2)}). Add funds below.
                     </div>
+
+                    {/* Custom topup input */}
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <div style={{ position: 'relative', flex: 1 }}>
+                        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-secondary)', fontWeight: '700', fontSize: '13px' }}>₹</span>
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="Enter amount"
+                          value={customTopupAmount}
+                          onChange={(e) => setCustomTopupAmount(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '9px 10px 9px 26px',
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid rgba(0,229,255,0.3)',
+                            borderRadius: '8px',
+                            color: 'white',
+                            fontSize: '13px',
+                            outline: 'none',
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                      </div>
+                      <button
+                        onClick={handleCustomTopup}
+                        disabled={topupLoading}
+                        style={{
+                          padding: '9px 14px',
+                          background: topupLoading ? 'rgba(0,229,255,0.3)' : 'rgba(0,229,255,0.15)',
+                          border: '1px solid rgba(0,229,255,0.4)',
+                          borderRadius: '8px',
+                          color: 'var(--color-secondary)',
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          cursor: topupLoading ? 'not-allowed' : 'pointer',
+                          whiteSpace: 'nowrap',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        {topupLoading ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : null}
+                        Add to Wallet
+                      </button>
+                    </div>
+
+                    {topupMessage && (
+                      <div style={{
+                        fontSize: '11px',
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        background: topupMessage.ok ? 'rgba(0,230,118,0.1)' : 'rgba(255,82,82,0.1)',
+                        color: topupMessage.ok ? '#00e676' : '#ff5252',
+                        border: `1px solid ${topupMessage.ok ? 'rgba(0,230,118,0.2)' : 'rgba(255,82,82,0.2)'}`
+                      }}>
+                        {topupMessage.text}
+                      </div>
+                    )}
+
                     <button 
                       className="btn btn-secondary"
                       onClick={() => {
                         setShowPaymentModal(false);
                         onOpenLogin();
                       }}
-                      style={{ width: '100%', padding: '10px' }}
+                      style={{ width: '100%', padding: '8px', fontSize: '11px' }}
                     >
-                      Top Up Wallet Balance
+                      Or Recharge via Razorpay
                     </button>
                   </div>
                 )}
@@ -2710,6 +2814,70 @@ export const NestingView: React.FC<NestingViewProps> = ({
                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>
                       Scan this QR code using GPay, PhonePe, Paytm, or BHIM to pay ₹{paymentCost.toFixed(2)} INR.
                     </p>
+
+                    {/* Custom amount top-up section */}
+                    <div style={{ width: '100%', borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '12px' }}>
+                      <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', textAlign: 'center' }}>
+                        💳 Add any amount to your wallet
+                      </p>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <div style={{ position: 'relative', flex: 1 }}>
+                          <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-secondary)', fontWeight: '700', fontSize: '13px' }}>₹</span>
+                          <input
+                            type="number"
+                            min="1"
+                            placeholder="Amount to add"
+                            value={customTopupAmount}
+                            onChange={(e) => setCustomTopupAmount(e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '9px 10px 9px 26px',
+                              background: 'rgba(255,255,255,0.05)',
+                              border: '1px solid rgba(0,229,255,0.3)',
+                              borderRadius: '8px',
+                              color: 'white',
+                              fontSize: '13px',
+                              outline: 'none',
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                        </div>
+                        <button
+                          onClick={handleCustomTopup}
+                          disabled={topupLoading}
+                          style={{
+                            padding: '9px 14px',
+                            background: topupLoading ? 'rgba(0,229,255,0.3)' : 'rgba(0,229,255,0.15)',
+                            border: '1px solid rgba(0,229,255,0.4)',
+                            borderRadius: '8px',
+                            color: 'var(--color-secondary)',
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            cursor: topupLoading ? 'not-allowed' : 'pointer',
+                            whiteSpace: 'nowrap',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          {topupLoading ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : null}
+                          Add to Wallet
+                        </button>
+                      </div>
+                      {topupMessage && (
+                        <div style={{
+                          marginTop: '8px',
+                          fontSize: '11px',
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          background: topupMessage.ok ? 'rgba(0,230,118,0.1)' : 'rgba(255,82,82,0.1)',
+                          color: topupMessage.ok ? '#00e676' : '#ff5252',
+                          border: `1px solid ${topupMessage.ok ? 'rgba(0,230,118,0.2)' : 'rgba(255,82,82,0.2)'}`
+                        }}>
+                          {topupMessage.text}
+                        </div>
+                      )}
+                    </div>
 
                   </>
                 )}

@@ -696,6 +696,55 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
                   </button>
                 ))}
               </div>
+
+              {/* Custom amount entry */}
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(155,77,255,0.9)', fontWeight: '700', fontSize: '13px' }}>₹</span>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Custom amount"
+                    value={rechargeAmount === 10 || rechargeAmount === 50 || rechargeAmount === 100 || rechargeAmount === 500 ? '' : rechargeAmount}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      if (!isNaN(v) && v > 0) setRechargeAmount(v);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '9px 10px 9px 26px',
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(155,77,255,0.3)',
+                      borderRadius: '8px',
+                      color: 'white',
+                      fontSize: '13px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = document.querySelector<HTMLInputElement>('input[placeholder="Custom amount"]');
+                    const v = parseFloat(el?.value || '');
+                    if (!isNaN(v) && v > 0) setRechargeAmount(v);
+                  }}
+                  style={{
+                    padding: '9px 12px',
+                    background: 'rgba(155,77,255,0.15)',
+                    border: '1px solid rgba(155,77,255,0.4)',
+                    borderRadius: '8px',
+                    color: 'rgba(155,77,255,0.9)',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  Set
+                </button>
+              </div>
               <button type="button" onClick={handleRazorpayRecharge} disabled={isPaying}
                 style={{
                   width: '100%', padding: '12px', borderRadius: '9px', border: 'none',
