@@ -1066,6 +1066,60 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       ctx.restore();
     };
 
+    const drawLogos = (ctx: CanvasRenderingContext2D) => {
+      const hideOverlays = metadata?.blankKit ?? false;
+      if (hideOverlays) return;
+
+      const drawSingleLogo = (logo: LogoConfig | undefined, isTorso: boolean = false) => {
+        if (!logo || !logo.enabled) return;
+
+        if (isTorso && logo.text && logo.text.trim()) {
+          ctx.save();
+          const xPx = logo.xPos * scale;
+          const yPx = logo.yPos * scale;
+          const wPx = logo.width * scale;
+          const hPx = logo.height * scale;
+
+          ctx.font = `bold ${hPx}px OldSport02AthleticNcv-E0gj, Impact, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#ffffff';
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = Math.max(1, Math.round(0.06 * hPx));
+
+          ctx.strokeText(logo.text, xPx, yPx, wPx);
+          ctx.fillText(logo.text, xPx, yPx, wPx);
+          ctx.restore();
+          return;
+        }
+
+        if (!logo.uploadedUrl) return;
+        const cachedImg = logoImagesRef.current[logo.uploadedUrl];
+        if (!cachedImg) {
+          const img = new Image();
+          img.onload = () => {
+            logoImagesRef.current[logo.uploadedUrl!] = img;
+            setPrefTrigger(prev => prev + 1);
+          };
+          img.src = logo.uploadedUrl;
+          return;
+        }
+
+        ctx.save();
+        const wPx = logo.width * scale;
+        const hPx = logo.height * scale;
+        const xPx = logo.xPos * scale;
+        const yPx = logo.yPos * scale;
+
+        ctx.drawImage(cachedImg, xPx - wPx / 2, yPx - hPx / 2, wPx, hPx);
+        ctx.restore();
+      };
+
+      drawSingleLogo(panel.leftChestLogo, false);
+      drawSingleLogo(panel.rightChestLogo, false);
+      drawSingleLogo(panel.torsoLogo, true);
+    };
+
     const drawPanelArtwork = () => {
       ctx.save();
       if (rulerOffset > 0) {
