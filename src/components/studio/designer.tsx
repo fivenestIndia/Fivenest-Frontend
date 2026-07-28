@@ -1842,7 +1842,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           </div>
         </div>
       </div>
-      </div>
 
       {/* CorelDRAW Right Docker Panel */}
       <div className="cd-docker-panel">
@@ -3601,6 +3600,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           )}
         </div>
       </div>
+      </div>
+      </div>
 
       {/* 4. COREL COLOR PALETTE STRIP */}
       <ColorPalette
@@ -3622,7 +3623,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       {showShortcutsModal && (
         <ShortcutsModal onClose={() => setShowShortcutsModal(false)} />
       )}
-    </div>
     </div>
   );
 };
