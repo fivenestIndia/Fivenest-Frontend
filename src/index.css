@@ -1288,3 +1288,217 @@ input[type="range"]::-webkit-slider-thumb:hover {
     gap: 10px !important;
   }
 }
+
+/* CorelDRAW Studio Layout & Theme Styles */
+.cd-studio-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: #1e1e24;
+  color: #e2e8f0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  user-select: none;
+  overflow: hidden;
+}
+
+.cd-menubar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #121216;
+  border-b: 1px solid #2d2d38;
+  padding: 4px 12px;
+  height: 32px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.cd-menu-item {
+  position: relative;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+  color: #cbd5e1;
+  transition: all 0.15s ease;
+}
+
+.cd-menu-item:hover, .cd-menu-item.active {
+  background: #2b2b36;
+  color: #38bdf8;
+}
+
+.cd-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 2px;
+  background: #181820;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  min-width: 180px;
+  z-index: 1000;
+  padding: 4px 0;
+}
+
+.cd-dropdown-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  font-size: 11px;
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+.cd-dropdown-action:hover {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+.cd-propertybar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #16161c;
+  border-b: 1px solid #2b2b36;
+  padding: 4px 12px;
+  height: 40px;
+  font-size: 11px;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.cd-property-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 12px;
+  border-right: 1px solid #2d2d38;
+}
+
+.cd-property-group:last-child {
+  border-right: none;
+}
+
+.cd-property-input {
+  background: #0f0f13;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  color: #00f0ff;
+  font-size: 11px;
+  padding: 3px 8px;
+  outline: none;
+  font-family: monospace;
+}
+
+.cd-property-input:focus {
+  border-color: #38bdf8;
+}
+
+.cd-workspace-main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.cd-toolbox {
+  width: 44px;
+  background: #141419;
+  border-r: 1px solid #2b2b36;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 4px;
+  gap: 4px;
+  flex-shrink: 0;
+  z-index: 20;
+}
+
+.cd-tool-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.cd-tool-btn:hover {
+  background: #22222b;
+  color: #e2e8f0;
+}
+
+.cd-tool-btn.active {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #38bdf8;
+  box-shadow: 0 0 10px rgba(2, 132, 199, 0.4);
+}
+
+.cd-canvas-area {
+  flex: 1;
+  background: #26262e;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.cd-palette-bar {
+  height: 36px;
+  background: #141418;
+  border-t: 1px solid #2b2b36;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 3px;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.cd-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.15);
+  transition: transform 0.1s ease;
+}
+
+.cd-swatch:hover {
+  transform: scale(1.15);
+  z-index: 5;
+  border-color: #ffffff;
+}
+
+.cd-statusbar {
+  height: 24px;
+  background: #0f0f13;
+  border-t: 1px solid #22222b;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  font-size: 10px;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.cd-statusbar-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+

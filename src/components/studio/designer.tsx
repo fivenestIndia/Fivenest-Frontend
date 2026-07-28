@@ -5,6 +5,13 @@ import { ThreeDPreview } from './ThreeDPreview';
 import { defaultSizes } from './sizesDb';
 import { toast } from 'sonner';
 
+import { ToolBox, CorelTool } from './coreldraw/ToolBox';
+import { MenuBar } from './coreldraw/MenuBar';
+import { PropertyBar } from './coreldraw/PropertyBar';
+import { ColorPalette } from './coreldraw/ColorPalette';
+import { StatusBar } from './coreldraw/StatusBar';
+import { ShortcutsModal } from './coreldraw/ShortcutsModal';
+
 export interface TextConfig {
   enabled: boolean;
   yPos: number; // percentage from top (0-100)
@@ -187,6 +194,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [activeTextLayer, setActiveTextLayer] = useState<'name' | 'number'>('name');
 
   const [showGuidelines, setShowGuidelines] = useState<boolean>(true);
+  const [activeTool, setActiveTool] = useState<CorelTool>('pick');
+  const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
+  const [showShortcutsModal, setShowShortcutsModal] = useState<boolean>(false);
+  const [rulersEnabled, setRulersEnabled] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('fivenest_pref_rulers');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch (e) {
+      return true;
+    }
+  });
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
     zip: true,
     presets: true,
@@ -270,8 +288,47 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         e.preventDefault();
         setSpaceKeyPressed(true);
       }
-      if (e.key.toLowerCase() === 'z') {
+      if (e.key.toLowerCase() === 'z' && !e.ctrlKey && !e.metaKey) {
+        setActiveTool('zoom');
         setZKeyPressed(true);
+      }
+      if (e.key.toLowerCase() === 'v') {
+        setActiveTool('pick');
+      }
+      if (e.key.toLowerCase() === 'h') {
+        setActiveTool('pan');
+      }
+      if (e.key.toLowerCase() === 't') {
+        setActiveTool('text');
+      }
+      if (e.key.toLowerCase() === 'l') {
+        setActiveTool('logo');
+      }
+      if (e.key.toLowerCase() === 'i' && !e.ctrlKey && !e.metaKey) {
+        setActiveTool('eyedrop');
+      }
+      if (e.key.toLowerCase() === 'g' && !e.ctrlKey && !e.metaKey) {
+        setShowGuidelines(prev => !prev);
+      }
+      if (e.key.toLowerCase() === 'r' && !e.ctrlKey && !e.metaKey) {
+        setRulersEnabled(prev => {
+          const next = !prev;
+          localStorage.setItem('fivenest_pref_rulers', JSON.stringify(next));
+          return next;
+        });
+      }
+      if (e.key === 'F1') {
+        e.preventDefault();
+        setShowShortcutsModal(true);
+      }
+      // Import image: Ctrl + I or Cmd + I
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
+        e.preventDefault();
+        fileInputRef.current?.click();
+      }
+      // Clear panel background: Delete or Backspace
+      if (e.key === 'Delete') {
+        updateActivePanel({ uploadedFileUrl: null });
       }
       // Zoom reset: Ctrl + 0 or Cmd + 0
       if ((e.ctrlKey || e.metaKey) && e.key === '0') {
@@ -1417,19 +1474,107 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     }
   };
 
+  const handlePaletteFill = (color: string) => {
+    if (activeTool === 'text') {
+      const configKey = activeTextLayer === 'name' ? 'nameConfig' : activeTextLayer === 'number' ? 'numberConfig' : 'sizeTagConfig';
+      const current = activePanel[configKey];
+      if (current) {
+        updateActivePanel({ [configKey]: { ...current, color } });
+      }
+    } else {
+      updateActivePanel({ generatedColor1: color });
+    }
+  };
+
+  const handlePaletteStroke = (color: string) => {
+    if (activeTool === 'text') {
+      const configKey = activeTextLayer === 'name' ? 'nameConfig' : activeTextLayer === 'number' ? 'numberConfig' : 'sizeTagConfig';
+      const current = activePanel[configKey];
+      if (current) {
+        updateActivePanel({ [configKey]: { ...current, strokeColor: color } });
+      }
+    } else {
+      updateActivePanel({ generatedColor2: color });
+    }
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    const currentScale = scale * zoom;
+    if (currentScale > 0) {
+      setCursorPos({
+        x: Math.max(0, mouseX / currentScale),
+        y: Math.max(0, mouseY / currentScale)
+      });
+    }
+  };
+
   return (
-    <div className="artwork-layout-designer fade-in">
-      {/* 2D Canvas Mock Renderer */}
-      <div 
-        className="canvas-container" 
-        style={{ 
-          flexDirection: 'column', 
-          gap: '16px',
-          position: 'relative',
-          border: isDragging ? '2px dashed var(--color-primary)' : '1px solid var(--border-light)',
-          background: isDragging ? 'rgba(155, 77, 255, 0.03)' : 'transparent',
-          transition: 'all 0.2s ease-in-out'
+    <div className="cd-studio-container fade-in">
+      {/* 1. COREL TOP MENU BAR */}
+      <MenuBar
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        zoom={zoom}
+        onSetZoom={setZoom}
+        showGuidelines={showGuidelines}
+        onToggleGuidelines={() => setShowGuidelines(prev => !prev)}
+        rulersEnabled={rulersEnabled}
+        onToggleRulers={() => {
+          setRulersEnabled(prev => {
+            const next = !prev;
+            localStorage.setItem('fivenest_pref_rulers', JSON.stringify(next));
+            return next;
+          });
         }}
+        onOpenImport={() => fileInputRef.current?.click()}
+        onClearPanel={() => updateActivePanel({ uploadedFileUrl: null })}
+        onOpenShortcutsModal={() => setShowShortcutsModal(true)}
+      />
+
+      {/* 2. COREL CONTEXT PROPERTY BAR */}
+      <PropertyBar
+        activeTool={activeTool}
+        activeTab={activeTab}
+        panel={activePanel}
+        physicalWidth={physicalWidth}
+        physicalHeight={physicalHeight}
+        zoom={zoom}
+        onSetZoom={setZoom}
+        onUpdatePanel={updateActivePanel}
+        activeTextLayer={activeTextLayer as any}
+        onSelectTextLayer={(layer) => setActiveTextLayer(layer as any)}
+        previewSleeveType={previewSleeveType}
+        onSleeveTypeChange={handleSleeveTypeChange}
+      />
+
+      {/* 3. MAIN WORKSPACE: LEFT TOOLBOX + CANVAS + RIGHT DOCKERS */}
+      <div className="cd-workspace-main">
+        <ToolBox
+          activeTool={activeTool}
+          onSelectTool={setActiveTool}
+          showGuidelines={showGuidelines}
+          onToggleGuidelines={() => setShowGuidelines(prev => !prev)}
+        />
+
+        <div className="cd-canvas-area">
+          {/* 2D Canvas Mock Renderer */}
+          <div 
+            className="canvas-container" 
+            style={{ 
+              flexDirection: 'column', 
+              gap: '16px',
+              position: 'relative',
+              border: isDragging ? '2px dashed var(--color-primary)' : 'none',
+              background: isDragging ? 'rgba(155, 77, 255, 0.03)' : 'transparent',
+              transition: 'all 0.2s ease-in-out',
+              height: '100%',
+              maxHeight: '100%'
+            }}
         onDragOver={(e) => {
           e.preventDefault();
           setIsDragging(true);
@@ -1653,6 +1798,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ) : (
               <canvas 
                 ref={canvasRef} 
+                onMouseMove={handleCanvasMouseMove}
+                onMouseLeave={() => setCursorPos(null)}
                 style={{ 
                   borderRadius: '8px', 
                   border: '1px solid rgba(255,255,255,0.1)', 
@@ -1693,6 +1840,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             />
           </div>
         </div>
+      </div>
       </div>
 
       {/* Editor Panel Controls */}
@@ -3452,6 +3600,28 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           )}
         </div>
       </div>
+
+      {/* 4. COREL COLOR PALETTE STRIP */}
+      <ColorPalette
+        onSelectFillColor={handlePaletteFill}
+        onSelectStrokeColor={handlePaletteStroke}
+      />
+
+      {/* 5. COREL STATUS BAR */}
+      <StatusBar
+        activeTool={activeTool}
+        cursorPos={cursorPos}
+        activeTab={activeTab}
+        physicalWidth={physicalWidth}
+        physicalHeight={physicalHeight}
+        zoom={zoom}
+      />
+
+      {/* 6. SHORTCUTS HELP MODAL */}
+      {showShortcutsModal && (
+        <ShortcutsModal onClose={() => setShowShortcutsModal(false)} />
+      )}
+    </div>
     </div>
   );
 };
