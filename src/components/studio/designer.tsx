@@ -436,6 +436,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const zipInputRef = useRef<HTMLInputElement>(null);
   const scrollWrapperRef = useRef<HTMLDivElement>(null);
   const textureCache = useRef<Map<string, HTMLImageElement>>(new Map());
+  const textBoundingBoxesRef = useRef<{
+    [key: string]: { x: number; y: number; w: number; h: number };
+  }>({});
+  const isDraggingTextRef = useRef<boolean>(false);
   const touchStartRef = useRef<{
     x: number;
     y: number;
@@ -809,7 +813,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     };
 
     const drawTexts = (ctx: CanvasRenderingContext2D) => {
-      const drawSingleText = (text: string, conf: TextConfig, textX: number, textY: number, maxLimitPx: number) => {
+      const drawSingleText = (text: string, conf: TextConfig, textX: number, textY: number, maxLimitPx: number, layerKey?: 'name' | 'number') => {
         ctx.save();
         const fontSizePx = Math.round((conf.fontSize / 30) * height);
         ctx.font = `bold ${fontSizePx}px "${conf.fontFamily}"`;
@@ -856,8 +860,30 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
         const displayName = conf.caseType === 'uppercase' ? text.toUpperCase() : text;
 
+        // Store bounding box for canvas clicking & drag selection
+        const textMetrics = ctx.measureText(displayName);
+        const boundsW = Math.min(textMetrics.width, maxLimitPx);
+        const boundsH = fontSizePx * 1.2;
+
+        let boxX = adjustedX;
+        if (align === 'center') {
+          boxX = adjustedX - boundsW / 2;
+        } else if (align === 'right') {
+          boxX = adjustedX - boundsW;
+        }
+        const boxY = textY - fontSizePx * 0.6;
+
+        if (layerKey) {
+          textBoundingBoxesRef.current[layerKey] = {
+            x: boxX,
+            y: boxY,
+            w: boundsW,
+            h: boundsH
+          };
+        }
+
         // Calculate text fill style (Solid, Gradient, or Texture Pattern)
-        const getTextFill = (boundsW: number, boundsH: number): string | CanvasGradient | CanvasPattern => {
+        const getTextFill = (bW: number, bH: number): string | CanvasGradient | CanvasPattern => {
           if (conf.fillType === 'gradient') {
             const stops = (conf.gradientStops && conf.gradientStops.length >= 2)
               ? conf.gradientStops
@@ -866,14 +892,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             let grad: CanvasGradient;
 
             if (dir === 'horizontal') {
-              grad = ctx.createLinearGradient(-boundsW / 2, 0, boundsW / 2, 0);
+              grad = ctx.createLinearGradient(-bW / 2, 0, bW / 2, 0);
             } else if (dir === 'radial') {
-              grad = ctx.createRadialGradient(0, 0, 2, 0, 0, boundsH);
+              grad = ctx.createRadialGradient(0, 0, 2, 0, 0, bH);
             } else if (dir === 'diagonal') {
-              grad = ctx.createLinearGradient(-boundsW / 2, -boundsH / 2, boundsW / 2, boundsH / 2);
+              grad = ctx.createLinearGradient(-bW / 2, -bH / 2, bW / 2, bH / 2);
             } else {
               // vertical (default)
-              grad = ctx.createLinearGradient(0, -boundsH / 2, 0, boundsH / 2);
+              grad = ctx.createLinearGradient(0, -bH / 2, 0, bH / 2);
             }
             
             stops.forEach((color, idx) => {
@@ -949,10 +975,63 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
       const hideOverlays = metadata?.blankKit ?? false;
       if (!hideOverlays && panel.nameConfig.enabled) {
-        drawSingleText(previewName, panel.nameConfig, width / 2, (panel.nameConfig.yPos / 100) * height, (panel.nameConfig.maxW / 20) * width);
+        drawSingleText(previewName, panel.nameConfig, width / 2, (panel.nameConfig.yPos / 100) * height, (panel.nameConfig.maxW / 20) * width, 'name');
       }
       if (!hideOverlays && panel.numberConfig.enabled) {
-        drawSingleText(previewNumber, panel.numberConfig, width / 2, (panel.numberConfig.yPos / 100) * height, (panel.numberConfig.maxW / 20) * width);
+        drawSingleText(previewNumber, panel.numberConfig, width / 2, (panel.numberConfig.yPos / 100) * height, (panel.numberConfig.maxW / 20) * width, 'number');
+      }
+
+      // Draw interactive Cyan Selection Box with 8 Control Handles around Active Selected Text Layer
+      if (!is3DPreview) {
+        const activeKey = activeTextLayer || (panel.nameConfig.enabled ? 'name' : 'number');
+        const selectedBox = textBoundingBoxesRef.current[activeKey];
+        if (selectedBox) {
+          ctx.save();
+          ctx.strokeStyle = '#00f0ff';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([6, 4]);
+
+          const pad = 10;
+          const bx = selectedBox.x - pad;
+          const by = selectedBox.y - pad;
+          const bw = selectedBox.w + pad * 2;
+          const bh = selectedBox.h + pad * 2;
+
+          // Dashed selection rectangle
+          ctx.strokeRect(bx, by, bw, bh);
+          ctx.setLineDash([]); // solid lines for handles
+
+          // 8 Control Handles (white squares with cyan outline)
+          const handles = [
+            { x: bx, y: by },                        // TL
+            { x: bx + bw / 2, y: by },               // TC
+            { x: bx + bw, y: by },                   // TR
+            { x: bx, y: by + bh / 2 },               // ML
+            { x: bx + bw, y: by + bh / 2 },           // MR
+            { x: bx, y: by + bh },                   // BL
+            { x: bx + bw / 2, y: by + bh },            // BC
+            { x: bx + bw, y: by + bh }                // BR
+          ];
+
+          handles.forEach(h => {
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#00f0ff';
+            ctx.lineWidth = 1.5;
+            ctx.fillRect(h.x - 4, h.y - 4, 8, 8);
+            ctx.strokeRect(h.x - 4, h.y - 4, 8, 8);
+          });
+
+          // Active Layer Name Badge
+          const badgeText = activeKey === 'name' ? 'PLAYER NAME (SELECTED)' : 'PLAYER NUMBER (SELECTED)';
+          ctx.font = 'bold 10px sans-serif';
+          const badgeW = ctx.measureText(badgeText).width + 14;
+          ctx.fillStyle = '#00f0ff';
+          ctx.fillRect(bx, Math.max(2, by - 20), badgeW, 18);
+          ctx.fillStyle = '#000000';
+          ctx.fillText(badgeText, bx + 7, Math.max(14, by - 6));
+
+          ctx.restore();
+        }
       }
 
       // Draw customizable Size Tag (Top Left) - skip for A4 and skip if 3D preview
@@ -1460,8 +1539,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
     };
 
+    const handleGlobalMouseUp = () => {
+      isDraggingTextRef.current = false;
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
   }, [activePanel, activeTextLayer]);
 
   // Draw preview canvas
@@ -1654,12 +1741,61 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     });
   };
 
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current || activeTab === 'threeD') return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const canvasX = (e.clientX - rect.left) * (width / rect.width);
+    const canvasY = (e.clientY - rect.top) * (height / rect.height);
+
+    const pad = 16;
+
+    // Check hit test for Player Name
+    const nameBox = textBoundingBoxesRef.current['name'];
+    if (nameBox && activePanel.nameConfig?.enabled) {
+      if (
+        canvasX >= nameBox.x - pad &&
+        canvasX <= nameBox.x + nameBox.w + pad &&
+        canvasY >= nameBox.y - pad &&
+        canvasY <= nameBox.y + nameBox.h + pad
+      ) {
+        setActiveTextLayer('name');
+        setActiveTool('text');
+        isDraggingTextRef.current = true;
+        setPrefTrigger(prev => prev + 1);
+        return;
+      }
+    }
+
+    // Check hit test for Player Number
+    const numBox = textBoundingBoxesRef.current['number'];
+    if (numBox && activePanel.numberConfig?.enabled) {
+      if (
+        canvasX >= numBox.x - pad &&
+        canvasX <= numBox.x + numBox.w + pad &&
+        canvasY >= numBox.y - pad &&
+        canvasY <= numBox.y + numBox.h + pad
+      ) {
+        setActiveTextLayer('number');
+        setActiveTool('text');
+        isDraggingTextRef.current = true;
+        setPrefTrigger(prev => prev + 1);
+        return;
+      }
+    }
+  };
+
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-    
+
+    if (isDraggingTextRef.current && activeTextLayer) {
+      const canvasY = (mouseY / rect.height) * height;
+      const newYPercent = Math.min(100, Math.max(0, Math.round((canvasY / height) * 100)));
+      updateTextConfig(activeTextLayer, { yPos: newYPercent });
+    }
+
     const currentScale = scale * zoom;
     if (currentScale > 0) {
       setCursorPos({
@@ -1961,6 +2097,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ) : (
               <canvas 
                 ref={canvasRef} 
+                onMouseDown={handleCanvasMouseDown}
                 onMouseMove={handleCanvasMouseMove}
                 onMouseLeave={() => setCursorPos(null)}
                 style={{ 
