@@ -29,6 +29,7 @@ export interface TextConfig {
   fillType?: 'solid' | 'gradient' | 'texture';
   gradientColor1?: string;
   gradientColor2?: string;
+  gradientStops?: string[];
   gradientDirection?: 'vertical' | 'horizontal' | 'radial' | 'diagonal';
   textureUrl?: string | null;
 }
@@ -858,8 +859,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         // Calculate text fill style (Solid, Gradient, or Texture Pattern)
         const getTextFill = (boundsW: number, boundsH: number): string | CanvasGradient | CanvasPattern => {
           if (conf.fillType === 'gradient') {
-            const g1 = conf.gradientColor1 || conf.color || '#00f0ff';
-            const g2 = conf.gradientColor2 || '#ff0055';
+            const stops = (conf.gradientStops && conf.gradientStops.length >= 2)
+              ? conf.gradientStops
+              : [conf.gradientColor1 || conf.color || '#00f0ff', conf.gradientColor2 || '#ff0055'];
             const dir = conf.gradientDirection || 'vertical';
             let grad: CanvasGradient;
 
@@ -873,8 +875,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               // vertical (default)
               grad = ctx.createLinearGradient(0, -boundsH / 2, 0, boundsH / 2);
             }
-            grad.addColorStop(0, g1);
-            grad.addColorStop(1, g2);
+            
+            stops.forEach((color, idx) => {
+              const offset = idx / Math.max(1, stops.length - 1);
+              grad.addColorStop(offset, color);
+            });
             return grad;
           }
 
@@ -1413,18 +1418,43 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         updateActivePanel({ uploadedFileUrl: null });
       }
 
-      // Text Alignment shortcuts (C, T, B, L, R)
-      if (activeTextLayer && ['C', 'T', 'B', 'L', 'R'].includes(key)) {
-        const targetLayer: 'name' | 'number' = activeTextLayer || (activePanel.nameConfig?.enabled ? 'name' : 'number');
+      // Text Manipulation & CorelDRAW Alignment shortcuts (Arrow Keys, C, E, P, T, B, L, R)
+      const targetLayer: 'name' | 'number' = activeTextLayer || (activePanel.nameConfig?.enabled ? 'name' : 'number');
+      const conf = activePanel[targetLayer === 'name' ? 'nameConfig' : 'numberConfig'];
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const step = e.shiftKey ? 5 : 1;
+        updateTextConfig(targetLayer, { yPos: Math.max(0, conf.yPos - step) });
+        return;
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const step = e.shiftKey ? 5 : 1;
+        updateTextConfig(targetLayer, { yPos: Math.min(100, conf.yPos + step) });
+        return;
+      }
+
+      if (['C', 'E', 'P', 'T', 'B', 'L', 'R'].includes(key) && !isCtrl) {
         if (key === 'C') {
+          // Center Horizontally
+          updateTextConfig(targetLayer, { align: 'center' });
+        } else if (key === 'E') {
+          // Center Vertically (50%)
+          updateTextConfig(targetLayer, { yPos: 50 });
+        } else if (key === 'P') {
+          // Center to Page (Both Horizontally & Vertically)
           updateTextConfig(targetLayer, { align: 'center', yPos: 50 });
         } else if (key === 'T') {
+          // Align Top (15%)
           updateTextConfig(targetLayer, { yPos: 15 });
         } else if (key === 'B') {
+          // Align Bottom (85%)
           updateTextConfig(targetLayer, { yPos: 85 });
         } else if (key === 'L') {
+          // Align Left
           updateTextConfig(targetLayer, { align: 'left' });
         } else if (key === 'R') {
+          // Align Right
           updateTextConfig(targetLayer, { align: 'right' });
         }
       }
@@ -2729,31 +2759,63 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     </div>
                   )}
 
-                  {/* Gradient Fill */}
+                  {/* Multi-Color Gradient Fill */}
                   {activePanel.nameConfig.fillType === 'gradient' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div className="form-row">
-                        <div className="form-group" style={{ margin: 0, flex: 1 }}>
-                          <label className="form-label" style={{ fontSize: '10px' }}>Start Color:</label>
-                          <input 
-                            type="color" 
-                            value={activePanel.nameConfig.gradientColor1 || activePanel.nameConfig.color || '#00f0ff'}
-                            onChange={(e) => updateTextConfig('name', { gradientColor1: e.target.value })}
-                            style={{ border: 'none', background: 'none', width: '100%', height: '26px', cursor: 'pointer' }}
-                          />
-                        </div>
-                        <div className="form-group" style={{ margin: 0, flex: 1 }}>
-                          <label className="form-label" style={{ fontSize: '10px' }}>End Color:</label>
-                          <input 
-                            type="color" 
-                            value={activePanel.nameConfig.gradientColor2 || '#ff0055'}
-                            onChange={(e) => updateTextConfig('name', { gradientColor2: e.target.value })}
-                            style={{ border: 'none', background: 'none', width: '100%', height: '26px', cursor: 'pointer' }}
-                          />
-                        </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label className="form-label" style={{ fontSize: '10px', margin: 0, fontWeight: 'bold' }}>
+                          Color Stops ({(activePanel.nameConfig.gradientStops || [activePanel.nameConfig.gradientColor1 || '#00f0ff', activePanel.nameConfig.gradientColor2 || '#ff0055']).length}):
+                        </label>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ padding: '2px 6px', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '3px', color: '#00f0ff' }}
+                          onClick={() => {
+                            const current = activePanel.nameConfig.gradientStops || [activePanel.nameConfig.gradientColor1 || '#00f0ff', activePanel.nameConfig.gradientColor2 || '#ff0055'];
+                            updateTextConfig('name', { gradientStops: [...current, '#eab308'] });
+                          }}
+                        >
+                          <Plus size={9} /> Add Color Stop
+                        </button>
                       </div>
+
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {(activePanel.nameConfig.gradientStops || [activePanel.nameConfig.gradientColor1 || '#00f0ff', activePanel.nameConfig.gradientColor2 || '#ff0055']).map((c, sIdx, arr) => (
+                          <div key={sIdx} style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
+                            <span style={{ fontSize: '9px', opacity: 0.6 }}>#{sIdx + 1}</span>
+                            <input 
+                              type="color" 
+                              value={c}
+                              onChange={(e) => {
+                                const newStops = [...arr];
+                                newStops[sIdx] = e.target.value;
+                                updateTextConfig('name', { 
+                                  gradientStops: newStops,
+                                  gradientColor1: newStops[0],
+                                  gradientColor2: newStops[newStops.length - 1]
+                                });
+                              }}
+                              style={{ border: 'none', background: 'none', width: '22px', height: '22px', cursor: 'pointer' }}
+                            />
+                            {arr.length > 2 && (
+                              <button
+                                type="button"
+                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0 2px' }}
+                                onClick={() => {
+                                  const newStops = arr.filter((_, i) => i !== sIdx);
+                                  updateTextConfig('name', { gradientStops: newStops });
+                                }}
+                                title="Remove Stop"
+                              >
+                                <Trash2 size={10} />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
                       <div>
-                        <label className="form-label" style={{ fontSize: '10px' }}>Gradient Style:</label>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Gradient Direction:</label>
                         <select 
                           className="form-select" 
                           value={activePanel.nameConfig.gradientDirection || 'vertical'}
@@ -3022,31 +3084,63 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     </div>
                   )}
 
-                  {/* Gradient Fill */}
+                  {/* Multi-Color Gradient Fill */}
                   {activePanel.numberConfig.fillType === 'gradient' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div className="form-row">
-                        <div className="form-group" style={{ margin: 0, flex: 1 }}>
-                          <label className="form-label" style={{ fontSize: '10px' }}>Start Color:</label>
-                          <input 
-                            type="color" 
-                            value={activePanel.numberConfig.gradientColor1 || activePanel.numberConfig.color || '#00f0ff'}
-                            onChange={(e) => updateTextConfig('number', { gradientColor1: e.target.value })}
-                            style={{ border: 'none', background: 'none', width: '100%', height: '26px', cursor: 'pointer' }}
-                          />
-                        </div>
-                        <div className="form-group" style={{ margin: 0, flex: 1 }}>
-                          <label className="form-label" style={{ fontSize: '10px' }}>End Color:</label>
-                          <input 
-                            type="color" 
-                            value={activePanel.numberConfig.gradientColor2 || '#ff0055'}
-                            onChange={(e) => updateTextConfig('number', { gradientColor2: e.target.value })}
-                            style={{ border: 'none', background: 'none', width: '100%', height: '26px', cursor: 'pointer' }}
-                          />
-                        </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label className="form-label" style={{ fontSize: '10px', margin: 0, fontWeight: 'bold' }}>
+                          Color Stops ({(activePanel.numberConfig.gradientStops || [activePanel.numberConfig.gradientColor1 || '#00f0ff', activePanel.numberConfig.gradientColor2 || '#ff0055']).length}):
+                        </label>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ padding: '2px 6px', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '3px', color: '#00f0ff' }}
+                          onClick={() => {
+                            const current = activePanel.numberConfig.gradientStops || [activePanel.numberConfig.gradientColor1 || '#00f0ff', activePanel.numberConfig.gradientColor2 || '#ff0055'];
+                            updateTextConfig('number', { gradientStops: [...current, '#eab308'] });
+                          }}
+                        >
+                          <Plus size={9} /> Add Color Stop
+                        </button>
                       </div>
+
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {(activePanel.numberConfig.gradientStops || [activePanel.numberConfig.gradientColor1 || '#00f0ff', activePanel.numberConfig.gradientColor2 || '#ff0055']).map((c, sIdx, arr) => (
+                          <div key={sIdx} style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
+                            <span style={{ fontSize: '9px', opacity: 0.6 }}>#{sIdx + 1}</span>
+                            <input 
+                              type="color" 
+                              value={c}
+                              onChange={(e) => {
+                                const newStops = [...arr];
+                                newStops[sIdx] = e.target.value;
+                                updateTextConfig('number', { 
+                                  gradientStops: newStops,
+                                  gradientColor1: newStops[0],
+                                  gradientColor2: newStops[newStops.length - 1]
+                                });
+                              }}
+                              style={{ border: 'none', background: 'none', width: '22px', height: '22px', cursor: 'pointer' }}
+                            />
+                            {arr.length > 2 && (
+                              <button
+                                type="button"
+                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0 2px' }}
+                                onClick={() => {
+                                  const newStops = arr.filter((_, i) => i !== sIdx);
+                                  updateTextConfig('number', { gradientStops: newStops });
+                                }}
+                                title="Remove Stop"
+                              >
+                                <Trash2 size={10} />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
                       <div>
-                        <label className="form-label" style={{ fontSize: '10px' }}>Gradient Style:</label>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Gradient Direction:</label>
                         <select 
                           className="form-select" 
                           value={activePanel.numberConfig.gradientDirection || 'vertical'}
