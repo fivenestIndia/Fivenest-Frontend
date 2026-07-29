@@ -1445,11 +1445,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           // Center to Page (Both Horizontally & Vertically)
           updateTextConfig(targetLayer, { align: 'center', yPos: 50 });
         } else if (key === 'T') {
-          // Align Top (15%)
-          updateTextConfig(targetLayer, { yPos: 15 });
+          // Align Extreme Top (5%)
+          updateTextConfig(targetLayer, { yPos: 5 });
         } else if (key === 'B') {
-          // Align Bottom (85%)
-          updateTextConfig(targetLayer, { yPos: 85 });
+          // Align Extreme Bottom (92%)
+          updateTextConfig(targetLayer, { yPos: 92 });
         } else if (key === 'L') {
           // Align Left
           updateTextConfig(targetLayer, { align: 'left' });
@@ -1642,6 +1642,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     } else {
       updateActivePanel({ generatedColor2: color });
     }
+  };
+
+  const handlePaletteGradient = (stops: string[]) => {
+    const targetLayer: 'name' | 'number' = activeTextLayer || (activePanel.nameConfig?.enabled ? 'name' : 'number');
+    updateTextConfig(targetLayer, {
+      fillType: 'gradient',
+      gradientStops: stops,
+      gradientColor1: stops[0],
+      gradientColor2: stops[stops.length - 1]
+    });
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1872,8 +1882,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             minHeight: 0,
             padding: '16px',
             boxSizing: 'border-box',
-            cursor: spaceKeyPressed ? (panStart ? 'grabbing' : 'grab') : (zKeyPressed ? (dragStart ? 'grabbing' : 'zoom-in') : 'default'),
-            userSelect: (spaceKeyPressed || zKeyPressed) ? 'none' : 'auto',
+            cursor: (spaceKeyPressed || activeTool === 'pan') ? (panStart ? 'grabbing' : 'grab') : ((zKeyPressed || activeTool === 'zoom') ? (dragStart ? 'grabbing' : 'zoom-in') : 'default'),
+            userSelect: (spaceKeyPressed || activeTool === 'pan' || zKeyPressed || activeTool === 'zoom') ? 'none' : 'auto',
             position: 'relative'
           }}
           onWheel={(e) => {
@@ -1883,7 +1893,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             setZoom(newZoom);
           }}
           onMouseDown={(e) => {
-            if (spaceKeyPressed && e.button === 0) {
+            if ((spaceKeyPressed || activeTool === 'pan') && e.button === 0) {
               e.preventDefault();
               if (scrollWrapperRef.current) {
                 setPanStart({
@@ -1893,7 +1903,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   y: e.clientY
                 });
               }
-            } else if (zKeyPressed && e.button === 0) {
+            } else if ((zKeyPressed || activeTool === 'zoom') && e.button === 0) {
               e.preventDefault();
               setDragStart({ x: e.clientX, y: e.clientY, zoom: zoom });
             }
@@ -2582,8 +2592,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       </div>
                       <input 
                         type="range" 
-                        min="5" 
-                        max="95" 
+                        min="0" 
+                        max="100" 
                         value={activePanel.nameConfig.yPos}
                         onChange={(e) => updateTextConfig('name', { yPos: parseInt(e.target.value) })}
                       />
@@ -2919,8 +2929,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   </div>
                   <input 
                     type="range" 
-                    min="5" 
-                    max="95" 
+                    min="0" 
+                    max="100" 
                     value={activePanel.numberConfig.yPos}
                     onChange={(e) => updateTextConfig('number', { yPos: parseInt(e.target.value) })}
                   />
@@ -4060,6 +4070,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       <ColorPalette
         onSelectFillColor={handlePaletteFill}
         onSelectStrokeColor={handlePaletteStroke}
+        onSelectGradientColor={handlePaletteGradient}
       />
 
       {/* 5. COREL STATUS BAR */}

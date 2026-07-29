@@ -4,7 +4,36 @@ import { Plus, Trash2, RotateCcw } from 'lucide-react';
 interface ColorPaletteProps {
   onSelectFillColor: (color: string) => void;
   onSelectStrokeColor: (color: string) => void;
+  onSelectGradientColor?: (stops: string[]) => void;
 }
+
+export const PRESET_GRADIENTS = [
+  {
+    name: 'Metallic Gold',
+    stops: ['#BF953F', '#FCF6BA', '#B38728', '#FBF5B7', '#AA771C'],
+    css: 'linear-gradient(135deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%)'
+  },
+  {
+    name: 'Sunset Fire',
+    stops: ['#FF512F', '#DD2476', '#F09819'],
+    css: 'linear-gradient(135deg, #FF512F 0%, #DD2476 50%, #F09819 100%)'
+  },
+  {
+    name: 'Electric Cyan',
+    stops: ['#00F2FE', '#4FACFE', '#00C6FF'],
+    css: 'linear-gradient(135deg, #00F2FE 0%, #4FACFE 50%, #00C6FF 100%)'
+  },
+  {
+    name: 'Neon Purple',
+    stops: ['#B5179E', '#7209B7', '#480CA8'],
+    css: 'linear-gradient(135deg, #B5179E 0%, #7209B7 50%, #480CA8 100%)'
+  },
+  {
+    name: 'Silver Chrome',
+    stops: ['#E0E0E0', '#F5F5F5', '#9E9E9E', '#757575'],
+    css: 'linear-gradient(135deg, #E0E0E0 0%, #F5F5F5 35%, #9E9E9E 70%, #757575 100%)'
+  }
+];
 
 const DEFAULT_SWATCHES = [
   'transparent', '#ffffff', '#e2e8f0', '#94a3b8', '#64748b', '#334155', '#1e293b', '#0f172a', '#000000',
@@ -16,7 +45,8 @@ const DEFAULT_SWATCHES = [
 
 export const ColorPalette: React.FC<ColorPaletteProps> = ({
   onSelectFillColor,
-  onSelectStrokeColor
+  onSelectStrokeColor,
+  onSelectGradientColor
 }) => {
   const [swatches, setSwatches] = useState<string[]>(DEFAULT_SWATCHES);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -68,6 +98,29 @@ export const ColorPalette: React.FC<ColorPaletteProps> = ({
     <div className="cd-palette-bar" style={{ position: 'relative' }}>
       <div style={{ fontSize: '9px', fontWeight: '700', color: '#64748b', marginRight: '4px', textTransform: 'uppercase', flexShrink: 0 }}>
         Palette
+      </div>
+
+      {/* Preset Gradients (Gold Metallic, Sunset Fire, Electric Cyan, Neon Purple, Silver Chrome) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', paddingRight: '8px', borderRight: '1px solid rgba(255,255,255,0.15)', marginRight: '4px', flexShrink: 0 }}>
+        <span style={{ fontSize: '8px', fontWeight: '800', color: '#eab308', textTransform: 'uppercase' }}>Gradients:</span>
+        {PRESET_GRADIENTS.map((g, idx) => (
+          <div
+            key={idx}
+            className="cd-swatch"
+            style={{
+              background: g.css,
+              border: g.name === 'Metallic Gold' ? '1.5px solid #FFDF00' : '1px solid rgba(255,255,255,0.3)',
+              boxShadow: g.name === 'Metallic Gold' ? '0 0 6px rgba(255, 223, 0, 0.6)' : undefined,
+              cursor: 'pointer'
+            }}
+            onClick={() => {
+              if (onSelectGradientColor) {
+                onSelectGradientColor(g.stops);
+              }
+            }}
+            title={`Apply ${g.name} Gradient to Text`}
+          />
+        ))}
       </div>
 
       {swatches.map((color, idx) => {
