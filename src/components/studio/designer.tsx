@@ -1847,6 +1847,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           </div>
         </div>
       </div>
+      </div>
 
       {/* CorelDRAW Right Docker Panel */}
       <div className="cd-docker-panel">
@@ -3604,7 +3605,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             </div>
           )}
         </div>
-      </div>
       </div>
       </div>
 
