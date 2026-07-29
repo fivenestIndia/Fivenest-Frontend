@@ -427,6 +427,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const zipInputRef = useRef<HTMLInputElement>(null);
   const scrollWrapperRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<{
     x: number;
@@ -1291,24 +1292,86 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         return;
       }
 
+      const isCtrl = e.ctrlKey || e.metaKey;
       const key = e.key.toUpperCase();
-      if (['C', 'T', 'B', 'L', 'R'].includes(key)) {
+
+      // Bulk ZIP Import shortcut: Ctrl + Shift + I  OR  Ctrl + B
+      if ((isCtrl && e.shiftKey && key === 'I') || (isCtrl && key === 'B')) {
+        e.preventDefault();
+        zipInputRef.current?.click();
+        return;
+      }
+
+      // Import Graphic Image shortcut: Ctrl + I
+      if (isCtrl && key === 'I') {
+        e.preventDefault();
+        fileInputRef.current?.click();
+        return;
+      }
+
+      // Zoom reset: Ctrl + 0
+      if (isCtrl && key === '0') {
+        e.preventDefault();
+        setZoom(1);
+        return;
+      }
+
+      // Zoom in: Ctrl + '=' or Ctrl + '+'
+      if (isCtrl && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        setZoom(z => Math.min(3, Math.round((z + 0.25) * 100) / 100));
+        return;
+      }
+
+      // Zoom out: Ctrl + '-'
+      if (isCtrl && e.key === '-') {
+        e.preventDefault();
+        setZoom(z => Math.max(0.5, Math.round((z - 0.25) * 100) / 100));
+        return;
+      }
+
+      // Guidelines toggle shortcut: G  or  Ctrl + '.'
+      if (key === 'G' || (isCtrl && e.key === '.')) {
+        e.preventDefault();
+        setShowGuidelines(prev => !prev);
+        return;
+      }
+
+      // Tool Switching Shortcuts (V, H, Z, T, L, I, R)
+      if (key === 'V' || e.key === 'F1') {
+        setActiveTool('pick');
+      } else if (key === 'H') {
+        setActiveTool('pan');
+      } else if (key === 'Z') {
+        setActiveTool('zoom');
+      } else if (key === 'T' && !isCtrl) {
+        setActiveTool('text');
+      } else if (key === 'L' && !isCtrl) {
+        setActiveTool('logo');
+      } else if (key === 'I' && !isCtrl) {
+        setActiveTool('eyedrop');
+      } else if (key === 'R' && !isCtrl) {
+        setRulersEnabled(prev => {
+          const next = !prev;
+          localStorage.setItem('fivenest_pref_rulers', JSON.stringify(next));
+          return next;
+        });
+      } else if (e.key === 'Delete') {
+        updateActivePanel({ uploadedFileUrl: null });
+      }
+
+      // Text Alignment shortcuts (C, T, B, L, R)
+      if (activeTextLayer && ['C', 'T', 'B', 'L', 'R'].includes(key)) {
         const targetLayer: 'name' | 'number' = activeTextLayer || (activePanel.nameConfig?.enabled ? 'name' : 'number');
-        
         if (key === 'C') {
-          // Center Horizontally & Vertically (50%)
           updateTextConfig(targetLayer, { align: 'center', yPos: 50 });
         } else if (key === 'T') {
-          // Align Top (15%)
           updateTextConfig(targetLayer, { yPos: 15 });
         } else if (key === 'B') {
-          // Align Bottom (85%)
           updateTextConfig(targetLayer, { yPos: 85 });
         } else if (key === 'L') {
-          // Align Left
           updateTextConfig(targetLayer, { align: 'left' });
         } else if (key === 'R') {
-          // Align Right
           updateTextConfig(targetLayer, { align: 'right' });
         }
       }
@@ -1532,6 +1595,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           });
         }}
         onOpenImport={() => fileInputRef.current?.click()}
+        onOpenBulkImport={() => zipInputRef.current?.click()}
         onClearPanel={() => updateActivePanel({ uploadedFileUrl: null })}
         onOpenShortcutsModal={() => setShowShortcutsModal(true)}
       />
@@ -1813,8 +1877,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : 'pointer',
                   width: `${width * zoom}px`,
                   height: `${height * zoom}px`,
-                  maxWidth: '100%',
-                  maxHeight: '100%',
+                  maxWidth: zoom > 1 ? 'none' : '100%',
+                  maxHeight: zoom > 1 ? 'none' : '100%',
                   objectFit: 'contain',
                   flexShrink: 0
                 }} 
@@ -1868,6 +1932,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 Upload a `.zip` file. The system will auto-detect and import: <strong>Front, Back, Left Half SL, Right Half SL, Left Full Sleeve, & Right Full Sleeve</strong>.
               </p>
               <input 
+                ref={zipInputRef}
                 type="file" 
                 accept=".zip" 
                 id="zip-importer-input" 
@@ -1875,7 +1940,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 onChange={handleZipImport} 
               />
               <label htmlFor="zip-importer-input" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '8px' }}>
-                <Upload size={14} /> Import ZIP File
+                <Upload size={14} /> Import ZIP File <span style={{ fontSize: '9px', opacity: 0.75, background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: '3px' }}>Ctrl+Shift+I</span>
               </label>
             </div>
           )}

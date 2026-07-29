@@ -16,8 +16,8 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ onClose }) => {
     { key: 'G / Ctrl+.', desc: 'Toggle Guidelines' },
     { key: 'R', desc: 'Toggle Rulers' },
     { key: 'Space (hold)', desc: 'Pan workspace dynamically' },
-    { key: 'Ctrl + 0', desc: 'Reset zoom to 100%' },
-    { key: 'Ctrl + I', desc: 'Import panel graphic image' },
+    { key: 'Ctrl + I', desc: 'Import single panel graphic image' },
+    { key: 'Ctrl + Shift + I / Ctrl + B', desc: 'Bulk Import ZIP containing all panels' },
     { key: 'Delete', desc: 'Clear current uploaded panel background' },
     { key: 'Left Click Swatch', desc: 'Set Text / Background Fill Color' },
     { key: 'Right Click Swatch', desc: 'Set Text / Background Stroke Color' }

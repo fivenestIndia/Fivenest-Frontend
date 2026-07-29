@@ -15,6 +15,7 @@ interface MenuBarProps {
   rulersEnabled: boolean;
   onToggleRulers: () => void;
   onOpenImport: () => void;
+  onOpenBulkImport?: () => void;
   onClearPanel: () => void;
   onOpenShortcutsModal: () => void;
 }
@@ -29,6 +30,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   rulersEnabled,
   onToggleRulers,
   onOpenImport,
+  onOpenBulkImport,
   onClearPanel,
   onOpenShortcutsModal
 }) => {
@@ -79,6 +81,12 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><FileUp size={13} /> Import Graphic</span>
               <span style={{ opacity: 0.5 }}>Ctrl+I</span>
             </div>
+            {onOpenBulkImport && (
+              <div className="cd-dropdown-action" onClick={() => { onOpenBulkImport(); close(); }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><FileUp size={13} /> Bulk Import ZIP</span>
+                <span style={{ opacity: 0.5 }}>Ctrl+Shift+I</span>
+              </div>
+            )}
             <div className="cd-dropdown-action" onClick={() => { exportAllLocalData(); close(); }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><HardDrive size={13} /> Export Local Backup</span>
             </div>

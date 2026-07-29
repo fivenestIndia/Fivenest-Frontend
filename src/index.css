@@ -322,6 +322,123 @@
   background: #f8fafc !important;
 }
 
+.app-layout.light .cd-studio-container {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+.app-layout.light .cd-menubar {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+.app-layout.light .cd-menu-item {
+  color: #334155 !important;
+}
+
+.app-layout.light .cd-menu-item:hover,
+.app-layout.light .cd-menu-item.active {
+  background: #e2e8f0 !important;
+  color: #0284c7 !important;
+}
+
+.app-layout.light .cd-menu-dropdown {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
+  color: #0f172a !important;
+}
+
+.app-layout.light .cd-dropdown-action {
+  color: #1e293b !important;
+}
+
+.app-layout.light .cd-dropdown-action:hover {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+.app-layout.light .cd-propertybar {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+.app-layout.light .cd-property-group {
+  border-color: #cbd5e1 !important;
+}
+
+.app-layout.light .cd-property-input {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0284c7 !important;
+}
+
+.app-layout.light .cd-toolbox {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+.app-layout.light .cd-tool-btn {
+  color: #475569 !important;
+}
+
+.app-layout.light .cd-tool-btn:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.app-layout.light .cd-tool-btn.active {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  border-color: #0284c7 !important;
+  box-shadow: 0 0 10px rgba(2, 132, 199, 0.3) !important;
+}
+
+.app-layout.light .cd-canvas-area {
+  background: #e2e8f0 !important;
+}
+
+.app-layout.light .cd-canvas-container canvas {
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.12) !important;
+  border-color: #0284c7 !important;
+}
+
+.app-layout.light .cd-docker-panel {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+.app-layout.light .cd-docker-panel .glass-card {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.app-layout.light .cd-palette-bar {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+
+.app-layout.light .cd-statusbar {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #475569 !important;
+}
+
+.app-layout.light .tab-btn {
+  background: #ffffff !important;
+  color: #475569 !important;
+  border-color: #cbd5e1 !important;
+}
+
+.app-layout.light .tab-btn.active {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+}
+
 .app-layout.light .glass-card,
 .app-layout.light .sidebar,
 .app-layout.light .top-navbar {
