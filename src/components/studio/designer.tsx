@@ -26,6 +26,11 @@ export interface TextConfig {
   text?: string;
   letterSpacing?: number;
   align?: 'left' | 'center' | 'right';
+  fillType?: 'solid' | 'gradient' | 'texture';
+  gradientColor1?: string;
+  gradientColor2?: string;
+  gradientDirection?: 'vertical' | 'horizontal' | 'radial' | 'diagonal';
+  textureUrl?: string | null;
 }
 
 export interface LogoConfig {
@@ -429,6 +434,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const fileInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
   const scrollWrapperRef = useRef<HTMLDivElement>(null);
+  const textureCache = useRef<Map<string, HTMLImageElement>>(new Map());
   const touchStartRef = useRef<{
     x: number;
     y: number;
@@ -849,6 +855,53 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
         const displayName = conf.caseType === 'uppercase' ? text.toUpperCase() : text;
 
+        // Calculate text fill style (Solid, Gradient, or Texture Pattern)
+        const getTextFill = (boundsW: number, boundsH: number): string | CanvasGradient | CanvasPattern => {
+          if (conf.fillType === 'gradient') {
+            const g1 = conf.gradientColor1 || conf.color || '#00f0ff';
+            const g2 = conf.gradientColor2 || '#ff0055';
+            const dir = conf.gradientDirection || 'vertical';
+            let grad: CanvasGradient;
+
+            if (dir === 'horizontal') {
+              grad = ctx.createLinearGradient(-boundsW / 2, 0, boundsW / 2, 0);
+            } else if (dir === 'radial') {
+              grad = ctx.createRadialGradient(0, 0, 2, 0, 0, boundsH);
+            } else if (dir === 'diagonal') {
+              grad = ctx.createLinearGradient(-boundsW / 2, -boundsH / 2, boundsW / 2, boundsH / 2);
+            } else {
+              // vertical (default)
+              grad = ctx.createLinearGradient(0, -boundsH / 2, 0, boundsH / 2);
+            }
+            grad.addColorStop(0, g1);
+            grad.addColorStop(1, g2);
+            return grad;
+          }
+
+          if (conf.fillType === 'texture' && conf.textureUrl) {
+            const cached = textureCache.current.get(conf.textureUrl);
+            if (cached && cached.complete && cached.naturalWidth > 0) {
+              try {
+                const pattern = ctx.createPattern(cached, 'repeat');
+                if (pattern) return pattern;
+              } catch (err) {}
+            } else if (!cached) {
+              const img = new Image();
+              img.crossOrigin = 'anonymous';
+              img.onload = () => {
+                textureCache.current.set(conf.textureUrl!, img);
+                setPrefTrigger(prev => prev + 1);
+              };
+              img.src = conf.textureUrl;
+              textureCache.current.set(conf.textureUrl, img);
+            }
+          }
+
+          return conf.color || '#ffffff';
+        };
+
+        const activeFillStyle = getTextFill(maxLimitPx, fontSizePx);
+
         if (conf.effect === 'arch') {
           // Circular arched text bending concave (ends down)
           const radius = height * 0.45;
@@ -867,7 +920,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               ctx.lineWidth = strokePx * 2;
               ctx.strokeText(char, 0, -radius);
             }
-            ctx.fillStyle = conf.color;
+            ctx.fillStyle = activeFillStyle;
             ctx.fillText(char, 0, -radius);
             ctx.restore();
           }
@@ -883,7 +936,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ctx.lineWidth = strokePx * 2;
             ctx.strokeText(displayName, 0, 0);
           }
-          ctx.fillStyle = conf.color;
+          ctx.fillStyle = activeFillStyle;
           ctx.fillText(displayName, 0, 0);
         }
         ctx.restore();
@@ -2627,16 +2680,134 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       </div>
                     </div>
 
-                <div className="form-row">
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Fill Color:</label>
-                    <input 
-                      type="color" 
-                      value={activePanel.nameConfig.color}
-                      onChange={(e) => updateTextConfig('name', { color: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '100%', height: '28px', cursor: 'pointer' }}
-                    />
+                {/* Fill Style & Texture Controls for Name */}
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-light)', marginTop: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label className="form-label" style={{ fontSize: '11px', margin: 0, fontWeight: 'bold', color: 'var(--color-secondary)' }}>
+                      Name Fill Style & Texture:
+                    </label>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button
+                        type="button"
+                        className={`btn ${(!activePanel.nameConfig.fillType || activePanel.nameConfig.fillType === 'solid') ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ padding: '2px 8px', fontSize: '10px' }}
+                        onClick={() => updateTextConfig('name', { fillType: 'solid' })}
+                      >
+                        Solid
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn ${activePanel.nameConfig.fillType === 'gradient' ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ padding: '2px 8px', fontSize: '10px' }}
+                        onClick={() => updateTextConfig('name', { fillType: 'gradient', gradientColor1: activePanel.nameConfig.gradientColor1 || activePanel.nameConfig.color || '#00f0ff', gradientColor2: activePanel.nameConfig.gradientColor2 || '#ff0055' })}
+                      >
+                        Gradient
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn ${activePanel.nameConfig.fillType === 'texture' ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ padding: '2px 8px', fontSize: '10px' }}
+                        onClick={() => updateTextConfig('name', { fillType: 'texture' })}
+                      >
+                        Texture
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Solid Fill */}
+                  {(!activePanel.nameConfig.fillType || activePanel.nameConfig.fillType === 'solid') && (
+                    <div className="form-row">
+                      <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Fill Color:</label>
+                        <input 
+                          type="color" 
+                          value={activePanel.nameConfig.color}
+                          onChange={(e) => updateTextConfig('name', { color: e.target.value })}
+                          style={{ border: 'none', background: 'none', width: '100%', height: '26px', cursor: 'pointer' }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Gradient Fill */}
+                  {activePanel.nameConfig.fillType === 'gradient' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div className="form-row">
+                        <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                          <label className="form-label" style={{ fontSize: '10px' }}>Start Color:</label>
+                          <input 
+                            type="color" 
+                            value={activePanel.nameConfig.gradientColor1 || activePanel.nameConfig.color || '#00f0ff'}
+                            onChange={(e) => updateTextConfig('name', { gradientColor1: e.target.value })}
+                            style={{ border: 'none', background: 'none', width: '100%', height: '26px', cursor: 'pointer' }}
+                          />
+                        </div>
+                        <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                          <label className="form-label" style={{ fontSize: '10px' }}>End Color:</label>
+                          <input 
+                            type="color" 
+                            value={activePanel.nameConfig.gradientColor2 || '#ff0055'}
+                            onChange={(e) => updateTextConfig('name', { gradientColor2: e.target.value })}
+                            style={{ border: 'none', background: 'none', width: '100%', height: '26px', cursor: 'pointer' }}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Gradient Style:</label>
+                        <select 
+                          className="form-select" 
+                          value={activePanel.nameConfig.gradientDirection || 'vertical'}
+                          onChange={(e) => updateTextConfig('name', { gradientDirection: e.target.value as any })}
+                          style={{ padding: '4px 6px', fontSize: '11px' }}
+                        >
+                          <option value="vertical">Vertical (Top → Bottom)</option>
+                          <option value="horizontal">Horizontal (Left → Right)</option>
+                          <option value="diagonal">Diagonal (Corner → Corner)</option>
+                          <option value="radial">Radial (Center Outward)</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Texture Fill */}
+                  {activePanel.nameConfig.fillType === 'texture' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <label className="form-label" style={{ fontSize: '10px' }}>Upload Texture Image (Gold foil, camo, glitter, carbon, pattern):</label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        style={{ fontSize: '11px', color: 'var(--text-muted)' }}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (uploadEvent) => {
+                              const url = uploadEvent.target?.result as string;
+                              updateTextConfig('name', { textureUrl: url, fillType: 'texture' });
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                      {activePanel.nameConfig.textureUrl && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
+                          <img src={activePanel.nameConfig.textureUrl} alt="Name Texture" style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #00f0ff' }} />
+                          <span style={{ fontSize: '10px', color: '#00f0ff', fontWeight: 'bold' }}>Texture Active</span>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ padding: '2px 6px', fontSize: '9px', marginLeft: 'auto', color: '#ef4444' }}
+                            onClick={() => updateTextConfig('name', { textureUrl: null, fillType: 'solid' })}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="form-row">
                   <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label" style={{ fontSize: '11px' }}>Stroke Color:</label>
                     <input 
@@ -2802,16 +2973,134 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   </div>
                 </div>
 
-                <div className="form-row">
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Fill Color:</label>
-                    <input 
-                      type="color" 
-                      value={activePanel.numberConfig.color}
-                      onChange={(e) => updateTextConfig('number', { color: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '100%', height: '28px', cursor: 'pointer' }}
-                    />
+                {/* Fill Style & Texture Controls for Number */}
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-light)', marginTop: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label className="form-label" style={{ fontSize: '11px', margin: 0, fontWeight: 'bold', color: 'var(--color-secondary)' }}>
+                      Number Fill Style & Texture:
+                    </label>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button
+                        type="button"
+                        className={`btn ${(!activePanel.numberConfig.fillType || activePanel.numberConfig.fillType === 'solid') ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ padding: '2px 8px', fontSize: '10px' }}
+                        onClick={() => updateTextConfig('number', { fillType: 'solid' })}
+                      >
+                        Solid
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn ${activePanel.numberConfig.fillType === 'gradient' ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ padding: '2px 8px', fontSize: '10px' }}
+                        onClick={() => updateTextConfig('number', { fillType: 'gradient', gradientColor1: activePanel.numberConfig.gradientColor1 || activePanel.numberConfig.color || '#00f0ff', gradientColor2: activePanel.numberConfig.gradientColor2 || '#ff0055' })}
+                      >
+                        Gradient
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn ${activePanel.numberConfig.fillType === 'texture' ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ padding: '2px 8px', fontSize: '10px' }}
+                        onClick={() => updateTextConfig('number', { fillType: 'texture' })}
+                      >
+                        Texture
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Solid Fill */}
+                  {(!activePanel.numberConfig.fillType || activePanel.numberConfig.fillType === 'solid') && (
+                    <div className="form-row">
+                      <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Fill Color:</label>
+                        <input 
+                          type="color" 
+                          value={activePanel.numberConfig.color}
+                          onChange={(e) => updateTextConfig('number', { color: e.target.value })}
+                          style={{ border: 'none', background: 'none', width: '100%', height: '26px', cursor: 'pointer' }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Gradient Fill */}
+                  {activePanel.numberConfig.fillType === 'gradient' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div className="form-row">
+                        <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                          <label className="form-label" style={{ fontSize: '10px' }}>Start Color:</label>
+                          <input 
+                            type="color" 
+                            value={activePanel.numberConfig.gradientColor1 || activePanel.numberConfig.color || '#00f0ff'}
+                            onChange={(e) => updateTextConfig('number', { gradientColor1: e.target.value })}
+                            style={{ border: 'none', background: 'none', width: '100%', height: '26px', cursor: 'pointer' }}
+                          />
+                        </div>
+                        <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                          <label className="form-label" style={{ fontSize: '10px' }}>End Color:</label>
+                          <input 
+                            type="color" 
+                            value={activePanel.numberConfig.gradientColor2 || '#ff0055'}
+                            onChange={(e) => updateTextConfig('number', { gradientColor2: e.target.value })}
+                            style={{ border: 'none', background: 'none', width: '100%', height: '26px', cursor: 'pointer' }}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Gradient Style:</label>
+                        <select 
+                          className="form-select" 
+                          value={activePanel.numberConfig.gradientDirection || 'vertical'}
+                          onChange={(e) => updateTextConfig('number', { gradientDirection: e.target.value as any })}
+                          style={{ padding: '4px 6px', fontSize: '11px' }}
+                        >
+                          <option value="vertical">Vertical (Top → Bottom)</option>
+                          <option value="horizontal">Horizontal (Left → Right)</option>
+                          <option value="diagonal">Diagonal (Corner → Corner)</option>
+                          <option value="radial">Radial (Center Outward)</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Texture Fill */}
+                  {activePanel.numberConfig.fillType === 'texture' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <label className="form-label" style={{ fontSize: '10px' }}>Upload Texture Image (Gold foil, camo, glitter, carbon, pattern):</label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        style={{ fontSize: '11px', color: 'var(--text-muted)' }}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (uploadEvent) => {
+                              const url = uploadEvent.target?.result as string;
+                              updateTextConfig('number', { textureUrl: url, fillType: 'texture' });
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                      {activePanel.numberConfig.textureUrl && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
+                          <img src={activePanel.numberConfig.textureUrl} alt="Number Texture" style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #00f0ff' }} />
+                          <span style={{ fontSize: '10px', color: '#00f0ff', fontWeight: 'bold' }}>Texture Active</span>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ padding: '2px 6px', fontSize: '9px', marginLeft: 'auto', color: '#ef4444' }}
+                            onClick={() => updateTextConfig('number', { textureUrl: null, fillType: 'solid' })}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="form-row">
                   <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label" style={{ fontSize: '11px' }}>Stroke Color:</label>
                     <input 
