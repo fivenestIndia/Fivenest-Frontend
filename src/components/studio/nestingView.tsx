@@ -475,12 +475,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
     const onlyBackUploaded = backUploaded && !frontUploaded && !sleeveUploaded;
     const onlySleeveUploaded = sleeveUploaded && !frontUploaded && !backUploaded;
 
-    const targetRecords: PlayerRecord[] = records.length > 0 ? records : [
-      { id: 'default-record-1', name: 'SAMPLE', number: '01', size: '40', qty: 1, sleeve: (previewSleeveType === 'full' ? 'full' : 'half') }
-    ];
-
-    targetRecords.forEach((player, idx) => {
-      const sizeConf = sizeDB[player.size] || sizeDB["40"] || { front: { w: 15, h: 21 }, back: { w: 15, h: 21 }, half: { w: 14, h: 7 }, full: { w: 14, h: 18 } };
+    records.forEach((player, idx) => {
+      const sizeConf = sizeDB[player.size] || sizeDB["40"] || Object.values(sizeDB)[0];
+      if (!sizeConf) return;
       const isSleeveOnly = player.name.toUpperCase() === 'SLEEVE';
       const isFrontOnly = player.name.toUpperCase() === 'FRONT';
       const isBackOnly = player.name.toUpperCase() === 'BACK';
@@ -520,20 +517,20 @@ export const NestingView: React.FC<NestingViewProps> = ({
           });
         }
 
-        // Sleeve panels: Include if not front-only and not back-only
-        // Sleeves MUST ALWAYS be generated & exported for every production jersey!
-        const effectiveSleeveType: 'half' | 'full' = (player.sleeve === 'full' || previewSleeveType === 'full') ? 'full' : 'half';
-        const includeSleeve = !isFrontOnly && !isBackOnly;
+        // Sleeve panels: Include if not front-only, not back-only, and sleeve !== 'none'
+        // Sleeves are ALWAYS generated for production (never skipped based on upload status)
+        const effectiveSleeveType: 'half' | 'full' = player.sleeve === 'full' ? 'full' : 'half';
+        const includeSleeve = !isFrontOnly && !isBackOnly && player.sleeve !== 'none';
 
         if (includeSleeve) {
           let sleeveW = 0;
           let sleeveH = 0;
           if (effectiveSleeveType === 'full') {
-            sleeveW = metadata.raglanStyle ? (sizeConf.rFull?.w || 14) : (sizeConf.full?.w || 14);
-            sleeveH = metadata.raglanStyle ? (sizeConf.rFull?.h || 18) : (sizeConf.full?.h || 18);
+            sleeveW = metadata.raglanStyle ? (sizeConf.rFull?.w || sizeConf.full?.w || 14) : (sizeConf.full?.w || 14);
+            sleeveH = metadata.raglanStyle ? (sizeConf.rFull?.h || sizeConf.full?.h || 18) : (sizeConf.full?.h || 18);
           } else {
-            sleeveW = metadata.raglanStyle ? (sizeConf.rHalf?.w || 14) : (sizeConf.half?.w || 7);
-            sleeveH = metadata.raglanStyle ? (sizeConf.rHalf?.h || 7) : (sizeConf.half?.h || 7);
+            sleeveW = metadata.raglanStyle ? (sizeConf.rHalf?.w || sizeConf.half?.w || 14) : (sizeConf.half?.w || 7);
+            sleeveH = metadata.raglanStyle ? (sizeConf.rHalf?.h || sizeConf.half?.h || 7) : (sizeConf.half?.h || 7);
           }
 
           if (metadata.halfSleeveMerge && effectiveSleeveType === 'half' && !metadata.raglanStyle) {
@@ -605,11 +602,16 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
   // Trigger Nesting layout calculations
   const runNesting = () => {
+    if (records.length === 0) {
+      alert("No items in order to nest. Please import a CSV or add quick size quantities first.");
+      return;
+    }
+
     setIsNesting(true);
     
     const itemsToPack = getItemsToExport();
     if (itemsToPack.length === 0) {
-      alert("No items in order to nest.");
+      alert("No items to nest. Check your roster entries.");
       setIsNesting(false);
       return;
     }
