@@ -142,7 +142,7 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
     Object.keys(manualGrid).forEach(size => {
       const { fb, half, full } = manualGrid[size];
       
-      // Front/Back records
+      // Full Jersey records (Front + Back + Half Sleeve) - the most common production case
       if (fb > 0) {
         newRecords.push({
           id: `manual-fb-${size}-${Date.now()}`,
@@ -150,11 +150,23 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
           number: "",
           size: size,
           qty: fb,
-          sleeve: 'none' // will generate front & back panel only
+          sleeve: 'half' // generates front, back, AND half sleeves together
         });
       }
 
-      // Half sleeve records
+      // Full sleeve jersey records (Front + Back + Full Sleeve)
+      if (full > 0) {
+        newRecords.push({
+          id: `manual-full-${size}-${Date.now()}`,
+          name: "BLANK",
+          number: "",
+          size: size,
+          qty: full,
+          sleeve: 'full' // generates front, back, AND full sleeves together
+        });
+      }
+
+      // Sleeve-only records (only sleeve panels, no front/back)
       if (half > 0) {
         newRecords.push({
           id: `manual-half-${size}-${Date.now()}`,
@@ -163,18 +175,6 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
           size: size,
           qty: half,
           sleeve: 'half'
-        });
-      }
-
-      // Full sleeve records
-      if (full > 0) {
-        newRecords.push({
-          id: `manual-full-${size}-${Date.now()}`,
-          name: "SLEEVE",
-          number: "",
-          size: size,
-          qty: full,
-          sleeve: 'full'
         });
       }
     });
@@ -337,9 +337,9 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
               <thead>
                 <tr>
                   <th>Size</th>
-                  <th style={{ textAlign: 'center' }}>Front/Back Qty</th>
-                  <th style={{ textAlign: 'center' }}>Half Sleeve Qty</th>
-                  <th style={{ textAlign: 'center' }}>Full Sleeve Qty</th>
+                  <th style={{ textAlign: 'center', color: '#4ade80' }}>Half Sleeve Jersey<br/><span style={{ fontSize: '10px', fontWeight: 'normal', color: 'var(--text-muted)' }}>Front+Back+Half Sleeves</span></th>
+                  <th style={{ textAlign: 'center', color: '#60a5fa' }}>Full Sleeve Jersey<br/><span style={{ fontSize: '10px', fontWeight: 'normal', color: 'var(--text-muted)' }}>Front+Back+Full Sleeves</span></th>
+                  <th style={{ textAlign: 'center', color: '#f59e0b' }}>Sleeve Only<br/><span style={{ fontSize: '10px', fontWeight: 'normal', color: 'var(--text-muted)' }}>Half Sleeve panels only</span></th>
                 </tr>
               </thead>
               <tbody>
