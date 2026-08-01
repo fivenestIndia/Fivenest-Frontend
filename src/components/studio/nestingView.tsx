@@ -477,15 +477,15 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
     records.forEach((player, idx) => {
       const sizeConf = sizeDB[player.size] || sizeDB["40"];
-      const isSleeveOnly = player.name.toUpperCase() === 'SLEEVE' || onlySleeveUploaded;
-      const isFrontOnly = player.name.toUpperCase() === 'FRONT' || onlyFrontUploaded;
-      const isBackOnly = player.name.toUpperCase() === 'BACK' || onlyBackUploaded;
+      const isSleeveOnly = player.name.toUpperCase() === 'SLEEVE';
+      const isFrontOnly = player.name.toUpperCase() === 'FRONT';
+      const isBackOnly = player.name.toUpperCase() === 'BACK';
       
       for (let q = 0; q < player.qty; q++) {
         const itemIndex = `${player.id}-item-${idx}-${q}`;
         
         // Front panel: Include if not sleeve-only and not back-only
-        if (!isSleeveOnly && !isBackOnly && (frontUploaded || !backUploaded)) {
+        if (!isSleeveOnly && !isBackOnly) {
           items.push({
             recordId: itemIndex,
             playerName: player.name,
@@ -500,8 +500,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
           });
         }
         
-        // Back panel: Include if back is active and client didn't upload ONLY Front
-        if (!isSleeveOnly && !isFrontOnly && (backUploaded || (!onlyFrontUploaded && !sleeveUploaded))) {
+        // Back panel: Include if not sleeve-only and not front-only
+        if (!isSleeveOnly && !isFrontOnly) {
           items.push({
             recordId: itemIndex,
             playerName: player.name,
@@ -516,8 +516,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
           });
         }
 
-        // Sleeve panels: Include if sleeves active, roster has sleeve, and client didn't upload ONLY Front/Back
-        if (!isFrontOnly && !isBackOnly && player.sleeve !== 'none' && (sleeveUploaded || (!onlyFrontUploaded && !onlyBackUploaded))) {
+        // Sleeve panels: Include if not front-only, not back-only, and player.sleeve !== 'none'
+        if (!isFrontOnly && !isBackOnly && player.sleeve !== 'none') {
           let sleeveW = 0;
           let sleeveH = 0;
           if (player.sleeve === 'full') {
@@ -1014,7 +1014,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
           ctx.shadowColor = 'transparent';
           
           const wPx = Math.round(0.1 * scaleDpi);
-          const hPx = Math.round(0.2 * scaleDpi);
+          const hPx = Math.round(0.25 * scaleDpi);
           const leftEdgeXPx = Math.round(widthPx / 2 - wPx / 2);
 
           // White 3pt outside stroke for technical center marks

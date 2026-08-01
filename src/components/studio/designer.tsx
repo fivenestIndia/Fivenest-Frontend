@@ -764,7 +764,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.shadowColor = 'transparent';
 
         const wPx = Math.round(0.1 * scale);
-        const hPx = Math.round(0.2 * scale);
+        const hPx = Math.round(0.25 * scale);
         const leftEdgeXPx = Math.round(width / 2 - wPx / 2);
 
         // White 3pt outside stroke for technical center marks
