@@ -93,33 +93,54 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
       complete: (results) => {
         const data = results.data as any[];
         
-        // Smart Header mapping
+        // Smart Header mapping supporting all common Indian & International production headers
         const findField = (rowKeys: string[], regex: RegExp): string | null => {
-          const match = rowKeys.find(key => regex.test(key.toLowerCase()));
+          const match = rowKeys.find(key => regex.test(key.toLowerCase().trim()));
           return match || null;
         };
 
         if (data.length === 0) return;
         const keys = Object.keys(data[0]);
 
-        const nameKey = findField(keys, /name|player/);
-        const numKey = findField(keys, /number|num|#/);
-        const sizeKey = findField(keys, /size|sz/);
-        const qtyKey = findField(keys, /qty|quantity|count/);
-        const sleeveKey = findField(keys, /sleeve|slv/);
+        const nameKey = findField(keys, /name|player|cust/i);
+        const numKey = findField(keys, /number|num|#|no\.|no\b|jersey|sr/i);
+        const sizeKey = findField(keys, /size|sz|chest/i);
+        const qtyKey = findField(keys, /qty|quantity|count|qnty|pcs|total/i);
+        const sleeveKey = findField(keys, /sleeve|slv|type|style/i);
+
+        // Normalize letter sizes (e.g. S, M, L, XL) and strings (e.g. "40 Inches")
+        const normalizeSize = (rawSize: string): string => {
+          if (!rawSize) return '40';
+          const cleaned = rawSize.trim().toUpperCase();
+          const letterMap: Record<string, string> = {
+            'YS': '28', 'YM': '32', 'YL': '34',
+            'S': '36', 'M': '38', 'L': '40', 'XL': '42',
+            '2XL': '44', 'XXL': '44',
+            '3XL': '46', 'XXXL': '46',
+            '4XL': '48', 'XXXXL': '48',
+            '5XL': '50', '6XL': '52'
+          };
+          if (letterMap[cleaned]) return letterMap[cleaned];
+          const numMatch = cleaned.match(/\d+/);
+          return numMatch ? numMatch[0] : (cleaned || '40');
+        };
 
         const mappedRecords: PlayerRecord[] = data.map((row, index) => {
           let sleeveVal: PlayerRecord['sleeve'] = 'half';
           const sleeveText = sleeveKey ? String(row[sleeveKey]).toLowerCase() : '';
-          if (sleeveText.includes('full')) sleeveVal = 'full';
-          else if (sleeveText.includes('none') || sleeveText.includes('blank')) sleeveVal = 'none';
+          if (sleeveText.includes('full') || sleeveText.includes('long')) sleeveVal = 'full';
+          else if (sleeveText.includes('none') || sleeveText.includes('blank') || sleeveText.includes('less') || sleeveText.includes('no')) sleeveVal = 'none';
 
-          const sizeVal = sizeKey ? String(row[sizeKey]).trim() : '40';
+          const rawSize = sizeKey ? String(row[sizeKey]).trim() : '40';
+          const sizeVal = normalizeSize(rawSize);
+
+          const rawName = nameKey ? String(row[nameKey]).trim() : '';
+          const rawNum = numKey ? String(row[numKey]).trim() : '';
 
           return {
             id: `csv-${index}-${Date.now()}`,
-            name: nameKey ? String(row[nameKey]).trim() : `Player ${index + 1}`,
-            number: numKey ? String(row[numKey]).trim() : String(index + 1),
+            name: rawName || `Player ${index + 1}`,
+            number: rawNum || String(index + 1),
             size: sizeVal,
             qty: qtyKey ? parseInt(row[qtyKey]) || 1 : 1,
             sleeve: sleeveVal
@@ -127,6 +148,7 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
         });
 
         onRecordsChange(mappedRecords);
+        alert(`Successfully imported ${mappedRecords.length} player records from ${file.name}`);
       },
       error: (error) => {
         console.error("CSV Parse Error", error);
@@ -182,6 +204,17 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
     if (newRecords.length === 0) {
       alert("Please enter quantities in the grid first.");
       return;
+    }
+
+    if (records.length > 0) {
+      const shouldAppend = window.confirm(
+        `You currently have ${records.length} items in your order roster.\n\nClick "OK" to APPEND the new grid quantities to your roster, or "Cancel" to REPLACE your roster.`
+      );
+      if (shouldAppend) {
+        onRecordsChange([...records, ...newRecords]);
+        alert(`Appended ${newRecords.length} batch sizing panels to existing roster.`);
+        return;
+      }
     }
 
     onRecordsChange(newRecords);

@@ -763,8 +763,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.save();
         ctx.shadowColor = 'transparent';
 
-        const wPx = Math.round(0.1 * scale);
-        const hPx = Math.round(0.25 * scale);
+        // FIXED PHYSICAL SIZE: 0.1" wide x 0.25" tall, same on ALL panels (size 18-60, front/sleeve)
+        // Always compute from physicalW so 0.1" is the same proportion regardless of tab/sleeve switch
+        const pxPerInch = width / physicalW; // canvas pixels per inch for THIS panel
+        const wPx = Math.round(0.1 * pxPerInch);
+        const hPx = Math.round(0.25 * pxPerInch);
         const leftEdgeXPx = Math.round(width / 2 - wPx / 2);
 
         // White 3pt outside stroke for technical center marks
@@ -782,11 +785,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
       if (sizeWatermarks && panelKey !== 'a4Print') {
         ctx.save();
-        const fontSizePx = Math.round((14 / 72) * scale); // 14 pt
+        // FIXED 14pt text size — same physical size on ALL panels
+        const pxPerInch = width / physicalW;
+        const fontSizePx = Math.round((14 / 72) * pxPerInch);
         ctx.font = `bold ${fontSizePx}px system-ui`;
         ctx.shadowColor = 'transparent';
 
-        const offset = Math.round(0.04 * scale);
+        const offset = Math.round(0.04 * pxPerInch);
 
         // Sleeve Style on top-right of Back panel
         if (panelKey === 'back') {
@@ -1038,7 +1043,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const sizeTagConf = panel.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
       if (!is3DPreview && sizeTagConf.enabled && panelKey !== 'a4Print') {
         ctx.save();
-        const fontSizePx = Math.round((sizeTagConf.fontSize / 72) * scale);
+        // Use pxPerInch (physicalW-based) so size tag is SAME physical size on all panels
+        const pxPerInch = width / physicalW;
+        const fontSizePx = Math.round((sizeTagConf.fontSize / 72) * pxPerInch);
         ctx.font = `bold ${fontSizePx}px "${sizeTagConf.fontFamily}"`;
         
         const align = sizeTagConf.align || 'left';
@@ -1046,7 +1053,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.textBaseline = 'top';
         ctx.lineJoin = 'round';
 
-        const offsetPx = Math.round(0.15 * scale);
+        const offsetPx = Math.round(0.15 * pxPerInch);
         
         let targetX = offsetPx;
         if (align === 'center') {
@@ -1059,7 +1066,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         let adjustedX = targetX;
         let spacingPx = 0;
         if (sizeTagConf.letterSpacing !== undefined) {
-          spacingPx = Math.round(sizeTagConf.letterSpacing * scale);
+          spacingPx = Math.round(sizeTagConf.letterSpacing * pxPerInch);
           ctx.letterSpacing = `${spacingPx}px`;
           if (align === 'center') {
             adjustedX += spacingPx / 2;
@@ -1079,7 +1086,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         const displayText = templateText.replace('{size}', "40");
 
         const sw = sizeTagConf.strokeWidth > 0 ? sizeTagConf.strokeWidth : 7;
-        const swPx = Math.max(1, Math.round((sw / 72) * scale));
+        const swPx = Math.max(1, Math.round((sw / 72) * pxPerInch));
 
         ctx.strokeStyle = sizeTagConf.strokeColor || '#ffffff';
         ctx.lineWidth = swPx * 2;

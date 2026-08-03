@@ -1017,12 +1017,15 @@ export const NestingView: React.FC<NestingViewProps> = ({
       const sizeWatermarks = savedWater !== null ? JSON.parse(savedWater) : true;
 
       const drawTechnicalMarks = () => {
+        // Fixed physical inch-based stroke: 3pt = 3/72 inches
         const stroke3ptPx = Math.max(1, Math.round((3 / 72) * scaleDpi));
 
         if (centerMarks && item.panelType !== 'a4-print') {
           ctx.save();
           ctx.shadowColor = 'transparent';
           
+          // FIXED PHYSICAL SIZE: always 0.1" wide × 0.25" tall
+          // Uses scaleDpi so physical size in inches is IDENTICAL on all panels at same DPI
           const wPx = Math.round(0.1 * scaleDpi);
           const hPx = Math.round(0.25 * scaleDpi);
           const leftEdgeXPx = Math.round(widthPx / 2 - wPx / 2);
@@ -1042,7 +1045,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
         if (sizeWatermarks && item.panelType !== 'a4-print') {
           ctx.save();
-          const fontSizePx = Math.round((14 / 72) * scaleDpi); // 14 pt
+          // FIXED 14pt font size — same physical size on ALL panels (size 18 through 60)
+          const fontSizePx = Math.round((14 / 72) * scaleDpi);
           ctx.font = `bold ${fontSizePx}px system-ui`;
           ctx.shadowColor = 'transparent';
 
@@ -1080,7 +1084,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
       const drawSingleText = (text: string, textConf: TextConfig, textX: number, textY: number, maxLimitPx: number) => {
         ctx.save();
         const fontSizePx = Math.round((textConf.fontSize / 30) * heightPx);
-        ctx.font = `bold ${fontSizePx}px "${textConf.fontFamily}"`;
+        // Include fallback font chain so canvas rendering never fails on custom fonts
+        ctx.font = `bold ${fontSizePx}px "${textConf.fontFamily}", Impact, "Arial Black", sans-serif`;
         
         const align = textConf.align || 'center';
         ctx.textAlign = align;
@@ -1176,7 +1181,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
         if (!hideOverlays && isNameEnabled && item.playerName && item.playerName !== "BLANK") {
           const textX = widthPx / 2;
           const textY = (conf.nameConfig.yPos / 100) * heightPx;
-          const maxLimitPx = (conf.nameConfig.maxW / item.w) * widthPx;
+          // Scale maxLimitPx proportionally to reference width (22in) so scaling across sizes (18 to 60) stays proportional
+          const maxLimitPx = (conf.nameConfig.maxW / 22) * widthPx;
           drawSingleText(item.playerName, conf.nameConfig, textX, textY, maxLimitPx);
         }
 
@@ -1184,7 +1190,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
         if (!hideOverlays && isNumEnabled && item.playerNum) {
           const textX = widthPx / 2;
           const textY = (conf.numberConfig.yPos / 100) * heightPx;
-          const maxLimitPx = (conf.numberConfig.maxW / item.w) * widthPx;
+          // Scale maxLimitPx proportionally to reference width (22in) so scaling across sizes (18 to 60) stays proportional
+          const maxLimitPx = (conf.numberConfig.maxW / 22) * widthPx;
           drawSingleText(item.playerNum, conf.numberConfig, textX, textY, maxLimitPx);
         }
 
@@ -1541,8 +1548,10 @@ export const NestingView: React.FC<NestingViewProps> = ({
   // Compile full nesting sheets and save PDF
   const handleExportPDF = async () => {
     if (enableNesting && nestingSheets.length === 0) {
-      alert("Please run the nesting calculation first.");
-      return;
+      // Auto-run nesting calculation so user doesn't get blocked
+      runNesting();
+      // Allow state update
+      await new Promise(r => setTimeout(r, 100));
     }
 
     const items = getItemsToExport();
@@ -1899,9 +1908,13 @@ export const NestingView: React.FC<NestingViewProps> = ({
               allBackItems.push(...backSizeMap[size]);
             });
             allBackItems.forEach((item, index) => {
+              const safeName = (item.playerName || 'BLANK').replace(/[\/\\:*?"<>|]/g, "_").trim();
+              const safeNum = (item.playerNum || '').replace(/[\/\\:*?"<>|]/g, "_").trim();
+              const namePart = (safeName && safeName !== 'BLANK') ? `_${safeName}` : '';
+              const numPart = safeNum ? `_${safeNum}` : '';
               renderActions.push({
                 representativeItem: item,
-                fileName: `${item.size} ${index + 1} B.jpg`,
+                fileName: `${item.size}_${index + 1}${namePart}${numPart}_B.jpg`,
                 folder: 'Back'
               });
             });
