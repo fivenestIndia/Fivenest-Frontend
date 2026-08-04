@@ -464,16 +464,32 @@ export const NestingView: React.FC<NestingViewProps> = ({
   const getItemsToExport = (): PlacedItem[] => {
     const items: PlacedItem[] = [];
 
-    // Check panel upload / activity status
-    const frontUploaded = Boolean(designConfig?.front?.uploadedFileUrl || (designConfig?.front?.backgroundType === 'upload' && designConfig?.front?.uploadedFileUrl) || designConfig?.front?.leftChestLogo?.enabled || designConfig?.front?.rightChestLogo?.enabled || designConfig?.front?.torsoLogo?.enabled);
-    const backUploaded = Boolean(designConfig?.back?.uploadedFileUrl || (designConfig?.back?.backgroundType === 'upload' && designConfig?.back?.uploadedFileUrl) || designConfig?.back?.nameConfig?.enabled || designConfig?.back?.numberConfig?.enabled || designConfig?.back?.leftChestLogo?.enabled || designConfig?.back?.rightChestLogo?.enabled || designConfig?.back?.torsoLogo?.enabled);
-    const sleeveUploaded = Boolean(designConfig?.sleeveLeft?.uploadedFileUrl || designConfig?.sleeveLeft?.uploadedFileHalfUrl || designConfig?.sleeveLeft?.uploadedFileFullUrl || designConfig?.sleeveRight?.uploadedFileUrl || (designConfig?.sleeveLeft?.backgroundType === 'upload') || (designConfig?.sleeveRight?.backgroundType === 'upload'));
+    // Check panel artwork status: panel has uploaded image OR generated pattern
+    const frontHasArtwork = Boolean(
+      designConfig?.front?.uploadedFileUrl || 
+      (designConfig?.front?.backgroundType === 'upload' && designConfig?.front?.uploadedFileUrl) ||
+      designConfig?.front?.backgroundType === 'generate'
+    );
+    const backHasArtwork = Boolean(
+      designConfig?.back?.uploadedFileUrl || 
+      (designConfig?.back?.backgroundType === 'upload' && designConfig?.back?.uploadedFileUrl) ||
+      designConfig?.back?.backgroundType === 'generate'
+    );
+    const sleeveHasArtwork = Boolean(
+      designConfig?.sleeveLeft?.uploadedFileUrl || 
+      designConfig?.sleeveLeft?.uploadedFileHalfUrl || 
+      designConfig?.sleeveLeft?.uploadedFileFullUrl || 
+      designConfig?.sleeveRight?.uploadedFileUrl ||
+      designConfig?.sleeveRight?.uploadedFileHalfUrl ||
+      designConfig?.sleeveRight?.uploadedFileFullUrl ||
+      designConfig?.sleeveLeft?.backgroundType === 'upload' || 
+      designConfig?.sleeveRight?.backgroundType === 'upload' ||
+      designConfig?.sleeveLeft?.backgroundType === 'generate' ||
+      designConfig?.sleeveRight?.backgroundType === 'generate'
+    );
 
-    // Determine panel inclusion rules:
-    // If explicit upload mode is active and client uploaded ONLY Front, export ONLY Front!
-    const onlyFrontUploaded = frontUploaded && !backUploaded && !sleeveUploaded;
-    const onlyBackUploaded = backUploaded && !frontUploaded && !sleeveUploaded;
-    const onlySleeveUploaded = sleeveUploaded && !frontUploaded && !backUploaded;
+    // If any artwork is uploaded, only export panels that have uploaded/active artwork (unless explicitly entered in roster)
+    const anyArtworkUploaded = frontHasArtwork || backHasArtwork || sleeveHasArtwork;
 
     records.forEach((player, idx) => {
       const sizeConf = sizeDB[player.size] || sizeDB["40"] || Object.values(sizeDB)[0];
@@ -485,8 +501,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
       for (let q = 0; q < player.qty; q++) {
         const itemIndex = `${player.id}-item-${idx}-${q}`;
         
-        // Front panel: Include if not sleeve-only and not back-only
-        if (!isSleeveOnly && !isBackOnly) {
+        // Front panel: Include if front artwork exists (or if no artwork uploaded at all or explicitly requested)
+        const includeFront = (!anyArtworkUploaded || frontHasArtwork || isFrontOnly) && !isSleeveOnly && !isBackOnly;
+        if (includeFront) {
           items.push({
             recordId: itemIndex,
             playerName: player.name,
@@ -501,8 +518,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
           });
         }
         
-        // Back panel: Include if not sleeve-only and not front-only
-        if (!isSleeveOnly && !isFrontOnly) {
+        // Back panel: Include if back artwork exists (or if no artwork uploaded at all or explicitly requested)
+        const includeBack = (!anyArtworkUploaded || backHasArtwork || isBackOnly) && !isSleeveOnly && !isFrontOnly;
+        if (includeBack) {
           items.push({
             recordId: itemIndex,
             playerName: player.name,
@@ -517,10 +535,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
           });
         }
 
-        // Sleeve panels: Include if not front-only, not back-only, and sleeve !== 'none'
-        // Sleeves are ALWAYS generated for production (never skipped based on upload status)
+        // Sleeve panels: Include if sleeve artwork exists (or if no artwork uploaded at all or sleeve style requested)
         const effectiveSleeveType: 'half' | 'full' = player.sleeve === 'full' ? 'full' : 'half';
-        const includeSleeve = !isFrontOnly && !isBackOnly && player.sleeve !== 'none';
+        const includeSleeve = (!anyArtworkUploaded || sleeveHasArtwork || player.sleeve !== 'none') && !isFrontOnly && !isBackOnly;
 
         if (includeSleeve) {
           let sleeveW = 0;
@@ -1345,10 +1362,22 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
       // 1. Draw Template Artwork
       let bgUrl = conf.uploadedFileUrl;
+      let isUploadBg = conf.backgroundType === 'upload';
+
       if (item.panelType.startsWith('sleeve')) {
+        const leftConf = designConfig?.sleeveLeft;
+        const rightConf = designConfig?.sleeveRight;
+        const activeSleeve = (item.panelType === 'sleeve-right' && (rightConf?.uploadedFileUrl || rightConf?.uploadedFileFullUrl || rightConf?.uploadedFileHalfUrl))
+          ? rightConf
+          : leftConf;
+
         bgUrl = item.sleeveType === 'full'
-          ? (conf.uploadedFileFullUrl || conf.uploadedFileUrl)
-          : (conf.uploadedFileHalfUrl || conf.uploadedFileUrl);
+          ? (activeSleeve?.uploadedFileFullUrl || activeSleeve?.uploadedFileUrl || conf.uploadedFileFullUrl || conf.uploadedFileUrl)
+          : (activeSleeve?.uploadedFileHalfUrl || activeSleeve?.uploadedFileUrl || conf.uploadedFileHalfUrl || conf.uploadedFileUrl);
+
+        if (bgUrl || activeSleeve?.backgroundType === 'upload') {
+          isUploadBg = true;
+        }
       }
 
       const leftLogo = conf.leftChestLogo;
@@ -1359,7 +1388,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
         const images: { bg?: HTMLImageElement; leftLogo?: HTMLImageElement; rightLogo?: HTMLImageElement; torsoLogo?: HTMLImageElement } = {};
         const promises: Promise<void>[] = [];
 
-        if (conf.backgroundType === 'upload' && bgUrl) {
+        if ((isUploadBg || conf.backgroundType === 'upload') && bgUrl) {
           promises.push(
             getCachedImage(bgUrl).then(img => { if (img) images.bg = img; })
           );
@@ -1563,10 +1592,16 @@ export const NestingView: React.FC<NestingViewProps> = ({
       return;
     }
 
+    const backHasArtwork = Boolean(
+      designConfig?.back?.uploadedFileUrl || 
+      (designConfig?.back?.backgroundType === 'upload' && designConfig?.back?.uploadedFileUrl) ||
+      designConfig?.back?.backgroundType === 'generate'
+    );
     const activeRate = includeWatermarkLogo ? 3.00 : 5.00;
     const calculatedCost = items.reduce((acc, item) => {
       if (item.panelType === 'back') {
-        return acc + activeRate;
+        // If client did not upload back image / artwork, charge 0 rs
+        return acc + (backHasArtwork ? activeRate : 0);
       } else if (item.panelType === 'a4-print') {
         return acc + 0.50;
       }

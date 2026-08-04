@@ -41,6 +41,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [rechargeAmount, setRechargeAmount] = useState<number>(50);
+  const [customInputVal, setCustomInputVal] = useState<string>('50');
   const [isPaying, setIsPaying] = useState(false);
 
   // Switch to wallet tab if already logged in
@@ -684,7 +685,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
               </p>
               <div style={{ display: 'flex', gap: '7px', marginBottom: '12px' }}>
                 {[10, 50, 100, 500].map(amt => (
-                  <button key={amt} type="button" onClick={() => setRechargeAmount(amt)}
+                  <button key={amt} type="button" onClick={() => { setRechargeAmount(amt); setCustomInputVal(String(amt)); }}
                     style={{
                       flex: 1, padding: '8px 4px', borderRadius: '8px',
                       border: rechargeAmount === amt ? '1px solid rgba(155,77,255,0.8)' : '1px solid rgba(255,255,255,0.1)',
@@ -705,8 +706,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
                     type="number"
                     min="1"
                     placeholder="Custom amount"
-                    value={rechargeAmount === 10 || rechargeAmount === 50 || rechargeAmount === 100 || rechargeAmount === 500 ? '' : rechargeAmount}
+                    value={customInputVal}
                     onChange={(e) => {
+                      setCustomInputVal(e.target.value);
                       const v = parseFloat(e.target.value);
                       if (!isNaN(v) && v > 0) setRechargeAmount(v);
                     }}
@@ -723,27 +725,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
                     }}
                   />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const el = document.querySelector<HTMLInputElement>('input[placeholder="Custom amount"]');
-                    const v = parseFloat(el?.value || '');
-                    if (!isNaN(v) && v > 0) setRechargeAmount(v);
-                  }}
-                  style={{
-                    padding: '9px 12px',
-                    background: 'rgba(155,77,255,0.15)',
-                    border: '1px solid rgba(155,77,255,0.4)',
-                    borderRadius: '8px',
-                    color: 'rgba(155,77,255,0.9)',
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  Set
-                </button>
               </div>
               <button type="button" onClick={handleRazorpayRecharge} disabled={isPaying}
                 style={{
