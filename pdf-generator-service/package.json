@@ -1,0 +1,12 @@
+{
+  "name": "pdf-generator-service",
+  "version": "1.0.0",
+  "description": "Local PDF Generation Service for FiveNest Photoshop Plugin",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "pdfkit": "^0.15.0"
+  }
+}

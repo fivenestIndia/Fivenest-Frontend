@@ -13,6 +13,7 @@ const Footer = () => (
         <a href="/#how-it-works" className="hover:text-foreground transition-colors">How it Works</a>
         <a href="/#pricing" className="hover:text-foreground transition-colors">Pricing</a>
         <a href="/studio" className="hover:text-foreground transition-colors">Web Studio</a>
+        <a href="/plugins" className="hover:text-foreground transition-colors">Plugins</a>
       </div>
       <div className="mt-8 text-xs text-muted-foreground">
         © {new Date().getFullYear()} Fivenest. All rights reserved.

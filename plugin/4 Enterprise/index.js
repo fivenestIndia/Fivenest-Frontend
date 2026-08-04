@@ -242,6 +242,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         await shell.openExternal("https://gemini.google.com/gem/1vc3MbyzLtt5RspOpQualSpuViseurHd4?usp=sharing", "Opening Gemini AI Refiner link");
     };
     document.getElementById("btnRun").onclick = runEngine;
+    document.getElementById("btnImportData").addEventListener("click", importZipData);
     document.getElementById("btnSetDefault").onclick = saveDefaults; 
     document.getElementById("btnClearLog").onclick = () => { document.getElementById("logArea").innerText = "Ready."; };
     
@@ -2356,5 +2357,867 @@ async function generateAutoNesting(outFolder, customerName, orderNum) {
         log(`❌ Error connecting to nesting service: ${err.message}`);
         log(`⚠️ Make sure you start the background server by running 'node pdf-generator-service/index.js' in the plugin folder!`);
         await app.showAlert("Failed to connect to local Nesting server.\n\nPlease start the server in your terminal:\nnode pdf-generator-service/index.js");
+    }
+}
+
+// --- ZIP IMPORT FEATURE ---
+async function collapseGroupLayer(groupLayer) {
+    try {
+        await ps.action.batchPlay([
+            {
+                _obj: "set",
+                _target: [{ _ref: "layer", _id: groupLayer.id }],
+                to: {
+                    _obj: "layer",
+                    expanded: false
+                }
+            }
+        ], {});
+    } catch (e) {
+        try {
+            groupLayer.expanded = false;
+        } catch (err) {}
+    }
+}
+
+async function getArtboardBounds(layerId) {
+    try {
+        const result = await ps.action.batchPlay([
+            {
+                _obj: "get",
+                _target: [
+                    {
+                        _ref: "property",
+                        _property: "artboard"
+                    },
+                    {
+                        _ref: "layer",
+                        _id: layerId
+                    }
+                ]
+            }
+        ], {});
+        const artboard = result[0]?.artboard;
+        if (artboard && artboard.artboardRect) {
+            const rect = artboard.artboardRect;
+            return {
+                left: Number(rect.left),
+                top: Number(rect.top),
+                right: Number(rect.right),
+                bottom: Number(rect.bottom),
+                width: Number(rect.right - rect.left),
+                height: Number(rect.bottom - rect.top)
+            };
+        }
+    } catch (e) {
+        log(`Error getting artboard bounds for layer ${layerId}: ${e.message}`);
+    }
+    return null;
+}
+
+async function getArtboardContainer(doc) {
+    for (const layer of doc.layers) {
+        if (layer.kind === "group" || layer.layers) {
+            const bounds = await getArtboardBounds(layer.id);
+            if (bounds) {
+                return layer;
+            }
+        }
+    }
+    return null;
+}
+
+async function fitLayerToCanvas(layer, doc) {
+    let originalUnits = null;
+    try {
+        // Save original units
+        const getUnits = await ps.action.batchPlay([
+            {
+                _obj: "get",
+                _target: [
+                    {
+                        _ref: "property",
+                        _property: "unitsPrefs"
+                    },
+                    {
+                        _ref: "application",
+                        _enum: "ordinal",
+                        _value: "targetEnum"
+                    }
+                ]
+            }
+        ], {});
+        originalUnits = getUnits[0]?.unitsPrefs?.rulerUnits?._value;
+    } catch (e) {
+        log(`Failed to get original units: ${e.message}`);
+    }
+
+    try {
+        // Set units to pixels
+        await ps.action.batchPlay([
+            {
+                _obj: "set",
+                _target: [
+                    {
+                        _ref: "property",
+                        _property: "unitsPrefs"
+                    },
+                    {
+                        _ref: "application",
+                        _enum: "ordinal",
+                        _value: "targetEnum"
+                    }
+                ],
+                to: {
+                    _obj: "unitsPrefs",
+                    rulerUnits: {
+                        _enum: "rulerUnits",
+                        _value: "rulerPixels"
+                    }
+                }
+            }
+        ], {});
+    } catch (e) {
+        log(`Failed to set units to pixels: ${e.message}`);
+    }
+
+    try {
+        // Unlock layer if locked
+        if (layer.locked) {
+            layer.locked = false;
+        }
+
+        try {
+            layer.blendMode = "normal";
+        } catch(e) {}
+
+        // Get Artboard bounds in the document
+        let artboardBounds = null;
+        for (const l of doc.layers) {
+            if (l.kind === "group" || l.layers) {
+                artboardBounds = await getArtboardBounds(l.id);
+                if (artboardBounds) {
+                    break;
+                }
+            }
+        }
+
+        const boundsBefore = layer.bounds;
+        const currentLeft = Number(boundsBefore.left);
+        const currentTop = Number(boundsBefore.top);
+
+        let targetLeft = 0;
+        let targetTop = 0;
+        let targetW = doc.width;
+        let targetH = doc.height;
+
+        if (artboardBounds) {
+            targetLeft = artboardBounds.left;
+            targetTop = artboardBounds.top;
+            targetW = artboardBounds.width;
+            targetH = artboardBounds.height;
+        }
+
+        // Translate to top-left of target
+        await layer.translate(targetLeft - currentLeft, targetTop - currentTop);
+
+        // Get dimensions after translation
+        const boundsAfter = layer.bounds;
+        const layerW = Number(boundsAfter.right) - Number(boundsAfter.left);
+        const layerH = Number(boundsAfter.bottom) - Number(boundsAfter.top);
+
+        if (layerW > 0 && layerH > 0 && targetW > 0 && targetH > 0) {
+            const scaleX = (targetW / layerW) * 100;
+            const scaleY = (targetH / layerH) * 100;
+
+            const constants = ps.constants;
+            await layer.resize(scaleX, scaleY, constants.AnchorPosition.TOPLEFT);
+        }
+    } catch (err) {
+        log(`Error fitting layer to canvas: ${err.message}`);
+    } finally {
+        // Restore original units
+        if (originalUnits) {
+            try {
+                await ps.action.batchPlay([
+                    {
+                        _obj: "set",
+                        _target: [
+                            {
+                                _ref: "property",
+                                _property: "unitsPrefs"
+                            },
+                            {
+                                _ref: "application",
+                                _enum: "ordinal",
+                                _value: "targetEnum"
+                            }
+                        ],
+                        to: {
+                            _obj: "unitsPrefs",
+                            rulerUnits: {
+                                _enum: "rulerUnits",
+                                _value: originalUnits
+                            }
+                        }
+                    }
+                ], {});
+            } catch (e) {
+                log(`Failed to restore units: ${e.message}`);
+            }
+        }
+    }
+}
+
+const ALLOWED_IMPORT_LAYERS = [
+    "front",
+    "back",
+    "half left sl",
+    "half right sl",
+    "full right sl",
+    "full left sl",
+    "raglan half right sl",
+    "raglan half left sl",
+    "raglan full right sl",
+    "raglan full left sl",
+    "hand stripe",
+    "sleeve stripe",
+    "collar",
+    "only name & number"
+];
+
+function isSleeveLayerName(layerName) {
+    const lName = layerName.toLowerCase().trim();
+    return (
+        lName.includes("sleeve") || 
+        lName.includes(" sl") || 
+        lName.endsWith(" sl") ||
+        lName === "half left sl" ||
+        lName === "half right sl" ||
+        lName === "full left sl" ||
+        lName === "full right sl"
+    );
+}
+
+function matchLayerToFilename(layerName, extractedFilenames) {
+    const lName = layerName.toLowerCase().trim();
+    const cleanL = lName.replace(/\s+/g, "");
+    const containsAllClean = (cf, words) => words.every(w => cf.includes(w));
+    
+    // 1. Front
+    if (cleanL === "front") {
+        return extractedFilenames.find(f => {
+            const cf = f.replace(/\s+/g, "");
+            return cf === "front.jpg" || cf === "front.jpeg" || cf === "front.png" || cf === "front.tiff" || cf === "front.tif" || cf.startsWith("front_") || cf.startsWith("front-");
+        });
+    }
+    
+    // 2. Back
+    if (cleanL === "back") {
+        return extractedFilenames.find(f => {
+            const cf = f.replace(/\s+/g, "");
+            return cf === "back.jpg" || cf === "back.jpeg" || cf === "back.png" || cf === "back.tiff" || cf === "back.tif" || cf.startsWith("back_") || cf.startsWith("back-");
+        });
+    }
+    
+    // 3. Raglan Half Left SL
+    if (cleanL === "raglanhalfleftsl") {
+        return extractedFilenames.find(f => {
+            const cf = f.replace(/\s+/g, "");
+            return cf.includes("raglan") && (
+                containsAllClean(cf, ["half", "left"]) || 
+                containsAllClean(cf, ["left", "half"]) ||
+                cf.includes("halfleftsl") || 
+                cf.includes("lefthalfsl")
+            );
+        });
+    }
+    
+    // 4. Raglan Half Right SL
+    if (cleanL === "raglanhalfrightsl") {
+        return extractedFilenames.find(f => {
+            const cf = f.replace(/\s+/g, "");
+            return cf.includes("raglan") && (
+                containsAllClean(cf, ["half", "right"]) || 
+                containsAllClean(cf, ["right", "half"]) ||
+                cf.includes("halfrightsl") || 
+                cf.includes("righthalfsl")
+            );
+        });
+    }
+    
+    // 5. Raglan Full Left SL
+    if (cleanL === "raglanfullleftsl") {
+        return extractedFilenames.find(f => {
+            const cf = f.replace(/\s+/g, "");
+            return cf.includes("raglan") && (
+                containsAllClean(cf, ["full", "left"]) || 
+                containsAllClean(cf, ["left", "full"]) ||
+                cf.includes("fullleftsl") || 
+                cf.includes("leftfullsl")
+            );
+        });
+    }
+    
+    // 6. Raglan Full Right SL
+    if (cleanL === "raglanfullrightsl") {
+        return extractedFilenames.find(f => {
+            const cf = f.replace(/\s+/g, "");
+            return cf.includes("raglan") && (
+                containsAllClean(cf, ["full", "right"]) || 
+                containsAllClean(cf, ["right", "full"]) ||
+                cf.includes("fullrightsl") || 
+                cf.includes("rightfullsl")
+            );
+        });
+    }
+    
+    // 7. Half Left SL
+    if (cleanL === "halfleftsl") {
+        return extractedFilenames.find(f => {
+            const cf = f.replace(/\s+/g, "");
+            return !cf.includes("raglan") && (
+                containsAllClean(cf, ["half", "left"]) || 
+                containsAllClean(cf, ["left", "half"]) ||
+                cf.includes("halfleftsl") || 
+                cf.includes("lefthalfsl")
+            );
+        });
+    }
+    
+    // 8. Half Right SL
+    if (cleanL === "halfrightsl") {
+        return extractedFilenames.find(f => {
+            const cf = f.replace(/\s+/g, "");
+            return !cf.includes("raglan") && (
+                containsAllClean(cf, ["half", "right"]) || 
+                containsAllClean(cf, ["right", "half"]) ||
+                cf.includes("halfrightsl") || 
+                cf.includes("righthalfsl")
+            );
+        });
+    }
+    
+    // 9. Full Left SL
+    if (cleanL === "fullleftsl") {
+        return extractedFilenames.find(f => {
+            const cf = f.replace(/\s+/g, "");
+            return !cf.includes("raglan") && (
+                containsAllClean(cf, ["full", "left"]) || 
+                containsAllClean(cf, ["left", "full"]) ||
+                cf.includes("fullleftsl") || 
+                cf.includes("leftfullsl")
+            );
+        });
+    }
+    
+    // 10. Full Right SL
+    if (cleanL === "fullrightsl") {
+        return extractedFilenames.find(f => {
+            const cf = f.replace(/\s+/g, "");
+            return !cf.includes("raglan") && (
+                containsAllClean(cf, ["full", "right"]) || 
+                containsAllClean(cf, ["right", "full"]) ||
+                cf.includes("fullrightsl") || 
+                cf.includes("rightfullsl")
+            );
+        });
+    }
+    
+    // 11. hand stripe
+    if (cleanL === "handstripe") {
+        return extractedFilenames.find(f => {
+            const cf = f.replace(/\s+/g, "");
+            return cf.includes("handstripe") || cf.includes("sleevestripe") || cf.includes("sleevestrip");
+        });
+    }
+    
+    // 14. sleeve stripe
+    if (cleanL === "sleevestripe") {
+        return extractedFilenames.find(f => {
+            const cf = f.replace(/\s+/g, "");
+            return cf.includes("sleevestripe") || cf.includes("sleevestrip") || cf.includes("handstripe");
+        });
+    }
+    
+    // 12. collar
+    if (cleanL === "collar") {
+        return extractedFilenames.find(f => {
+            const cf = f.replace(/\s+/g, "");
+            return cf.includes("collar") && !cf.includes("mockup") && !cf.includes("template");
+        });
+    }
+    
+    // 13. Only Name & Number
+    if (cleanL === "onlyname&number" || cleanL === "onlynameandnumber") {
+        return extractedFilenames.find(f => {
+            const cf = f.replace(/\s+/g, "");
+            return cf.includes("name") && (cf.includes("number") || cf.includes("no") || cf.includes("num"));
+        });
+    }
+    
+    return null;
+}
+
+function getFileTargetComponent(filename) {
+    const nameWithoutExt = filename.substring(0, filename.lastIndexOf('.')) || filename;
+    const lower = nameWithoutExt.toLowerCase().trim();
+    
+    // Split into tokens using non-alphanumeric characters
+    const tokens = lower.split(/[^a-z0-9]+/).filter(t => t.length > 0);
+    
+    // Front match conditions:
+    // - token is exactly "front"
+    // - token is exactly "f"
+    // - token matches a pattern like 01f, 1f, etc. (starts with digits, ends with f)
+    const isFront = tokens.some(t => t === "front" || t === "f" || /^\d+f$/.test(t));
+    if (isFront) return "front";
+    
+    // Back match conditions:
+    // - token is exactly "back"
+    // - token is exactly "b"
+    // - token matches a pattern like 01b, 1b, etc. (starts with digits, ends with b)
+    const isBack = tokens.some(t => t === "back" || t === "b" || /^\d+b$/.test(t));
+    if (isBack) return "back";
+    
+    // Left Sleeve match conditions:
+    // - token is "lsl", "lfsl", "lfl", "leftsleeve"
+    // - token ends with "lsl" or "lfsl" or "lfl" preceded by digits
+    // - or tokens contain "left" and "sleeve" or "left" and "sl"
+    const isLeftSleeve = tokens.some(t => t === "lsl" || t === "lfsl" || t === "lfl" || t === "leftsleeve" || /^\d+lsl$/.test(t) || /^\d+lfsl$/.test(t) || /^\d+lfl$/.test(t)) ||
+                          (tokens.includes("left") && (tokens.includes("sleeve") || tokens.includes("sl")));
+    if (isLeftSleeve) return "leftsleeve";
+    
+    // Right Sleeve match conditions:
+    // - token is "rsl", "rfsl", "rfl", "rightsleeve"
+    // - token ends with "rsl" or "rfsl" or "rfl" preceded by digits
+    // - or tokens contain "right" and "sleeve" or "right" and "sl"
+    const isRightSleeve = tokens.some(t => t === "rsl" || t === "rfsl" || t === "rfl" || t === "rightsleeve" || /^\d+rsl$/.test(t) || /^\d+rfsl$/.test(t) || /^\d+rfl$/.test(t)) ||
+                          (tokens.includes("right") && (tokens.includes("sleeve") || tokens.includes("sl")));
+    if (isRightSleeve) return "rightsleeve";
+    
+    // Collar match conditions:
+    // - token contains "collar"
+    const isCollar = tokens.some(t => t.includes("collar"));
+    if (isCollar) return "collar";
+    
+    // Stripe match conditions:
+    // - token contains "stripe"
+    const isStripe = tokens.some(t => t.includes("stripe"));
+    if (isStripe) return "stripe";
+    
+    return null;
+}
+
+function getLayerComponentType(layerName) {
+    const cleanL = layerName.toLowerCase().replace(/\s+/g, "");
+    if (cleanL === "front") return "front";
+    if (cleanL === "back") return "back";
+    if (cleanL === "collar") return "collar";
+    if (cleanL === "sleevestripe" || cleanL === "handstripe") return "stripe";
+    
+    if (cleanL.includes("leftsl") || cleanL.includes("leftsleeve")) return "leftsleeve";
+    if (cleanL.includes("rightsl") || cleanL.includes("rightsleeve")) return "rightsleeve";
+    
+    return null;
+}
+
+function getAllLayersRecursive(doc) {
+    const list = [];
+    const traverse = (layers) => {
+        for (const layer of layers) {
+            list.push(layer);
+            if (layer.layers) {
+                traverse(layer.layers);
+            }
+        }
+    };
+    traverse(doc.layers);
+    return list;
+}
+
+async function importZipData() {
+    log("Starting Zip Data Import...");
+    let tempFiles = [];
+    try {
+        const file = await fs.getFileForOpening({ types: ["zip"] });
+        if (!file) {
+            log("No zip file selected.");
+            return;
+        }
+        
+        log(`Selected zip: ${file.name}`);
+        
+        const formats = require("uxp").storage.formats;
+        const fileData = await file.read({ format: formats.binary });
+        
+        const zip = await JSZip.loadAsync(fileData);
+        const tempFolder = await fs.getTemporaryFolder();
+        
+        const zipFiles = zip.filter((relativePath, f) => !f.dir);
+        const extractedFiles = {};
+        
+        for (const zipFile of zipFiles) {
+            const filename = zipFile.name;
+            const lowerName = filename.toLowerCase();
+            if (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") || lowerName.endsWith(".png") || lowerName.endsWith(".tiff") || lowerName.endsWith(".tif")) {
+                const parts = filename.split("/");
+                const basename = parts[parts.length - 1];
+                if (basename) {
+                    log(`Extracting: ${basename}`);
+                    const arrayBuffer = await zipFile.async("arraybuffer");
+                    const tempFile = await tempFolder.createFile(basename, { overwrite: true });
+                    await tempFile.write(arrayBuffer, { format: formats.binary });
+                    extractedFiles[basename.toLowerCase()] = tempFile;
+                    tempFiles.push(tempFile);
+                }
+            }
+        }
+        
+        if (Object.keys(extractedFiles).length === 0) {
+            log("No image files found in the ZIP.");
+            await app.showAlert("No pattern images (JPG, PNG, TIFF) found in the selected ZIP file.");
+            return;
+        }
+        
+        const masterDoc = app.activeDocument;
+        if (!masterDoc) {
+            await app.showAlert("Please open a PSD template first.");
+            return;
+        }
+        
+        const masterDocID = masterDoc.id;
+        const allLayers = getAllLayersRecursive(masterDoc);
+        const smartObjects = allLayers.filter(l => {
+            const lName = l.name.toLowerCase().trim();
+            return String(l.kind).toLowerCase() === "smartobject" && ALLOWED_IMPORT_LAYERS.includes(lName);
+        });
+        
+        if (smartObjects.length === 0) {
+            log("No matching Smart Object layers found in active document.");
+            await app.showAlert("No matching Smart Object layers found in the active document.");
+            return;
+        }
+        
+        let replacedObjects = [];
+        const processedIds = new Set();
+        
+        const isMultiTeam = document.getElementById("chkMultiTeam") ? document.getElementById("chkMultiTeam").checked : false;
+        
+        const filesByComponent = {
+            front: [],
+            back: [],
+            leftsleeve: [],
+            rightsleeve: [],
+            collar: [],
+            stripe: []
+        };
+        for (const filename of Object.keys(extractedFiles)) {
+            const comp = getFileTargetComponent(filename);
+            if (comp && filesByComponent[comp]) {
+                filesByComponent[comp].push({
+                    filename: filename,
+                    file: extractedFiles[filename]
+                });
+            }
+        }
+        
+        for (const comp of Object.keys(filesByComponent)) {
+            filesByComponent[comp].sort((a, b) => a.filename.localeCompare(b.filename, undefined, { numeric: true, sensitivity: 'base' }));
+        }
+
+        const hasSleeveSmartObject = smartObjects.some(l => isSleeveLayerName(l.name));
+        const hasSleeveFile = filesByComponent.leftsleeve.length > 0 || filesByComponent.rightsleeve.length > 0;
+        
+        if (hasSleeveSmartObject && !hasSleeveFile) {
+            await app.showAlert("There is no sleeve data.");
+        }
+        
+        await core.executeAsModal(async () => {
+            if (isMultiTeam) {
+                for (const layer of smartObjects) {
+                    if (processedIds.has(layer.id)) continue;
+                    processedIds.add(layer.id);
+                    
+                    const lName = layer.name;
+                    const compType = getLayerComponentType(lName);
+                    const items = compType ? filesByComponent[compType] : null;
+                    
+                    if (items && items.length > 0) {
+                        log(`Multi-Team: Found ${items.length} files for layer "${lName}" (component type "${compType}"). Processing...`);
+                        
+                        let soDoc = null;
+                        try {
+                            await app.batchPlay([{ _obj: "select", _target: [{ _ref: "layer", _id: layer.id }] }], {});
+                            await app.batchPlay([{ _obj: "placedLayerEditContents", _options: { dialogOptions: "dontDisplay" } }], {});
+                            soDoc = app.activeDocument;
+                            
+                            if (!soDoc || soDoc.id === masterDocID) {
+                                throw new Error("Failed to open smart object or smart object is invalid.");
+                            }
+                            
+                            // Hide any existing child smart objects
+                            const soLayers = getAllLayersRecursive(soDoc);
+                            const childSmartObjects = soLayers.filter(l => String(l.kind).toLowerCase() === "smartobject");
+                            for (const childSO of childSmartObjects) {
+                                try {
+                                    childSO.visible = false;
+                                } catch (visErr) {
+                                    log(`Error setting visibility for child SO "${childSO.name}": ${visErr.message}`);
+                                }
+                            }
+                            
+                            // Import each file
+                            for (const item of items) {
+                                try {
+                                    const imgDoc = await app.open(item.file);
+                                    await app.batchPlay([
+                                        {
+                                            _obj: "duplicate",
+                                            _target: [{ _ref: "layer", _enum: "ordinal", _value: "targetEnum" }],
+                                            to: { _ref: "document", _id: soDoc.id },
+                                            version: 5
+                                        }
+                                    ], {});
+                                    
+                                    if (app.activeDocument.id !== masterDocID && app.activeDocument.id !== soDoc.id) {
+                                        await app.batchPlay([{ _obj: "close", saving: { _enum: "yesNo", _value: "no" } }], {});
+                                    }
+                                    
+                                    let dupLayer = soDoc.activeLayers[0];
+                                    if (dupLayer) {
+                                        try {
+                                            await app.batchPlay([{ _obj: "select", _target: [{ _ref: "layer", _id: dupLayer.id }] }], {});
+                                            await app.batchPlay([{ _obj: "newPlacedLayer" }], {});
+                                            dupLayer = soDoc.activeLayers[0];
+                                        } catch (soErr) {
+                                            log(`Failed to convert layer to Smart Object: ${soErr.message}`);
+                                        }
+                                    }
+                                    if (dupLayer) {
+                                        const nameWithoutExt = item.filename.substring(0, item.filename.lastIndexOf('.')) || item.filename;
+                                        dupLayer.name = nameWithoutExt;
+                                        dupLayer.locked = false;
+                                        dupLayer.visible = true;
+                                        
+                                        try {
+                                            dupLayer.blendMode = "normal";
+                                        } catch (e) {}
+                                        
+                                        const artboardContainer = await getArtboardContainer(soDoc);
+                                        const targetContainer = artboardContainer || soDoc;
+                                        
+                                        try {
+                                            dupLayer.move(targetContainer, "placeAtEnd");
+                                        } catch (moveErr) {
+                                            try {
+                                                const layersList = targetContainer.layers;
+                                                if (layersList && layersList.length > 0) {
+                                                    const lastLayer = layersList[layersList.length - 1];
+                                                    if (lastLayer && lastLayer.id !== dupLayer.id) {
+                                                        await ps.action.batchPlay([
+                                                            {
+                                                                _obj: "move",
+                                                                _target: [{ _ref: "layer", _id: dupLayer.id }],
+                                                                to: { _ref: "layer", _id: lastLayer.id },
+                                                                insertionMode: { _enum: "insertMode", _value: "insertAfter" }
+                                                            }
+                                                        ], {});
+                                                    }
+                                                }
+                                            } catch(moveErr2) {}
+                                        }
+                                        
+                                        // Fit duplicated layer to canvas
+                                        await fitLayerToCanvas(dupLayer, soDoc);
+                                    }
+                                } catch (fileErr) {
+                                    log(`Error importing file ${item.filename}: ${fileErr.message}`);
+                                }
+                            }
+                            
+                            await soDoc.save();
+                            if (app.activeDocument.id !== masterDocID) {
+                                await app.batchPlay([{ _obj: "close", saving: { _enum: "yesNo", _value: "no" } }], {});
+                            }
+                            
+                            replacedObjects.push(lName);
+                            log(`Successfully imported all multi-team files to "${lName}"`);
+                        } catch (err) {
+                            log(`Error editing smart object layer "${lName}": ${err.message}`);
+                            if (soDoc && app.activeDocument.id !== masterDocID) {
+                                await app.batchPlay([{ _obj: "close", saving: { _enum: "yesNo", _value: "no" } }], {});
+                            }
+                        }
+                    } else {
+                        log(`Multi-Team: No files found for layer "${lName}". Skipping.`);
+                    }
+                }
+            } else {
+                for (const layer of smartObjects) {
+                    if (processedIds.has(layer.id)) continue;
+                    processedIds.add(layer.id);
+                    
+                    const lName = layer.name;
+                    const matchedFilename = matchLayerToFilename(lName, Object.keys(extractedFiles));
+                    if (matchedFilename) {
+                        const fileToImport = extractedFiles[matchedFilename];
+                        log(`Importing ${matchedFilename} to layer "${lName}"...`);
+                        
+                        let soDoc = null;
+                        try {
+                            await app.batchPlay([{ _obj: "select", _target: [{ _ref: "layer", _id: layer.id }] }], {});
+                            await app.batchPlay([{ _obj: "placedLayerEditContents", _options: { dialogOptions: "dontDisplay" } }], {});
+                            soDoc = app.activeDocument;
+                            
+                            if (!soDoc || soDoc.id === masterDocID) {
+                                throw new Error("Failed to open smart object or smart object is invalid.");
+                            }
+                            
+                            const soLayers = getAllLayersRecursive(soDoc);
+                            const childSmartObjects = soLayers.filter(l => String(l.kind).toLowerCase() === "smartobject");
+                            
+                            if (childSmartObjects.length > 0) {
+                                const bottomChildSO = childSmartObjects[childSmartObjects.length - 1];
+                                const fileToken = await fs.createSessionToken(fileToImport);
+                                await app.batchPlay([{ _obj: "select", _target: [{ _ref: "layer", _id: bottomChildSO.id }] }], {});
+                                await app.batchPlay([
+                                    {
+                                        _obj: "placedLayerReplaceContents",
+                                        null: {
+                                            _path: fileToken,
+                                            _kind: "local"
+                                        }
+                                    }
+                                ], {});
+                                
+                                // Fit replaced child smart object to canvas
+                                await fitLayerToCanvas(bottomChildSO, soDoc);
+                                
+                                for (const childSO of childSmartObjects) {
+                                    try {
+                                        if (childSO.id === bottomChildSO.id) {
+                                            childSO.visible = true;
+                                        } else {
+                                            childSO.visible = false;
+                                        }
+                                    } catch (visErr) {
+                                        log(`Error setting visibility for child SO "${childSO.name}": ${visErr.message}`);
+                                    }
+                                }
+                            } else {
+                                try {
+                                    const bg = soDoc.backgroundLayer;
+                                    if (bg) {
+                                        bg.name = "Background Layer";
+                                    }
+                                } catch (bgErr) {
+                                    try {
+                                        await app.batchPlay([{
+                                            _obj: "set",
+                                            _target: [{ _ref: "layer", _enum: "ordinal", _value: "targetEnum" }],
+                                            to: { _obj: "layer", name: "Layer 0" }
+                                        }], {});
+                                    } catch(bgErr2) {}
+                                }
+                                
+                                const imgDoc = await app.open(fileToImport);
+                                await app.batchPlay([
+                                    {
+                                        _obj: "duplicate",
+                                        _target: [{ _ref: "layer", _enum: "ordinal", _value: "targetEnum" }],
+                                        to: { _ref: "document", _id: soDoc.id },
+                                        version: 5
+                                    }
+                                ], {});
+                                
+                                if (app.activeDocument.id !== masterDocID && app.activeDocument.id !== soDoc.id) {
+                                    await app.batchPlay([{ _obj: "close", saving: { _enum: "yesNo", _value: "no" } }], {});
+                                }
+                                
+                                let dupLayer = soDoc.activeLayers[0];
+                                if (dupLayer) {
+                                    try {
+                                        await app.batchPlay([{ _obj: "select", _target: [{ _ref: "layer", _id: dupLayer.id }] }], {});
+                                        await app.batchPlay([{ _obj: "newPlacedLayer" }], {});
+                                        dupLayer = soDoc.activeLayers[0];
+                                    } catch (soErr) {
+                                        log(`Failed to convert layer to Smart Object: ${soErr.message}`);
+                                    }
+                                }
+                                if (dupLayer) {
+                                    const artboardContainer = await getArtboardContainer(soDoc);
+                                    const targetContainer = artboardContainer || soDoc;
+                                    
+                                    try {
+                                        dupLayer.move(targetContainer, "placeAtEnd");
+                                    } catch (moveErr) {
+                                        try {
+                                            const layersList = targetContainer.layers;
+                                            if (layersList && layersList.length > 0) {
+                                                const lastLayer = layersList[layersList.length - 1];
+                                                if (lastLayer && lastLayer.id !== dupLayer.id) {
+                                                    await ps.action.batchPlay([
+                                                        {
+                                                            _obj: "move",
+                                                            _target: [{ _ref: "layer", _id: dupLayer.id }],
+                                                            to: { _ref: "layer", _id: lastLayer.id },
+                                                            insertionMode: { _enum: "insertMode", _value: "insertAfter" }
+                                                        }
+                                                    ], {});
+                                                }
+                                            }
+                                        } catch(moveErr2) {}
+                                    }
+                                    
+                                    // Fit duplicated layer to canvas
+                                    await fitLayerToCanvas(dupLayer, soDoc);
+                                }
+                            }
+                            
+                            await soDoc.save();
+                            if (app.activeDocument.id !== masterDocID) {
+                                await app.batchPlay([{ _obj: "close", saving: { _enum: "yesNo", _value: "no" } }], {});
+                            }
+                            
+                            replacedObjects.push(lName);
+                            log(`Successfully imported ${matchedFilename} to "${lName}"`);
+                        } catch (err) {
+                            log(`Error editing smart object layer "${lName}": ${err.message}`);
+                            if (soDoc && app.activeDocument.id !== masterDocID) {
+                                await app.batchPlay([{ _obj: "close", saving: { _enum: "yesNo", _value: "no" } }], {});
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Collapse Mockup Data group if found
+            try {
+                const allLayersAfter = getAllLayersRecursive(masterDoc);
+                const mockupDataGroup = allLayersAfter.find(l => l.name.toLowerCase().trim() === "mockup data");
+                if (mockupDataGroup) {
+                    await collapseGroupLayer(mockupDataGroup);
+                }
+            } catch (collapseErr) {
+                log(`Error collapsing Mockup Data group: ${collapseErr.message}`);
+            }
+        }, { commandName: "Importing Zip Data" });
+        
+        if (replacedObjects.length > 0) {
+            await app.showAlert(`Successfully replaced layers:\n- ${replacedObjects.join("\n- ")}`);
+        } else {
+            await app.showAlert("No matching layers were found to replace.");
+        }
+        
+    } catch (e) {
+        log(`Zip Import Error: ${e.message}`);
+        await app.showAlert(`Error during import: ${e.message}`);
+    } finally {
+        for (const tempFile of tempFiles) {
+            try {
+                await tempFile.delete();
+            } catch(e) {}
+        }
     }
 }

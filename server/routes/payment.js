@@ -214,11 +214,17 @@ router.post("/webhook", async (req, res) => {
 
       const license = new License({
         licenseKey,
+        key: licenseKey,
         email,
         phone,
         planId,
+        planType: planId,
         status: "active",
+        isActive: true,
         maxDevices,
+        activatedDevices: [],
+        hwid: "",
+        orderId: orderId,
       });
       await license.save();
 

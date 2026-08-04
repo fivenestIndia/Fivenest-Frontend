@@ -14,6 +14,7 @@ import CaseStudiesSection from "@/components/CaseStudiesSection";
 import TestimonialsSection from "@/components/TestimonialsSection";
 import WalletProductionSection from "@/components/WalletProductionSection";
 import WalletHistoryPreview from "@/components/WalletHistoryPreview";
+import { PluginsSection } from "@/components/PluginsSection";
 import SecurityPrivacySection from "@/components/SecurityPrivacySection";
 import FAQSection from "@/components/FAQSection";
 import Footer from "@/components/Footer";
@@ -36,6 +37,7 @@ const Index = () => {
       <ROICalculator />
       <div id="case-studies"><CaseStudiesSection /></div>
       <TestimonialsSection />
+      <div id="plugins"><PluginsSection /></div>
       <div id="pricing"><WalletProductionSection /></div>
       <WalletHistoryPreview />
       <SecurityPrivacySection />

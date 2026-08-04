@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <script src="jszip.min.js"></script>
     <script src="index.js"></script>
     <link rel="stylesheet" href="styles.css">
     <style>
@@ -141,6 +142,7 @@
             </div>
         </div>
         
+        <button id="btnImportData" class="btn-main" style="background-color: var(--accent-color); margin-bottom: 8px;" title="Select a ZIP file containing pattern images (front.jpg, back.jpg, etc.) to automatically import them into matching Smart Object layers.">⚡ IMPORT ZIP DATA</button>
         <button id="btnRun" class="btn-main" title="Start processing the batch job in Photoshop.">▶ RUN AUTOMATION</button>
 
         <div class="progress-container">

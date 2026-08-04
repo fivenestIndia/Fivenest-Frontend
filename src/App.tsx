@@ -9,6 +9,7 @@ import Success from "./pages/Success.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import WebStudio from "./pages/WebStudio.tsx";
 import Academy from "./pages/Academy.tsx";
+import Plugins from "./pages/Plugins.tsx";
 import OrderManagement from "./pages/OrderManagement.tsx";
 
 interface ErrorBoundaryProps {
@@ -73,6 +74,7 @@ const App = () => (
             <Route path="/orders" element={<OrderManagement />} />
             <Route path="/orders/*" element={<OrderManagement />} />
             <Route path="/academy" element={<Academy />} />
+            <Route path="/plugins" element={<Plugins />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

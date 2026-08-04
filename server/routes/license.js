@@ -16,15 +16,18 @@ router.post("/verify", async (req, res) => {
   }
 
   try {
-    // Find the license key
-    const license = await License.findOne({ licenseKey });
+    // Find the license key using either field name
+    const license = await License.findOne({
+      $or: [{ licenseKey }, { key: licenseKey }]
+    });
 
     if (!license) {
       return res.status(404).json({ success: false, message: "License key not found." });
     }
 
-    // Verify status
-    if (license.status !== "active") {
+    // Verify status (support both status and isActive)
+    const isLicenseActive = license.status === "active" || license.isActive === true;
+    if (!isLicenseActive) {
       return res.status(403).json({ success: false, message: "This license key is currently suspended or inactive." });
     }
 
@@ -33,8 +36,9 @@ router.post("/verify", async (req, res) => {
       return res.status(403).json({ success: false, message: "This license key does not belong to the provided email address." });
     }
 
-    // Load feature and template configurations for this plan
-    const planDetails = PLAN_CONFIG[license.planId];
+    // Load feature and template configurations for this plan (support planId and planType)
+    const resolvedPlanId = license.planId || license.planType;
+    const planDetails = PLAN_CONFIG[resolvedPlanId];
     if (!planDetails) {
       return res.status(500).json({ success: false, message: "Invalid plan configured on license key." });
     }
@@ -57,7 +61,7 @@ router.post("/verify", async (req, res) => {
     if (resolvedPluginId && PLAN_CONFIG[resolvedPluginId]) {
       const requestedPlugin = PLAN_CONFIG[resolvedPluginId];
       // Enforce strict 1-to-1 matching: key planId must exactly match the UXP plugin resolved ID
-      if (license.planId !== resolvedPluginId) {
+      if (resolvedPlanId !== resolvedPluginId) {
         return res.status(403).json({
           success: false,
           message: `Access denied. A ${planDetails.name} key is not authorized to unlock the ${requestedPlugin.name} plugin.`,
@@ -65,72 +69,98 @@ router.post("/verify", async (req, res) => {
       }
     }
 
+    // Resolve max allowed devices
+    let maxAllowedDevices = license.maxDevices;
+    if (maxAllowedDevices === undefined || maxAllowedDevices === null) {
+      maxAllowedDevices = resolvedPlanId === "starter" ? 1 : resolvedPlanId === "pro" ? 2 : resolvedPlanId === "premium" ? 5 : 10;
+    }
+
     // Device activation logic (if deviceId is supplied)
     if (deviceId) {
-      const isAlreadyActivated = license.activatedDevices.includes(deviceId);
+      // Get current list of activated devices (support array and comma-separated string)
+      let currentDevices = [];
+      if (Array.isArray(license.activatedDevices) && license.activatedDevices.length > 0) {
+        currentDevices = [...license.activatedDevices];
+      } else if (license.hwid) {
+        currentDevices = license.hwid.split(",").map(d => d.trim()).filter(Boolean);
+      }
+
+      const isAlreadyActivated = currentDevices.includes(deviceId);
 
       if (isAlreadyActivated) {
         return res.status(200).json({
           success: true,
           message: "License verified successfully (Device already registered).",
-          planId: license.planId,
+          planId: resolvedPlanId,
           features: planDetails.features,
           templates: planDetails.templates,
-          maxDevices: license.maxDevices,
-          activeDevicesCount: license.activatedDevices.length,
+          maxDevices: maxAllowedDevices,
+          activeDevicesCount: currentDevices.length,
           debug: {
             receivedPluginId: pluginId,
             resolvedPluginId: resolvedPluginId,
-            licensePlanId: license.planId,
+            licensePlanId: resolvedPlanId,
             hasPlanConfig: !!PLAN_CONFIG[resolvedPluginId]
           }
         });
       }
 
       // Check if device limit has been hit
-      if (license.activatedDevices.length >= license.maxDevices) {
+      if (currentDevices.length >= maxAllowedDevices) {
         return res.status(403).json({
           success: false,
-          message: `Activation limit exceeded. Your plan (${license.planId.toUpperCase()}) allows a maximum of ${license.maxDevices} device(s).`,
-          maxDevices: license.maxDevices,
-          activeDevicesCount: license.activatedDevices.length,
+          message: `Activation limit exceeded. Your plan (${resolvedPlanId.toUpperCase()}) allows a maximum of ${maxAllowedDevices} device(s).`,
+          maxDevices: maxAllowedDevices,
+          activeDevicesCount: currentDevices.length,
         });
       }
 
       // Register new device
-      license.activatedDevices.push(deviceId);
+      currentDevices.push(deviceId);
+      license.activatedDevices = currentDevices;
+      license.hwid = currentDevices.join(",");
+      if (req.body.os) {
+        license.os = req.body.os;
+      }
       await license.save();
 
       return res.status(200).json({
         success: true,
         message: "New device registered and license activated successfully.",
-        planId: license.planId,
+        planId: resolvedPlanId,
         features: planDetails.features,
         templates: planDetails.templates,
-        maxDevices: license.maxDevices,
-        activeDevicesCount: license.activatedDevices.length,
+        maxDevices: maxAllowedDevices,
+        activeDevicesCount: currentDevices.length,
         debug: {
           receivedPluginId: pluginId,
           resolvedPluginId: resolvedPluginId,
-          licensePlanId: license.planId,
+          licensePlanId: resolvedPlanId,
           hasPlanConfig: !!PLAN_CONFIG[resolvedPluginId]
         }
       });
     }
 
     // Default verify-only response (without device activation)
+    let currentDevices = [];
+    if (Array.isArray(license.activatedDevices) && license.activatedDevices.length > 0) {
+      currentDevices = [...license.activatedDevices];
+    } else if (license.hwid) {
+      currentDevices = license.hwid.split(",").map(d => d.trim()).filter(Boolean);
+    }
+
     return res.status(200).json({
       success: true,
       message: "License key is active and valid.",
-      planId: license.planId,
+      planId: resolvedPlanId,
       features: planDetails.features,
       templates: planDetails.templates,
-      maxDevices: license.maxDevices,
-      activeDevicesCount: license.activatedDevices.length,
+      maxDevices: maxAllowedDevices,
+      activeDevicesCount: currentDevices.length,
       debug: {
         receivedPluginId: pluginId,
         resolvedPluginId: resolvedPluginId,
-        licensePlanId: license.planId,
+        licensePlanId: resolvedPlanId,
         hasPlanConfig: !!PLAN_CONFIG[resolvedPluginId]
       }
     });
@@ -152,7 +182,10 @@ router.post("/deactivate", async (req, res) => {
   }
 
   try {
-    const license = await License.findOne({ licenseKey });
+    // Find the license key using either field name
+    const license = await License.findOne({
+      $or: [{ licenseKey }, { key: licenseKey }]
+    });
 
     if (!license) {
       return res.status(404).json({ success: false, message: "License key not found." });
@@ -162,20 +195,36 @@ router.post("/deactivate", async (req, res) => {
       return res.status(403).json({ success: false, message: "This license key does not belong to the provided email address." });
     }
 
+    // Get current list of activated devices (support array and comma-separated string)
+    let currentDevices = [];
+    if (Array.isArray(license.activatedDevices) && license.activatedDevices.length > 0) {
+      currentDevices = [...license.activatedDevices];
+    } else if (license.hwid) {
+      currentDevices = license.hwid.split(",").map(d => d.trim()).filter(Boolean);
+    }
+
     // Remove the device registration
-    const index = license.activatedDevices.indexOf(deviceId);
+    const index = currentDevices.indexOf(deviceId);
     if (index === -1) {
       return res.status(400).json({ success: false, message: "This device is not registered under this license." });
     }
 
-    license.activatedDevices.splice(index, 1);
+    currentDevices.splice(index, 1);
+    license.activatedDevices = currentDevices;
+    license.hwid = currentDevices.join(",");
     await license.save();
+
+    const resolvedPlanId = license.planId || license.planType;
+    let maxAllowedDevices = license.maxDevices;
+    if (maxAllowedDevices === undefined || maxAllowedDevices === null) {
+      maxAllowedDevices = resolvedPlanId === "starter" ? 1 : resolvedPlanId === "pro" ? 2 : resolvedPlanId === "premium" ? 5 : 10;
+    }
 
     return res.status(200).json({
       success: true,
       message: "Device deactivated successfully.",
-      maxDevices: license.maxDevices,
-      activeDevicesCount: license.activatedDevices.length,
+      maxDevices: maxAllowedDevices,
+      activeDevicesCount: currentDevices.length,
     });
   } catch (error) {
     console.error("License Deactivation Error:", error);

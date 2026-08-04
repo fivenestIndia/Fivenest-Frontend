@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+server/.env
 
 # Editor directories and files
 .vscode/*
@@ -23,3 +26,12 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# Large binaries & mockup assets
+PoloMockup/
+Archive.zip
+*.blend
+*.blend1
+*.abc
+*.exr
+scratch/

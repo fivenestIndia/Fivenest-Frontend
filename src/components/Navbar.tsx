@@ -21,6 +21,7 @@ const Navbar = () => {
     { name: "Production Studio", href: "/studio", isRoute: true },
     { name: "Order Portal", href: "/orders", isRoute: true },
     { name: "Case Studies", href: "/#case-studies" },
+    { name: "Plugins", href: "/plugins", isRoute: true },
     { name: "Academy", href: "/academy", isRoute: true },
     { name: "Wallet Pricing", href: "/#pricing" },
     { name: "FAQ", href: "/#faq" },
