@@ -48,6 +48,9 @@ router.post("/create-link", async (req, res) => {
   try {
     const razorpay = getRazorpayInstance();
 
+    const rawReturnUrl = (returnUrl || "https://www.fivenest.in").trim().replace(/\/+$/, "");
+    const cleanSuccessUrl = rawReturnUrl.endsWith("/success") ? rawReturnUrl : `${rawReturnUrl}/success`;
+
     // Create payment link using Razorpay Link API
     const paymentLinkOptions = {
       amount: amount * 100, // Razorpay amount is in Paisa (1 INR = 100 Paisa)
@@ -70,7 +73,7 @@ router.post("/create-link", async (req, res) => {
         email: email,
         phone: phone,
       },
-      callback_url: `${returnUrl}/success?planId=${planId}&email=${encodeURIComponent(email)}`,
+      callback_url: `${cleanSuccessUrl}?planId=${planId}&email=${encodeURIComponent(email)}`,
       callback_method: "get",
     };
 

@@ -193,7 +193,7 @@ const Plugins = () => {
           phone: phone.trim(),
           planName: selectedPlan.name,
           planId: selectedPlan.planId,
-          returnUrl: `${window.location.origin}/success`,
+          returnUrl: window.location.origin,
         }),
       });
 
