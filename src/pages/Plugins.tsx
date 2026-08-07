@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Check,
@@ -150,11 +151,21 @@ const activationSteps = [
 ];
 
 const Plugins = () => {
+  const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const paymentId = searchParams.get("razorpay_payment_id");
+    const paymentStatus = searchParams.get("razorpay_payment_link_status");
+    if (paymentId || paymentStatus === "paid") {
+      navigate(`/success${window.location.search}`);
+    }
+  }, [navigate]);
 
   const openCheckout = (plan: any) => {
     setSelectedPlan(plan);
@@ -182,7 +193,7 @@ const Plugins = () => {
           phone: phone.trim(),
           planName: selectedPlan.name,
           planId: selectedPlan.planId,
-          returnUrl: `${window.location.origin}/plugins`,
+          returnUrl: `${window.location.origin}/success`,
         }),
       });
 

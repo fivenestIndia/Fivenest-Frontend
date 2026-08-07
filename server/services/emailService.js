@@ -12,7 +12,7 @@ export const sendLicenseEmail = async (toEmail, toPhone, licenseKey, planId, pla
   const senderName = process.env.BREVO_SENDER_NAME || "Fivenest Team";
 
   if (!apiKey) {
-    console.error("BREVO_API_KEY is not configured. Email not sent.");
+    console.error("⚠️ BREVO_API_KEY is missing in process.env! Please set BREVO_API_KEY in your server environment variables.");
     return false;
   }
 

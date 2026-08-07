@@ -83,6 +83,99 @@ router.post("/create-link", async (req, res) => {
   }
 });
 
+// Helper for full order fulfillment (license creation & email delivery)
+export const fulfillOrder = async ({ paymentId, orderId, email, phone, planId, planName, amount }) => {
+  if (!email || !planId) {
+    throw new Error("Missing required parameter: email and planId are required.");
+  }
+
+  const cleanEmail = email.toLowerCase().trim();
+  const cleanPlanId = planId.toLowerCase().trim();
+
+  // 1. Check if transaction already exists for this paymentId
+  if (paymentId) {
+    const existingTx = await Transaction.findOne({ paymentId });
+    if (existingTx) {
+      const existingLicense = await License.findOne({ email: existingTx.email, planId: existingTx.planId }).sort({ createdAt: -1 });
+      if (existingLicense) {
+        const key = existingLicense.licenseKey || existingLicense.key;
+        const emailSent = await sendLicenseEmail(existingTx.email, existingTx.phone, key, existingTx.planId, planName || existingTx.planId);
+        return { success: true, licenseKey: key, emailSent, alreadyProcessed: true };
+      }
+    }
+  }
+
+  // 2. Check if an active license key already exists for this email & plan
+  const existingActiveLicense = await License.findOne({ email: cleanEmail, planId: cleanPlanId }).sort({ createdAt: -1 });
+  if (existingActiveLicense) {
+    const key = existingActiveLicense.licenseKey || existingActiveLicense.key;
+    const emailSent = await sendLicenseEmail(cleanEmail, phone || existingActiveLicense.phone, key, cleanPlanId, planName || cleanPlanId);
+    return { success: true, licenseKey: key, emailSent, alreadyProcessed: true };
+  }
+
+  // 3. Save new Transaction
+  const transaction = new Transaction({
+    paymentId: paymentId || `pay_${Date.now()}`,
+    orderId: orderId || `ord_${Date.now()}`,
+    email: cleanEmail,
+    phone: phone || "N/A",
+    amount: amount || 0,
+    planId: cleanPlanId,
+    status: "success",
+  });
+  await transaction.save();
+
+  // 4. Generate new License Key & Save
+  const licenseKey = generateLicenseKey();
+  const maxDevices = getMaxDevices(cleanPlanId);
+
+  const license = new License({
+    licenseKey,
+    key: licenseKey,
+    email: cleanEmail,
+    phone: phone || "N/A",
+    planId: cleanPlanId,
+    planType: cleanPlanId,
+    status: "active",
+    isActive: true,
+    maxDevices,
+    activatedDevices: [],
+    hwid: "",
+    orderId: orderId || "N/A",
+  });
+  await license.save();
+
+  console.log(`✅ License generated for ${cleanEmail}: ${licenseKey}`);
+
+  // 5. Dispatch email via Brevo
+  const emailSent = await sendLicenseEmail(cleanEmail, phone || "N/A", licenseKey, cleanPlanId, planName || cleanPlanId);
+  if (!emailSent) {
+    console.warn(`⚠️ License created (${licenseKey}), but email dispatch failed for ${cleanEmail}`);
+  }
+
+  return { success: true, licenseKey, emailSent };
+};
+
+/**
+ * @route POST /api/payment/fulfill-order
+ * @desc Fulfill order manually or on Success page redirect to guarantee license key email delivery
+ */
+router.post("/fulfill-order", async (req, res) => {
+  const { paymentId, orderId, email, phone, planId, planName, amount } = req.body;
+
+  if (!email || !planId) {
+    return res.status(400).json({ error: "Missing required fulfillment parameter: email and planId." });
+  }
+
+  try {
+    const result = await fulfillOrder({ paymentId, orderId, email, phone, planId, planName, amount });
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error("Fulfill order error:", error);
+    return res.status(500).json({ error: error.message || "Failed to fulfill order." });
+  }
+});
+
 /**
  * @route POST /api/payment/webhook
  * @desc Verify and handle Razorpay webhooks (e.g. payment.captured or payment_link.paid)
@@ -98,9 +191,10 @@ router.post("/webhook", async (req, res) => {
 
   try {
     // Verify Webhook Signature
+    const rawBody = req.rawBody || JSON.stringify(req.body);
     const expectedSignature = crypto
       .createHmac("sha256", webhookSecret)
-      .update(req.rawBody)
+      .update(rawBody)
       .digest("hex");
 
     if (signature !== expectedSignature) {
@@ -188,55 +282,8 @@ router.post("/webhook", async (req, res) => {
         return res.status(200).send("No customer email found; logged but skipped fulfillment.");
       }
 
-      // Check if transaction already exists to prevent duplicate processing
-      const existingTx = await Transaction.findOne({ paymentId });
-      if (existingTx) {
-        console.log(`Transaction ${paymentId} already processed.`);
-        return res.status(200).send("Transaction already processed.");
-      }
-
-      // Save Transaction
-      const transaction = new Transaction({
-        paymentId,
-        orderId,
-        email,
-        phone,
-        amount,
-        planId,
-        status: "success",
-        rawPayload: req.body,
-      });
-      await transaction.save();
-
-      // Create License
-      const licenseKey = generateLicenseKey();
-      const maxDevices = getMaxDevices(planId);
-
-      const license = new License({
-        licenseKey,
-        key: licenseKey,
-        email,
-        phone,
-        planId,
-        planType: planId,
-        status: "active",
-        isActive: true,
-        maxDevices,
-        activatedDevices: [],
-        hwid: "",
-        orderId: orderId,
-      });
-      await license.save();
-
-      console.log(`License generated for ${email}: ${licenseKey}`);
-
-      // Send license email via Brevo
-      const emailSent = await sendLicenseEmail(email, phone, licenseKey, planId, planName);
-      if (!emailSent) {
-        console.warn(`Failed to dispatch email for license ${licenseKey} to ${email}`);
-      }
-
-      return res.status(200).json({ success: true, message: "Transaction processed and license sent." });
+      const result = await fulfillOrder({ paymentId, orderId, email, phone, planId, planName, amount });
+      return res.status(200).json(result);
     }
 
     return res.status(200).send("Unhandled event type.");

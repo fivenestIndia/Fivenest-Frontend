@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Check,
@@ -14,7 +14,7 @@ import {
   Key,
   AlertCircle
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 // Subscription plans matching backend server config (server/config/plans.js)
 const pluginPlans = [
@@ -120,11 +120,21 @@ const pluginCapabilities = [
 ];
 
 export const PluginsSection: React.FC = () => {
+  const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const paymentId = searchParams.get("razorpay_payment_id");
+    const paymentStatus = searchParams.get("razorpay_payment_link_status");
+    if (paymentId || paymentStatus === "paid") {
+      navigate(`/success${window.location.search}`);
+    }
+  }, [navigate]);
 
   const openCheckout = (plan: any) => {
     setSelectedPlan(plan);
@@ -152,7 +162,7 @@ export const PluginsSection: React.FC = () => {
           phone: phone.trim(),
           planName: selectedPlan.name,
           planId: selectedPlan.planId,
-          returnUrl: `${window.location.origin}/plugins`,
+          returnUrl: `${window.location.origin}/success`,
         }),
       });
 
