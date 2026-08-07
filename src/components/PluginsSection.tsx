@@ -12,7 +12,9 @@ import {
   Box,
   Cpu,
   Key,
-  AlertCircle
+  AlertCircle,
+  Zap,
+  CheckCircle2
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -21,78 +23,86 @@ const pluginPlans = [
   {
     planId: "starter",
     name: "Starter Plugin License",
-    desc: "For small print shops & single designer workstation",
-    original: "₹2,500",
-    price: "₹1,750",
-    numericPrice: 1750,
-    period: "/ month",
+    desc: "For small print shops & single designer setup",
+    monthlyPrice: "₹500",
+    monthlyNumeric: 500,
+    yearlyPrice: "₹5,000",
+    yearlyNumeric: 5000,
+    fileLimit: "500 Pcs / Month",
     devices: "1 Device Allowed",
     features: [
-      "Photoshop & CorelDraw Extension Panels",
-      "Bulk CSV Roster Auto-Generation",
+      "Photoshop, Illustrator & CorelDraw Panels",
+      "Up to 500 Jersey File Exports / Month",
+      "1 Device / Workstation Bound Key",
       "Auto Inch Size Grading (S to 7XL)",
-      "Print-Ready 300 DPI Export",
-      "Standard Email Activation Support",
+      "Bulk CSV Roster Auto-Generation",
+      "GPay & UPI Monthly Auto-Pay Support",
     ],
     popular: false,
-    badge: "1 PC"
+    badge: "500 Files/mo"
   },
   {
     planId: "pro",
     name: "Pro Plugin License",
-    desc: "For growing sublimation factories (2 Workstations)",
-    original: "₹3,500",
-    price: "₹2,000",
-    numericPrice: 2000,
-    period: "/ month",
-    devices: "2 Devices Allowed",
+    desc: "For growing sublimation production & medium print units",
+    monthlyPrice: "₹1,000",
+    monthlyNumeric: 1000,
+    yearlyPrice: "₹10,000",
+    yearlyNumeric: 10000,
+    fileLimit: "2,000 Pcs / Month",
+    devices: "1 Device Allowed",
     features: [
       "Everything in Starter Plan",
-      "2 Concurrent PC / Device Activations",
+      "Up to 2,000 Jersey File Exports / Month",
+      "1 Device / Workstation Bound Key",
       "AI Roster Image Reader (OCR Notes)",
-      "Custom Size Grading Database",
+      "Custom Size Grading Patterns Database",
       "Fast Multi-Core Render Export Speed",
     ],
     popular: true,
-    badge: "Most Popular"
+    badge: "Most Popular (2K Files)"
   },
   {
     planId: "premium",
     name: "Premium Plugin License",
-    desc: "For multi-line manufacturing units (5 Workstations)",
-    original: "₹7,500",
-    price: "₹5,000",
-    numericPrice: 5000,
-    period: "/ month",
-    devices: "5 Devices Allowed",
+    desc: "For high-output sportswear factories & volume production",
+    monthlyPrice: "₹1,250",
+    monthlyNumeric: 1250,
+    yearlyPrice: "₹12,500",
+    yearlyNumeric: 12500,
+    fileLimit: "5,000 Pcs / Month",
+    devices: "1 Device Allowed",
     features: [
       "Everything in Pro Plan",
-      "5 Concurrent PC / Device Activations",
-      "Multi-Device Hardware Key Sync",
-      "Full PSD & CDR Template Library Access",
-      "Priority WhatsApp Key Reset Support",
+      "Up to 5,000 Jersey File Exports / Month",
+      "1 Device / Workstation Bound Key",
+      "Full PSD, AI & CDR Template Library Access",
+      "High-Resolution 300 DPI Batch Export",
+      "Priority WhatsApp License Support",
     ],
     popular: false,
-    badge: "5 PCs"
+    badge: "5K Files/mo"
   },
   {
     planId: "enterprise",
     name: "Enterprise Plugin License",
-    desc: "For high-volume factories & automated workflows (10 Workstations)",
-    original: "₹15,000",
-    price: "₹10,000",
-    numericPrice: 10000,
-    period: "/ month",
-    devices: "10 Devices Allowed",
+    desc: "For high-volume factories requiring unlimited file exports",
+    monthlyPrice: "₹1,500",
+    monthlyNumeric: 1500,
+    yearlyPrice: "₹15,000",
+    yearlyNumeric: 15000,
+    fileLimit: "Unlimited Files",
+    devices: "1 Device Allowed",
     features: [
       "Everything in Premium Plan",
-      "10 Concurrent PC / Device Activations",
+      "UNLIMITED Jersey File Exports / Month",
+      "1 Device / Workstation Bound Key",
       "Custom ExtendScript / JSX Automation",
       "Unlimited PSD Panel Export Runs",
       "24/7 Dedicated Account Manager",
     ],
     popular: false,
-    badge: "10 PCs"
+    badge: "Unlimited Files"
   },
 ];
 
@@ -121,6 +131,7 @@ const pluginCapabilities = [
 
 export const PluginsSection: React.FC = () => {
   const navigate = useNavigate();
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [email, setEmail] = useState("");
@@ -153,15 +164,18 @@ export const PluginsSection: React.FC = () => {
         : DEFAULT_API_URL;
       const RENDER_API_URL = `${API_BASE_URL}/api/payment/create-link`;
 
+      const priceToPay = billingCycle === "yearly" ? selectedPlan.yearlyNumeric : selectedPlan.monthlyNumeric;
+
       const response = await fetch(RENDER_API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: selectedPlan.numericPrice,
+          amount: priceToPay,
           email: email.trim(),
           phone: phone.trim(),
-          planName: selectedPlan.name,
+          planName: `${selectedPlan.name} (${billingCycle === "yearly" ? "Yearly" : "Monthly Auto-Pay"})`,
           planId: selectedPlan.planId,
+          billingCycle: billingCycle,
           returnUrl: window.location.origin,
         }),
       });
@@ -198,21 +212,45 @@ export const PluginsSection: React.FC = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16 max-w-3xl mx-auto"
+          className="text-center mb-12 max-w-3xl mx-auto"
         >
           <span className="text-xs font-bold uppercase tracking-widest text-cyan-400 px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 mb-4 inline-flex items-center gap-1.5">
-            <Sparkles size={14} /> Photoshop & CorelDraw Extensions
+            <Sparkles size={14} /> Photoshop, Illustrator & CorelDraw Extensions
           </span>
           <h2 className="text-3xl sm:text-5xl font-black text-white mb-4 tracking-tight">
             FiveNest <span className="bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 bg-clip-text text-transparent">Desktop FN Plugins</span>
           </h2>
-          <p className="text-slate-400 text-base md:text-lg">
-            Buy instant activation keys for Photoshop & CorelDraw extension panels. Automate roster population, inch size grading, and 300 DPI exports directly inside your design software.
+          <p className="text-slate-400 text-base md:text-lg mb-8">
+            Buy 1-Device activation keys with monthly GPay & UPI Auto-Pay options.
           </p>
+
+          {/* Monthly / Yearly Billing Toggle */}
+          <div className="inline-flex items-center p-1.5 rounded-2xl bg-slate-900 border border-slate-800 gap-2">
+            <button
+              onClick={() => setBillingCycle("monthly")}
+              className={`px-6 py-2.5 rounded-xl text-xs font-extrabold transition-all ${
+                billingCycle === "monthly"
+                  ? "bg-gradient-to-r from-cyan-400 to-blue-500 text-black shadow-lg shadow-cyan-500/20"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              Monthly Auto-Pay
+            </button>
+            <button
+              onClick={() => setBillingCycle("yearly")}
+              className={`px-6 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                billingCycle === "yearly"
+                  ? "bg-gradient-to-r from-cyan-400 to-blue-500 text-black shadow-lg shadow-cyan-500/20"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              Yearly Billing <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-black uppercase">Save ~20%</span>
+            </button>
+          </div>
         </motion.div>
 
         {/* Feature Capabilities Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto mb-20">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto mb-16">
           {pluginCapabilities.map((cap, idx) => (
             <motion.div
               key={cap.title}
@@ -235,74 +273,84 @@ export const PluginsSection: React.FC = () => {
 
         {/* Plugin Subscription Pricing Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto items-stretch">
-          {pluginPlans.map((plan, i) => (
-            <motion.div
-              key={plan.name}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1, duration: 0.6 }}
-              whileHover={{ y: -6 }}
-              className={`relative rounded-3xl p-6 flex flex-col justify-between backdrop-blur-xl transition-all duration-300 ${
-                plan.popular
-                  ? "bg-slate-900/90 border-2 border-cyan-500 shadow-2xl shadow-cyan-500/20"
-                  : "bg-slate-900/60 border border-slate-800 hover:border-cyan-500/30"
-              }`}
-            >
-              {plan.popular && (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 text-black text-xs font-extrabold shadow-lg shadow-cyan-500/30 flex items-center gap-1.5 whitespace-nowrap">
-                  <Sparkles size={12} />
-                  {plan.badge}
-                </div>
-              )}
+          {pluginPlans.map((plan, i) => {
+            const displayPrice = billingCycle === "yearly" ? plan.yearlyPrice : plan.monthlyPrice;
+            const displayPeriod = billingCycle === "yearly" ? "/ year" : "/ month";
 
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <h3 className="text-lg font-bold text-white">{plan.name}</h3>
-                  {!plan.popular && (
-                    <span className="text-[10px] font-extrabold text-cyan-400 px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20">
-                      {plan.badge}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-slate-400 mb-6 min-h-[32px]">{plan.desc}</p>
-
-                <div className="mb-6 pb-6 border-b border-slate-800">
-                  <span className="text-xs text-slate-500 line-through mr-2 font-semibold">{plan.original}</span>
-                  <span className="text-3xl font-black bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
-                    {plan.price}
-                  </span>
-                  <span className="text-xs text-slate-400 font-medium ml-1">{plan.period}</span>
-                  <div className="mt-1 text-xs font-semibold text-cyan-400 flex items-center gap-1">
-                    <Laptop size={12} /> {plan.devices}
-                  </div>
-                </div>
-
-                <ul className="space-y-3 mb-8">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-xs text-slate-300">
-                      <Check size={14} className="text-cyan-400 flex-shrink-0 mt-0.5" />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => openCheckout(plan)}
-                className={`w-full py-3.5 rounded-xl text-xs font-extrabold transition-all duration-200 flex items-center justify-center gap-2 ${
+            return (
+              <motion.div
+                key={plan.name}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1, duration: 0.6 }}
+                whileHover={{ y: -6 }}
+                className={`relative rounded-3xl p-6 flex flex-col justify-between backdrop-blur-xl transition-all duration-300 ${
                   plan.popular
-                    ? "bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 text-black shadow-lg shadow-cyan-500/25"
-                    : "bg-slate-800/80 text-white hover:bg-slate-800 border border-slate-700"
+                    ? "bg-slate-900/90 border-2 border-cyan-500 shadow-2xl shadow-cyan-500/20"
+                    : "bg-slate-900/60 border border-slate-800 hover:border-cyan-500/30"
                 }`}
               >
-                <span>Buy License Key</span>
-                <ArrowRight size={14} />
-              </motion.button>
-            </motion.div>
-          ))}
+                {plan.popular && (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 text-black text-xs font-extrabold shadow-lg shadow-cyan-500/30 flex items-center gap-1.5 whitespace-nowrap">
+                    <Sparkles size={12} />
+                    {plan.badge}
+                  </div>
+                )}
+
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <h3 className="text-lg font-bold text-white">{plan.name}</h3>
+                    {!plan.popular && (
+                      <span className="text-[10px] font-extrabold text-cyan-400 px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20">
+                        {plan.badge}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400 mb-6 min-h-[32px]">{plan.desc}</p>
+
+                  <div className="mb-6 pb-6 border-b border-slate-800">
+                    <span className="text-3xl font-black bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                      {displayPrice}
+                    </span>
+                    <span className="text-xs text-slate-400 font-medium ml-1">{displayPeriod}</span>
+
+                    <div className="mt-3 space-y-1">
+                      <div className="text-xs font-extrabold text-cyan-400 flex items-center gap-1.5">
+                        <Laptop size={14} /> 1 Device Allowed (HWID Lock)
+                      </div>
+                      <div className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+                        <CheckCircle2 size={14} /> File Limit: {plan.fileLimit}
+                      </div>
+                    </div>
+                  </div>
+
+                  <ul className="space-y-3 mb-8">
+                    {plan.features.map((f) => (
+                      <li key={f} className="flex items-start gap-2 text-xs text-slate-300">
+                        <Check size={14} className="text-cyan-400 flex-shrink-0 mt-0.5" />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => openCheckout(plan)}
+                  className={`w-full py-3.5 rounded-xl text-xs font-extrabold transition-all duration-200 flex items-center justify-center gap-2 ${
+                    plan.popular
+                      ? "bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 text-black shadow-lg shadow-cyan-500/25"
+                      : "bg-slate-800/80 text-white hover:bg-slate-800 border border-slate-700"
+                  }`}
+                >
+                  <span>Buy 1-Device Key ({displayPrice})</span>
+                  <ArrowRight size={14} />
+                </motion.button>
+              </motion.div>
+            );
+          })}
         </div>
 
         {/* View Full Plugins Page CTA */}
@@ -340,10 +388,14 @@ export const PluginsSection: React.FC = () => {
 
               <div className="flex items-center gap-2 mb-2 text-cyan-400 text-xs font-bold uppercase tracking-wider">
                 <ShieldCheck size={16} />
-                <span>Instant Plugin License Key Purchase</span>
+                <span>1-Device Plugin License Purchase</span>
               </div>
               <h3 className="text-2xl font-black text-white mb-1">Checkout: {selectedPlan.name}</h3>
-              <p className="text-slate-400 text-xs mb-6">Enter your details. Your license key will be sent to your email immediately upon payment.</p>
+              <div className="flex items-center gap-2 text-xs text-slate-400 mb-6">
+                <span>Cycle: <strong className="text-cyan-400 capitalize">{billingCycle}</strong></span>
+                <span>•</span>
+                <span>Limit: <strong className="text-emerald-400">{selectedPlan.fileLimit}</strong></span>
+              </div>
 
               <form onSubmit={handlePaymentSubmit} className="space-y-4">
                 <div>
@@ -368,12 +420,22 @@ export const PluginsSection: React.FC = () => {
                     placeholder="+91 98765 43210"
                   />
                 </div>
+
+                <div className="p-3.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-xs text-slate-300 space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold text-cyan-300">
+                    <Zap size={14} /> GPay & UPI Monthly Auto-Pay Supported
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Select GPay, PhonePe, Paytm, UPI or Card during payment to enable automatic monthly subscription renewal.
+                  </p>
+                </div>
+
                 <button
                   type="submit"
                   disabled={isLoading}
                   className="w-full py-4 mt-4 bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-extrabold rounded-xl hover:opacity-90 disabled:opacity-50 transition-all flex justify-center items-center gap-2 text-sm shadow-xl shadow-cyan-500/20"
                 >
-                  {isLoading ? "Generating Payment Link..." : `Pay ${selectedPlan.price} Securely`}
+                  {isLoading ? "Generating Payment Link..." : `Pay ${billingCycle === "yearly" ? selectedPlan.yearlyPrice : selectedPlan.monthlyPrice} Securely`}
                   {!isLoading && <ArrowRight size={16} />}
                 </button>
               </form>

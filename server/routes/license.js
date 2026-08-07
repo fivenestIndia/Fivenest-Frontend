@@ -69,11 +69,8 @@ router.post("/verify", async (req, res) => {
       }
     }
 
-    // Resolve max allowed devices
-    let maxAllowedDevices = license.maxDevices;
-    if (maxAllowedDevices === undefined || maxAllowedDevices === null) {
-      maxAllowedDevices = resolvedPlanId === "starter" ? 1 : resolvedPlanId === "pro" ? 2 : resolvedPlanId === "premium" ? 5 : 10;
-    }
+    // Resolve max allowed devices (All keys limited to 1 device)
+    let maxAllowedDevices = 1;
 
     // Device activation logic (if deviceId is supplied)
     if (deviceId) {
@@ -215,10 +212,7 @@ router.post("/deactivate", async (req, res) => {
     await license.save();
 
     const resolvedPlanId = license.planId || license.planType;
-    let maxAllowedDevices = license.maxDevices;
-    if (maxAllowedDevices === undefined || maxAllowedDevices === null) {
-      maxAllowedDevices = resolvedPlanId === "starter" ? 1 : resolvedPlanId === "pro" ? 2 : resolvedPlanId === "premium" ? 5 : 10;
-    }
+    let maxAllowedDevices = 1;
 
     return res.status(200).json({
       success: true,

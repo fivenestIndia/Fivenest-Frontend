@@ -6,6 +6,10 @@ export const PLAN_CONFIG = {
   starter: {
     name: "Starter Plan",
     level: 1,
+    monthlyPrice: 500,
+    yearlyPrice: 5000,
+    maxDevices: 1,
+    maxFilesPerMonth: 500,
     features: {
       csvImport: true,
       resizeInches: true,
@@ -22,6 +26,10 @@ export const PLAN_CONFIG = {
   pro: {
     name: "Pro Plan",
     level: 2,
+    monthlyPrice: 1000,
+    yearlyPrice: 10000,
+    maxDevices: 1,
+    maxFilesPerMonth: 2000,
     features: {
       csvImport: true,
       resizeInches: true,
@@ -40,12 +48,16 @@ export const PLAN_CONFIG = {
   premium: {
     name: "Premium Plan",
     level: 3,
+    monthlyPrice: 1250,
+    yearlyPrice: 12500,
+    maxDevices: 1,
+    maxFilesPerMonth: 5000,
     features: {
       csvImport: true,
       resizeInches: true,
       customNaming: true,
       fastExport: true,
-      multiDeviceSync: true,
+      multiDeviceSync: false,
       customScripting: false
     },
     templates: [
@@ -60,12 +72,16 @@ export const PLAN_CONFIG = {
   enterprise: {
     name: "Enterprise Plan",
     level: 4,
+    monthlyPrice: 1500,
+    yearlyPrice: 15000,
+    maxDevices: 1,
+    maxFilesPerMonth: -1, // -1 means Unlimited
     features: {
       csvImport: true,
       resizeInches: true,
       customNaming: true,
       fastExport: true,
-      multiDeviceSync: true,
+      multiDeviceSync: false,
       customScripting: true
     },
     templates: [

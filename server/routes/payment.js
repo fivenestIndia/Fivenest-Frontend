@@ -23,23 +23,17 @@ const generateLicenseKey = () => {
   return `FN-${segment()}-${segment()}-${segment()}`;
 };
 
-// Helper to determine device limit based on plan
+// Helper to determine device limit based on plan (All plans limited to 1 device)
 const getMaxDevices = (planId) => {
-  switch (planId) {
-    case "starter": return 1;
-    case "pro": return 2;
-    case "premium": return 5;
-    case "enterprise": return 10;
-    default: return 1;
-  }
+  return 1;
 };
 
 /**
  * @route POST /api/payment/create-link
- * @desc Create a Razorpay payment link for hosted checkout
+ * @desc Create a Razorpay payment link for hosted checkout with GPay / UPI Autopay support
  */
 router.post("/create-link", async (req, res) => {
-  const { amount, email, phone, planName, planId, returnUrl } = req.body;
+  const { amount, email, phone, planName, planId, billingCycle, returnUrl } = req.body;
 
   if (!amount || !email || !phone || !planId || !planName) {
     return res.status(400).json({ error: "Missing required checkout parameters." });
@@ -51,12 +45,14 @@ router.post("/create-link", async (req, res) => {
     const rawReturnUrl = (returnUrl || "https://www.fivenest.in").trim().replace(/\/+$/, "");
     const cleanSuccessUrl = rawReturnUrl.endsWith("/success") ? rawReturnUrl : `${rawReturnUrl}/success`;
 
-    // Create payment link using Razorpay Link API
+    const cycle = billingCycle || "monthly";
+
+    // Create payment link using Razorpay Link API with recurring auto-pay flags
     const paymentLinkOptions = {
       amount: amount * 100, // Razorpay amount is in Paisa (1 INR = 100 Paisa)
       currency: "INR",
       accept_partial: false,
-      description: `Fivenest Photoshop Plugin - ${planName} Plan License`,
+      description: `Fivenest ${planName} - ${cycle === "yearly" ? "Yearly Subscription" : "Monthly Auto-Pay Subscription"} (1 Device)`,
       customer: {
         name: "Fivenest Customer",
         email: email,
@@ -72,6 +68,10 @@ router.post("/create-link", async (req, res) => {
         planName: planName,
         email: email,
         phone: phone,
+        billingCycle: cycle,
+        subscriptionType: "recurring_autopay",
+        maxDevices: "1",
+        autopayEnabled: "true",
       },
       callback_url: `${cleanSuccessUrl}?planId=${planId}&email=${encodeURIComponent(email)}`,
       callback_method: "get",
