@@ -1,71 +1,67 @@
 import { motion } from "framer-motion";
-import { ExternalLink, Palette, Package, Sliders, Cpu, ArrowRight, Sparkles, CheckCircle2 } from "lucide-react";
+import { ExternalLink, Palette, Package, Sliders, Cpu, ArrowRight, Sparkles, CheckCircle2, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const ecosystemSteps = [
   {
     stepNumber: "01",
-    stepBadge: "STEP 1: DESIGN & MOCKUP",
+    stepBadge: "STEP 1: DESIGN & PAYMENT",
     title: "Design Hub",
-    subtitle: "3D Visualizer & Template Creator",
-    description: "Browse 3D jersey designs, customize apparel graphics, logos, colorways & export base sublimation artwork patterns.",
+    subtitle: "3D Design Selection & Checkout",
+    description: "Select 3D sportswear design from Design Hub, customize pattern & download it. Payment deducts from wallet or via instant on-the-spot checkout.",
+    highlights: ["Select & Download 3D Jersey Patterns", "Deduct from Wallet or Pay On-The-Spot"],
     link: "https://designs.fivenest.in",
     isExternal: true,
     buttonText: "Open Design Hub",
     icon: Palette,
-    accentColor: "from-cyan-500 to-sky-500",
-    glowColor: "cyan",
-    tag: "designs.fivenest.in"
+    accentColor: "from-cyan-400 via-sky-400 to-blue-500",
   },
   {
     stepNumber: "02",
-    stepBadge: "STEP 2: ROSTER & ORDERS",
+    stepBadge: "STEP 2: ROSTER & CUSTOMER",
     title: "Order Portal",
-    subtitle: "Player Details & Customer CRM",
-    description: "Upload Excel/CSV player rosters, player names, numbers & sizes. Auto-generate invoices and manage customer memory.",
+    subtitle: "Customer & Roster Data Entry",
+    description: "Enter customer details and order roster data (player names, numbers & XS-7XL sizes) or import instantly from Excel/CSV files.",
+    highlights: ["Customer Details & Order CRM", "Excel/CSV Player Roster Import"],
     link: "/orders",
     isExternal: false,
     buttonText: "Open Order Portal",
     icon: Package,
-    accentColor: "from-sky-500 to-blue-500",
-    glowColor: "sky",
-    tag: "/orders"
+    accentColor: "from-sky-400 via-blue-500 to-indigo-500",
   },
   {
     stepNumber: "03",
-    stepBadge: "STEP 3: RESIZER & RIP ENGINE",
+    stepBadge: "STEP 3: ZIP/JPG & RIP EXPORT",
     title: "Production Studio",
-    subtitle: "Grading & Batch 300 DPI Plotting",
-    description: "Auto-resize artwork, XS-7XL size grading, panel nesting, size tags (40=2), and direct 300 DPI RIP printer roll export.",
+    subtitle: "Artwork Resizer & 300 DPI Export",
+    description: "Upload design ZIP file or JPG data + Excel roster sheet. Production Studio auto-resizes artwork & exports print-ready plotter files in seconds!",
+    highlights: ["Upload ZIP/JPG Artwork & Excel Data", "Export 300 DPI Print File in Seconds"],
     link: "/studio",
     isExternal: false,
     buttonText: "Launch Production Studio",
     icon: Sliders,
-    accentColor: "from-blue-500 to-indigo-500",
-    glowColor: "blue",
-    tag: "/studio"
+    accentColor: "from-blue-500 via-indigo-500 to-purple-500",
   },
   {
     stepNumber: "04",
     stepBadge: "STEP 4: WORKSTATION PLUGINS",
     title: "FN Desktop Plugins",
-    subtitle: "Photoshop, Corel & Illustrator",
-    description: "1-Click desktop extensions to auto-generate artwork panels, apply collar/sleeve actions, and automate directly on your PC.",
+    subtitle: "Photoshop & Corel Automation",
+    description: "For local PC desktop printing units — 1-click desktop extension panels for Photoshop & CorelDraw for automated batch exports on your workstation.",
+    highlights: ["Photoshop & Corel Extension Panels", "1-Click Workstation Batch Automation"],
     link: "/plugins",
     isExternal: false,
-    buttonText: "Get FN Plugins",
+    buttonText: "Get Desktop Plugins",
     icon: Cpu,
-    accentColor: "from-indigo-500 to-purple-500",
-    glowColor: "indigo",
-    tag: "/plugins"
+    accentColor: "from-indigo-500 via-purple-500 to-pink-500",
   }
 ];
 
 export const EcosystemStepsSection = () => {
   return (
-    <section id="process-workflow" className="py-20 md:py-32 relative overflow-hidden bg-slate-950/90 border-y border-slate-800/80">
-      {/* Background ambient lighting */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[500px] bg-cyan-500/10 rounded-full blur-[160px] pointer-events-none" />
+    <section id="process-ecosystem" className="py-20 md:py-32 relative overflow-hidden bg-slate-950 border-y border-slate-800/80">
+      {/* Ambient Radial Lighting */}
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-cyan-500/10 rounded-full blur-[170px] pointer-events-none" />
 
       <div className="container mx-auto px-4 md:px-6 relative z-10">
         <motion.div
@@ -73,16 +69,19 @@ export const EcosystemStepsSection = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16 max-w-3xl mx-auto"
+          className="text-center mb-16 max-w-4xl mx-auto"
         >
           <span className="text-xs font-bold uppercase tracking-widest text-cyan-400 px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 mb-4 inline-flex items-center gap-2 shadow-lg shadow-cyan-500/10">
-            <Sparkles size={14} /> Complete 4-Step Sportswear Production Ecosystem
+            <Zap size={14} className="text-cyan-400" /> Hassle-Free Factory & Printing Unit Workflow
           </span>
-          <h2 className="text-3xl sm:text-5xl font-black text-white mb-4 tracking-tight leading-tight">
-            From Design to Print in <span className="bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 bg-clip-text text-transparent">4 Simple Steps</span>
+          <h2 className="text-3xl sm:text-5xl font-black text-white mb-5 tracking-tight leading-tight">
+            How Factory & Printing Business Owners Run Every Order <br className="hidden sm:inline" />
+            <span className="bg-gradient-to-r from-cyan-400 via-sky-300 to-blue-500 bg-clip-text text-transparent">
+              Hassle-Free with Ultra-Fast Production
+            </span>
           </h2>
-          <p className="text-slate-300 text-base md:text-lg">
-            FiveNest unifies the complete sportswear workflow: 3D Design, Order Rosters, Auto-Resizer Production Studio, and Workstation Plugins.
+          <p className="text-slate-300 text-base md:text-lg max-w-3xl mx-auto leading-relaxed">
+            Eliminate artwork delays and manual copy-paste errors. From 3D design selection & wallet checkout to automated ZIP/JPG artwork resizing and instant 300 DPI plotter exports.
           </p>
         </motion.div>
 
@@ -102,7 +101,7 @@ export const EcosystemStepsSection = () => {
               >
                 <div>
                   {/* Step Header */}
-                  <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center justify-between mb-5">
                     <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${step.accentColor} p-0.5 shadow-lg shadow-cyan-500/20`}>
                       <div className="w-full h-full rounded-[14px] bg-slate-950 flex items-center justify-center text-white">
                         <IconComponent size={22} />
@@ -120,11 +119,21 @@ export const EcosystemStepsSection = () => {
 
                   {/* Title & Subtitle */}
                   <h3 className="text-xl font-black text-white mb-1 leading-snug">{step.title}</h3>
-                  <p className="text-xs font-bold text-cyan-300/80 mb-3">{step.subtitle}</p>
-                  <p className="text-xs md:text-sm text-slate-400 leading-relaxed mb-6">{step.description}</p>
+                  <p className="text-xs font-bold text-cyan-300/90 mb-3">{step.subtitle}</p>
+                  <p className="text-xs md:text-sm text-slate-400 leading-relaxed mb-5">{step.description}</p>
+
+                  {/* Feature Highlights */}
+                  <div className="space-y-2 mb-6 pt-3 border-t border-slate-800/60">
+                    {step.highlights.map((h, i) => (
+                      <div key={i} className="flex items-start gap-2 text-xs text-slate-300 font-medium">
+                        <CheckCircle2 size={14} className="text-cyan-400 flex-shrink-0 mt-0.5" />
+                        <span>{h}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                {/* Card Action Link */}
+                {/* Card Action Button */}
                 <div className="pt-4 border-t border-slate-800/80">
                   {step.isExternal ? (
                     <a
@@ -151,11 +160,32 @@ export const EcosystemStepsSection = () => {
           })}
         </div>
 
-        {/* Step Flow Connection Indicator */}
-        <div className="mt-12 text-center flex items-center justify-center gap-3 text-xs text-slate-400">
-          <CheckCircle2 size={16} className="text-cyan-400" />
-          <span>All 4 modules sync automatically with your FiveNest Factory Account & Wallet</span>
-        </div>
+        {/* Bottom Banner Callout */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.4 }}
+          className="mt-14 p-6 md:p-8 rounded-3xl bg-gradient-to-r from-cyan-950/40 via-slate-900/80 to-blue-950/40 border border-cyan-500/30 max-w-4xl mx-auto text-center backdrop-blur-xl shadow-2xl"
+        >
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-left">
+              <h4 className="text-base md:text-lg font-black text-white mb-1 flex items-center gap-2">
+                <Sparkles size={18} className="text-cyan-400" />
+                <span>Ready to Automate Your Sportswear Printing Factory?</span>
+              </h4>
+              <p className="text-xs md:text-sm text-slate-300">
+                Join 200+ Indian sublimation factories generating print-ready rolls in seconds.
+              </p>
+            </div>
+            <Link to="/studio" className="flex-shrink-0 w-full sm:w-auto">
+              <button className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/25 hover:opacity-95 transition-opacity">
+                <span>Start Production Now</span>
+                <ArrowRight size={16} />
+              </button>
+            </Link>
+          </div>
+        </motion.div>
       </div>
     </section>
   );

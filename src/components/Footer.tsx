@@ -1,8 +1,16 @@
 const Footer = () => (
   <footer className="border-t border-slate-800/80 bg-slate-950 py-12 text-slate-400">
     <div className="container mx-auto px-6 text-center">
-      <a href="/" className="flex items-center justify-center gap-2 text-2xl font-black text-white mb-3 hover:opacity-90 transition-opacity">
-        <img src="/logo.svg" alt="FiveNest Logo" className="h-7 w-auto object-contain" />
+      <a href="/" className="inline-flex items-center gap-3 text-2xl font-black text-white mb-3 hover:opacity-90 transition-opacity">
+        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-400 via-sky-400 to-indigo-600 p-[1px] shadow-lg shadow-cyan-500/20 flex-shrink-0">
+          <div className="w-full h-full rounded-[11px] bg-slate-950 flex items-center justify-center">
+            <svg className="w-4 h-4 text-cyan-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5z" />
+              <path d="M2 17l10 5 10-5" />
+              <path d="M2 12l10 5 10-5" />
+            </svg>
+          </div>
+        </div>
         <span>FiveNest<span className="text-cyan-400">.</span></span>
       </a>
       <p className="text-xs md:text-sm text-slate-400 mb-6 max-w-lg mx-auto">
