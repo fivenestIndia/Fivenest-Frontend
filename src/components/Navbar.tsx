@@ -9,12 +9,13 @@ const homeLinks = [
   { href: "/#faq",          label: "FAQ" },
 ];
 
-/* Workflow tool pages */
-const toolLinks = [
-  { href: "/design-hub", label: "Design Hub", emoji: "🎨" },
-  { href: "/orders",     label: "Orders",     emoji: "📋" },
-  { href: "/production", label: "Production", emoji: "⚙️" },
-  { href: "/plugin",     label: "Plugin",     emoji: "🔌" },
+/* Sequential 5-page workflow links */
+const workflowLinks = [
+  { href: "/",           label: "Home",       step: "01" },
+  { href: "/design-hub", label: "Design Hub", step: "02" },
+  { href: "/orders",     label: "Orders",     step: "03" },
+  { href: "/production", label: "Production", step: "04" },
+  { href: "/plugin",     label: "Plugin",     step: "05" },
 ];
 
 const Navbar = () => {
@@ -34,10 +35,12 @@ const Navbar = () => {
     return () => { document.body.style.overflow = ""; };
   }, [open]);
 
-  /* Close mobile menu on navigation */
   useEffect(() => { setOpen(false); }, [location.pathname]);
 
-  const isActive = (href: string) => location.pathname === href;
+  const isActive = (href: string) => {
+    if (href === "/") return location.pathname === "/";
+    return location.pathname.startsWith(href);
+  };
 
   return (
     <nav
@@ -51,9 +54,9 @@ const Navbar = () => {
           Fivenest<span className="text-primary">.</span>
         </Link>
 
-        {/* ── Desktop nav ──────────────────────────────── */}
+        {/* ── Desktop Nav ──────────────────────────────── */}
         <div className="hidden lg:flex items-center gap-1">
-          {/* Original anchor links (only shown on home page) */}
+          {/* Main website anchor links (only on home) */}
           {isHome && homeLinks.map((l) => (
             <a
               key={l.href}
@@ -64,13 +67,10 @@ const Navbar = () => {
             </a>
           ))}
 
-          {/* Divider */}
-          {isHome && (
-            <div className="w-px h-4 bg-border/60 mx-2" />
-          )}
+          {isHome && <div className="w-px h-4 bg-border/60 mx-2" />}
 
-          {/* Workflow tool pages */}
-          {toolLinks.map((l) => (
+          {/* Workflow sequential tool links */}
+          {workflowLinks.map((l) => (
             <Link
               key={l.href}
               to={l.href}
@@ -87,15 +87,15 @@ const Navbar = () => {
 
         {/* CTA */}
         <div className="hidden lg:flex items-center gap-3 shrink-0">
-          <a
-            href="/#pricing"
+          <Link
+            to="/production"
             className="px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:opacity-90 transition-opacity glow-sm"
           >
-            Start Free Trial
-          </a>
+            Launch Production Studio
+          </Link>
         </div>
 
-        {/* ── Mobile hamburger ──────────────────────────── */}
+        {/* ── Mobile Hamburger ──────────────────────────── */}
         <button
           onClick={() => setOpen(!open)}
           className="lg:hidden z-50 w-9 h-9 flex flex-col justify-center items-center gap-1.5 rounded-lg glass border border-border/40"
@@ -106,52 +106,36 @@ const Navbar = () => {
           <span className={`block w-5 h-0.5 bg-foreground transition-all duration-300 ${open ? "-rotate-45 -translate-y-[7px]" : ""}`} />
         </button>
 
-        {/* ── Mobile full-screen menu ───────────────────── */}
+        {/* ── Mobile Menu ───────────────────── */}
         <div
           className={`fixed inset-0 bg-background/97 backdrop-blur-2xl flex flex-col items-center justify-center gap-3 transition-all duration-300 lg:hidden ${
             open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
           }`}
         >
-          {/* Website sections */}
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Website</p>
-          <div className="flex flex-wrap justify-center gap-2 mb-4">
-            {homeLinks.map((l) => (
-              <a
-                key={l.href}
-                href={l.href}
-                onClick={() => setOpen(false)}
-                className="px-4 py-2 rounded-xl glass-card border border-border/30 text-sm font-semibold text-foreground hover:border-primary/30 transition-colors"
-              >
-                {l.label}
-              </a>
-            ))}
-          </div>
-
-          {/* Workflow tools */}
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Workflow Tools</p>
-          {toolLinks.map((l) => (
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Workflow Steps</p>
+          {workflowLinks.map((l) => (
             <Link
               key={l.href}
               to={l.href}
               onClick={() => setOpen(false)}
-              className={`flex items-center gap-3 px-6 py-4 rounded-2xl w-64 transition-all ${
+              className={`flex items-center justify-between px-6 py-3.5 rounded-2xl w-64 transition-all ${
                 isActive(l.href)
                   ? "bg-primary/15 border border-primary/30 text-primary"
                   : "glass-card border border-border/30 text-foreground hover:border-primary/30"
               }`}
             >
-              <span className="text-xl">{l.emoji}</span>
               <span className="font-bold">{l.label}</span>
+              <span className="text-xs font-mono opacity-60">Step {l.step}</span>
             </Link>
           ))}
 
-          <a
-            href="/#pricing"
+          <Link
+            to="/production"
             onClick={() => setOpen(false)}
             className="mt-4 px-8 py-3.5 rounded-xl bg-primary text-primary-foreground font-bold glow-sm"
           >
-            Start Free Trial
-          </a>
+            Launch Production Studio
+          </Link>
         </div>
       </div>
     </nav>
