@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Receipt, Plus, Download, Printer, Send, Trash2, Edit2, CheckCircle, 
   Clock, DollarSign, Search, Sparkles, FileText, X, User, QrCode, Building2,
-  Package, Palette, Layers, CheckCircle2, ChevronRight, Phone, MapPin, Percent, CreditCard, ShieldCheck, Tag
+  Package, Palette, Layers, CheckCircle2, ChevronRight, Phone, MapPin, Percent, CreditCard, ShieldCheck, Tag,
+  Mail, MessageSquare, Copy, Check, Upload, Image as ImageIcon, Settings
 } from 'lucide-react';
 import type { PlayerRecord, OrderMetadata } from './orderEntry';
 import type { OrderItem } from './factoryOrders';
@@ -29,6 +30,7 @@ export interface BillingRecord {
   customerPhone?: string;
   customerGstin?: string;
   customerAddress?: string;
+  customerLogoUrl?: string;
   fileName: string; // Order description
   whatsapp: string;
   qty: number;
@@ -40,6 +42,20 @@ export interface BillingRecord {
   lineItems?: InvoiceLineItem[];
   discount?: number;
   gstType?: 'CGST_SGST' | 'IGST';
+}
+
+export interface BusinessProfile {
+  name: string;
+  tagline: string;
+  logoUrl: string;
+  gstin: string;
+  phone: string;
+  email: string;
+  address: string;
+  bankName: string;
+  accountNo: string;
+  ifsc: string;
+  upiId: string;
 }
 
 interface BillingSystemProps {
@@ -60,6 +76,39 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
   // Product Database Catalog loaded from helper
   const [productsDb, setProductsDb] = useState<ProductItem[]>(getStoredProducts());
   const [showProductModal, setShowProductModal] = useState(false);
+
+  // Business Profile Persistence (Company Name, Logo, Details, UPI)
+  const profileStorageKey = currentUser?.email ? `fivenest_business_profile_${currentUser.email.toLowerCase().trim()}` : 'fivenest_business_profile_default';
+  const [businessProfile, setBusinessProfile] = useState<BusinessProfile>(() => {
+    const saved = localStorage.getItem(profileStorageKey);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return {
+      name: 'Vakratunda Sublimation Apparel',
+      tagline: 'Sportswear Printing & Garment Manufacturing',
+      logoUrl: '',
+      gstin: '27ABCDE1234F1Z5',
+      phone: '+91 98765 43210',
+      email: 'billing@fivenest.in',
+      address: 'Sportswear Industrial Complex, Market Hub',
+      bankName: 'HDFC Bank Ltd',
+      accountNo: '50200012345678',
+      ifsc: 'HDFC0000123',
+      upiId: 'vilesh332-1@okhdfcbank'
+    };
+  });
+
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [copiedToast, setCopiedToast] = useState(false);
+
+  // Save Business Profile
+  useEffect(() => {
+    localStorage.setItem(profileStorageKey, JSON.stringify(businessProfile));
+    if (businessProfile.upiId) {
+      localStorage.setItem('fivenest_upi_id', businessProfile.upiId);
+    }
+  }, [businessProfile, profileStorageKey]);
 
   // Scoped key per user for Billing Records
   const userStorageKey = currentUser?.email 
@@ -93,29 +142,6 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
       { id: '1', description: 'Sublimation Full Jersey Printing', hsnCode: '998898', qty: 50, unit: 'pcs', rate: 15, taxPercent: 12, amount: 750 }
     ]
   });
-
-  // Business Profile Settings
-  const [businessProfile, setBusinessProfile] = useState({
-    name: 'FiveNest Sublimation OS',
-    tagline: 'Sportswear Printing & Factory Billing OS',
-    gstin: '27ABCDE1234F1Z5',
-    phone: '+91 98765 43210',
-    email: 'billing@fivenest.in',
-    address: 'Sportswear Industrial Hub, Ludhiana / Tirupur',
-    bankName: 'HDFC Bank Ltd',
-    accountNo: '50200012345678',
-    ifsc: 'HDFC0000123'
-  });
-
-  // Editable Studio UPI ID
-  const [upiId, setUpiId] = useState<string>(() => {
-    return localStorage.getItem('fivenest_upi_id') || 'vilesh332-1@okhdfcbank';
-  });
-
-  const handleUpiChange = (newVal: string) => {
-    setUpiId(newVal);
-    localStorage.setItem('fivenest_upi_id', newVal);
-  };
 
   // Load Customer Database from CRM
   useEffect(() => {
@@ -193,7 +219,6 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
 
     const combinedList = [...studioExports, ...syncedFromOrders];
     if (combinedList.length === 0) {
-      // Default initial record
       setBillingList([
         { id: '1', orderCode: 'INV-2026-1001', date: new Date().toLocaleDateString('en-IN'), customerName: 'Shirke Sports Mfg', fileName: 'MAPL Sublimation Jersey Order (191 pcs)', whatsapp: '9773358920', qty: 191, rate: 15, designCharges: 500, status: 'Completed', advance: 1000, rolePanel: 'printing' }
       ]);
@@ -312,7 +337,6 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
       return;
     }
 
-    const sub = getItemSubtotal(builderData.lineItems, builderData.qty, builderData.rate);
     const finalRec: BillingRecord = {
       id: builderData.id || `inv-${Date.now()}`,
       orderCode: builderData.orderCode || `INV-${Date.now()}`,
@@ -322,6 +346,7 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
       customerPhone: builderData.customerPhone || builderData.whatsapp,
       customerGstin: builderData.customerGstin,
       customerAddress: builderData.customerAddress,
+      customerLogoUrl: builderData.customerLogoUrl,
       fileName: builderData.fileName || 'Sportswear Order',
       whatsapp: builderData.whatsapp || builderData.customerPhone || '',
       qty: builderData.lineItems ? builderData.lineItems.reduce((a, b) => a + Number(b.qty), 0) : Number(builderData.qty || 1),
@@ -348,20 +373,25 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
     setSelectedInvoice(finalRec);
   };
 
-  // WhatsApp Message Sharing Link
-  const handleWhatsAppSend = (rec: BillingRecord) => {
+  // Message Generator Helper
+  const getInvoiceSummaryText = (rec: BillingRecord) => {
     const finalTotal = calculateFinalTotal(rec);
     const balanceDue = calculateBalanceDue(rec);
-    const currentUpi = upiId || 'vilesh332-1@okhdfcbank';
-
+    const currentUpi = businessProfile.upiId || 'vilesh332-1@okhdfcbank';
     const upiUrlRaw = `upi://pay?pa=${currentUpi}&pn=${encodeURIComponent(businessProfile.name)}&am=${balanceDue}&cu=INR`;
     const qrUrl = `https://quickchart.io/qr?size=500&text=${encodeURIComponent(upiUrlRaw)}`;
 
-    const messageText = 
+    return {
+      finalTotal,
+      balanceDue,
+      currentUpi,
+      upiUrlRaw,
+      qrUrl,
+      text: 
 `🧾 *TAX INVOICE #${rec.orderCode}*
 Hello *${rec.customerName}*,
 
-Here is your sportswear invoice summary from *${businessProfile.name}*:
+Here is your tax invoice summary from *${businessProfile.name}*:
 ________________________________________
 
 ◆ *Order Reference*: ${rec.fileName}
@@ -379,13 +409,42 @@ ${upiUrlRaw}
 ${qrUrl}
 
 Thank you for your business!
-— ${businessProfile.name}`;
+— ${businessProfile.name}`
+    };
+  };
 
+  // 1. WhatsApp Share
+  const handleWhatsAppSend = (rec: BillingRecord) => {
+    const info = getInvoiceSummaryText(rec);
     const cleanPhone = (rec.whatsapp || rec.customerPhone || '').replace(/\D/g, '');
     const url = cleanPhone 
-      ? `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(messageText)}`
-      : `https://wa.me/?text=${encodeURIComponent(messageText)}`;
+      ? `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(info.text)}`
+      : `https://wa.me/?text=${encodeURIComponent(info.text)}`;
     window.open(url, '_blank');
+  };
+
+  // 2. Email Share
+  const handleEmailSend = (rec: BillingRecord) => {
+    const info = getInvoiceSummaryText(rec);
+    const subject = encodeURIComponent(`Tax Invoice #${rec.orderCode} from ${businessProfile.name}`);
+    const body = encodeURIComponent(info.text);
+    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+  };
+
+  // 3. SMS Share
+  const handleSmsSend = (rec: BillingRecord) => {
+    const info = getInvoiceSummaryText(rec);
+    const cleanPhone = (rec.whatsapp || rec.customerPhone || '').replace(/\D/g, '');
+    const body = encodeURIComponent(info.text);
+    window.open(`sms:${cleanPhone}?body=${body}`, '_blank');
+  };
+
+  // 4. Copy Invoice Text to Clipboard
+  const handleCopyInvoiceText = (rec: BillingRecord) => {
+    const info = getInvoiceSummaryText(rec);
+    navigator.clipboard.writeText(info.text);
+    setCopiedToast(true);
+    setTimeout(() => setCopiedToast(false), 3000);
   };
 
   // Delete invoice
@@ -395,10 +454,22 @@ Thank you for your business!
     }
   };
 
+  // Profile Logo File Upload Handler
+  const handleCompanyLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setBusinessProfile(prev => ({ ...prev, logoUrl: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   return (
     <div className="space-y-6 font-sans p-2 md:p-4 text-left">
 
-      {/* 🏆 PANEL ROLE SWITCHER HEADER (Printing Owner | Factory Owner | Designer) */}
+      {/* 🏆 PANEL ROLE SWITCHER HEADER */}
       <div className="bg-slate-900/80 p-5 rounded-3xl border border-slate-800 backdrop-blur-xl flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -408,7 +479,7 @@ Thank you for your business!
           </div>
           <h1 className="text-2xl md:text-3xl font-black text-white">Invoices, Billing & Payment Tracker</h1>
           <p className="text-xs md:text-sm text-slate-400 mt-1">
-            Generate custom GST invoices, track payment balances, select products & send instant WhatsApp payment links.
+            Generate custom GST invoices, track payment balances, select products & send instant WhatsApp/Email/SMS payment links.
           </p>
         </div>
 
@@ -452,44 +523,45 @@ Thank you for your business!
         </div>
       </div>
 
-      {/* Account Profile & Editable UPI Config Banner */}
+      {/* Account Profile & Company Logo / UPI Config Banner */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-cyan-950/30 border border-cyan-500/30">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center">
-            <User size={20} />
-          </div>
+          {businessProfile.logoUrl ? (
+            <img src={businessProfile.logoUrl} alt="Company Logo" className="w-12 h-12 rounded-xl object-contain bg-slate-900 border border-cyan-400/40 p-1" />
+          ) : (
+            <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center font-black text-lg">
+              {businessProfile.name.charAt(0).toUpperCase()}
+            </div>
+          )}
           <div>
-            <div className="text-xs font-extrabold text-white">
-              Active Panel: <span className="text-cyan-400 capitalize">{activeRolePanel} Mode</span>
+            <div className="text-xs font-extrabold text-white flex items-center gap-2">
+              <span>{businessProfile.name}</span>
+              <span className="text-cyan-400 text-[10px] font-bold uppercase">({activeRolePanel} Mode)</span>
             </div>
             <div className="text-[11px] text-slate-400">
-              User Account: <strong className="text-slate-200">{currentUser ? `${currentUser.name} (${currentUser.email})` : 'Factory Admin'}</strong>
+              GSTIN: <strong className="text-slate-200">{businessProfile.gstin}</strong> | UPI: <strong className="text-emerald-400 font-mono">{businessProfile.upiId}</strong>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Company Profile & Logo Customizer Button */}
+          <button
+            onClick={() => setShowProfileModal(true)}
+            className="px-4 py-2 rounded-xl bg-purple-600/20 border border-purple-500/40 hover:bg-purple-600 hover:text-white text-purple-300 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer"
+          >
+            <Settings size={14} />
+            <span>Edit Company Profile & Logo</span>
+          </button>
+
           {/* Product Catalog DB Button */}
           <button
             onClick={() => setShowProductModal(true)}
             className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-slate-500 text-slate-200 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer"
           >
             <Tag size={14} className="text-cyan-400" />
-            <span>Manage Product Catalog ({productsDb.length} Items)</span>
+            <span>Manage Product Catalog ({productsDb.length})</span>
           </button>
-
-          {/* Quick UPI ID Input */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800">
-            <QrCode size={14} className="text-emerald-400" />
-            <span className="text-[11px] text-slate-400">UPI ID:</span>
-            <input
-              type="text"
-              value={upiId}
-              onChange={(e) => handleUpiChange(e.target.value)}
-              className="bg-transparent border-none text-emerald-400 text-xs font-mono font-bold w-44 focus:outline-none"
-              placeholder="vpa@upi"
-            />
-          </div>
         </div>
       </div>
 
@@ -569,7 +641,7 @@ Thank you for your business!
                 <th className="p-4">Date</th>
                 <th className="p-4">Customer Name</th>
                 <th className="p-4">Order / File Details</th>
-                <th className="p-4 text-center">WhatsApp Link</th>
+                <th className="p-4 text-center">Multi-Channel Share</th>
                 <th className="p-4 text-right">Qty</th>
                 <th className="p-4 text-right">Final Amount</th>
                 <th className="p-4 text-right">Balance Due</th>
@@ -595,15 +667,34 @@ Thank you for your business!
                       <td className="p-4 text-slate-300">{rec.date}</td>
                       <td className="p-4 font-bold text-white">{rec.customerName}</td>
                       <td className="p-4 text-slate-400 max-w-[200px] truncate">{rec.fileName}</td>
+                      
+                      {/* Multi-Channel Share Buttons */}
                       <td className="p-4 text-center">
-                        <button
-                          onClick={() => handleWhatsAppSend(rec)}
-                          className="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white font-bold text-[11px] inline-flex items-center gap-1.5 transition-all cursor-pointer"
-                        >
-                          <Send size={12} />
-                          <span>WhatsApp Bill</span>
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => handleWhatsAppSend(rec)}
+                            className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-white transition-all"
+                            title="Share on WhatsApp"
+                          >
+                            <Send size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleEmailSend(rec)}
+                            className="p-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500 text-blue-400 hover:text-white transition-all"
+                            title="Share via Email"
+                          >
+                            <Mail size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleSmsSend(rec)}
+                            className="p-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500 text-purple-400 hover:text-white transition-all"
+                            title="Share via SMS"
+                          >
+                            <MessageSquare size={14} />
+                          </button>
+                        </div>
                       </td>
+
                       <td className="p-4 text-right font-bold text-slate-200">{rec.qty}</td>
                       <td className="p-4 text-right font-black text-white">₹{finalTotal.toLocaleString('en-IN')}</td>
                       <td className="p-4 text-right font-black text-amber-400">₹{balanceDue.toLocaleString('en-IN')}</td>
@@ -650,7 +741,174 @@ Thank you for your business!
         </div>
       </div>
 
-      {/* 🛠️ INVOICE BUILDER MODAL (Refrens & MyBillBook Style Editor) */}
+      {/* 🏢 USER COMPANY PROFILE & LOGO EDIT MODAL */}
+      {showProfileModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto space-y-6 text-left shadow-2xl">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div>
+                <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest">Business Branding & Settings</span>
+                <h2 className="text-xl font-black text-white">Customize Company Profile & Logo</h2>
+              </div>
+              <button onClick={() => setShowProfileModal(false)} className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Company Logo Image Uploader */}
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center gap-4">
+              {businessProfile.logoUrl ? (
+                <img src={businessProfile.logoUrl} alt="Company Logo" className="w-16 h-16 rounded-2xl object-contain bg-slate-900 border border-cyan-400/40 p-1" />
+              ) : (
+                <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-dashed border-slate-700 text-slate-500 flex items-center justify-center">
+                  <ImageIcon size={24} />
+                </div>
+              )}
+              <div className="flex-1 space-y-2 text-xs">
+                <label className="block font-bold text-slate-200">Company Logo (Renders on top of Tax Invoice)</label>
+                <div className="flex items-center gap-2">
+                  <label className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer">
+                    <Upload size={14} />
+                    <span>Upload Logo File</span>
+                    <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
+                  </label>
+                  <input
+                    type="text"
+                    value={businessProfile.logoUrl || ''}
+                    onChange={(e) => setBusinessProfile({ ...businessProfile, logoUrl: e.target.value })}
+                    placeholder="Or paste Logo Image URL..."
+                    className="flex-1 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="md:col-span-2">
+                <label className="block text-slate-400 font-bold mb-1">User Company Name (Header Title) *</label>
+                <input
+                  type="text"
+                  value={businessProfile.name}
+                  onChange={(e) => setBusinessProfile({ ...businessProfile, name: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-black text-sm"
+                  placeholder="e.g. Vakratunda Sublimation Apparel"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">Company Tagline / Subtitle</label>
+                <input
+                  type="text"
+                  value={businessProfile.tagline}
+                  onChange={(e) => setBusinessProfile({ ...businessProfile, tagline: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
+                  placeholder="Sportswear Printing OS"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">GSTIN Number</label>
+                <input
+                  type="text"
+                  value={businessProfile.gstin}
+                  onChange={(e) => setBusinessProfile({ ...businessProfile, gstin: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono"
+                  placeholder="27ABCDE1234F1Z5"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">Phone Number</label>
+                <input
+                  type="text"
+                  value={businessProfile.phone}
+                  onChange={(e) => setBusinessProfile({ ...businessProfile, phone: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
+                  placeholder="+91 98765 43210"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">Email Address</label>
+                <input
+                  type="text"
+                  value={businessProfile.email}
+                  onChange={(e) => setBusinessProfile({ ...businessProfile, email: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
+                  placeholder="billing@fivenest.in"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-slate-400 font-bold mb-1">Factory / Office Address</label>
+                <input
+                  type="text"
+                  value={businessProfile.address}
+                  onChange={(e) => setBusinessProfile({ ...businessProfile, address: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
+                  placeholder="Industrial Complex, Ludhiana"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">Bank Name</label>
+                <input
+                  type="text"
+                  value={businessProfile.bankName}
+                  onChange={(e) => setBusinessProfile({ ...businessProfile, bankName: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
+                  placeholder="HDFC Bank Ltd"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">Account Number</label>
+                <input
+                  type="text"
+                  value={businessProfile.accountNo}
+                  onChange={(e) => setBusinessProfile({ ...businessProfile, accountNo: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono"
+                  placeholder="50200012345678"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">IFSC Code</label>
+                <input
+                  type="text"
+                  value={businessProfile.ifsc}
+                  onChange={(e) => setBusinessProfile({ ...businessProfile, ifsc: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono"
+                  placeholder="HDFC0000123"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">UPI VPA ID (For Instant QR Code)</label>
+                <input
+                  type="text"
+                  value={businessProfile.upiId}
+                  onChange={(e) => setBusinessProfile({ ...businessProfile, upiId: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-emerald-400 font-mono font-bold"
+                  placeholder="vpa@upi"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowProfileModal(false)}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-extrabold text-xs"
+              >
+                Save Business Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🛠️ INVOICE BUILDER MODAL */}
       {showBuilderModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 overflow-y-auto">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 w-full max-w-4xl max-h-[92vh] overflow-y-auto shadow-2xl text-left space-y-6">
@@ -661,7 +919,7 @@ Thank you for your business!
                 <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest">
                   Custom Invoice Maker (Refrens / MyBillBook Mode)
                 </span>
-                <h2 className="text-2xl font-black text-white mt-0.5">Generate Tax Invoice</h2>
+                <h2 className="text-2xl font-black text-white mt-0.5">Generate Tax Invoice for {businessProfile.name}</h2>
               </div>
               <button
                 onClick={() => setShowBuilderModal(false)}
@@ -690,7 +948,8 @@ Thank you for your business!
                           whatsapp: found.phone,
                           customerPhone: found.phone,
                           customerGstin: found.gstin,
-                          customerAddress: found.address
+                          customerAddress: found.address,
+                          customerLogoUrl: found.logoUrl
                         }));
                       }
                     }}
@@ -1114,7 +1373,7 @@ Thank you for your business!
         </div>
       )}
 
-      {/* 🧾 INVOICE PREVIEW & PRINT MODAL */}
+      {/* 🧾 INVOICE PREVIEW & PRINT MODAL WITH USER COMPANY LOGO & MULTI-CHANNEL SHARE */}
       {selectedInvoice && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto"
@@ -1124,23 +1383,55 @@ Thank you for your business!
             className="bg-white text-slate-900 rounded-2xl p-6 md:p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl relative"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header Action Controls */}
-            <div className="no-print flex justify-between items-center pb-4 mb-6 border-b border-slate-200">
-              <div className="flex gap-3">
+            {/* Header Multi-Channel Action Controls */}
+            <div className="no-print flex flex-wrap justify-between items-center pb-4 mb-6 border-b border-slate-200 gap-3">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => window.print()}
-                  className="px-4 py-2 rounded-xl bg-slate-900 text-white font-extrabold text-xs flex items-center gap-2 hover:bg-slate-800 cursor-pointer"
+                  className="px-3.5 py-2 rounded-xl bg-slate-900 text-white font-extrabold text-xs flex items-center gap-1.5 hover:bg-slate-800 cursor-pointer"
                 >
-                  <Printer size={16} />
-                  <span>Print / Save PDF</span>
+                  <Printer size={15} />
+                  <span>Print / PDF</span>
                 </button>
 
+                {/* 💬 WhatsApp */}
                 <button
                   onClick={() => handleWhatsAppSend(selectedInvoice)}
-                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-extrabold text-xs flex items-center gap-2 hover:bg-emerald-500 cursor-pointer"
+                  className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white font-extrabold text-xs flex items-center gap-1.5 hover:bg-emerald-500 cursor-pointer"
+                  title="Share Invoice link on WhatsApp"
                 >
-                  <Send size={16} />
-                  <span>Send WhatsApp Link</span>
+                  <Send size={15} />
+                  <span>WhatsApp</span>
+                </button>
+
+                {/* 📧 Email */}
+                <button
+                  onClick={() => handleEmailSend(selectedInvoice)}
+                  className="px-3.5 py-2 rounded-xl bg-blue-600 text-white font-extrabold text-xs flex items-center gap-1.5 hover:bg-blue-500 cursor-pointer"
+                  title="Share Invoice via Email"
+                >
+                  <Mail size={15} />
+                  <span>Email</span>
+                </button>
+
+                {/* 📱 SMS */}
+                <button
+                  onClick={() => handleSmsSend(selectedInvoice)}
+                  className="px-3.5 py-2 rounded-xl bg-purple-600 text-white font-extrabold text-xs flex items-center gap-1.5 hover:bg-purple-500 cursor-pointer"
+                  title="Share Invoice via SMS"
+                >
+                  <MessageSquare size={15} />
+                  <span>SMS</span>
+                </button>
+
+                {/* 📋 Copy */}
+                <button
+                  onClick={() => handleCopyInvoiceText(selectedInvoice)}
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 font-extrabold text-xs flex items-center gap-1.5 hover:bg-slate-200 cursor-pointer"
+                  title="Copy Invoice details & payment link"
+                >
+                  {copiedToast ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />}
+                  <span>{copiedToast ? 'Copied!' : 'Copy Link'}</span>
                 </button>
               </div>
 
@@ -1152,13 +1443,22 @@ Thank you for your business!
             {/* Printable Invoice Document Sheet */}
             <div id="printable-invoice" className="font-sans text-left text-slate-900">
               
-              {/* Top Business Header */}
+              {/* Top User Business Header with Custom Logo */}
               <div className="flex justify-between items-start border-b-2 border-cyan-500 pb-4 mb-6">
-                <div>
-                  <h1 className="text-2xl font-black text-cyan-600 uppercase tracking-tight">{businessProfile.name}</h1>
-                  <p className="text-xs text-slate-500">{businessProfile.tagline}</p>
-                  <p className="text-xs text-slate-500 mt-1">GSTIN: {businessProfile.gstin} | Contact: {businessProfile.phone}</p>
-                  <p className="text-xs text-slate-500">{businessProfile.address}</p>
+                <div className="flex items-center gap-4">
+                  {businessProfile.logoUrl ? (
+                    <img src={businessProfile.logoUrl} alt={businessProfile.name} className="w-16 h-16 object-contain rounded-xl border border-slate-200 p-1" />
+                  ) : (
+                    <div className="w-14 h-14 rounded-xl bg-cyan-600 text-white font-black text-2xl flex items-center justify-center">
+                      {businessProfile.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <h1 className="text-2xl font-black text-cyan-600 uppercase tracking-tight">{businessProfile.name}</h1>
+                    <p className="text-xs text-slate-500">{businessProfile.tagline}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">GSTIN: {businessProfile.gstin} | Phone: {businessProfile.phone}</p>
+                    <p className="text-xs text-slate-500">{businessProfile.address}</p>
+                  </div>
                 </div>
 
                 <div className="text-right">
@@ -1168,14 +1468,19 @@ Thank you for your business!
                 </div>
               </div>
 
-              {/* Bill To & Order Information */}
+              {/* Bill To with Customer Logo & Order Reference */}
               <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-slate-100 border border-slate-200 mb-6 text-xs">
-                <div>
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">BILLED TO</span>
-                  <h3 className="text-base font-bold text-slate-900">{selectedInvoice.customerName}</h3>
-                  {selectedInvoice.whatsapp && <p className="text-slate-600 mt-0.5">Phone: +91 {selectedInvoice.whatsapp}</p>}
-                  {selectedInvoice.customerGstin && <p className="text-slate-600 font-mono">GSTIN: {selectedInvoice.customerGstin}</p>}
-                  {selectedInvoice.customerAddress && <p className="text-slate-600">{selectedInvoice.customerAddress}</p>}
+                <div className="flex items-start gap-3">
+                  {selectedInvoice.customerLogoUrl ? (
+                    <img src={selectedInvoice.customerLogoUrl} alt={selectedInvoice.customerName} className="w-12 h-12 rounded-lg object-cover border border-slate-300 bg-white p-0.5" />
+                  ) : null}
+                  <div>
+                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-0.5">BILLED TO</span>
+                    <h3 className="text-base font-bold text-slate-900">{selectedInvoice.customerName}</h3>
+                    {selectedInvoice.whatsapp && <p className="text-slate-600 mt-0.5">Phone: +91 {selectedInvoice.whatsapp}</p>}
+                    {selectedInvoice.customerGstin && <p className="text-slate-600 font-mono">GSTIN: {selectedInvoice.customerGstin}</p>}
+                    {selectedInvoice.customerAddress && <p className="text-slate-600">{selectedInvoice.customerAddress}</p>}
+                  </div>
                 </div>
 
                 <div className="text-right">
@@ -1241,7 +1546,7 @@ Thank you for your business!
                   <p className="font-bold text-slate-800 mb-1">Bank Payment Transfer Details:</p>
                   <p>Bank: {businessProfile.bankName}</p>
                   <p>A/C: {businessProfile.accountNo} | IFSC: {businessProfile.ifsc}</p>
-                  <p className="mt-1 font-bold text-cyan-700">UPI ID: {upiId}</p>
+                  <p className="mt-1 font-bold text-cyan-700">UPI ID: {businessProfile.upiId}</p>
                 </div>
 
                 <div className="w-56 space-y-1.5">
@@ -1285,12 +1590,12 @@ Thank you for your business!
                   <p className="text-[11px] text-purple-700 mt-1">
                     Scan QR code using GPay or PhonePe to settle balance of ₹{calculateBalanceDue(selectedInvoice).toFixed(2)}
                   </p>
-                  <p className="text-xs font-mono font-bold text-purple-900 mt-2">UPI ID: {upiId}</p>
+                  <p className="text-xs font-mono font-bold text-purple-900 mt-2">UPI ID: {businessProfile.upiId}</p>
                 </div>
 
                 <div className="bg-white p-2 rounded-lg border border-purple-200 text-center">
                   <img
-                    src={`https://quickchart.io/qr?size=300&text=${encodeURIComponent(`upi://pay?pa=${upiId}&pn=${encodeURIComponent(businessProfile.name)}&am=${calculateBalanceDue(selectedInvoice)}&cu=INR`)}`}
+                    src={`https://quickchart.io/qr?size=300&text=${encodeURIComponent(`upi://pay?pa=${businessProfile.upiId}&pn=${encodeURIComponent(businessProfile.name)}&am=${calculateBalanceDue(selectedInvoice)}&cu=INR`)}`}
                     alt="UPI QR Code"
                     className="w-24 h-24 block"
                   />
