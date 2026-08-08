@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   Building2, Package, Users as UsersIcon, Receipt, TrendingUp, Wallet, 
-  ArrowLeft, Sun, Moon, Menu, X, Award, Palette, ExternalLink, ShieldCheck 
+  ArrowLeft, Sun, Moon, Menu, X, Award, Palette, ExternalLink, ShieldCheck, DollarSign 
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase, fetchUserWallet } from '../lib/supabaseClient';
@@ -10,6 +10,7 @@ import { FactoryOrders } from '../components/studio/factoryOrders';
 import { FactoryCustomers } from '../components/studio/factoryCustomers';
 import { FactoryReports } from '../components/studio/factoryReports';
 import { BillingSystem } from '../components/studio/billingSystem';
+import { FactoryExpenses } from '../components/studio/factoryExpenses';
 import { LoginModal } from '../components/studio/loginModal';
 import { LocalDataManager } from '../components/studio/localDataManager';
 import type { PlayerRecord, OrderMetadata } from '../components/studio/orderEntry';
@@ -24,7 +25,7 @@ export default function OrderManagement() {
     localStorage.setItem('fivenest_studio_theme', themeMode);
   }, [themeMode]);
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'customers' | 'billing' | 'reports'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'billing' | 'customers' | 'expenses' | 'reports'>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
   const [currentUser, setCurrentUser] = useState<{ email: string; name: string; balance: number } | null>(null);
@@ -41,6 +42,7 @@ export default function OrderManagement() {
     halfSleeveMerge: false,
     manualMode: false
   });
+
   // Central user-scoped orders state for live Dashboard sync
   const ordersStorageKey = currentUser?.email ? `fivenest_factory_orders_${currentUser.email}` : 'fivenest_factory_orders_default';
 
@@ -105,6 +107,7 @@ export default function OrderManagement() {
     { id: 'orders', label: 'Order Management', icon: Package },
     { id: 'billing', label: 'Invoices & Billing', icon: Receipt },
     { id: 'customers', label: 'Customer Memory CRM', icon: UsersIcon },
+    { id: 'expenses', label: 'Expenses & Net Profit', icon: DollarSign },
     { id: 'reports', label: 'Factory Analytics', icon: TrendingUp },
   ];
 
@@ -243,6 +246,7 @@ export default function OrderManagement() {
             {activeTab === 'orders' && "📋 Order Management Hub"}
             {activeTab === 'billing' && "🧾 Multi-User Invoices & Billing System"}
             {activeTab === 'customers' && "👥 Customer Memory CRM"}
+            {activeTab === 'expenses' && "💰 Factory Expenses & Net Profit Management"}
             {activeTab === 'reports' && "📈 Factory Analytics & Revenue Reports"}
           </h1>
           
@@ -334,6 +338,13 @@ export default function OrderManagement() {
 
           {activeTab === 'customers' && (
             <FactoryCustomers currentUserEmail={currentUser?.email} />
+          )}
+
+          {activeTab === 'expenses' && (
+            <FactoryExpenses 
+              currentUserEmail={currentUser?.email}
+              totalRevenue={orders.reduce((sum: number, o: any) => sum + (o.ratePerPiece * (o.sizeGrid || []).reduce((s: number, r: any) => s + Number(r.halfQty || 0) + Number(r.fullQty || 0), 0)), 0)}
+            />
           )}
 
           {activeTab === 'reports' && (
