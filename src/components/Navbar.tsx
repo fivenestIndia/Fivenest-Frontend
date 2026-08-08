@@ -17,13 +17,10 @@ const Navbar = () => {
   }, []);
 
   const navLinks = [
-    { name: "How It Works", href: "/#process-ecosystem" },
     { name: "Design Hub ↗", href: "https://designs.fivenest.in", isExternal: true },
     { name: "Order Portal", href: "/orders", isRoute: true },
     { name: "Production Studio", href: "/studio", isRoute: true },
     { name: "Plugins", href: "/plugins", isRoute: true },
-    { name: "Academy", href: "/academy", isRoute: true },
-    { name: "Pricing", href: "/#pricing" },
   ];
 
   return (

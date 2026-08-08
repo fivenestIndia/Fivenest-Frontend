@@ -23,12 +23,6 @@ const Footer = () => (
         <a href="/plugins" className="hover:text-cyan-400 transition-colors">
           Step 4: FN Plugins
         </a>
-        <a href="/academy" className="hover:text-cyan-400 transition-colors">
-          Academy
-        </a>
-        <a href="/#pricing" className="hover:text-cyan-400 transition-colors">
-          Wallet Pricing
-        </a>
       </div>
 
       <div className="text-[11px] text-slate-600">

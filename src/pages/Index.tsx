@@ -7,7 +7,6 @@ import RealFactorySection from "@/components/RealFactorySection";
 import ProductionWorkflowVideo from "@/components/ProductionWorkflowVideo";
 import ErrorPreventionSection from "@/components/ErrorPreventionSection";
 import FeaturesSection from "@/components/FeaturesSection";
-import HowItWorksSection from "@/components/HowItWorksSection";
 import DashboardShowcaseSection from "@/components/DashboardShowcaseSection";
 import SupportedFileTypesSection from "@/components/SupportedFileTypesSection";
 import ROICalculator from "@/components/ROICalculator";
@@ -33,7 +32,6 @@ const Index = () => {
       <div id="workflow-demo"><ProductionWorkflowVideo /></div>
       <ErrorPreventionSection />
       <FeaturesSection />
-      <div id="how-it-works"><HowItWorksSection /></div>
       <div id="dashboard-showcase"><DashboardShowcaseSection /></div>
       <div id="supported-formats"><SupportedFileTypesSection /></div>
       <ROICalculator />
