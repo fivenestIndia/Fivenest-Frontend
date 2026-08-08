@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Sparkles, Upload, ShieldCheck, Star, Palette, Download, Users, Zap, TrendingUp } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowRight, Sparkles, Upload, ShieldCheck, Star, Palette, Download, Users, Zap, TrendingUp, ClipboardList } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import WhatsAppButton from "@/components/WhatsAppButton";
@@ -140,9 +141,13 @@ const DesignHub = () => {
         </div>
 
         <div className="relative container mx-auto px-6 text-center">
-          {/* Badge */}
-          <div className="animate-fade-up">
-            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold tracking-widest uppercase border border-primary/30 text-primary mb-8">
+          {/* Step + Badge */}
+          <div className="animate-fade-up flex flex-col items-center gap-3">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-widest">
+              <Palette className="w-3.5 h-3.5 text-primary" />
+              Step 1 of 4
+            </div>
+            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold tracking-widest uppercase border border-primary/30 text-primary mb-2">
               <Sparkles className="w-3 h-3" />
               Fivenest Design Hub — India's #1 Sports Jersey Marketplace
             </span>
@@ -164,21 +169,19 @@ const DesignHub = () => {
           {/* CTAs */}
           <div className="animate-fade-up-delay-3 flex flex-col sm:flex-row gap-4 justify-center">
             <a
-              href="https://jersey-canvas-pro.vercel.app/designs"
+              href="https://designs.fivenest.in"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-primary text-primary-foreground font-bold text-lg hover:opacity-90 transition-all glow-md animate-pulse-glow"
             >
               Browse Designs <ArrowRight className="w-5 h-5" />
             </a>
-            <a
-              href="https://jersey-canvas-pro.vercel.app/upload"
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              to="/orders"
               className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl border border-border text-foreground font-semibold text-lg hover:bg-secondary transition-colors"
             >
-              <Upload className="w-5 h-5" /> Sell Your Designs
-            </a>
+              <ClipboardList className="w-5 h-5" /> Got a Design? Place Order
+            </Link>
           </div>
 
           {/* Stats */}
@@ -312,50 +315,48 @@ const DesignHub = () => {
         </div>
       </section>
 
-      {/* ── Sell CTA ──────────────────────────────────────────────────── */}
-      <section className="py-24 relative">
+      {/* Sell CTA */}
+      <section className="py-20 relative">
         <div className="container mx-auto px-6">
-          <div className="relative rounded-3xl glass border border-primary/20 p-10 md:p-16 text-center overflow-hidden">
-            {/* Glow BG */}
+          <div className="relative rounded-3xl glass border border-primary/20 p-10 md:p-14 text-center overflow-hidden mb-6">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] rounded-full bg-primary/8 blur-[80px] pointer-events-none" />
-
             <div className="relative">
               <div className="inline-block px-4 py-1.5 rounded-full glass text-xs font-semibold text-primary mb-6 border border-primary/30">
                 💰 Earn Up to 70% Commission
               </div>
-              <h2 className="text-4xl md:text-6xl font-black mb-5 tracking-tight">
+              <h2 className="text-4xl md:text-5xl font-black mb-4 tracking-tight">
                 Are You a <span className="text-gradient">Jersey Designer?</span>
               </h2>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8 leading-relaxed">
                 Upload your designs once and earn passive income from every download. Join 120+ designers already earning on Fivenest Design Hub.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <a
-                  href="https://jersey-canvas-pro.vercel.app/upload"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-primary text-primary-foreground font-bold text-lg hover:opacity-90 transition-all glow-md animate-pulse-glow"
-                >
+                <a href="https://designs.fivenest.in/upload" target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-primary text-primary-foreground font-bold text-lg hover:opacity-90 transition-all glow-md">
                   <Upload className="w-5 h-5" /> Start Selling Today
                 </a>
-                <a
-                  href="https://jersey-canvas-pro.vercel.app"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl border border-border font-semibold text-lg hover:bg-secondary transition-colors"
-                >
+                <a href="https://designs.fivenest.in" target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl border border-border font-semibold text-lg hover:bg-secondary transition-colors">
                   <Star className="w-5 h-5" /> Explore Marketplace
                 </a>
               </div>
-
-              {/* Trust badges */}
-              <div className="mt-10 flex flex-wrap justify-center gap-6 text-xs text-muted-foreground">
+              <div className="mt-8 flex flex-wrap justify-center gap-6 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5"><ShieldCheck className="w-4 h-4 text-primary" /> Secure Payments</span>
                 <span className="flex items-center gap-1.5"><Download className="w-4 h-4 text-primary" /> Instant Downloads</span>
                 <span className="flex items-center gap-1.5"><Star className="w-4 h-4 text-primary" /> Quality Verified</span>
                 <span className="flex items-center gap-1.5"><Users className="w-4 h-4 text-primary" /> 120+ Designers</span>
               </div>
             </div>
+          </div>
+          <div className="glass-card rounded-2xl border border-border/30 p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Next Step in Workflow</div>
+              <div className="font-bold text-foreground">Customer chose a design? Record the order now.</div>
+              <div className="text-sm text-muted-foreground">Enter sizes, quantity, price and deadline in Order Management.</div>
+            </div>
+            <Link to="/orders" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-bold hover:opacity-90 transition-all glow-sm shrink-0">
+              <ClipboardList className="w-4 h-4" /> Place Order <ArrowRight className="w-4 h-4" />
+            </Link>
           </div>
         </div>
       </section>
