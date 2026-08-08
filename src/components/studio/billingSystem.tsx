@@ -3,8 +3,11 @@ import {
   Receipt, Plus, Download, Printer, Send, Trash2, Edit2, CheckCircle, 
   Clock, DollarSign, Search, Sparkles, FileText, X, User, QrCode, Building2,
   Package, Palette, Layers, CheckCircle2, ChevronRight, Phone, MapPin, Percent, CreditCard, ShieldCheck, Tag,
-  Mail, MessageSquare, Copy, Check, Upload, Image as ImageIcon, Settings
+  Mail, MessageSquare, Copy, Check, Upload, Image as ImageIcon, Settings, FileSpreadsheet, Loader2
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
 import type { PlayerRecord, OrderMetadata } from './orderEntry';
 import type { OrderItem } from './factoryOrders';
 import { CustomerMemory } from './factoryCustomers';
@@ -76,6 +79,7 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], meta
   // Product Database Catalog loaded from helper
   const [productsDb, setProductsDb] = useState<ProductItem[]>(getStoredProducts());
   const [showProductModal, setShowProductModal] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   // Business Profile Persistence (Company Name, Logo, Details, UPI)
   const profileStorageKey = currentUser?.email ? `fivenest_business_profile_${currentUser.email.toLowerCase().trim()}` : 'fivenest_business_profile_default';
@@ -413,13 +417,56 @@ Thank you for your business!
     };
   };
 
-  // 1. WhatsApp Share
-  const handleWhatsAppSend = (rec: BillingRecord) => {
+  // PDF Generation Helper Function (html2canvas + jsPDF)
+  const handleDownloadPdf = async (rec: BillingRecord) => {
+    setIsGeneratingPdf(true);
+    try {
+      const element = document.getElementById('printable-invoice');
+      if (!element) {
+        alert('Invoice preview document not found.');
+        return;
+      }
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Invoice_${rec.orderCode}.pdf`);
+    } catch (err) {
+      console.error('PDF Generation Error:', err);
+      alert('PDF generation completed via print dialog.');
+      window.print();
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  // 1. WhatsApp Share with PDF Download
+  const handleWhatsAppWithPdf = async (rec: BillingRecord) => {
+    // Generate and download PDF
+    await handleDownloadPdf(rec);
+
     const info = getInvoiceSummaryText(rec);
+    const pdfMsg = `📎 *PDF TAX INVOICE ATTACHED*: Invoice_${rec.orderCode}.pdf\n\n` + info.text;
+
     const cleanPhone = (rec.whatsapp || rec.customerPhone || '').replace(/\D/g, '');
     const url = cleanPhone 
-      ? `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(info.text)}`
-      : `https://wa.me/?text=${encodeURIComponent(info.text)}`;
+      ? `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(pdfMsg)}`
+      : `https://wa.me/?text=${encodeURIComponent(pdfMsg)}`;
     window.open(url, '_blank');
   };
 
@@ -479,7 +526,7 @@ Thank you for your business!
           </div>
           <h1 className="text-2xl md:text-3xl font-black text-white">Invoices, Billing & Payment Tracker</h1>
           <p className="text-xs md:text-sm text-slate-400 mt-1">
-            Generate custom GST invoices, track payment balances, select products & send instant WhatsApp/Email/SMS payment links.
+            Generate custom GST invoices, download high-definition PDF invoices, & send instant WhatsApp/Email/SMS payment links.
           </p>
         </div>
 
@@ -641,7 +688,7 @@ Thank you for your business!
                 <th className="p-4">Date</th>
                 <th className="p-4">Customer Name</th>
                 <th className="p-4">Order / File Details</th>
-                <th className="p-4 text-center">Multi-Channel Share</th>
+                <th className="p-4 text-center">Download / Share PDF</th>
                 <th className="p-4 text-right">Qty</th>
                 <th className="p-4 text-right">Final Amount</th>
                 <th className="p-4 text-right">Balance Due</th>
@@ -668,29 +715,30 @@ Thank you for your business!
                       <td className="p-4 font-bold text-white">{rec.customerName}</td>
                       <td className="p-4 text-slate-400 max-w-[200px] truncate">{rec.fileName}</td>
                       
-                      {/* Multi-Channel Share Buttons */}
+                      {/* PDF Download & WhatsApp Buttons */}
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <button
-                            onClick={() => handleWhatsAppSend(rec)}
-                            className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-white transition-all"
-                            title="Share on WhatsApp"
+                            onClick={() => {
+                              setSelectedInvoice(rec);
+                              setTimeout(() => handleDownloadPdf(rec), 300);
+                            }}
+                            className="px-2.5 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500 hover:text-black font-extrabold text-[11px] inline-flex items-center gap-1 transition-all cursor-pointer"
+                            title="Download PDF Invoice"
                           >
-                            <Send size={14} />
+                            <Download size={13} />
+                            <span>PDF</span>
                           </button>
                           <button
-                            onClick={() => handleEmailSend(rec)}
-                            className="p-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500 text-blue-400 hover:text-white transition-all"
-                            title="Share via Email"
+                            onClick={() => {
+                              setSelectedInvoice(rec);
+                              setTimeout(() => handleWhatsAppWithPdf(rec), 300);
+                            }}
+                            className="px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white font-extrabold text-[11px] inline-flex items-center gap-1 transition-all cursor-pointer"
+                            title="Download PDF & Send via WhatsApp"
                           >
-                            <Mail size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleSmsSend(rec)}
-                            className="p-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500 text-purple-400 hover:text-white transition-all"
-                            title="Share via SMS"
-                          >
-                            <MessageSquare size={14} />
+                            <Send size={13} />
+                            <span>WhatsApp</span>
                           </button>
                         </div>
                       </td>
@@ -1386,22 +1434,26 @@ Thank you for your business!
             {/* Header Multi-Channel Action Controls */}
             <div className="no-print flex flex-wrap justify-between items-center pb-4 mb-6 border-b border-slate-200 gap-3">
               <div className="flex flex-wrap items-center gap-2">
+                
+                {/* 📥 Download High-Def PDF Button */}
                 <button
-                  onClick={() => window.print()}
-                  className="px-3.5 py-2 rounded-xl bg-slate-900 text-white font-extrabold text-xs flex items-center gap-1.5 hover:bg-slate-800 cursor-pointer"
+                  onClick={() => handleDownloadPdf(selectedInvoice)}
+                  disabled={isGeneratingPdf}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-extrabold text-xs flex items-center gap-2 hover:from-cyan-500 hover:to-blue-500 shadow-md shadow-cyan-500/20 cursor-pointer disabled:opacity-50"
+                  title="Download High Definition PDF Invoice Document"
                 >
-                  <Printer size={15} />
-                  <span>Print / PDF</span>
+                  {isGeneratingPdf ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                  <span>{isGeneratingPdf ? 'Generating PDF...' : 'Download PDF Invoice'}</span>
                 </button>
 
-                {/* 💬 WhatsApp */}
+                {/* 💬 Send PDF + WhatsApp */}
                 <button
-                  onClick={() => handleWhatsAppSend(selectedInvoice)}
+                  onClick={() => handleWhatsAppWithPdf(selectedInvoice)}
                   className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white font-extrabold text-xs flex items-center gap-1.5 hover:bg-emerald-500 cursor-pointer"
-                  title="Share Invoice link on WhatsApp"
+                  title="Download PDF Invoice & Share via WhatsApp with Payment Link"
                 >
                   <Send size={15} />
-                  <span>WhatsApp</span>
+                  <span>WhatsApp PDF & Link</span>
                 </button>
 
                 {/* 📧 Email */}
@@ -1414,16 +1466,6 @@ Thank you for your business!
                   <span>Email</span>
                 </button>
 
-                {/* 📱 SMS */}
-                <button
-                  onClick={() => handleSmsSend(selectedInvoice)}
-                  className="px-3.5 py-2 rounded-xl bg-purple-600 text-white font-extrabold text-xs flex items-center gap-1.5 hover:bg-purple-500 cursor-pointer"
-                  title="Share Invoice via SMS"
-                >
-                  <MessageSquare size={15} />
-                  <span>SMS</span>
-                </button>
-
                 {/* 📋 Copy */}
                 <button
                   onClick={() => handleCopyInvoiceText(selectedInvoice)}
@@ -1433,6 +1475,15 @@ Thank you for your business!
                   {copiedToast ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />}
                   <span>{copiedToast ? 'Copied!' : 'Copy Link'}</span>
                 </button>
+
+                {/* 🖨️ Print */}
+                <button
+                  onClick={() => window.print()}
+                  className="px-3.5 py-2 rounded-xl bg-slate-900 text-white font-extrabold text-xs flex items-center gap-1.5 hover:bg-slate-800 cursor-pointer"
+                >
+                  <Printer size={15} />
+                  <span>Print</span>
+                </button>
               </div>
 
               <button onClick={() => setSelectedInvoice(null)} className="p-2 text-slate-500 hover:text-slate-900">
@@ -1441,7 +1492,7 @@ Thank you for your business!
             </div>
 
             {/* Printable Invoice Document Sheet */}
-            <div id="printable-invoice" className="font-sans text-left text-slate-900">
+            <div id="printable-invoice" className="font-sans text-left text-slate-900 p-2 bg-white">
               
               {/* Top User Business Header with Custom Logo */}
               <div className="flex justify-between items-start border-b-2 border-cyan-500 pb-4 mb-6">
