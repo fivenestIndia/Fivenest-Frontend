@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, Phone, MapPin, FileText, Image, Type, History, Plus, Search, CheckCircle2, ChevronRight, FolderOpen, Trash2 } from "lucide-react";
+import { User, Phone, MapPin, FileText, Image, Type, History, Plus, Search, CheckCircle2, ChevronRight, FolderOpen, Trash2, Edit3, X, Save } from "lucide-react";
 
 export interface CustomerMemory {
   id: string;
@@ -28,8 +28,21 @@ export function FactoryCustomers({ currentUserEmail }: FactoryCustomersProps) {
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
-    // Clean default state for fresh logins
-    return [];
+    return [
+      {
+        id: 'cust-1',
+        name: "Shirke Sports Wear",
+        phone: "+91 97733 58920",
+        address: "Industrial Area Phase 2, Ludhiana, Punjab",
+        gstin: "03AAAAA0000A1Z5",
+        sponsorName: "MAPL Sports",
+        preferredFont: "Jersey M54 Bold",
+        favoriteCollar: "Sublimation V-Neck",
+        favoriteSleeve: "Half Sleeve",
+        ordersCount: 5,
+        totalSpent: 45000,
+      }
+    ];
   });
 
   useEffect(() => {
@@ -38,6 +51,8 @@ export function FactoryCustomers({ currentUserEmail }: FactoryCustomersProps) {
 
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerMemory | null>(customers.length > 0 ? customers[0] : null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState<Partial<CustomerMemory>>({});
 
   const filteredCustomers = customers.filter(
     (c) =>
@@ -56,38 +71,78 @@ export function FactoryCustomers({ currentUserEmail }: FactoryCustomersProps) {
     }
   };
 
+  const handleOpenEdit = (customer?: CustomerMemory) => {
+    if (customer) {
+      setEditFormData({ ...customer });
+    } else {
+      setEditFormData({
+        id: `cust-${Date.now()}`,
+        name: "New Sports Client",
+        phone: "+91 98765 43210",
+        address: "Sportswear Market, Ludhiana",
+        gstin: "03AAAAA0000A1Z5",
+        sponsorName: "Sponsor Graphic",
+        preferredFont: "Jersey M54",
+        favoriteCollar: "V-Neck",
+        favoriteSleeve: "Half Sleeve",
+        ordersCount: 1,
+        totalSpent: 12000,
+      });
+    }
+    setEditModalOpen(true);
+  };
+
+  const handleSaveCustomer = () => {
+    if (!editFormData.name?.trim()) {
+      alert("Please enter a customer name.");
+      return;
+    }
+
+    const finalData: CustomerMemory = {
+      id: editFormData.id || `cust-${Date.now()}`,
+      name: editFormData.name || "Client",
+      phone: editFormData.phone || "",
+      address: editFormData.address || "",
+      gstin: editFormData.gstin || "",
+      sponsorName: editFormData.sponsorName || "Default Sponsor",
+      preferredFont: editFormData.preferredFont || "Standard Font",
+      favoriteCollar: editFormData.favoriteCollar || "V-Neck",
+      favoriteSleeve: editFormData.favoriteSleeve || "Half Sleeve",
+      ordersCount: Number(editFormData.ordersCount || 1),
+      totalSpent: Number(editFormData.totalSpent || 0),
+    };
+
+    const idx = customers.findIndex(c => c.id === finalData.id);
+    let updated: CustomerMemory[];
+    if (idx >= 0) {
+      updated = [...customers];
+      updated[idx] = finalData;
+    } else {
+      updated = [finalData, ...customers];
+    }
+
+    setCustomers(updated);
+    setSelectedCustomer(finalData);
+    setEditModalOpen(false);
+  };
+
   return (
     <div className="space-y-6 font-sans p-2 md:p-4 text-left">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-900/60 p-6 rounded-3xl border border-slate-800 backdrop-blur-xl">
         <div>
           <h1 className="text-2xl md:text-3xl font-black text-white">Customer Memory CRM</h1>
-          <p className="text-xs md:text-sm text-slate-400 mt-1">Stores factory memory: Logos, sponsors, fonts, GST & order history for automatic re-orders.</p>
+          <p className="text-xs md:text-sm text-slate-400 mt-1">
+            Store & customize factory memory: Logos, sponsors, fonts, GST & order history for automatic re-orders.
+          </p>
         </div>
 
         <button
-          onClick={() => {
-            const newCust: CustomerMemory = {
-              id: `cust-${Date.now()}`,
-              name: "New Sports Client",
-              phone: "+91 98765 43210",
-              address: "Sportswear Market, Ludhiana",
-              gstin: "03AAAAA0000A1Z5",
-              sponsorName: "Sponsor Graphic",
-              preferredFont: "Jersey M54",
-              favoriteCollar: "V-Neck",
-              favoriteSleeve: "Half Sleeve",
-              ordersCount: 1,
-              totalSpent: 12000,
-            };
-            const updated = [newCust, ...customers];
-            setCustomers(updated);
-            setSelectedCustomer(newCust);
-          }}
-          className="px-5 py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-purple-500/25 transition-all cursor-pointer"
+          onClick={() => handleOpenEdit()}
+          className="px-5 py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-purple-500/25 transition-all cursor-pointer"
         >
           <Plus size={18} />
-          <span>+ Add Customer Memory</span>
+          <span>+ Add / Edit Customer Memory</span>
         </button>
       </div>
 
@@ -113,6 +168,13 @@ export function FactoryCustomers({ currentUserEmail }: FactoryCustomersProps) {
           <p className="text-xs md:text-sm text-slate-400 leading-relaxed max-w-md mx-auto">
             Store your customers' logos, preferred fonts, collar styles, and delivery addresses here for automatic 1-click re-orders.
           </p>
+          <button
+            onClick={() => handleOpenEdit()}
+            className="px-6 py-3 rounded-2xl bg-purple-600 text-white font-extrabold text-xs inline-flex items-center gap-2"
+          >
+            <Plus size={16} />
+            <span>Create First Customer Profile</span>
+          </button>
         </div>
       ) : (
         /* Main Layout: Customer List & Customer Detail Card */
@@ -136,16 +198,27 @@ export function FactoryCustomers({ currentUserEmail }: FactoryCustomersProps) {
                     <div className="text-xs text-slate-400 mt-1">{c.phone} · {c.ordersCount} Past Orders</div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
+                  <div className="flex items-center gap-2">
+                    <div className="text-right mr-2">
                       <div className="text-sm font-black text-emerald-400">₹{c.totalSpent.toLocaleString("en-IN")}</div>
                     </div>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        handleOpenEdit(c);
+                      }}
+                      className="p-2 rounded-lg bg-cyan-500/10 hover:bg-cyan-500 text-cyan-400 hover:text-black transition-all"
+                      title="Edit Customer Details"
+                    >
+                      <Edit3 size={14} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
                         handleDeleteCustomer(c.id);
                       }}
-                      className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white transition-all"
+                      className="p-2 rounded-lg bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white transition-all"
+                      title="Delete Profile"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -164,9 +237,19 @@ export function FactoryCustomers({ currentUserEmail }: FactoryCustomersProps) {
                   <span className="text-xs text-cyan-400 font-bold">Memory Vault Saved ✓</span>
                 </div>
 
-                <div className="text-right">
-                  <span className="text-xs text-slate-400 block">Total Lifetime Value</span>
-                  <span className="text-2xl font-black text-emerald-400">₹{selectedCustomer.totalSpent.toLocaleString("en-IN")}</span>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => handleOpenEdit(selectedCustomer)}
+                    className="px-4 py-2 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-extrabold text-xs flex items-center gap-1.5 hover:bg-cyan-500 hover:text-black transition-all cursor-pointer"
+                  >
+                    <Edit3 size={14} />
+                    <span>Edit Profile Details</span>
+                  </button>
+
+                  <div className="text-right">
+                    <span className="text-xs text-slate-400 block">Total Lifetime Value</span>
+                    <span className="text-xl font-black text-emerald-400">₹{selectedCustomer.totalSpent.toLocaleString("en-IN")}</span>
+                  </div>
                 </div>
               </div>
 
@@ -203,6 +286,16 @@ export function FactoryCustomers({ currentUserEmail }: FactoryCustomersProps) {
                     {selectedCustomer.preferredFont}
                   </span>
                 </div>
+
+                <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800">
+                  <span className="text-slate-400 font-semibold block mb-1">Favorite Collar Style</span>
+                  <span className="font-bold text-white">{selectedCustomer.favoriteCollar}</span>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800">
+                  <span className="text-slate-400 font-semibold block mb-1">Favorite Sleeve Style</span>
+                  <span className="font-bold text-white">{selectedCustomer.favoriteSleeve}</span>
+                </div>
               </div>
 
               <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs">
@@ -214,6 +307,138 @@ export function FactoryCustomers({ currentUserEmail }: FactoryCustomersProps) {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* EDIT CUSTOMER MODAL */}
+      {editModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto space-y-6 text-left shadow-2xl">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <h2 className="text-xl font-black text-white">Customize Customer CRM Profile</h2>
+              <button onClick={() => setEditModalOpen(false)} className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">Customer / Business Name *</label>
+                <input
+                  type="text"
+                  value={editFormData.name || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold"
+                  placeholder="e.g. Shirke Sports Wear"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">Phone / WhatsApp Number</label>
+                <input
+                  type="text"
+                  value={editFormData.phone || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
+                  placeholder="+91 98765 43210"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">GSTIN Number</label>
+                <input
+                  type="text"
+                  value={editFormData.gstin || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, gstin: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono"
+                  placeholder="27ABCDE1234F1Z5"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">Sponsor Brand Name</label>
+                <input
+                  type="text"
+                  value={editFormData.sponsorName || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, sponsorName: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
+                  placeholder="e.g. MAPL Graphic"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">Preferred Sports Font</label>
+                <input
+                  type="text"
+                  value={editFormData.preferredFont || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, preferredFont: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
+                  placeholder="Jersey M54 Bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">Favorite Collar Style</label>
+                <input
+                  type="text"
+                  value={editFormData.favoriteCollar || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, favoriteCollar: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
+                  placeholder="Sublimation V-Neck"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">Favorite Sleeve Style</label>
+                <input
+                  type="text"
+                  value={editFormData.favoriteSleeve || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, favoriteSleeve: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
+                  placeholder="Half Sleeve / Full Sleeve"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-bold mb-1">Total Lifetime Spent (₹)</label>
+                <input
+                  type="number"
+                  value={editFormData.totalSpent || 0}
+                  onChange={(e) => setEditFormData({ ...editFormData, totalSpent: Number(e.target.value) })}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-emerald-400 font-bold"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-slate-400 font-bold mb-1">Delivery Address</label>
+                <textarea
+                  rows={2}
+                  value={editFormData.address || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, address: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
+                  placeholder="Industrial Area Phase 2, Ludhiana"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setEditModalOpen(false)}
+                className="px-5 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveCustomer}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-extrabold text-xs flex items-center gap-2"
+              >
+                <Save size={16} />
+                <span>Save Profile Changes</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

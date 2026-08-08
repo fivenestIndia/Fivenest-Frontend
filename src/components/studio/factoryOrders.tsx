@@ -18,6 +18,8 @@ export interface OrderItem {
   customerName: string;
   deliveryDate: string;
   ratePerPiece: number;
+  rateHalfSleeve?: number;
+  rateFullSleeve?: number;
   
   // Order Scope: Full Garment Manufacturing vs Printing Production Only
   orderScope?: 'full-manufacturing' | 'printing-only';
@@ -97,7 +99,8 @@ export function FactoryOrders({
   const [formOrderNo, setFormOrderNo] = useState(`${orders.length + 1}`);
   const [formCustomerName, setFormCustomerName] = useState("");
   const [formDeliveryDate, setFormDeliveryDate] = useState("");
-  const [formRate, setFormRate] = useState(320);
+  const [formRateHalf, setFormRateHalf] = useState(280);
+  const [formRateFull, setFormRateFull] = useState(320);
 
   const [formFabric, setFormFabric] = useState("N. Net");
   const [formPrintDetails, setFormPrintDetails] = useState("Full Sublimation");
@@ -123,11 +126,18 @@ export function FactoryOrders({
       totalFull += Number(row.fullQty || 0);
     });
     const totalQty = totalHalf + totalFull;
-    const totalOrderValue = totalQty * ord.ratePerPiece;
+
+    const rateHalf = ord.rateHalfSleeve !== undefined ? ord.rateHalfSleeve : ord.ratePerPiece;
+    const rateFull = ord.rateFullSleeve !== undefined ? ord.rateFullSleeve : (ord.ratePerPiece > 0 ? ord.ratePerPiece + 40 : 320);
+
+    const halfOrderValue = totalHalf * rateHalf;
+    const fullOrderValue = totalFull * rateFull;
+    const totalOrderValue = halfOrderValue + fullOrderValue;
+
     const totalAdvanceReceived = Number(ord.advance1 || 0) + Number(ord.advance2 || 0) + Number(ord.advance3 || 0);
     const balanceAmount = totalOrderValue - totalAdvanceReceived;
 
-    return { totalHalf, totalFull, totalQty, totalOrderValue, totalAdvanceReceived, balanceAmount };
+    return { totalHalf, totalFull, totalQty, rateHalf, rateFull, halfOrderValue, fullOrderValue, totalOrderValue, totalAdvanceReceived, balanceAmount };
   };
 
   const handlePrintDocket = () => {
@@ -155,7 +165,8 @@ export function FactoryOrders({
       calcTotalQty += Number(row.halfQty || 0) + Number(row.fullQty || 0);
     });
 
-    const perPieceRate = Number(formRate || (formOrderScope === 'printing-only' ? 50 : 320));
+    const rateHalf = Number(formRateHalf || (formOrderScope === 'printing-only' ? 50 : 280));
+    const rateFull = Number(formRateFull || (formOrderScope === 'printing-only' ? 60 : 320));
     const calculatedDesignCost = calcTotalQty * 3;
 
     const newOrd: OrderItem = {
@@ -163,7 +174,9 @@ export function FactoryOrders({
       orderNo: formOrderNo || `${orders.length + 1}`,
       customerName: formCustomerName,
       deliveryDate: formDeliveryDate || "TBD",
-      ratePerPiece: perPieceRate,
+      ratePerPiece: rateHalf,
+      rateHalfSleeve: rateHalf,
+      rateFullSleeve: rateFull,
 
       orderScope: formOrderScope,
       designCost: calculatedDesignCost,
@@ -540,10 +553,20 @@ export function FactoryOrders({
                           {calculateTotals(selectedOrder).totalFull || 0}
                         </div>
                       </div>
+                      <div className="p-3 bg-gray-50 border-b border-black text-xs font-semibold text-slate-800 space-y-1">
+                        <div className="flex justify-between">
+                          <span>Half Sleeve Rate (₹{calculateTotals(selectedOrder).rateHalf}/pc):</span>
+                          <span className="font-bold">₹{calculateTotals(selectedOrder).halfOrderValue.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Full Sleeve Rate (₹{calculateTotals(selectedOrder).rateFull}/pc):</span>
+                          <span className="font-bold">₹{calculateTotals(selectedOrder).fullOrderValue.toLocaleString('en-IN')}</span>
+                        </div>
+                      </div>
                       <div className="flex items-center justify-between p-3 font-black text-sm uppercase">
-                        <span>Total Quantity</span>
+                        <span>Total Quantity ({calculateTotals(selectedOrder).totalQty} pcs)</span>
                         <span className="text-base font-black bg-black text-white px-3 py-1 rounded">
-                          {calculateTotals(selectedOrder).totalQty}
+                          ₹{calculateTotals(selectedOrder).totalOrderValue.toLocaleString('en-IN')}
                         </span>
                       </div>
                     </div>
@@ -643,12 +666,22 @@ export function FactoryOrders({
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-bold mb-1">Rate per pc (₹)</label>
+                  <label className="block text-slate-300 font-bold mb-1">Half Sleeve Rate (₹/pc)</label>
                   <input
                     type="number"
-                    value={formRate}
-                    onChange={(e) => setFormRate(Number(e.target.value))}
-                    className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-cyan-400 font-bold"
+                    value={formRateHalf}
+                    onChange={(e) => setFormRateHalf(Number(e.target.value))}
+                    className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-emerald-400 outline-none focus:border-cyan-400 font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Full Sleeve Rate (₹/pc)</label>
+                  <input
+                    type="number"
+                    value={formRateFull}
+                    onChange={(e) => setFormRateFull(Number(e.target.value))}
+                    className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-purple-400 outline-none focus:border-cyan-400 font-bold"
                   />
                 </div>
 

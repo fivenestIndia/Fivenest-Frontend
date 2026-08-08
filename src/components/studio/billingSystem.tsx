@@ -1002,34 +1002,110 @@ Thank you for your business!
               </button>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               {productsDb.map((p, idx) => (
-                <div key={p.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-white text-sm">{p.name}</span>
-                      <span className="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 text-[10px] font-bold uppercase">{p.category}</span>
+                <div key={p.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 text-xs">
+                  <div className="grid md:grid-cols-12 gap-3 items-center">
+                    
+                    {/* Name */}
+                    <div className="md:col-span-4">
+                      <label className="block text-[10px] text-slate-400 font-bold mb-1">Product / Service Name</label>
+                      <input
+                        type="text"
+                        value={p.name}
+                        onChange={(e) => {
+                          const updated = [...productsDb];
+                          updated[idx].name = e.target.value;
+                          setProductsDb(updated);
+                          saveStoredProducts(updated);
+                        }}
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white font-bold focus:outline-none focus:border-cyan-400"
+                      />
                     </div>
-                    <div className="text-slate-400 text-[11px]">
-                      HSN: <span className="font-mono text-slate-200">{p.hsnCode}</span> | Tax: {p.taxPercent}% GST | Unit: {p.unit}
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <span className="text-slate-400 text-[10px] block">Default Rate</span>
-                      <span className="text-base font-black text-emerald-400">₹{p.defaultRate}/{p.unit}</span>
+                    {/* Category */}
+                    <div className="md:col-span-2">
+                      <label className="block text-[10px] text-slate-400 font-bold mb-1">Panel Category</label>
+                      <select
+                        value={p.category}
+                        onChange={(e) => {
+                          const updated = [...productsDb];
+                          updated[idx].category = e.target.value as any;
+                          setProductsDb(updated);
+                          saveStoredProducts(updated);
+                        }}
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-cyan-400 font-bold focus:outline-none"
+                      >
+                        <option value="printing">Printing</option>
+                        <option value="factory">Factory</option>
+                        <option value="designer">Designer</option>
+                      </select>
                     </div>
-                    <button
-                      onClick={() => {
-                        const updated = productsDb.filter(item => item.id !== p.id);
-                        setProductsDb(updated);
-                        saveStoredProducts(updated);
-                      }}
-                      className="p-2 text-rose-400 hover:text-white hover:bg-rose-500 rounded-lg transition-colors"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+
+                    {/* HSN */}
+                    <div className="md:col-span-2">
+                      <label className="block text-[10px] text-slate-400 font-bold mb-1">HSN/SAC Code</label>
+                      <input
+                        type="text"
+                        value={p.hsnCode}
+                        onChange={(e) => {
+                          const updated = [...productsDb];
+                          updated[idx].hsnCode = e.target.value;
+                          setProductsDb(updated);
+                          saveStoredProducts(updated);
+                        }}
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white font-mono focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Rate */}
+                    <div className="md:col-span-2">
+                      <label className="block text-[10px] text-slate-400 font-bold mb-1">Default Rate (₹)</label>
+                      <input
+                        type="number"
+                        value={p.defaultRate}
+                        onChange={(e) => {
+                          const updated = [...productsDb];
+                          updated[idx].defaultRate = Number(e.target.value);
+                          setProductsDb(updated);
+                          saveStoredProducts(updated);
+                        }}
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-emerald-400 font-bold text-right focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Delete */}
+                    <div className="md:col-span-2 flex items-center justify-end gap-2">
+                      <select
+                        value={p.unit}
+                        onChange={(e) => {
+                          const updated = [...productsDb];
+                          updated[idx].unit = e.target.value;
+                          setProductsDb(updated);
+                          saveStoredProducts(updated);
+                        }}
+                        className="px-2 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 text-[11px]"
+                      >
+                        <option value="pcs">pcs</option>
+                        <option value="sq ft">sq ft</option>
+                        <option value="meters">meters</option>
+                        <option value="hrs">hrs</option>
+                        <option value="job">job</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = productsDb.filter(item => item.id !== p.id);
+                          setProductsDb(updated);
+                          saveStoredProducts(updated);
+                        }}
+                        className="p-2 text-rose-400 hover:text-white hover:bg-rose-500 rounded-xl transition-colors"
+                        title="Delete Item"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+
                   </div>
                 </div>
               ))}
