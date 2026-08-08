@@ -1,6 +1,7 @@
 import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
 import TrustBadges from "@/components/TrustBadges";
+import { EcosystemStepsSection } from "@/components/EcosystemStepsSection";
 import BeforeAfterSection from "@/components/BeforeAfterSection";
 import RealFactorySection from "@/components/RealFactorySection";
 import ProductionWorkflowVideo from "@/components/ProductionWorkflowVideo";
@@ -26,6 +27,7 @@ const Index = () => {
       <Navbar />
       <HeroSection />
       <TrustBadges />
+      <div id="process-ecosystem"><EcosystemStepsSection /></div>
       <div id="before-after"><BeforeAfterSection /></div>
       <RealFactorySection />
       <div id="workflow-demo"><ProductionWorkflowVideo /></div>

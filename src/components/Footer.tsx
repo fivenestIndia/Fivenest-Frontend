@@ -1,22 +1,38 @@
 const Footer = () => (
-  <footer className="border-t border-border py-12">
+  <footer className="border-t border-slate-800/80 bg-slate-950 py-12 text-slate-400">
     <div className="container mx-auto px-6 text-center">
-      <a href="/" className="flex items-center justify-center gap-1.5 text-2xl font-bold mb-4 hover:opacity-90 transition-opacity">
-        <img src="/logo.svg" alt="Fivenest Logo" className="h-8 w-auto object-contain -mr-2.5" />
-        <span>Fivenest<span className="text-primary">.</span></span>
+      <a href="/" className="flex items-center justify-center gap-2 text-2xl font-black text-white mb-3 hover:opacity-90 transition-opacity">
+        <img src="/logo.svg" alt="FiveNest Logo" className="h-7 w-auto object-contain" />
+        <span>FiveNest<span className="text-cyan-400">.</span></span>
       </a>
-      <p className="text-sm text-muted-foreground mb-6">
-        Automating jersey printing production for manufacturers across India.
+      <p className="text-xs md:text-sm text-slate-400 mb-6 max-w-lg mx-auto">
+        Complete Cloud Sublimation OS for Sportswear Manufacturers & Printing Factories.
       </p>
-      <div className="flex justify-center gap-6 text-sm text-muted-foreground">
-        <a href="/#features" className="hover:text-foreground transition-colors">Features</a>
-        <a href="/#how-it-works" className="hover:text-foreground transition-colors">How it Works</a>
-        <a href="/#pricing" className="hover:text-foreground transition-colors">Pricing</a>
-        <a href="/studio" className="hover:text-foreground transition-colors">Web Studio</a>
-        <a href="/plugins" className="hover:text-foreground transition-colors">Plugins</a>
+      
+      {/* 4-Step Ecosystem Quick Links */}
+      <div className="flex flex-wrap justify-center items-center gap-4 md:gap-8 text-xs font-bold mb-6">
+        <a href="https://designs.fivenest.in" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline flex items-center gap-1">
+          <span>Step 1: Design Hub ↗</span>
+        </a>
+        <a href="/orders" className="hover:text-cyan-400 transition-colors">
+          Step 2: Order Portal
+        </a>
+        <a href="/studio" className="hover:text-cyan-400 transition-colors">
+          Step 3: Production Studio
+        </a>
+        <a href="/plugins" className="hover:text-cyan-400 transition-colors">
+          Step 4: FN Plugins
+        </a>
+        <a href="/academy" className="hover:text-cyan-400 transition-colors">
+          Academy
+        </a>
+        <a href="/#pricing" className="hover:text-cyan-400 transition-colors">
+          Wallet Pricing
+        </a>
       </div>
-      <div className="mt-8 text-xs text-muted-foreground">
-        © {new Date().getFullYear()} Fivenest. All rights reserved.
+
+      <div className="text-[11px] text-slate-600">
+        © {new Date().getFullYear()} FiveNest India. All rights reserved. Built for sportswear sublimation units.
       </div>
     </div>
   </footer>

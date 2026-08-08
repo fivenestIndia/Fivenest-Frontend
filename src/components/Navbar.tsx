@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, ArrowRight, Wallet, Plus, ShieldCheck, Palette, Package } from "lucide-react";
+import { Menu, X, ExternalLink, Palette, Package, Cpu } from "lucide-react";
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -17,14 +17,13 @@ const Navbar = () => {
   }, []);
 
   const navLinks = [
-    { name: "How It Works", href: "/#how-it-works" },
-    { name: "Production Studio", href: "/studio", isRoute: true },
+    { name: "How It Works", href: "/#process-ecosystem" },
+    { name: "Design Hub ↗", href: "https://designs.fivenest.in", isExternal: true },
     { name: "Order Portal", href: "/orders", isRoute: true },
-    { name: "Case Studies", href: "/#case-studies" },
+    { name: "Production Studio", href: "/studio", isRoute: true },
     { name: "Plugins", href: "/plugins", isRoute: true },
     { name: "Academy", href: "/academy", isRoute: true },
-    { name: "Wallet Pricing", href: "/#pricing" },
-    { name: "FAQ", href: "/#faq" },
+    { name: "Pricing", href: "/#pricing" },
   ];
 
   return (
@@ -55,9 +54,19 @@ const Navbar = () => {
           </Link>
 
           {/* Desktop Nav Links */}
-          <nav className="hidden lg:flex items-center gap-6 text-xs font-bold text-slate-300">
+          <nav className="hidden lg:flex items-center gap-5 text-xs font-bold text-slate-300">
             {navLinks.map((link) =>
-              link.isRoute ? (
+              link.isExternal ? (
+                <a
+                  key={link.name}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-cyan-400 transition-all flex items-center gap-1 text-cyan-300 font-extrabold"
+                >
+                  <span>{link.name}</span>
+                </a>
+              ) : link.isRoute ? (
                 <Link
                   key={link.name}
                   to={link.href}
@@ -80,11 +89,21 @@ const Navbar = () => {
           </nav>
 
           {/* Action CTAs */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <a
+              href="https://designs.fivenest.in"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden xl:flex items-center gap-1.5 bg-cyan-500/10 border border-cyan-500/30 hover:border-cyan-400 px-3.5 py-2 rounded-full text-xs font-extrabold text-cyan-300 transition-all cursor-pointer"
+            >
+              <span>Design Hub</span>
+              <ExternalLink size={12} />
+            </a>
+
             <Link to="/orders" className="hidden sm:block">
-              <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-700/80 hover:border-slate-500 px-4 py-2 rounded-full text-xs font-bold text-slate-200 transition-all cursor-pointer shadow-md">
+              <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 hover:border-slate-500 px-3.5 py-2 rounded-full text-xs font-bold text-slate-200 transition-all cursor-pointer shadow-md">
                 <Package size={14} className="text-cyan-400" />
-                <span>Orders Portal</span>
+                <span>Orders</span>
               </div>
             </Link>
 
@@ -92,10 +111,10 @@ const Navbar = () => {
               <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                className="px-4 py-2 md:px-5 md:py-2.5 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-black text-xs flex items-center gap-2 shadow-lg shadow-cyan-500/25 cursor-pointer"
+                className="px-3.5 py-2 md:px-4 md:py-2.5 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-black text-xs flex items-center gap-1.5 shadow-lg shadow-cyan-500/25 cursor-pointer"
               >
                 <Palette size={14} />
-                <span>Production Studio</span>
+                <span>Studio</span>
               </motion.button>
             </Link>
 
@@ -120,7 +139,19 @@ const Navbar = () => {
           >
             <div className="flex flex-col gap-4 text-sm font-semibold text-slate-300">
               {navLinks.map((link) =>
-                link.isRoute ? (
+                link.isExternal ? (
+                  <a
+                    key={link.name}
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="hover:text-cyan-400 text-cyan-300 font-extrabold flex items-center gap-1 py-1"
+                  >
+                    <span>{link.name}</span>
+                    <ExternalLink size={14} />
+                  </a>
+                ) : link.isRoute ? (
                   <Link
                     key={link.name}
                     to={link.href}
@@ -142,17 +173,35 @@ const Navbar = () => {
               )}
 
               <div className="pt-2 space-y-2">
+                <a
+                  href="https://designs.fivenest.in"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full py-3 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-extrabold text-xs flex items-center justify-center gap-2"
+                >
+                  <Palette size={16} />
+                  <span>Step 1: Open Design Hub ↗</span>
+                </a>
+
                 <Link to="/orders" onClick={() => setMobileMenuOpen(false)}>
                   <button className="w-full py-3 rounded-xl bg-slate-900 border border-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center gap-2">
                     <Package size={16} className="text-cyan-400" />
-                    <span>Open Orders Portal (/orders)</span>
+                    <span>Step 2: Order Portal (/orders)</span>
                   </button>
                 </Link>
 
                 <Link to="/studio" onClick={() => setMobileMenuOpen(false)}>
                   <button className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20">
-                    <Palette size={16} />
-                    <span>Open Production Studio (/studio)</span>
+                    <Sliders size={16} />
+                    <span>Step 3: Production Studio (/studio)</span>
+                  </button>
+                </Link>
+
+                <Link to="/plugins" onClick={() => setMobileMenuOpen(false)}>
+                  <button className="w-full py-3 rounded-xl bg-slate-800 border border-slate-700 text-purple-300 font-bold text-xs flex items-center justify-center gap-2">
+                    <Cpu size={16} />
+                    <span>Step 4: FN Plugins (/plugins)</span>
                   </button>
                 </Link>
               </div>
