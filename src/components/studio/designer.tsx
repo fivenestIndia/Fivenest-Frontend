@@ -2223,6 +2223,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           </div>
         </div>
       </div>
+      </div>
 
       {/* CorelDRAW Right Docker Panel (Strict Single Vertical Column) */}
       <div 
@@ -3784,7 +3785,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         onDatabaseChange={() => setPrefTrigger(prev => prev + 1)}
       />
       </div>
-    </div>
     </div>
   );
 };
