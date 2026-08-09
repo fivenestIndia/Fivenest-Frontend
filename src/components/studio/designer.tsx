@@ -2225,9 +2225,23 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       </div>
       </div>
 
-
       {/* CorelDRAW Right Docker Panel (Strict Single Vertical Column) */}
-      <div className="cd-docker-panel">
+      <div 
+        className="cd-docker-panel" 
+        style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          width: '360px', 
+          minWidth: '360px', 
+          maxWidth: '360px', 
+          flexShrink: 0, 
+          height: '100%', 
+          overflowY: 'auto', 
+          padding: '12px', 
+          gap: '12px',
+          boxSizing: 'border-box'
+        }}
+      >
         {/* Step 1: Bulk ZIP Importer Card */}
         <div className="glass-card" style={{ padding: '20px' }}>
           <h3 
