@@ -314,7 +314,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       if (e.key.toLowerCase() === 'g' && !e.ctrlKey && !e.metaKey) {
         setShowGuidelines(prev => !prev);
       }
-      if (e.key.toLowerCase() === 'r' && !e.ctrlKey && !e.metaKey) {
+      if (e.key.toLowerCase() === 'r' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r')) {
+        e.preventDefault();
         setRulersEnabled(prev => {
           const next = !prev;
           localStorage.setItem('fivenest_pref_rulers', JSON.stringify(next));
@@ -610,7 +611,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const configKey = textType === 'name' ? 'nameConfig' : textType === 'number' ? 'numberConfig' : 'sizeTagConfig';
     updateActivePanel({
       [configKey]: {
-        ...(activePanel[configKey] || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none' }),
+        ...(activePanel[configKey] || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none' }),
         ...fields
       }
     });
@@ -1057,7 +1058,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
 
       // Draw customizable Size Tag (Top Left) - skip for A4 and skip if 3D preview
-      const sizeTagConf = panel.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
+      const sizeTagConf = panel.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
       if (!is3DPreview && sizeTagConf.enabled && panelKey !== 'a4Print') {
         ctx.save();
         // Use pxPerInch (physicalW-based) so size tag is SAME physical size on all panels
@@ -1156,10 +1157,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
       ctx.setLineDash([]);
 
-      // 2. Photoshop Ruler Background bars (OUTSIDE panel image area)
-      const rulerBg = isLightMode ? '#cbd5e1' : '#1e1e24';
-      const tickColor = isLightMode ? '#0f172a' : '#f8fafc';
-      const borderLineColor = isLightMode ? '#94a3b8' : '#334155';
+      // 2. Illustrator Ruler Background tracks & ticks (OUTSIDE panel image area)
+      const rulerBg = '#333333';
+      const tickColor = '#ffffff';
+      const borderLineColor = '#1a1a1a';
 
       // Top Ruler track (0 .. rulerOffset y)
       ctx.fillStyle = rulerBg;
@@ -1169,7 +1170,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       ctx.fillRect(0, rulerOffset, rulerOffset, height);
 
       // Top-Left Corner Junction Box
-      ctx.fillStyle = isLightMode ? '#94a3b8' : '#2a2a36';
+      ctx.fillStyle = '#242424';
       ctx.fillRect(0, 0, rulerOffset, rulerOffset);
 
       // Divider borders separating ruler from artwork area
@@ -1374,7 +1375,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             setPrefTrigger(prev => prev + 1);
           };
           img.src = bgUrl;
-          ctx.fillStyle = panelKey === 'a4Print' ? '#ffffff' : '#1c1c24';
+          ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, width, height);
           drawLogos(ctx);
           drawTexts(ctx);
@@ -1419,14 +1420,15 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           ctx.arc(width * 0.2, height * 0.8, 90, 0, Math.PI * 2);
           ctx.fill();
         } else {
-          ctx.fillStyle = panelKey === 'a4Print' ? '#ffffff' : '#1c1c24';
+          // Default panel base color: Pure White inside, like Illustrator artboard
+          ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, width, height);
         }
         
         if (!is3DPreview) {
-          ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(10, 10, width - 20, height - 20);
+          ctx.strokeStyle = '#1a1a1a';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(0, 0, width, height);
         }
         
         drawLogos(ctx);
@@ -1768,8 +1770,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current || activeTab === 'threeD') return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const canvasX = (e.clientX - rect.left) * (width / rect.width);
-    const canvasY = (e.clientY - rect.top) * (height / rect.height);
+    const currentRulerOffset = rulersEnabled ? Math.round(0.35 * scale) : 0;
+    const canvasX = (e.clientX - rect.left) / zoom - currentRulerOffset;
+    const canvasY = (e.clientY - rect.top) / zoom - currentRulerOffset;
 
     const pad = 16;
 
@@ -1811,6 +1814,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     setActiveTextLayer(null);
   };
 
+  const handleCanvasMouseUp = () => {
+    isDraggingTextRef.current = false;
+  };
+
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
@@ -1818,7 +1825,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const mouseY = e.clientY - rect.top;
 
     if (isDraggingTextRef.current && activeTextLayer) {
-      const canvasY = (mouseY / rect.height) * height;
+      const currentRulerOffset = rulersEnabled ? Math.round(0.35 * scale) : 0;
+      const canvasY = (mouseY / zoom) - currentRulerOffset;
       const newYPercent = Math.min(100, Math.max(0, Math.round((canvasY / height) * 100)));
       updateTextConfig(activeTextLayer, { yPos: newYPercent });
     }
@@ -2160,7 +2168,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   ref={canvasRef} 
                   onMouseDown={handleCanvasMouseDown}
                   onMouseMove={handleCanvasMouseMove}
-                  onMouseLeave={() => setCursorPos(null)}
+                  onMouseUp={handleCanvasMouseUp}
+                  onMouseLeave={() => {
+                    setCursorPos(null);
+                    isDraggingTextRef.current = false;
+                  }}
                   onDoubleClick={(e) => {
                     e.stopPropagation();
                     fileInputRef.current?.click();

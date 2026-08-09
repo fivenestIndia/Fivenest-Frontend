@@ -312,18 +312,7 @@ export default function WebStudio() {
               <span>Order Portal (Step 2)</span>
             </Link>
 
-            {/* Direct Link to Desktop Plugins */}
-            <Link 
-              to="/plugins" 
-              className="menu-item"
-              style={{ 
-                color: '#a855f7',
-                fontWeight: '700'
-              }}
-            >
-              <Cpu size={18} />
-              <span>FN Plugins (Step 4)</span>
-            </Link>
+
 
             <Link 
               to="/" 
