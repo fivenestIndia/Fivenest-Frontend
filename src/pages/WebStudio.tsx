@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Palette, Users, Ruler, Sliders, HelpCircle, ArrowLeft, Sun, Moon, Menu, X, Award, ExternalLink, Package } from 'lucide-react';
+import { Palette, Users, Ruler, Sliders, HelpCircle, ArrowLeft, Sun, Moon, Menu, X, Award, ExternalLink, Package, Cpu, Sparkles, Layers } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase, fetchUserWallet } from '../lib/supabaseClient';
 import { Designer, defaultDesignConfig } from '../components/studio/designer';
@@ -152,16 +152,27 @@ export default function WebStudio() {
   return (
     <div className={`app-layout ${themeMode}`}>
       {/* Mobile Top Header */}
-      <div className="md:hidden flex items-center justify-between p-3 bg-black/80 border-b border-white/10 sticky top-0 z-40 backdrop-blur-md">
-        <Link to="/" className="flex items-center gap-2">
-          <img src="/logo.svg" alt="FiveNest Logo" className="w-6 h-6 object-contain" />
-          <span className="font-extrabold text-white text-base">FiveNest Production</span>
+      <div className="md:hidden flex items-center justify-between p-3 bg-slate-950/95 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md">
+        <Link to="/" className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-400 via-sky-400 to-indigo-600 p-[1px] shadow-lg shadow-cyan-500/30 flex-shrink-0">
+            <div className="w-full h-full rounded-[11px] bg-slate-950 flex items-center justify-center">
+              <svg className="w-4 h-4 text-cyan-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
+            </div>
+          </div>
+          <div className="flex flex-col text-left">
+            <span className="font-black text-white text-sm leading-tight">FiveNest Studio</span>
+            <span className="text-[9px] font-extrabold text-cyan-400 uppercase tracking-widest">PRODUCTION OS</span>
+          </div>
         </Link>
         
         <div className="flex items-center gap-2">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-xl bg-white/5 border border-white/10 text-white"
+            className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-white"
           >
             {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
@@ -177,10 +188,10 @@ export default function WebStudio() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                 isActive
-                  ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20'
-                  : 'bg-white/5 text-slate-300 border border-white/5'
+                  ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-extrabold shadow-lg shadow-cyan-500/20'
+                  : 'bg-slate-900 text-slate-300 border border-slate-800'
               }`}
             >
               <Icon size={14} />
@@ -193,20 +204,36 @@ export default function WebStudio() {
       {/* Sidebar Navigation Panel (Responsive Drawer) */}
       <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div>
-          <div className="flex items-center justify-between p-4 border-b border-white/10">
-            <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <div className="sidebar-brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px', cursor: 'pointer', padding: 0 }}>
-                <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <img src="/logo.svg" alt="FiveNest" style={{ width: '26px', height: '26px', objectFit: 'contain' }} />
-                  <span style={{ fontSize: '18px', fontWeight: '800' }}>FiveNest Studio</span>
+          <div className="flex items-center justify-between p-4 border-b border-slate-800/80">
+            <Link to="/" className="flex items-center gap-3 group text-left">
+              {/* Glowing 3D Brand Emblem */}
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-cyan-400 via-sky-400 to-indigo-600 p-[1.5px] shadow-lg shadow-cyan-500/30 group-hover:shadow-cyan-400/50 transition-all duration-300 flex-shrink-0">
+                <div className="w-full h-full rounded-[14.5px] bg-slate-950 flex items-center justify-center relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-blue-600/20 opacity-80" />
+                  <svg className="w-5 h-5 relative z-10 text-cyan-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                    <path d="M2 17l10 5 10-5" />
+                    <path d="M2 12l10 5 10-5" />
+                  </svg>
                 </div>
-                <span className="sidebar-version text-cyan-400 font-bold" style={{ fontSize: '10px' }}>Production Engine</span>
+              </div>
+
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1">
+                  <span className="font-black text-white text-lg tracking-tight leading-none">
+                    FiveNest
+                  </span>
+                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-sm shadow-cyan-400" />
+                </div>
+                <span className="text-[9px] font-extrabold text-cyan-400 uppercase tracking-[0.2em] leading-tight mt-0.5">
+                  PRODUCTION STUDIO
+                </span>
               </div>
             </Link>
 
             <button
               onClick={() => setMobileMenuOpen(false)}
-              className="md:hidden p-1.5 rounded-lg bg-white/5 text-white"
+              className="md:hidden p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-white"
             >
               <X size={18} />
             </button>
@@ -231,20 +258,49 @@ export default function WebStudio() {
               );
             })}
 
-            {/* Direct Switch to Order Management Portal */}
-            <Link 
-              to="/orders" 
+            {/* Direct Link to Design Hub */}
+            <a 
+              href="https://designs.fivenest.in" 
+              target="_blank" 
+              rel="noopener noreferrer"
               className="menu-item"
               style={{ 
                 marginTop: '16px', 
                 borderTop: '1px solid var(--border-light)', 
                 paddingTop: '16px',
+                color: 'var(--color-primary)',
+                fontWeight: '700'
+              }}
+            >
+              <Palette size={18} />
+              <span>Design Hub (Step 1)</span>
+              <ExternalLink size={12} className="ml-auto" />
+            </a>
+
+            {/* Direct Link to Order Portal */}
+            <Link 
+              to="/orders" 
+              className="menu-item"
+              style={{ 
                 color: 'var(--color-secondary)',
                 fontWeight: '700'
               }}
             >
               <Package size={18} />
-              Order & Billing Portal
+              <span>Order Portal (Step 2)</span>
+            </Link>
+
+            {/* Direct Link to Desktop Plugins */}
+            <Link 
+              to="/plugins" 
+              className="menu-item"
+              style={{ 
+                color: '#a855f7',
+                fontWeight: '700'
+              }}
+            >
+              <Cpu size={18} />
+              <span>FN Plugins (Step 4)</span>
             </Link>
 
             <Link 
@@ -299,15 +355,15 @@ export default function WebStudio() {
           {/* Save / Restore Local Data */}
           <LocalDataManager />
 
-          <div className="glass-card" style={{ padding: '12px', background: 'rgba(155, 77, 255, 0.04)', borderColor: 'var(--border-active)', textAlign: 'left', marginTop: '8px' }}>
+          <div className="glass-card" style={{ padding: '12px', background: 'rgba(0, 229, 255, 0.04)', borderColor: 'var(--border-active)', textAlign: 'left', marginTop: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <Award size={14} style={{ color: 'var(--color-secondary)' }} />
-              <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--color-secondary)' }}>PRODUCTION STUDIO</span>
+              <Award size={14} style={{ color: 'var(--color-primary)' }} />
+              <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--color-primary)' }}>PRODUCTION STUDIO ACTIVE</span>
             </div>
-            <p style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Sublimation Plotter RIP Active.</p>
+            <p style={{ fontSize: '10px', color: 'var(--text-muted)' }}>300 DPI Sublimation RIP Engine Ready.</p>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', fontSize: '10px', color: 'var(--text-primary)' }}>
               <span>Total Panels Qty:</span>
-              <span style={{ fontWeight: 'bold' }}>{totalQty}</span>
+              <span style={{ fontWeight: 'bold', color: 'var(--color-primary)' }}>{totalQty} pcs</span>
             </div>
           </div>
         </div>
@@ -325,6 +381,19 @@ export default function WebStudio() {
           </h1>
           
           <div className="navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            
+            {/* Quick Link to Design Hub */}
+            <a 
+              href="https://designs.fivenest.in" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-bold hover:bg-cyan-500 hover:text-black transition-all cursor-pointer"
+            >
+              <Palette size={13} />
+              <span>Design Hub</span>
+              <ExternalLink size={11} />
+            </a>
+
             {/* Direct Switch to Order Management Portal */}
             <Link to="/orders">
               <button 
@@ -341,7 +410,7 @@ export default function WebStudio() {
                   color: 'var(--color-secondary)'
                 }}
               >
-                <Package size={14} /> Order Management (/orders)
+                <Package size={14} /> Order Portal (/orders)
               </button>
             </Link>
 
@@ -379,7 +448,7 @@ export default function WebStudio() {
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: '8px', 
-                  background: 'rgba(155, 77, 255, 0.08)', 
+                  background: 'rgba(0, 229, 255, 0.08)', 
                   border: '1px solid var(--border-active)', 
                   padding: '6px 12px', 
                   borderRadius: '30px', 
