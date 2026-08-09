@@ -565,7 +565,7 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
     <div 
       ref={containerRef} 
       className="w-full h-full relative" 
-      style={{ minHeight: '520px', backgroundColor: '#0a0a0f', borderRadius: '8px' }}
+      style={{ width: '100%', height: '100%', minHeight: '520px', backgroundColor: '#141419', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 0 50px rgba(0,0,0,0.6)', overflow: 'hidden' }}
     >
       <canvas 
         ref={canvasRef} 

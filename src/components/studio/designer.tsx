@@ -2126,18 +2126,41 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             flexGrow: 1, 
             width: '100%', 
             height: '100%',
-            overflow: 'auto', 
+            overflow: activeTab === 'threeD' ? 'hidden' : 'auto', 
             minHeight: 0,
             boxSizing: 'border-box',
-            cursor: (spaceKeyPressed || activeTool === 'pan') ? (panStart ? 'grabbing' : 'grab') : ((zKeyPressed || activeTool === 'zoom') ? (dragStart ? 'grabbing' : 'zoom-in') : 'default'),
+            cursor: activeTab === 'threeD' ? 'grab' : ((spaceKeyPressed || activeTool === 'pan') ? (panStart ? 'grabbing' : 'grab') : ((zKeyPressed || activeTool === 'zoom') ? (dragStart ? 'grabbing' : 'zoom-in') : 'default')),
             userSelect: (spaceKeyPressed || activeTool === 'pan' || zKeyPressed || activeTool === 'zoom') ? 'none' : 'auto',
             position: 'relative'
           }}
           onWheel={(e) => {
+            if (activeTab === 'threeD') return;
             e.preventDefault();
+            const wrapper = scrollWrapperRef.current;
+            if (!wrapper) return;
+
             const sensitivity = 0.0015;
             const newZoom = Math.min(3, Math.max(0.5, zoom - e.deltaY * sensitivity));
+            if (newZoom === zoom) return;
+
+            const rect = wrapper.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const scrollX = wrapper.scrollLeft;
+            const scrollY = wrapper.scrollTop;
+
+            const contentX = (scrollX + mouseX) / zoom;
+            const contentY = (scrollY + mouseY) / zoom;
+
             setZoom(newZoom);
+
+            requestAnimationFrame(() => {
+              if (wrapper) {
+                wrapper.scrollLeft = contentX * newZoom - mouseX;
+                wrapper.scrollTop = contentY * newZoom - mouseY;
+              }
+            });
           }}
           onMouseDown={(e) => {
             if ((spaceKeyPressed || activeTool === 'pan') && e.button === 0) {
@@ -2188,17 +2211,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         >
           {/* Centering inner container with full 360-degree corner pan space */}
           <div 
-            onDoubleClick={() => fileInputRef.current?.click()}
-            title="Double-click canvas to upload artwork background image"
+            onDoubleClick={() => activeTab !== 'threeD' && fileInputRef.current?.click()}
+            title={activeTab !== 'threeD' ? "Double-click canvas to upload artwork background image" : ""}
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               minWidth: '100%',
               minHeight: '100%',
-              width: zoom > 1 ? `${Math.max(width * zoom + 400, 1200)}px` : '100%',
-              height: zoom > 1 ? `${Math.max(height * zoom + 400, 900)}px` : '100%',
-              padding: zoom > 1 ? `${Math.max(160, 260 * zoom)}px` : '24px',
+              width: activeTab === 'threeD' ? '100%' : (zoom > 1 ? `${Math.max(width * zoom + 400, 1200)}px` : '100%'),
+              height: activeTab === 'threeD' ? '100%' : (zoom > 1 ? `${Math.max(height * zoom + 400, 900)}px` : '100%'),
+              padding: activeTab === 'threeD' ? '0px' : (zoom > 1 ? `${Math.max(160, 260 * zoom)}px` : '24px'),
               boxSizing: 'border-box',
               position: 'relative'
             }}
@@ -2429,7 +2452,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           </div>
         </div>
         
-        {/* Mock inputs for testing positions */}
+        {/* Mock inputs for testing positions (visible in 2D layout) */}
+        {activeTab !== 'threeD' && (
         <div style={{ display: 'flex', gap: '12px', width: '100%', maxWidth: '360px' }}>
           <div style={{ flex: 1 }}>
             <input 
@@ -2452,6 +2476,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             />
           </div>
         </div>
+        )}
       </div>
       </div>
 
