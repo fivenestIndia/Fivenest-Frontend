@@ -2223,6 +2223,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           </div>
         </div>
       </div>
+      </div>
 
 
       {/* CorelDRAW Right Docker Panel (Strict Single Vertical Column) */}
@@ -3753,7 +3754,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             </div>
           )}
         </div>
-      </div>
       </div>
     </div>
 
