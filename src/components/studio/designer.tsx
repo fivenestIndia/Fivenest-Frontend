@@ -1892,6 +1892,339 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           onToggleGuidelines={() => setShowGuidelines(prev => !prev)}
         />
 
+        <div className="cd-canvas-area">
+
+
+          {/* 2D Canvas Mock Renderer */}
+          <div 
+            className="cd-canvas-container" 
+            style={{ 
+              display: 'flex',
+              flexDirection: 'column', 
+              alignItems: 'center',
+              width: '100%',
+              height: '100%',
+              flex: '1 1 0%',
+              minWidth: 0,
+              minHeight: 0,
+              gap: '12px',
+              position: 'relative',
+              border: isDragging ? '2px dashed var(--color-primary)' : 'none',
+              background: isDragging ? 'rgba(155, 77, 255, 0.03)' : 'transparent',
+              transition: 'all 0.2s ease-in-out'
+            }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
+        onDragLeave={() => {
+          setIsDragging(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragging(false);
+          const file = e.dataTransfer.files?.[0];
+          if (file && file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              const url = event.target?.result as string;
+              if (activeTab.startsWith('sleeve')) {
+                if (previewSleeveType === 'full') {
+                  updateActivePanel({
+                    backgroundType: 'upload',
+                    uploadedFileFullUrl: url
+                  });
+                } else {
+                  updateActivePanel({
+                    backgroundType: 'upload',
+                    uploadedFileHalfUrl: url
+                  });
+                }
+              } else {
+                updateActivePanel({
+                  backgroundType: 'upload',
+                  uploadedFileUrl: url
+                });
+              }
+            };
+            reader.readAsDataURL(file);
+          }
+        }}
+      >
+        {isDragging && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(10, 10, 15, 0.85)',
+            zIndex: 100,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '12px',
+            pointerEvents: 'none',
+            border: '2px dashed var(--color-primary)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)'
+          }}>
+            <Upload size={48} style={{ color: 'var(--color-primary)', marginBottom: '16px' }} />
+            <h3 style={{ color: 'white', marginBottom: '8px' }}>Drop Image Here</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Upload to active {activeTab === 'front' ? 'Front' : activeTab === 'back' ? 'Back' : activeTab === 'sleeveLeft' ? 'Left Sleeve' : activeTab === 'sleeveRight' ? 'Right Sleeve' : 'A4'} panel graphic</p>
+          </div>
+        )}
+
+        <div className="tab-btn-group" style={{ width: '100%', maxWidth: '640px' }}>
+          <button className={`tab-btn ${activeTab === 'front' ? 'active' : ''}`} onClick={() => setActiveTab('front')}>Front</button>
+          <button className={`tab-btn ${activeTab === 'back' ? 'active' : ''}`} onClick={() => setActiveTab('back')}>Back</button>
+          <button className={`tab-btn ${activeTab === 'sleeveLeft' ? 'active' : ''}`} onClick={() => setActiveTab('sleeveLeft')}>Left Sleeve</button>
+          <button className={`tab-btn ${activeTab === 'sleeveRight' ? 'active' : ''}`} onClick={() => setActiveTab('sleeveRight')}>Right Sleeve</button>
+          <button className={`tab-btn ${activeTab === 'a4Print' ? 'active' : ''}`} onClick={() => setActiveTab('a4Print')}>A4 Print</button>
+          <button 
+            className={`tab-btn flex items-center gap-1.5 ${activeTab === 'threeD' ? 'active' : ''}`} 
+            onClick={() => setActiveTab('threeD')}
+            style={{ borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '12px' }}
+          >
+            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+            3D View
+          </button>
+        </div>
+        
+        {(activeTab === 'sleeveLeft' || activeTab === 'sleeveRight') && (
+          <div style={{ display: 'flex', gap: '8px', marginTop: '4px', marginBottom: '4px' }}>
+            <button 
+              className={`btn ${previewSleeveType === 'half' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ padding: '6px 14px', fontSize: '11px', borderRadius: '20px' }}
+              onClick={() => handleSleeveTypeChange('half')}
+            >
+              Half Sleeve ({metadata?.raglanStyle ? "19x17\"" : "19x11\""})
+            </button>
+            <button 
+              className={`btn ${previewSleeveType === 'full' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ padding: '6px 14px', fontSize: '11px', borderRadius: '20px' }}
+              onClick={() => handleSleeveTypeChange('full')}
+            >
+              Full Sleeve ({metadata?.raglanStyle ? "19x31\"" : "19x25\""})
+            </button>
+          </div>
+        )}
+        
+        {/* Zoom Controls Bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', marginBottom: '4px' }}>
+          <button 
+            className="btn btn-secondary" 
+            style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
+            title="Zoom Out"
+          >
+            <ZoomOut size={14} />
+          </button>
+          <span style={{ fontSize: '13px', fontWeight: '600', minWidth: '50px', textAlign: 'center', color: 'var(--text-primary)' }}>
+            {Math.round(zoom * 100)}%
+          </span>
+          <button 
+            className="btn btn-secondary" 
+            style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => setZoom(Math.min(3, zoom + 0.25))}
+            title="Zoom In"
+          >
+            <ZoomIn size={14} />
+          </button>
+          <button 
+            className="btn btn-secondary" 
+            style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: '#00f0ff' }}
+            onClick={handleFitToScreen}
+            title="Fit Full View to Screen (Ctrl+0)"
+          >
+            <Maximize2 size={12} /> Fit View (Ctrl+0)
+          </button>
+          {zoom !== 1 && (
+            <button 
+              className="btn btn-secondary" 
+              style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)' }}
+              onClick={() => setZoom(1)}
+              title="Reset Zoom to 100%"
+            >
+              <RotateCcw size={12} /> 100%
+            </button>
+          )}
+        </div>
+
+        {/* Global Invisible Image File Input for Double Click / Button Upload */}
+        <input 
+          ref={fileInputRef} 
+          type="file" 
+          onChange={handleFileUpload} 
+          accept="image/*" 
+          style={{ display: 'none' }} 
+          id="global-artwork-file-input" 
+        />
+
+        {/* Scrollable Wrapper for Canvas Zoom */}
+        <div 
+          ref={scrollWrapperRef}
+          style={{ 
+            flexGrow: 1, 
+            width: '100%', 
+            height: '100%',
+            overflow: 'auto', 
+            minHeight: 0,
+            boxSizing: 'border-box',
+            cursor: (spaceKeyPressed || activeTool === 'pan') ? (panStart ? 'grabbing' : 'grab') : ((zKeyPressed || activeTool === 'zoom') ? (dragStart ? 'grabbing' : 'zoom-in') : 'default'),
+            userSelect: (spaceKeyPressed || activeTool === 'pan' || zKeyPressed || activeTool === 'zoom') ? 'none' : 'auto',
+            position: 'relative'
+          }}
+          onWheel={(e) => {
+            e.preventDefault();
+            const sensitivity = 0.0015;
+            const newZoom = Math.min(3, Math.max(0.5, zoom - e.deltaY * sensitivity));
+            setZoom(newZoom);
+          }}
+          onMouseDown={(e) => {
+            if ((spaceKeyPressed || activeTool === 'pan') && e.button === 0) {
+              e.preventDefault();
+              if (scrollWrapperRef.current) {
+                setPanStart({
+                  scrollLeft: scrollWrapperRef.current.scrollLeft,
+                  scrollTop: scrollWrapperRef.current.scrollTop,
+                  x: e.clientX,
+                  y: e.clientY
+                });
+              }
+            } else if ((zKeyPressed || activeTool === 'zoom') && e.button === 0) {
+              e.preventDefault();
+              setDragStart({ x: e.clientX, y: e.clientY, zoom: zoom });
+            }
+          }}
+          onMouseMove={(e) => {
+            if (panStart) {
+              e.preventDefault();
+              const deltaX = e.clientX - panStart.x;
+              const deltaY = e.clientY - panStart.y;
+              if (scrollWrapperRef.current) {
+                scrollWrapperRef.current.scrollLeft = panStart.scrollLeft - deltaX;
+                scrollWrapperRef.current.scrollTop = panStart.scrollTop - deltaY;
+              }
+            } else if (dragStart) {
+              e.preventDefault();
+              const deltaX = e.clientX - dragStart.x;
+              const deltaY = dragStart.y - e.clientY;
+              const dragDistance = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
+              const sensitivity = 0.008;
+              const newZoom = Math.min(3, Math.max(0.5, dragStart.zoom + dragDistance * sensitivity));
+              setZoom(newZoom);
+            }
+          }}
+          onMouseUp={() => {
+            setDragStart(null);
+            setPanStart(null);
+          }}
+          onMouseLeave={() => {
+            setDragStart(null);
+            setPanStart(null);
+          }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          {/* Centering inner container with full 360-degree corner pan space */}
+          <div 
+            onDoubleClick={() => fileInputRef.current?.click()}
+            title="Double-click canvas to upload artwork background image"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: '100%',
+              minHeight: '100%',
+              width: zoom > 1 ? `${Math.max(width * zoom + 400, 1200)}px` : '100%',
+              height: zoom > 1 ? `${Math.max(height * zoom + 400, 900)}px` : '100%',
+              padding: zoom > 1 ? `${Math.max(160, 260 * zoom)}px` : '24px',
+              boxSizing: 'border-box',
+              position: 'relative'
+            }}
+          >
+            {activeTab === 'threeD' ? (
+              <div style={{ width: '100%', height: '100%', minHeight: '450px', flexGrow: 1 }}>
+                <ThreeDPreview 
+                  designConfig={designConfig} 
+                  renderPanelToCanvas={renderPanelToCanvas}
+                  previewSleeveType={previewSleeveType}
+                  prefTrigger={prefTrigger}
+                  zoom={zoom}
+                />
+              </div>
+            ) : (
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                {/* Double click helper badge */}
+                <div 
+                  className="absolute -top-9 left-1/2 -translate-x-1/2 z-20 pointer-events-none px-3 py-1 rounded-full bg-slate-950/90 border border-cyan-400/40 text-cyan-300 text-[11px] font-bold shadow-xl backdrop-blur-md flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                  style={{ pointerEvents: 'auto' }}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <span>💡 Double-click canvas to upload artwork image</span>
+                </div>
+
+                <canvas 
+                  ref={canvasRef} 
+                  onMouseDown={handleCanvasMouseDown}
+                  onMouseMove={handleCanvasMouseMove}
+                  onMouseUp={handleCanvasMouseUp}
+                  onMouseLeave={() => {
+                    setCursorPos(null);
+                    isDraggingTextRef.current = false;
+                  }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
+                  title="Double-click to upload artwork background image"
+                  style={{ 
+                    borderRadius: '8px', 
+                    border: '2px solid rgba(0, 240, 255, 0.5)', 
+                    boxShadow: '0 0 50px rgba(0,0,0,0.95)',
+                    cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : 'pointer',
+                    width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                    height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                    maxWidth: 'none',
+                    maxHeight: 'none',
+                    objectFit: 'contain',
+                    flexShrink: 0
+                  }} 
+                />
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Mock inputs for testing positions */}
+        <div style={{ display: 'flex', gap: '12px', width: '100%', maxWidth: '360px' }}>
+          <div style={{ flex: 1 }}>
+            <input 
+              type="text" 
+              className="form-input" 
+              placeholder="Test Name" 
+              value={previewName} 
+              onChange={(e) => setPreviewName(e.target.value)} 
+              title="Change the preview player name overlay" 
+            />
+          </div>
+          <div style={{ width: '80px' }}>
+            <input 
+              type="text" 
+              className="form-input" 
+              placeholder="Test #" 
+              value={previewNumber} 
+              onChange={(e) => setPreviewNumber(e.target.value)} 
+              title="Change the preview player number overlay"
+            />
+          </div>
+        </div>
+      </div>
+
+
       {/* CorelDRAW Right Docker Panel (Strict Single Vertical Column) */}
       <div 
         className="cd-docker-panel" 
@@ -3419,337 +3752,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               </div>
             </div>
           )}
-        </div>
-      </div>
-        <div className="cd-canvas-area">
-
-
-          {/* 2D Canvas Mock Renderer */}
-          <div 
-            className="cd-canvas-container" 
-            style={{ 
-              display: 'flex',
-              flexDirection: 'column', 
-              alignItems: 'center',
-              width: '100%',
-              height: '100%',
-              flex: '1 1 0%',
-              minWidth: 0,
-              minHeight: 0,
-              gap: '12px',
-              position: 'relative',
-              border: isDragging ? '2px dashed var(--color-primary)' : 'none',
-              background: isDragging ? 'rgba(155, 77, 255, 0.03)' : 'transparent',
-              transition: 'all 0.2s ease-in-out'
-            }}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setIsDragging(true);
-        }}
-        onDragLeave={() => {
-          setIsDragging(false);
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          setIsDragging(false);
-          const file = e.dataTransfer.files?.[0];
-          if (file && file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              const url = event.target?.result as string;
-              if (activeTab.startsWith('sleeve')) {
-                if (previewSleeveType === 'full') {
-                  updateActivePanel({
-                    backgroundType: 'upload',
-                    uploadedFileFullUrl: url
-                  });
-                } else {
-                  updateActivePanel({
-                    backgroundType: 'upload',
-                    uploadedFileHalfUrl: url
-                  });
-                }
-              } else {
-                updateActivePanel({
-                  backgroundType: 'upload',
-                  uploadedFileUrl: url
-                });
-              }
-            };
-            reader.readAsDataURL(file);
-          }
-        }}
-      >
-        {isDragging && (
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(10, 10, 15, 0.85)',
-            zIndex: 100,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '12px',
-            pointerEvents: 'none',
-            border: '2px dashed var(--color-primary)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)'
-          }}>
-            <Upload size={48} style={{ color: 'var(--color-primary)', marginBottom: '16px' }} />
-            <h3 style={{ color: 'white', marginBottom: '8px' }}>Drop Image Here</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Upload to active {activeTab === 'front' ? 'Front' : activeTab === 'back' ? 'Back' : activeTab === 'sleeveLeft' ? 'Left Sleeve' : activeTab === 'sleeveRight' ? 'Right Sleeve' : 'A4'} panel graphic</p>
-          </div>
-        )}
-
-        <div className="tab-btn-group" style={{ width: '100%', maxWidth: '640px' }}>
-          <button className={`tab-btn ${activeTab === 'front' ? 'active' : ''}`} onClick={() => setActiveTab('front')}>Front</button>
-          <button className={`tab-btn ${activeTab === 'back' ? 'active' : ''}`} onClick={() => setActiveTab('back')}>Back</button>
-          <button className={`tab-btn ${activeTab === 'sleeveLeft' ? 'active' : ''}`} onClick={() => setActiveTab('sleeveLeft')}>Left Sleeve</button>
-          <button className={`tab-btn ${activeTab === 'sleeveRight' ? 'active' : ''}`} onClick={() => setActiveTab('sleeveRight')}>Right Sleeve</button>
-          <button className={`tab-btn ${activeTab === 'a4Print' ? 'active' : ''}`} onClick={() => setActiveTab('a4Print')}>A4 Print</button>
-          <button 
-            className={`tab-btn flex items-center gap-1.5 ${activeTab === 'threeD' ? 'active' : ''}`} 
-            onClick={() => setActiveTab('threeD')}
-            style={{ borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '12px' }}
-          >
-            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-            3D View
-          </button>
-        </div>
-        
-        {(activeTab === 'sleeveLeft' || activeTab === 'sleeveRight') && (
-          <div style={{ display: 'flex', gap: '8px', marginTop: '4px', marginBottom: '4px' }}>
-            <button 
-              className={`btn ${previewSleeveType === 'half' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ padding: '6px 14px', fontSize: '11px', borderRadius: '20px' }}
-              onClick={() => handleSleeveTypeChange('half')}
-            >
-              Half Sleeve ({metadata?.raglanStyle ? "19x17\"" : "19x11\""})
-            </button>
-            <button 
-              className={`btn ${previewSleeveType === 'full' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ padding: '6px 14px', fontSize: '11px', borderRadius: '20px' }}
-              onClick={() => handleSleeveTypeChange('full')}
-            >
-              Full Sleeve ({metadata?.raglanStyle ? "19x31\"" : "19x25\""})
-            </button>
-          </div>
-        )}
-        
-        {/* Zoom Controls Bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', marginBottom: '4px' }}>
-          <button 
-            className="btn btn-secondary" 
-            style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
-            title="Zoom Out"
-          >
-            <ZoomOut size={14} />
-          </button>
-          <span style={{ fontSize: '13px', fontWeight: '600', minWidth: '50px', textAlign: 'center', color: 'var(--text-primary)' }}>
-            {Math.round(zoom * 100)}%
-          </span>
-          <button 
-            className="btn btn-secondary" 
-            style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onClick={() => setZoom(Math.min(3, zoom + 0.25))}
-            title="Zoom In"
-          >
-            <ZoomIn size={14} />
-          </button>
-          <button 
-            className="btn btn-secondary" 
-            style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: '#00f0ff' }}
-            onClick={handleFitToScreen}
-            title="Fit Full View to Screen (Ctrl+0)"
-          >
-            <Maximize2 size={12} /> Fit View (Ctrl+0)
-          </button>
-          {zoom !== 1 && (
-            <button 
-              className="btn btn-secondary" 
-              style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)' }}
-              onClick={() => setZoom(1)}
-              title="Reset Zoom to 100%"
-            >
-              <RotateCcw size={12} /> 100%
-            </button>
-          )}
-        </div>
-
-        {/* Global Invisible Image File Input for Double Click / Button Upload */}
-        <input 
-          ref={fileInputRef} 
-          type="file" 
-          onChange={handleFileUpload} 
-          accept="image/*" 
-          style={{ display: 'none' }} 
-          id="global-artwork-file-input" 
-        />
-
-        {/* Scrollable Wrapper for Canvas Zoom */}
-        <div 
-          ref={scrollWrapperRef}
-          style={{ 
-            flexGrow: 1, 
-            width: '100%', 
-            height: '100%',
-            overflow: 'auto', 
-            minHeight: 0,
-            boxSizing: 'border-box',
-            cursor: (spaceKeyPressed || activeTool === 'pan') ? (panStart ? 'grabbing' : 'grab') : ((zKeyPressed || activeTool === 'zoom') ? (dragStart ? 'grabbing' : 'zoom-in') : 'default'),
-            userSelect: (spaceKeyPressed || activeTool === 'pan' || zKeyPressed || activeTool === 'zoom') ? 'none' : 'auto',
-            position: 'relative'
-          }}
-          onWheel={(e) => {
-            e.preventDefault();
-            const sensitivity = 0.0015;
-            const newZoom = Math.min(3, Math.max(0.5, zoom - e.deltaY * sensitivity));
-            setZoom(newZoom);
-          }}
-          onMouseDown={(e) => {
-            if ((spaceKeyPressed || activeTool === 'pan') && e.button === 0) {
-              e.preventDefault();
-              if (scrollWrapperRef.current) {
-                setPanStart({
-                  scrollLeft: scrollWrapperRef.current.scrollLeft,
-                  scrollTop: scrollWrapperRef.current.scrollTop,
-                  x: e.clientX,
-                  y: e.clientY
-                });
-              }
-            } else if ((zKeyPressed || activeTool === 'zoom') && e.button === 0) {
-              e.preventDefault();
-              setDragStart({ x: e.clientX, y: e.clientY, zoom: zoom });
-            }
-          }}
-          onMouseMove={(e) => {
-            if (panStart) {
-              e.preventDefault();
-              const deltaX = e.clientX - panStart.x;
-              const deltaY = e.clientY - panStart.y;
-              if (scrollWrapperRef.current) {
-                scrollWrapperRef.current.scrollLeft = panStart.scrollLeft - deltaX;
-                scrollWrapperRef.current.scrollTop = panStart.scrollTop - deltaY;
-              }
-            } else if (dragStart) {
-              e.preventDefault();
-              const deltaX = e.clientX - dragStart.x;
-              const deltaY = dragStart.y - e.clientY;
-              const dragDistance = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
-              const sensitivity = 0.008;
-              const newZoom = Math.min(3, Math.max(0.5, dragStart.zoom + dragDistance * sensitivity));
-              setZoom(newZoom);
-            }
-          }}
-          onMouseUp={() => {
-            setDragStart(null);
-            setPanStart(null);
-          }}
-          onMouseLeave={() => {
-            setDragStart(null);
-            setPanStart(null);
-          }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          {/* Centering inner container with full 360-degree corner pan space */}
-          <div 
-            onDoubleClick={() => fileInputRef.current?.click()}
-            title="Double-click canvas to upload artwork background image"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minWidth: '100%',
-              minHeight: '100%',
-              width: zoom > 1 ? `${Math.max(width * zoom + 400, 1200)}px` : '100%',
-              height: zoom > 1 ? `${Math.max(height * zoom + 400, 900)}px` : '100%',
-              padding: zoom > 1 ? `${Math.max(160, 260 * zoom)}px` : '24px',
-              boxSizing: 'border-box',
-              position: 'relative'
-            }}
-          >
-            {activeTab === 'threeD' ? (
-              <div style={{ width: '100%', height: '100%', minHeight: '450px', flexGrow: 1 }}>
-                <ThreeDPreview 
-                  designConfig={designConfig} 
-                  renderPanelToCanvas={renderPanelToCanvas}
-                  previewSleeveType={previewSleeveType}
-                  prefTrigger={prefTrigger}
-                  zoom={zoom}
-                />
-              </div>
-            ) : (
-              <div style={{ position: 'relative', display: 'inline-block' }}>
-                {/* Double click helper badge */}
-                <div 
-                  className="absolute -top-9 left-1/2 -translate-x-1/2 z-20 pointer-events-none px-3 py-1 rounded-full bg-slate-950/90 border border-cyan-400/40 text-cyan-300 text-[11px] font-bold shadow-xl backdrop-blur-md flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
-                  style={{ pointerEvents: 'auto' }}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <span>💡 Double-click canvas to upload artwork image</span>
-                </div>
-
-                <canvas 
-                  ref={canvasRef} 
-                  onMouseDown={handleCanvasMouseDown}
-                  onMouseMove={handleCanvasMouseMove}
-                  onMouseUp={handleCanvasMouseUp}
-                  onMouseLeave={() => {
-                    setCursorPos(null);
-                    isDraggingTextRef.current = false;
-                  }}
-                  onDoubleClick={(e) => {
-                    e.stopPropagation();
-                    fileInputRef.current?.click();
-                  }}
-                  title="Double-click to upload artwork background image"
-                  style={{ 
-                    borderRadius: '8px', 
-                    border: '2px solid rgba(0, 240, 255, 0.5)', 
-                    boxShadow: '0 0 50px rgba(0,0,0,0.95)',
-                    cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : 'pointer',
-                    width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                    height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                    maxWidth: 'none',
-                    maxHeight: 'none',
-                    objectFit: 'contain',
-                    flexShrink: 0
-                  }} 
-                />
-              </div>
-            )}
-          </div>
-        </div>
-        
-        {/* Mock inputs for testing positions */}
-        <div style={{ display: 'flex', gap: '12px', width: '100%', maxWidth: '360px' }}>
-          <div style={{ flex: 1 }}>
-            <input 
-              type="text" 
-              className="form-input" 
-              placeholder="Test Name" 
-              value={previewName} 
-              onChange={(e) => setPreviewName(e.target.value)} 
-              title="Change the preview player name overlay" 
-            />
-          </div>
-          <div style={{ width: '80px' }}>
-            <input 
-              type="text" 
-              className="form-input" 
-              placeholder="Test #" 
-              value={previewNumber} 
-              onChange={(e) => setPreviewNumber(e.target.value)} 
-              title="Change the preview player number overlay"
-            />
-          </div>
         </div>
       </div>
       </div>
