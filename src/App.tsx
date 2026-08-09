@@ -11,6 +11,7 @@ import WebStudio from "./pages/WebStudio.tsx";
 import Academy from "./pages/Academy.tsx";
 import Plugins from "./pages/Plugins.tsx";
 import OrderManagement from "./pages/OrderManagement.tsx";
+import { FivenestAiWidget } from "@/components/FivenestAiWidget";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -66,6 +67,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <FivenestAiWidget />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/success" element={<Success />} />
