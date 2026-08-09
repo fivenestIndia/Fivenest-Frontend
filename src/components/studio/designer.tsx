@@ -3755,6 +3755,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         </div>
       </div>
     </div>
+    </div>
 
       {/* 4. COREL COLOR PALETTE STRIP */}
       <ColorPalette
@@ -3784,7 +3785,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         onClose={() => setShowPanelEditorModal(false)} 
         onDatabaseChange={() => setPrefTrigger(prev => prev + 1)}
       />
-      </div>
     </div>
   );
 };
