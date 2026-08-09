@@ -213,7 +213,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   });
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
     zip: true,
-    overlays: false,
+    overlays: true,
     presets: true,
     trim: true,
     guidelines: true,
@@ -1860,38 +1860,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         />
 
         <div className="cd-canvas-area">
-          {/* Top Artwork Upload & Instruction Bar */}
-          <div 
-            style={{ 
-              width: '100%',
-              maxWidth: '840px',
-              padding: '6px 14px',
-              background: 'linear-gradient(90deg, rgba(0, 240, 255, 0.1) 0%, rgba(139, 92, 246, 0.08) 100%)',
-              border: '1px solid rgba(0, 240, 255, 0.35)',
-              borderRadius: '24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '12px',
-              backdropFilter: 'blur(10px)',
-              boxShadow: '0 4px 20px rgba(0, 240, 255, 0.12)',
-              margin: '2px 0 6px 0',
-              flexShrink: 0
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#00f0ff', fontWeight: 'bold' }}>
-              <span style={{ fontSize: '14px' }}>💡</span>
-              <span><strong>Artwork Graphic Upload:</strong> Double-click canvas or press <code style={{ background: 'rgba(0,240,255,0.2)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(0,240,255,0.4)', color: '#fff' }}>Ctrl+I</code> to select image file</span>
-            </div>
-            <button 
-              type="button"
-              className="btn btn-primary"
-              style={{ padding: '4px 14px', fontSize: '11px', fontWeight: 'bold', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload size={13} /> Upload {activeTab.toUpperCase()} Image
-            </button>
-          </div>
+
 
           {/* 2D Canvas Mock Renderer */}
           <div 
