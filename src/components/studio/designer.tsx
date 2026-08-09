@@ -2059,53 +2059,74 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           </div>
         )}
         
-        {/* Zoom Controls Bar */}
+        {/* Controls Bar: 2D Zoom Bar OR 3D Viewport Bar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', marginBottom: '4px' }}>
-          <button 
-            className="btn btn-secondary" 
-            style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
-            title="Zoom Out"
-          >
-            <ZoomOut size={14} />
-          </button>
-          <span style={{ fontSize: '13px', fontWeight: '600', minWidth: '50px', textAlign: 'center', color: 'var(--text-primary)' }}>
-            {Math.round(zoom * 100)}%
-          </span>
-          <button 
-            className="btn btn-secondary" 
-            style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onClick={() => setZoom(Math.min(3, zoom + 0.25))}
-            title="Zoom In"
-          >
-            <ZoomIn size={14} />
-          </button>
-          <button 
-            className="btn btn-secondary" 
-            style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: '#00f0ff' }}
-            onClick={handleFitToScreen}
-            title="Fit Full View to Screen (Ctrl+0)"
-          >
-            <Maximize2 size={12} /> Fit View (Ctrl+0)
-          </button>
-          <button 
-            className={`btn ${activeTab === 'threeD' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '6px 12px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px' }}
-            onClick={() => setActiveTab(prev => prev === 'threeD' ? 'dual' : 'threeD')}
-            title="Toggle 3D Jersey Preview"
-          >
-            <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-            {activeTab === 'threeD' ? 'Exit 3D View' : '3D View'}
-          </button>
-          {zoom !== 1 && (
-            <button 
-              className="btn btn-secondary" 
-              style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)' }}
-              onClick={() => setZoom(1)}
-              title="Reset Zoom to 100%"
-            >
-              <RotateCcw size={12} /> 100%
-            </button>
+          {activeTab === 'threeD' ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(15, 23, 42, 0.85)', padding: '4px 12px', borderRadius: '20px', border: '1px solid rgba(0, 240, 255, 0.3)' }}>
+                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                <span style={{ fontSize: '11px', fontWeight: '700', color: '#38bdf8', letterSpacing: '0.5px' }}>
+                  3D REAL-TIME VIEWPORT ACTIVE (BLENDER CONTROLS)
+                </span>
+              </div>
+              <button 
+                className="btn btn-primary"
+                style={{ padding: '6px 14px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', fontWeight: 'bold' }}
+                onClick={() => setActiveTab('dual')}
+                title="Exit 3D View and Return to 2D Spread Layout"
+              >
+                ✕ Exit 3D View
+              </button>
+            </>
+          ) : (
+            <>
+              <button 
+                className="btn btn-secondary" 
+                style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
+                title="Zoom Out"
+              >
+                <ZoomOut size={14} />
+              </button>
+              <span style={{ fontSize: '13px', fontWeight: '600', minWidth: '50px', textAlign: 'center', color: 'var(--text-primary)' }}>
+                {Math.round(zoom * 100)}%
+              </span>
+              <button 
+                className="btn btn-secondary" 
+                style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                onClick={() => setZoom(Math.min(3, zoom + 0.25))}
+                title="Zoom In"
+              >
+                <ZoomIn size={14} />
+              </button>
+              <button 
+                className="btn btn-secondary" 
+                style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: '#00f0ff' }}
+                onClick={handleFitToScreen}
+                title="Fit Full View to Screen (Ctrl+0)"
+              >
+                <Maximize2 size={12} /> Fit View (Ctrl+0)
+              </button>
+              <button 
+                className="btn btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px' }}
+                onClick={() => setActiveTab('threeD')}
+                title="Enter 3D Jersey Preview"
+              >
+                <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                3D View
+              </button>
+              {zoom !== 1 && (
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)' }}
+                  onClick={() => setZoom(1)}
+                  title="Reset Zoom to 100%"
+                >
+                  <RotateCcw size={12} /> 100%
+                </button>
+              )}
+            </>
           )}
         </div>
 
@@ -2119,338 +2140,340 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           id="global-artwork-file-input" 
         />
 
-        {/* Scrollable Wrapper for Canvas Zoom */}
-        <div 
-          ref={scrollWrapperRef}
-          style={{ 
-            flexGrow: 1, 
-            width: '100%', 
-            height: '100%',
-            overflow: activeTab === 'threeD' ? 'hidden' : 'auto', 
-            minHeight: 0,
-            boxSizing: 'border-box',
-            cursor: activeTab === 'threeD' ? 'grab' : ((spaceKeyPressed || activeTool === 'pan') ? (panStart ? 'grabbing' : 'grab') : ((zKeyPressed || activeTool === 'zoom') ? (dragStart ? 'grabbing' : 'zoom-in') : 'default')),
-            userSelect: (spaceKeyPressed || activeTool === 'pan' || zKeyPressed || activeTool === 'zoom') ? 'none' : 'auto',
-            position: 'relative'
-          }}
-          onWheel={(e) => {
-            if (activeTab === 'threeD') return;
-            e.preventDefault();
-            const wrapper = scrollWrapperRef.current;
-            if (!wrapper) return;
-
-            const sensitivity = 0.0015;
-            const newZoom = Math.min(3, Math.max(0.5, zoom - e.deltaY * sensitivity));
-            if (newZoom === zoom) return;
-
-            const rect = wrapper.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-
-            const scrollX = wrapper.scrollLeft;
-            const scrollY = wrapper.scrollTop;
-
-            const contentX = (scrollX + mouseX) / zoom;
-            const contentY = (scrollY + mouseY) / zoom;
-
-            setZoom(newZoom);
-
-            requestAnimationFrame(() => {
-              if (wrapper) {
-                wrapper.scrollLeft = contentX * newZoom - mouseX;
-                wrapper.scrollTop = contentY * newZoom - mouseY;
-              }
-            });
-          }}
-          onMouseDown={(e) => {
-            if ((spaceKeyPressed || activeTool === 'pan') && e.button === 0) {
-              e.preventDefault();
-              if (scrollWrapperRef.current) {
-                setPanStart({
-                  scrollLeft: scrollWrapperRef.current.scrollLeft,
-                  scrollTop: scrollWrapperRef.current.scrollTop,
-                  x: e.clientX,
-                  y: e.clientY
-                });
-              }
-            } else if ((zKeyPressed || activeTool === 'zoom') && e.button === 0) {
-              e.preventDefault();
-              setDragStart({ x: e.clientX, y: e.clientY, zoom: zoom });
-            }
-          }}
-          onMouseMove={(e) => {
-            if (panStart) {
-              e.preventDefault();
-              const deltaX = e.clientX - panStart.x;
-              const deltaY = e.clientY - panStart.y;
-              if (scrollWrapperRef.current) {
-                scrollWrapperRef.current.scrollLeft = panStart.scrollLeft - deltaX;
-                scrollWrapperRef.current.scrollTop = panStart.scrollTop - deltaY;
-              }
-            } else if (dragStart) {
-              e.preventDefault();
-              const deltaX = e.clientX - dragStart.x;
-              const deltaY = dragStart.y - e.clientY;
-              const dragDistance = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
-              const sensitivity = 0.008;
-              const newZoom = Math.min(3, Math.max(0.5, dragStart.zoom + dragDistance * sensitivity));
-              setZoom(newZoom);
-            }
-          }}
-          onMouseUp={() => {
-            setDragStart(null);
-            setPanStart(null);
-          }}
-          onMouseLeave={() => {
-            setDragStart(null);
-            setPanStart(null);
-          }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          {/* Centering inner container with full 360-degree corner pan space */}
+        {/* 3D VIEWPORT: 100% Locked Container (Zero DOM zoom, Three.js OrbitControls only) */}
+        {activeTab === 'threeD' ? (
+          <div style={{ width: '100%', height: '100%', flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden', padding: '8px', boxSizing: 'border-box' }}>
+            <ThreeDPreview 
+              designConfig={designConfig} 
+              renderPanelToCanvas={renderPanelToCanvas}
+              previewSleeveType={previewSleeveType}
+              prefTrigger={prefTrigger}
+              zoom={1}
+            />
+          </div>
+        ) : (
+          /* 2D CANVAS WORKSPACE: Scrollable Wrapper with Cursor-Centered Zoom */
           <div 
-            onDoubleClick={() => activeTab !== 'threeD' && fileInputRef.current?.click()}
-            title={activeTab !== 'threeD' ? "Double-click canvas to upload artwork background image" : ""}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minWidth: '100%',
-              minHeight: '100%',
-              width: activeTab === 'threeD' ? '100%' : (zoom > 1 ? `${Math.max(width * zoom + 400, 1200)}px` : '100%'),
-              height: activeTab === 'threeD' ? '100%' : (zoom > 1 ? `${Math.max(height * zoom + 400, 900)}px` : '100%'),
-              padding: activeTab === 'threeD' ? '0px' : (zoom > 1 ? `${Math.max(160, 260 * zoom)}px` : '24px'),
+            ref={scrollWrapperRef}
+            style={{ 
+              flexGrow: 1, 
+              width: '100%', 
+              height: '100%',
+              overflow: 'auto', 
+              minHeight: 0,
               boxSizing: 'border-box',
+              cursor: ((spaceKeyPressed || activeTool === 'pan') ? (panStart ? 'grabbing' : 'grab') : ((zKeyPressed || activeTool === 'zoom') ? (dragStart ? 'grabbing' : 'zoom-in') : 'default')),
+              userSelect: (spaceKeyPressed || activeTool === 'pan' || zKeyPressed || activeTool === 'zoom') ? 'none' : 'auto',
               position: 'relative'
             }}
+            onWheel={(e) => {
+              e.preventDefault();
+              const wrapper = scrollWrapperRef.current;
+              if (!wrapper) return;
+
+              const sensitivity = 0.0015;
+              const newZoom = Math.min(3, Math.max(0.5, zoom - e.deltaY * sensitivity));
+              if (newZoom === zoom) return;
+
+              const rect = wrapper.getBoundingClientRect();
+              const mouseX = e.clientX - rect.left;
+              const mouseY = e.clientY - rect.top;
+
+              const scrollX = wrapper.scrollLeft;
+              const scrollY = wrapper.scrollTop;
+
+              const contentX = (scrollX + mouseX) / zoom;
+              const contentY = (scrollY + mouseY) / zoom;
+
+              setZoom(newZoom);
+
+              requestAnimationFrame(() => {
+                if (wrapper) {
+                  wrapper.scrollLeft = contentX * newZoom - mouseX;
+                  wrapper.scrollTop = contentY * newZoom - mouseY;
+                }
+              });
+            }}
+            onMouseDown={(e) => {
+              if ((spaceKeyPressed || activeTool === 'pan') && e.button === 0) {
+                e.preventDefault();
+                if (scrollWrapperRef.current) {
+                  setPanStart({
+                    scrollLeft: scrollWrapperRef.current.scrollLeft,
+                    scrollTop: scrollWrapperRef.current.scrollTop,
+                    x: e.clientX,
+                    y: e.clientY
+                  });
+                }
+              } else if ((zKeyPressed || activeTool === 'zoom') && e.button === 0) {
+                e.preventDefault();
+                setDragStart({ x: e.clientX, y: e.clientY, zoom: zoom });
+              }
+            }}
+            onMouseMove={(e) => {
+              if (panStart) {
+                e.preventDefault();
+                const deltaX = e.clientX - panStart.x;
+                const deltaY = e.clientY - panStart.y;
+                if (scrollWrapperRef.current) {
+                  scrollWrapperRef.current.scrollLeft = panStart.scrollLeft - deltaX;
+                  scrollWrapperRef.current.scrollTop = panStart.scrollTop - deltaY;
+                }
+              } else if (dragStart) {
+                e.preventDefault();
+                const deltaX = e.clientX - dragStart.x;
+                const deltaY = dragStart.y - e.clientY;
+                const dragDistance = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
+                const sensitivity = 0.008;
+                const newZoom = Math.min(3, Math.max(0.5, dragStart.zoom + dragDistance * sensitivity));
+                setZoom(newZoom);
+              }
+            }}
+            onMouseUp={() => {
+              setDragStart(null);
+              setPanStart(null);
+            }}
+            onMouseLeave={() => {
+              setDragStart(null);
+              setPanStart(null);
+            }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
           >
-            {activeTab === 'dual' ? (
-              <div style={{ display: 'flex', flexDirection: 'row', gap: '24px', alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'nowrap', padding: '0 20px' }}>
-                {/* 1. LEFT SLEEVE CANVAS */}
-                <div 
-                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                  onClick={() => setDualActivePanel('sleeveLeft')}
-                >
+            {/* Centering inner container with full 360-degree corner pan space */}
+            <div 
+              onDoubleClick={() => fileInputRef.current?.click()}
+              title="Double-click canvas to upload artwork background image"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minWidth: '100%',
+                minHeight: '100%',
+                width: zoom > 1 ? `${Math.max(width * zoom + 400, 1200)}px` : '100%',
+                height: zoom > 1 ? `${Math.max(height * zoom + 400, 900)}px` : '100%',
+                padding: zoom > 1 ? `${Math.max(160, 260 * zoom)}px` : '24px',
+                boxSizing: 'border-box',
+                position: 'relative'
+              }}
+            >
+              {activeTab === 'dual' ? (
+                <div style={{ display: 'flex', flexDirection: 'row', gap: '24px', alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'nowrap', padding: '0 20px' }}>
+                  {/* 1. LEFT SLEEVE CANVAS */}
                   <div 
-                    className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
-                      dualActivePanel === 'sleeveLeft' 
-                        ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/30' 
-                        : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
-                    }`}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                    onClick={() => setDualActivePanel('sleeveLeft')}
                   >
-                    <span>🧤 LEFT SLEEVE ({sleeveSpreadPhysicalW}" × {sleeveSpreadPhysicalH}")</span>
-                    {dualActivePanel === 'sleeveLeft' && <span className="text-[10px] text-cyan-400 font-semibold">• Active</span>}
+                    <div 
+                      className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
+                        dualActivePanel === 'sleeveLeft' 
+                          ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/30' 
+                          : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <span>🧤 LEFT SLEEVE ({sleeveSpreadPhysicalW}" × {sleeveSpreadPhysicalH}")</span>
+                      {dualActivePanel === 'sleeveLeft' && <span className="text-[10px] text-cyan-400 font-semibold">• Active</span>}
+                    </div>
+
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <canvas 
+                        ref={leftSleeveCanvasRef} 
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setDualActivePanel('sleeveLeft');
+                          fileInputRef.current?.click();
+                        }}
+                        title="Left Sleeve - Double-click to upload artwork image"
+                        style={{ 
+                          borderRadius: '8px', 
+                          border: dualActivePanel === 'sleeveLeft' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
+                          boxShadow: dualActivePanel === 'sleeveLeft' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
+                          cursor: 'pointer',
+                          width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          maxWidth: 'none',
+                          maxHeight: 'none',
+                          objectFit: 'contain',
+                          flexShrink: 0
+                        }} 
+                      />
+                    </div>
                   </div>
 
-                  <div style={{ position: 'relative', display: 'inline-block' }}>
-                    <canvas 
-                      ref={leftSleeveCanvasRef} 
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        setDualActivePanel('sleeveLeft');
-                        fileInputRef.current?.click();
-                      }}
-                      title="Left Sleeve - Double-click to upload artwork image"
-                      style={{ 
-                        borderRadius: '8px', 
-                        border: dualActivePanel === 'sleeveLeft' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
-                        boxShadow: dualActivePanel === 'sleeveLeft' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
-                        cursor: 'pointer',
-                        width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                        height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                        maxWidth: 'none',
-                        maxHeight: 'none',
-                        objectFit: 'contain',
-                        flexShrink: 0
-                      }} 
-                    />
-                  </div>
-                </div>
-
-                {/* 2. FRONT PANEL CANVAS */}
-                <div 
-                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                  onClick={() => setDualActivePanel('front')}
-                >
+                  {/* 2. FRONT PANEL CANVAS */}
                   <div 
-                    className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
-                      dualActivePanel === 'front' 
-                        ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/30' 
-                        : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
-                    }`}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                    onClick={() => setDualActivePanel('front')}
                   >
-                    <span>👕 FRONT PANEL ({designConfig.front.customWidth || 22}" × {designConfig.front.customHeight || 30}")</span>
-                    {dualActivePanel === 'front' && <span className="text-[10px] text-cyan-400 font-semibold">• Active</span>}
+                    <div 
+                      className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
+                        dualActivePanel === 'front' 
+                          ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/30' 
+                          : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <span>👕 FRONT PANEL ({designConfig.front.customWidth || 22}" × {designConfig.front.customHeight || 30}")</span>
+                      {dualActivePanel === 'front' && <span className="text-[10px] text-cyan-400 font-semibold">• Active</span>}
+                    </div>
+
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <canvas 
+                        ref={frontCanvasRef} 
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setDualActivePanel('front');
+                          fileInputRef.current?.click();
+                        }}
+                        title="Front Panel - Double-click to upload artwork image"
+                        style={{ 
+                          borderRadius: '8px', 
+                          border: dualActivePanel === 'front' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
+                          boxShadow: dualActivePanel === 'front' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
+                          cursor: 'pointer',
+                          width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          maxWidth: 'none',
+                          maxHeight: 'none',
+                          objectFit: 'contain',
+                          flexShrink: 0
+                        }} 
+                      />
+                    </div>
                   </div>
 
-                  <div style={{ position: 'relative', display: 'inline-block' }}>
-                    <canvas 
-                      ref={frontCanvasRef} 
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        setDualActivePanel('front');
-                        fileInputRef.current?.click();
-                      }}
-                      title="Front Panel - Double-click to upload artwork image"
-                      style={{ 
-                        borderRadius: '8px', 
-                        border: dualActivePanel === 'front' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
-                        boxShadow: dualActivePanel === 'front' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
-                        cursor: 'pointer',
-                        width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                        height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                        maxWidth: 'none',
-                        maxHeight: 'none',
-                        objectFit: 'contain',
-                        flexShrink: 0
-                      }} 
-                    />
-                  </div>
-                </div>
-
-                {/* 3. BACK PANEL CANVAS */}
-                <div 
-                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                  onClick={() => setDualActivePanel('back')}
-                >
+                  {/* 3. BACK PANEL CANVAS */}
                   <div 
-                    className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
-                      dualActivePanel === 'back' 
-                        ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/30' 
-                        : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
-                    }`}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                    onClick={() => setDualActivePanel('back')}
                   >
-                    <span>👕 BACK PANEL ({designConfig.back.customWidth || 22}" × {designConfig.back.customHeight || 30}")</span>
-                    {dualActivePanel === 'back' && <span className="text-[10px] text-cyan-400 font-semibold">• Active</span>}
+                    <div 
+                      className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
+                        dualActivePanel === 'back' 
+                          ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/30' 
+                          : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <span>👕 BACK PANEL ({designConfig.back.customWidth || 22}" × {designConfig.back.customHeight || 30}")</span>
+                      {dualActivePanel === 'back' && <span className="text-[10px] text-cyan-400 font-semibold">• Active</span>}
+                    </div>
+
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <canvas 
+                        ref={backCanvasRef} 
+                        onMouseDown={handleCanvasMouseDown}
+                        onMouseMove={handleCanvasMouseMove}
+                        onMouseUp={handleCanvasMouseUp}
+                        onMouseLeave={() => {
+                          setCursorPos(null);
+                          isDraggingTextRef.current = false;
+                        }}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setDualActivePanel('back');
+                          fileInputRef.current?.click();
+                        }}
+                        title="Back Panel - Double-click to upload artwork, click & drag player name/number"
+                        style={{ 
+                          borderRadius: '8px', 
+                          border: dualActivePanel === 'back' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
+                          boxShadow: dualActivePanel === 'back' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
+                          cursor: 'pointer',
+                          width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          maxWidth: 'none',
+                          maxHeight: 'none',
+                          objectFit: 'contain',
+                          flexShrink: 0
+                        }} 
+                      />
+                    </div>
                   </div>
 
-                  <div style={{ position: 'relative', display: 'inline-block' }}>
-                    <canvas 
-                      ref={backCanvasRef} 
-                      onMouseDown={handleCanvasMouseDown}
-                      onMouseMove={handleCanvasMouseMove}
-                      onMouseUp={handleCanvasMouseUp}
-                      onMouseLeave={() => {
-                        setCursorPos(null);
-                        isDraggingTextRef.current = false;
-                      }}
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        setDualActivePanel('back');
-                        fileInputRef.current?.click();
-                      }}
-                      title="Back Panel - Double-click to upload artwork, click & drag player name/number"
-                      style={{ 
-                        borderRadius: '8px', 
-                        border: dualActivePanel === 'back' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
-                        boxShadow: dualActivePanel === 'back' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
-                        cursor: 'pointer',
-                        width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                        height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                        maxWidth: 'none',
-                        maxHeight: 'none',
-                        objectFit: 'contain',
-                        flexShrink: 0
-                      }} 
-                    />
-                  </div>
-                </div>
-
-                {/* 4. RIGHT SLEEVE CANVAS */}
-                <div 
-                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                  onClick={() => setDualActivePanel('sleeveRight')}
-                >
+                  {/* 4. RIGHT SLEEVE CANVAS */}
                   <div 
-                    className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
-                      dualActivePanel === 'sleeveRight' 
-                        ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/30' 
-                        : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
-                    }`}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                    onClick={() => setDualActivePanel('sleeveRight')}
                   >
-                    <span>🧤 RIGHT SLEEVE ({sleeveSpreadPhysicalW}" × {sleeveSpreadPhysicalH}")</span>
-                    {dualActivePanel === 'sleeveRight' && <span className="text-[10px] text-cyan-400 font-semibold">• Active</span>}
-                  </div>
+                    <div 
+                      className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
+                        dualActivePanel === 'sleeveRight' 
+                          ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/30' 
+                          : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <span>🧤 RIGHT SLEEVE ({sleeveSpreadPhysicalW}" × {sleeveSpreadPhysicalH}")</span>
+                      {dualActivePanel === 'sleeveRight' && <span className="text-[10px] text-cyan-400 font-semibold">• Active</span>}
+                    </div>
 
-                  <div style={{ position: 'relative', display: 'inline-block' }}>
-                    <canvas 
-                      ref={rightSleeveCanvasRef} 
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        setDualActivePanel('sleeveRight');
-                        fileInputRef.current?.click();
-                      }}
-                      title="Right Sleeve - Double-click to upload artwork image"
-                      style={{ 
-                        borderRadius: '8px', 
-                        border: dualActivePanel === 'sleeveRight' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
-                        boxShadow: dualActivePanel === 'sleeveRight' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
-                        cursor: 'pointer',
-                        width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                        height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                        maxWidth: 'none',
-                        maxHeight: 'none',
-                        objectFit: 'contain',
-                        flexShrink: 0
-                      }} 
-                    />
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <canvas 
+                        ref={rightSleeveCanvasRef} 
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setDualActivePanel('sleeveRight');
+                          fileInputRef.current?.click();
+                        }}
+                        title="Right Sleeve - Double-click to upload artwork image"
+                        style={{ 
+                          borderRadius: '8px', 
+                          border: dualActivePanel === 'sleeveRight' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
+                          boxShadow: dualActivePanel === 'sleeveRight' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
+                          cursor: 'pointer',
+                          width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          maxWidth: 'none',
+                          maxHeight: 'none',
+                          objectFit: 'contain',
+                          flexShrink: 0
+                        }} 
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : activeTab === 'threeD' ? (
-              <div style={{ width: '100%', height: '100%', minHeight: '450px', flexGrow: 1 }}>
-                <ThreeDPreview 
-                  designConfig={designConfig} 
-                  renderPanelToCanvas={renderPanelToCanvas}
-                  previewSleeveType={previewSleeveType}
-                  prefTrigger={prefTrigger}
-                  zoom={zoom}
-                />
-              </div>
-            ) : (
-              <div style={{ position: 'relative', display: 'inline-block' }}>
-                {/* Double click helper badge */}
-                <div 
-                  className="absolute -top-9 left-1/2 -translate-x-1/2 z-20 pointer-events-none px-3 py-1 rounded-full bg-slate-950/90 border border-cyan-400/40 text-cyan-300 text-[11px] font-bold shadow-xl backdrop-blur-md flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
-                  style={{ pointerEvents: 'auto' }}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <span>💡 Double-click canvas to upload artwork image</span>
-                </div>
+              ) : (
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  {/* Double click helper badge */}
+                  <div 
+                    className="absolute -top-9 left-1/2 -translate-x-1/2 z-20 pointer-events-none px-3 py-1 rounded-full bg-slate-950/90 border border-cyan-400/40 text-cyan-300 text-[11px] font-bold shadow-xl backdrop-blur-md flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                    style={{ pointerEvents: 'auto' }}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <span>💡 Double-click canvas to upload artwork image</span>
+                  </div>
 
-                <canvas 
-                  ref={canvasRef} 
-                  onMouseDown={handleCanvasMouseDown}
-                  onMouseMove={handleCanvasMouseMove}
-                  onMouseUp={handleCanvasMouseUp}
-                  onMouseLeave={() => {
-                    setCursorPos(null);
-                    isDraggingTextRef.current = false;
-                  }}
-                  onDoubleClick={(e) => {
-                    e.stopPropagation();
-                    fileInputRef.current?.click();
-                  }}
-                  title="Double-click to upload artwork background image"
-                  style={{ 
-                    borderRadius: '8px', 
-                    border: '2px solid rgba(0, 240, 255, 0.5)', 
-                    boxShadow: '0 0 50px rgba(0,0,0,0.95)',
-                    cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : 'pointer',
-                    width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                    height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                    maxWidth: 'none',
-                    maxHeight: 'none',
-                    objectFit: 'contain',
-                    flexShrink: 0
-                  }} 
-                />
-              </div>
-            )}
+                  <canvas 
+                    ref={canvasRef} 
+                    onMouseDown={handleCanvasMouseDown}
+                    onMouseMove={handleCanvasMouseMove}
+                    onMouseUp={handleCanvasMouseUp}
+                    onMouseLeave={() => {
+                      setCursorPos(null);
+                      isDraggingTextRef.current = false;
+                    }}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                    title="Double-click to upload artwork background image"
+                    style={{ 
+                      borderRadius: '8px', 
+                      border: '2px solid rgba(0, 240, 255, 0.5)', 
+                      boxShadow: '0 0 50px rgba(0,0,0,0.95)',
+                      cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : 'pointer',
+                      width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                      height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                      maxWidth: 'none',
+                      maxHeight: 'none',
+                      objectFit: 'contain',
+                      flexShrink: 0
+                    }} 
+                  />
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
         
         {/* Mock inputs for testing positions (visible in 2D layout) */}
         {activeTab !== 'threeD' && (
