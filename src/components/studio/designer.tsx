@@ -2011,6 +2011,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           )}
         </div>
 
+        {/* Global Invisible Image File Input for Double Click / Button Upload */}
+        <input 
+          ref={fileInputRef} 
+          type="file" 
+          onChange={handleFileUpload} 
+          accept="image/*" 
+          style={{ display: 'none' }} 
+          id="global-artwork-file-input" 
+        />
+
         {/* Scrollable Wrapper for Canvas Zoom */}
         <div 
           ref={scrollWrapperRef}
@@ -2019,11 +2029,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             width: '100%', 
             height: '100%',
             overflow: 'auto', 
-            display: 'flex', 
-            alignItems: 'center',
-            justifyContent: 'center',
             minHeight: 0,
-            padding: '16px',
             boxSizing: 'border-box',
             cursor: (spaceKeyPressed || activeTool === 'pan') ? (panStart ? 'grabbing' : 'grab') : ((zKeyPressed || activeTool === 'zoom') ? (dragStart ? 'grabbing' : 'zoom-in') : 'default'),
             userSelect: (spaceKeyPressed || activeTool === 'pan' || zKeyPressed || activeTool === 'zoom') ? 'none' : 'auto',
@@ -2082,15 +2088,23 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          {/* Centering inner container */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '100%',
-            height: '100%',
-            boxSizing: 'border-box'
-          }}>
+          {/* Centering inner container with full 360-degree corner pan space */}
+          <div 
+            onDoubleClick={() => fileInputRef.current?.click()}
+            title="Double-click canvas to upload artwork background image"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: '100%',
+              minHeight: '100%',
+              width: zoom > 1 ? `${Math.max(width * zoom + 400, 1200)}px` : '100%',
+              height: zoom > 1 ? `${Math.max(height * zoom + 400, 900)}px` : '100%',
+              padding: zoom > 1 ? `${Math.max(160, 260 * zoom)}px` : '24px',
+              boxSizing: 'border-box',
+              position: 'relative'
+            }}
+          >
             {activeTab === 'threeD' ? (
               <div style={{ width: '100%', height: '100%', minHeight: '450px', flexGrow: 1 }}>
                 <ThreeDPreview 
@@ -2102,24 +2116,40 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 />
               </div>
             ) : (
-              <canvas 
-                ref={canvasRef} 
-                onMouseDown={handleCanvasMouseDown}
-                onMouseMove={handleCanvasMouseMove}
-                onMouseLeave={() => setCursorPos(null)}
-                style={{ 
-                  borderRadius: '8px', 
-                  border: '2px solid rgba(0, 240, 255, 0.4)', 
-                  boxShadow: '0 0 40px rgba(0,0,0,0.95)',
-                  cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : 'pointer',
-                  width: `${width * zoom}px`,
-                  height: `${height * zoom}px`,
-                  maxWidth: zoom > 1 ? 'none' : '100%',
-                  maxHeight: zoom > 1 ? 'none' : '100%',
-                  objectFit: 'contain',
-                  flexShrink: 0
-                }} 
-              />
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                {/* Double click helper badge */}
+                <div 
+                  className="absolute -top-9 left-1/2 -translate-x-1/2 z-20 pointer-events-none px-3 py-1 rounded-full bg-slate-950/90 border border-cyan-400/40 text-cyan-300 text-[11px] font-bold shadow-xl backdrop-blur-md flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                  style={{ pointerEvents: 'auto' }}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <span>💡 Double-click canvas to upload artwork image</span>
+                </div>
+
+                <canvas 
+                  ref={canvasRef} 
+                  onMouseDown={handleCanvasMouseDown}
+                  onMouseMove={handleCanvasMouseMove}
+                  onMouseLeave={() => setCursorPos(null)}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
+                  title="Double-click to upload artwork background image"
+                  style={{ 
+                    borderRadius: '8px', 
+                    border: '2px solid rgba(0, 240, 255, 0.5)', 
+                    boxShadow: '0 0 50px rgba(0,0,0,0.95)',
+                    cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : 'pointer',
+                    width: `${width * zoom}px`,
+                    height: `${height * zoom}px`,
+                    maxWidth: zoom > 1 ? 'none' : '100%',
+                    maxHeight: zoom > 1 ? 'none' : '100%',
+                    objectFit: 'contain',
+                    flexShrink: 0
+                  }} 
+                />
+              </div>
             )}
           </div>
         </div>
@@ -2150,9 +2180,24 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       </div>
       </div>
 
-      {/* CorelDRAW Right Docker Panel */}
-      <div className="cd-docker-panel">
-        {/* Bulk ZIP Importer Card */}
+      {/* CorelDRAW Right Docker Panel (Strict Single Vertical Column) */}
+      <div 
+        className="cd-docker-panel" 
+        style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          width: '360px', 
+          minWidth: '360px', 
+          maxWidth: '360px', 
+          flexShrink: 0, 
+          height: '100%', 
+          overflowY: 'auto', 
+          padding: '12px', 
+          gap: '12px',
+          boxSizing: 'border-box'
+        }}
+      >
+        {/* Step 1: Bulk ZIP Importer Card */}
         <div className="glass-card" style={{ padding: '20px' }}>
           <h3 
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-secondary)' }}
@@ -2183,7 +2228,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           )}
         </div>
 
-        {/* Saved Presets Card */}
+        {/* Step 2: Design Presets Manager Card */}
         <div className="glass-card" style={{ padding: '20px' }}>
           <h3 
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-primary)' }}
@@ -2254,15 +2299,23 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           )}
         </div>
 
-        {/* Double-Click Upload Info Note */}
+        {/* Step 3: Artwork Background Upload Card */}
         <div className="glass-card" style={{ padding: '16px', background: 'rgba(0, 240, 255, 0.05)', borderColor: 'rgba(0, 240, 255, 0.3)' }}>
           <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Paintbrush size={16} /> Background Artwork Upload
           </h3>
-          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px', margin: 0 }}>
-            💡 <strong>Double-click directly on any panel on the canvas</strong> (Front, Back, Sleeves) to select and upload your background artwork image file.
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px', marginBottom: '10px' }}>
+            💡 <strong>Double-click directly on any panel canvas</strong> (Front, Back, Sleeves) or click the button below to upload artwork images.
           </p>
-        </div>   </div>
+          <button 
+            type="button"
+            className="btn btn-primary"
+            style={{ width: '100%', padding: '8px', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload size={14} /> Upload {activeTab.toUpperCase()} Artwork Image
+          </button>
+        </div>
 
         {/* Collar & Trim Customization */}
         <div className="glass-card" style={{ padding: '20px' }}>
@@ -3952,6 +4005,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           )}
         </div>
       </div>
+    </div>
 
       {/* 4. COREL COLOR PALETTE STRIP */}
       <ColorPalette
