@@ -2031,29 +2031,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           </div>
         )}
 
-        <div className="tab-btn-group" style={{ width: '100%', maxWidth: '780px' }}>
-          <button className={`tab-btn ${activeTab === 'front' ? 'active' : ''}`} onClick={() => setActiveTab('front')}>Front</button>
-          <button className={`tab-btn ${activeTab === 'back' ? 'active' : ''}`} onClick={() => setActiveTab('back')}>Back</button>
-          <button 
-            className={`tab-btn flex items-center gap-1.5 ${activeTab === 'dual' ? 'active' : ''}`} 
-            onClick={() => setActiveTab('dual')}
-            style={{ fontWeight: '600' }}
-            title="View Front and Back panels side-by-side"
-          >
-            👕 Full Spread (Left Sleeve • Front • Back • Right Sleeve)
-          </button>
-          <button className={`tab-btn ${activeTab === 'sleeveLeft' ? 'active' : ''}`} onClick={() => setActiveTab('sleeveLeft')}>Left Sleeve</button>
-          <button className={`tab-btn ${activeTab === 'sleeveRight' ? 'active' : ''}`} onClick={() => setActiveTab('sleeveRight')}>Right Sleeve</button>
-          <button className={`tab-btn ${activeTab === 'a4Print' ? 'active' : ''}`} onClick={() => setActiveTab('a4Print')}>A4 Print</button>
-          <button 
-            className={`tab-btn flex items-center gap-1.5 ${activeTab === 'threeD' ? 'active' : ''}`} 
-            onClick={() => setActiveTab('threeD')}
-            style={{ borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '12px' }}
-          >
-            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-            3D View
-          </button>
-        </div>
+
         
         {(activeTab === 'dual' || activeTab === 'sleeveLeft' || activeTab === 'sleeveRight') && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', marginBottom: '4px', background: 'rgba(15, 23, 42, 0.85)', padding: '4px 12px', borderRadius: '30px', border: '1px solid rgba(0, 240, 255, 0.3)', backdropFilter: 'blur(8px)' }}>
@@ -2109,6 +2087,15 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             title="Fit Full View to Screen (Ctrl+0)"
           >
             <Maximize2 size={12} /> Fit View (Ctrl+0)
+          </button>
+          <button 
+            className={`btn ${activeTab === 'threeD' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ padding: '6px 12px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px' }}
+            onClick={() => setActiveTab(prev => prev === 'threeD' ? 'dual' : 'threeD')}
+            title="Toggle 3D Jersey Preview"
+          >
+            <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+            {activeTab === 'threeD' ? 'Exit 3D View' : '3D View'}
           </button>
           {zoom !== 1 && (
             <button 
