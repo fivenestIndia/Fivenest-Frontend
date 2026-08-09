@@ -83,30 +83,30 @@ const HeroSection = () => {
           >
             <div className="text-center p-3 border-r border-slate-800/60 last:border-none">
               <div className="text-2xl md:text-3xl font-black bg-gradient-to-r from-cyan-400 to-emerald-400 bg-clip-text text-transparent">
-                ₹0 Subscriptions
+                Few Seconds
               </div>
-              <div className="text-xs text-slate-400 font-semibold mt-1">Pay Only When Generating</div>
+              <div className="text-xs text-slate-400 font-semibold mt-1">Web Production Studio Speed</div>
             </div>
 
             <div className="text-center p-3 border-r border-slate-800/60 last:border-none">
               <div className="text-2xl md:text-3xl font-black bg-gradient-to-r from-cyan-400 to-emerald-400 bg-clip-text text-transparent">
-                1,000 Panels
+                ₹3 - ₹5 / pc
               </div>
-              <div className="text-xs text-slate-400 font-semibold mt-1">Exported in 3 Minutes</div>
+              <div className="text-xs text-slate-400 font-semibold mt-1">Web Wallet / Spot Payment</div>
             </div>
 
             <div className="text-center p-3 border-r border-slate-800/60 last:border-none">
-              <div className="text-2xl md:text-3xl font-black bg-gradient-to-r from-cyan-400 to-emerald-400 bg-clip-text text-transparent">
-                300 DPI RIP
+              <div className="text-2xl md:text-3xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                5 - 10 Mins
               </div>
-              <div className="text-xs text-slate-400 font-semibold mt-1">High-Res Print Quality</div>
+              <div className="text-xs text-slate-400 font-semibold mt-1">Photoshop Plugin Batch</div>
             </div>
 
             <div className="text-center p-3">
-              <div className="text-2xl md:text-3xl font-black bg-gradient-to-r from-cyan-400 to-emerald-400 bg-clip-text text-transparent">
-                200+
+              <div className="text-2xl md:text-3xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                Multi-Team
               </div>
-              <div className="text-xs text-slate-400 font-semibold mt-1">Active Sportswear Factories</div>
+              <div className="text-xs text-slate-400 font-semibold mt-1">Enterprise Auto Billing</div>
             </div>
           </motion.div>
         </div>

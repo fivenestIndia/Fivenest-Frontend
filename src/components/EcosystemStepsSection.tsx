@@ -1,15 +1,15 @@
 import { motion } from "framer-motion";
-import { ExternalLink, Palette, Package, Sliders, Cpu, ArrowRight, Sparkles, CheckCircle2, Zap } from "lucide-react";
+import { ExternalLink, Palette, Package, Sliders, Cpu, ArrowRight, Sparkles, CheckCircle2, Zap, Clock, ShieldCheck, CreditCard, Users2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const ecosystemSteps = [
+const mainWebSteps = [
   {
     stepNumber: "01",
     stepBadge: "STEP 1: DESIGN & PAYMENT",
     title: "Design Hub",
     subtitle: "3D Design Selection & Checkout",
     description: "Select 3D sportswear design from Design Hub, customize pattern & download it. Payment deducts from wallet or via instant on-the-spot checkout.",
-    highlights: ["Select & Download 3D Jersey Patterns", "Deduct from Wallet or Pay On-The-Spot"],
+    highlights: ["Select & Download 3D Jersey Patterns", "Wallet Deduct or On-The-Spot Payment"],
     link: "https://designs.fivenest.in",
     isExternal: true,
     buttonText: "Open Design Hub",
@@ -22,7 +22,7 @@ const ecosystemSteps = [
     title: "Order Portal",
     subtitle: "Customer & Roster Data Entry",
     description: "Enter customer details and order roster data (player names, numbers & XS-7XL sizes) or import instantly from Excel/CSV files.",
-    highlights: ["Customer Details & Order CRM", "Excel/CSV Player Roster Import"],
+    highlights: ["Customer Memory CRM & Custom Invoice", "3-Panel Factory Expense Management"],
     link: "/orders",
     isExternal: false,
     buttonText: "Open Order Portal",
@@ -31,29 +31,16 @@ const ecosystemSteps = [
   },
   {
     stepNumber: "03",
-    stepBadge: "STEP 3: ZIP/JPG & RIP EXPORT",
-    title: "Production Studio",
-    subtitle: "Artwork Resizer & 300 DPI Export",
-    description: "Upload design ZIP file or JPG data + Excel roster sheet. Production Studio auto-resizes artwork & exports print-ready plotter files in seconds!",
-    highlights: ["Upload ZIP/JPG Artwork & Excel Data", "Export 300 DPI Print File in Seconds"],
+    stepBadge: "STEP 3: WEB PRODUCTION STUDIO",
+    title: "Production Studio (Web)",
+    subtitle: "Ultra-Fast (Processes in Seconds)",
+    description: "Upload design ZIP file or JPG data + Excel roster sheet. Web Studio auto-resizes artwork & exports print-ready plotter files in seconds! Charges ₹3 to ₹5 per pc.",
+    highlights: ["Processes Artwork in a Few Seconds", "Pay ₹3 - ₹5 / pc (Wallet or Spot Pay)"],
     link: "/studio",
     isExternal: false,
-    buttonText: "Launch Production Studio",
+    buttonText: "Launch Web Studio (Seconds)",
     icon: Sliders,
     accentColor: "from-blue-500 via-indigo-500 to-purple-500",
-  },
-  {
-    stepNumber: "04",
-    stepBadge: "STEP 4: WORKSTATION PLUGINS",
-    title: "FN Desktop Plugins",
-    subtitle: "Photoshop & Corel Automation",
-    description: "For local PC desktop printing units — 1-click desktop extension panels for Photoshop & CorelDraw for automated batch exports on your workstation.",
-    highlights: ["Photoshop & Corel Extension Panels", "1-Click Workstation Batch Automation"],
-    link: "/plugins",
-    isExternal: false,
-    buttonText: "Get Desktop Plugins",
-    icon: Cpu,
-    accentColor: "from-indigo-500 via-purple-500 to-pink-500",
   }
 ];
 
@@ -72,22 +59,22 @@ export const EcosystemStepsSection = () => {
           className="text-center mb-16 max-w-4xl mx-auto"
         >
           <span className="text-xs font-bold uppercase tracking-widest text-cyan-400 px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 mb-4 inline-flex items-center gap-2 shadow-lg shadow-cyan-500/10">
-            <Zap size={14} className="text-cyan-400" /> Hassle-Free Factory & Printing Unit Workflow
+            <Zap size={14} className="text-cyan-400" /> 3-Step Main Web Process Ecosystem
           </span>
           <h2 className="text-3xl sm:text-5xl font-black text-white mb-5 tracking-tight leading-tight">
-            How Factory & Printing Business Owners Run Every Order <br className="hidden sm:inline" />
+            How Printing & Factory Owners Run Every Order <br className="hidden sm:inline" />
             <span className="bg-gradient-to-r from-cyan-400 via-sky-300 to-blue-500 bg-clip-text text-transparent">
-              Hassle-Free with Ultra-Fast Production
+              Hassle-Free in 3 Main Web Steps
             </span>
           </h2>
           <p className="text-slate-300 text-base md:text-lg max-w-3xl mx-auto leading-relaxed">
-            Eliminate artwork delays and manual copy-paste errors. From 3D design selection & wallet checkout to automated ZIP/JPG artwork resizing and instant 300 DPI plotter exports.
+            From 3D design selection & wallet checkout to automated ZIP/JPG artwork resizing and instant 300 DPI plotter exports.
           </p>
         </motion.div>
 
-        {/* 4-Step Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
-          {ecosystemSteps.map((step, idx) => {
+        {/* 3 Main Web Process Steps Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto mb-16">
+          {mainWebSteps.map((step, idx) => {
             const IconComponent = step.icon;
             return (
               <motion.div
@@ -160,32 +147,71 @@ export const EcosystemStepsSection = () => {
           })}
         </div>
 
-        {/* Bottom Banner Callout */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
+        {/* 💻 DESKTOP PLUGINS ALTERNATIVE WORKSTATION BANNER */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ delay: 0.4 }}
-          className="mt-14 p-6 md:p-8 rounded-3xl bg-gradient-to-r from-cyan-950/40 via-slate-900/80 to-blue-950/40 border border-cyan-500/30 max-w-4xl mx-auto text-center backdrop-blur-xl shadow-2xl"
+          transition={{ duration: 0.6 }}
+          className="max-w-6xl mx-auto rounded-3xl p-6 md:p-8 bg-gradient-to-br from-slate-900 via-purple-950/40 to-slate-950 border border-purple-500/40 backdrop-blur-2xl shadow-2xl relative overflow-hidden"
         >
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-left">
-              <h4 className="text-base md:text-lg font-black text-white mb-1 flex items-center gap-2">
-                <Sparkles size={18} className="text-cyan-400" />
-                <span>Ready to Automate Your Sportswear Printing Factory?</span>
-              </h4>
-              <p className="text-xs md:text-sm text-slate-300">
-                Join 200+ Indian sublimation factories generating print-ready rolls in seconds.
+          <div className="absolute top-0 right-0 w-80 h-80 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
+
+          <div className="grid md:grid-cols-12 gap-6 items-center">
+            <div className="md:col-span-8 space-y-4 text-left">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-300 text-xs font-extrabold uppercase tracking-wider">
+                <Cpu size={14} className="text-purple-400" /> Alternative Desktop Software Option
+              </div>
+
+              <h3 className="text-2xl md:text-3xl font-black text-white leading-tight">
+                FN Desktop Plugins (Photoshop & Corel Extension Panel)
+              </h3>
+
+              <p className="text-slate-300 text-xs md:text-sm leading-relaxed">
+                Prefer desktop workstation control? Installed directly inside Adobe Photoshop & CorelDraw. Turns <strong>2-hour Photoshop jobs into 5 to 10 minutes</strong> with higher manual customization, <strong>Auto Billing</strong> & <strong>Multiple Team Process</strong>!
               </p>
+
+              {/* Web vs Plugin Quick Comparison Specs */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Web Studio</span>
+                  <span className="text-xs font-black text-cyan-400">Processes in Seconds</span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">₹3 - ₹5 / pc (Wallet)</span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-950/80 border border-purple-500/30">
+                  <span className="text-[10px] text-purple-400 font-bold uppercase block">Desktop Plugin</span>
+                  <span className="text-xs font-black text-purple-300">5-10 Min Batch</span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">Monthly Subscription</span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Auto Billing</span>
+                  <span className="text-xs font-black text-emerald-400">Enterprise Plugin</span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">Automated Receipts</span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Multi-Team</span>
+                  <span className="text-xs font-black text-amber-400">Multi-User Seats</span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">Enterprise Workstation</span>
+                </div>
+              </div>
             </div>
-            <Link to="/studio" className="flex-shrink-0 w-full sm:w-auto">
-              <button className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/25 hover:opacity-95 transition-opacity">
-                <span>Start Production Now</span>
-                <ArrowRight size={16} />
-              </button>
-            </Link>
+
+            <div className="md:col-span-4 flex flex-col gap-3 justify-center items-center">
+              <Link to="/plugins" className="w-full">
+                <button className="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-500 via-pink-500 to-indigo-600 text-white font-black text-xs md:text-sm flex items-center justify-center gap-2 shadow-lg shadow-purple-500/30 hover:opacity-95 transition-all cursor-pointer">
+                  <Cpu size={18} />
+                  <span>Explore Desktop Plugins</span>
+                  <ArrowRight size={16} />
+                </button>
+              </Link>
+              <span className="text-[10px] font-bold text-purple-300">Monthly Plans: ₹500, ₹1000, ₹1250, ₹1500/mo</span>
+            </div>
           </div>
         </motion.div>
+
       </div>
     </section>
   );

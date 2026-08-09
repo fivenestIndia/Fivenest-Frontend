@@ -100,10 +100,10 @@ const pluginPlans = [
     features: [
       "Everything in Premium Plan",
       "UNLIMITED Jersey File Exports / Month",
-      "1 Device / Workstation Bound Key",
+      "Multiple Team Process & Multi-User Support",
+      "Auto Billing & Instant Invoice Generation",
       "Custom ExtendScript / JSX Automation",
-      "Unlimited PSD Panel Export Runs",
-      "24/7 Dedicated Account Manager",
+      "24/7 Dedicated Account Manager Support",
     ],
     popular: false,
     badge: "Unlimited Files"
