@@ -188,6 +188,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [showPanelEditorModal, setShowPanelEditorModal] = useState<boolean>(false);
   const [customFonts, setCustomFonts] = useState<{name: string, url: string}[]>([]);
   const [previewSleeveType, setPreviewSleeveType] = useState<'half' | 'full'>('half');
+  const [isRaglanOverride, setIsRaglanOverride] = useState<boolean | null>(null);
   const [prefTrigger, setPrefTrigger] = useState<number>(0);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [newGuideType, setNewGuideType] = useState<'vertical' | 'horizontal'>('vertical');
@@ -539,7 +540,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   let physicalWidth = 22;
 
   if (activeTab === 'sleeveLeft' || activeTab === 'sleeveRight') {
-    const isRaglan = metadata?.raglanStyle ?? false;
+    const isRaglan = isRaglanOverride !== null ? isRaglanOverride : (metadata?.raglanStyle ?? false);
     physicalHeight = previewSleeveType === 'full' ? (isRaglan ? 31 : 25) : (isRaglan ? 16.5 : 11);
     physicalWidth = 19;
   } else if (activeTab === 'a4Print') {
@@ -569,7 +570,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const scale = width / physicalWidth;
 
   // Sleeve dimensions for full 4-panel spread
-  const isRaglanStyle = metadata?.raglanStyle ?? false;
+  const isRaglanStyle = isRaglanOverride !== null ? isRaglanOverride : (metadata?.raglanStyle ?? false);
   const sleeveSpreadPhysicalH = previewSleeveType === 'full' ? (isRaglanStyle ? 31 : 25) : (isRaglanStyle ? 16.5 : 11);
   const sleeveSpreadPhysicalW = 19;
   const sleeveSpreadWidth = Math.round(sleeveSpreadPhysicalW * scale);
@@ -1656,7 +1657,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     ctx.scale(zoom, zoom);
 
     renderPanelToCanvas(activeTab, ctx, width, height, scale, false);
-  }, [activeTab, dualActivePanel, activePanel, previewName, previewNumber, designConfig, customFonts, metadata, previewSleeveType, prefTrigger, zoom, showGuidelines]);
+  }, [activeTab, dualActivePanel, activePanel, previewName, previewNumber, designConfig, customFonts, metadata, previewSleeveType, isRaglanOverride, prefTrigger, zoom, showGuidelines]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -2057,22 +2058,50 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           </button>
         </div>
         
-        {(activeTab === 'sleeveLeft' || activeTab === 'sleeveRight') && (
-          <div style={{ display: 'flex', gap: '8px', marginTop: '4px', marginBottom: '4px' }}>
-            <button 
-              className={`btn ${previewSleeveType === 'half' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ padding: '6px 14px', fontSize: '11px', borderRadius: '20px' }}
-              onClick={() => handleSleeveTypeChange('half')}
-            >
-              Half Sleeve ({metadata?.raglanStyle ? "19x17\"" : "19x11\""})
-            </button>
-            <button 
-              className={`btn ${previewSleeveType === 'full' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ padding: '6px 14px', fontSize: '11px', borderRadius: '20px' }}
-              onClick={() => handleSleeveTypeChange('full')}
-            >
-              Full Sleeve ({metadata?.raglanStyle ? "19x31\"" : "19x25\""})
-            </button>
+        {(activeTab === 'dual' || activeTab === 'sleeveLeft' || activeTab === 'sleeveRight') && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px', marginBottom: '4px', background: 'rgba(15, 23, 42, 0.75)', padding: '4px 12px', borderRadius: '30px', border: '1px solid rgba(0, 240, 255, 0.2)', backdropFilter: 'blur(8px)' }}>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              🧤 Sleeve Configuration:
+            </span>
+            {/* Half vs Full Sleeve Toggle */}
+            <div style={{ display: 'flex', gap: '4px', background: 'rgba(0, 0, 0, 0.4)', padding: '2px', borderRadius: '20px' }}>
+              <button 
+                className={`btn ${previewSleeveType === 'half' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '4px 12px', fontSize: '11px', borderRadius: '16px', border: 'none', fontWeight: '600' }}
+                onClick={() => handleSleeveTypeChange('half')}
+                title="Switch to Half Sleeve"
+              >
+                👕 Half Sleeve ({isRaglan ? "19x16.5\"" : "19x11\""})
+              </button>
+              <button 
+                className={`btn ${previewSleeveType === 'full' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '4px 12px', fontSize: '11px', borderRadius: '16px', border: 'none', fontWeight: '600' }}
+                onClick={() => handleSleeveTypeChange('full')}
+                title="Switch to Full Sleeve"
+              >
+                🧤 Full Sleeve ({isRaglan ? "19x31\"" : "19x25\""})
+              </button>
+            </div>
+
+            {/* Set-in vs Raglan Toggle */}
+            <div style={{ display: 'flex', gap: '4px', background: 'rgba(0, 0, 0, 0.4)', padding: '2px', borderRadius: '20px', marginLeft: '4px' }}>
+              <button 
+                className={`btn ${!isRaglan ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '4px 12px', fontSize: '11px', borderRadius: '16px', border: 'none', fontWeight: '600' }}
+                onClick={() => setIsRaglanOverride(false)}
+                title="Regular Set-in sleeve"
+              >
+                Standard Cut
+              </button>
+              <button 
+                className={`btn ${isRaglan ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '4px 12px', fontSize: '11px', borderRadius: '16px', border: 'none', fontWeight: '600' }}
+                onClick={() => setIsRaglanOverride(true)}
+                title="Raglan Cut sleeve"
+              >
+                ⚡ Raglan Style
+              </button>
+            </div>
           </div>
         )}
         
@@ -2212,7 +2241,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             }}
           >
             {activeTab === 'dual' ? (
-              <div style={{ display: 'flex', flexDirection: 'row', gap: '24px', alignItems: 'center', justifyContent: 'center', flexWrap: 'nowrap', padding: '0 20px' }}>
+              <div style={{ display: 'flex', flexDirection: 'row', gap: '24px', alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'nowrap', padding: '0 20px' }}>
                 {/* 1. LEFT SLEEVE CANVAS */}
                 <div 
                   style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
