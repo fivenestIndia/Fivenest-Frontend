@@ -167,7 +167,6 @@ export default function WebStudio() {
   const productionTabs = [
     { id: 'designer', label: 'Artwork Setup', icon: Palette },
     { id: 'order', label: 'Job Details & Excel Data', icon: Users },
-    { id: 'sizes', label: 'Grading Sizes', icon: Ruler },
     { id: 'nesting', label: 'Nesting & Export', icon: Sliders },
     { id: 'help', label: 'Help & AI Refine', icon: HelpCircle },
   ];
