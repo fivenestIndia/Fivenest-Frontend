@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, RotateCcw, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus, Maximize2 } from 'lucide-react';
 import type { OrderMetadata } from './orderEntry';
 import { ThreeDPreview } from './ThreeDPreview';
-import { defaultSizes } from './sizesDb';
+import { defaultSizes, SizesModal } from './sizesDb';
 import { toast } from 'sonner';
 
 import { ToolBox, CorelTool } from './coreldraw/ToolBox';
@@ -181,8 +181,10 @@ export const defaultDesignConfig: ArtDesignConfig = {
 
 export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfigChange, metadata }) => {
   const [activeTab, setActiveTab] = useState<'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD'>('back');
-  const [previewName, setPreviewName] = useState<string>("RODRIGUEZ");
-  const [previewNumber, setPreviewNumber] = useState<string>("10");
+  const [previewName, setPreviewName] = useState<string>("FIVENEST");
+  const [previewNumber, setPreviewNumber] = useState<string>("23");
+  const [overlaySubTab, setOverlaySubTab] = useState<'name' | 'number' | 'logos' | 'sizeTag'>('name');
+  const [showPanelEditorModal, setShowPanelEditorModal] = useState<boolean>(false);
   const [customFonts, setCustomFonts] = useState<{name: string, url: string}[]>([]);
   const [previewSleeveType, setPreviewSleeveType] = useState<'half' | 'full'>('half');
   const [prefTrigger, setPrefTrigger] = useState<number>(0);
@@ -1862,6 +1864,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         onOpenBulkImport={() => zipInputRef.current?.click()}
         onClearPanel={() => updateActivePanel({ uploadedFileUrl: null })}
         onOpenShortcutsModal={() => setShowShortcutsModal(true)}
+        onOpenPanelEditor={() => setShowPanelEditorModal(true)}
       />
 
       {/* 2. COREL CONTEXT PROPERTY BAR */}
@@ -2220,7 +2223,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           </div>
         </div>
       </div>
-      </div>
 
       {/* CorelDRAW Right Docker Panel (Strict Single Vertical Column) */}
       <div 
@@ -2295,6 +2297,42 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
           {!collapsed.overlays && (
             <div>
+              {/* Sub-Tab Navigation Bar */}
+              <div style={{ display: 'flex', gap: '4px', marginBottom: '14px', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                <button 
+                  type="button"
+                  className={`btn ${overlaySubTab === 'name' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ flex: 1, padding: '6px 2px', fontSize: '11px', fontWeight: 'bold', borderRadius: '6px' }}
+                  onClick={() => setOverlaySubTab('name')}
+                >
+                  👤 Name
+                </button>
+                <button 
+                  type="button"
+                  className={`btn ${overlaySubTab === 'number' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ flex: 1, padding: '6px 2px', fontSize: '11px', fontWeight: 'bold', borderRadius: '6px' }}
+                  onClick={() => setOverlaySubTab('number')}
+                >
+                  🔢 Number
+                </button>
+                <button 
+                  type="button"
+                  className={`btn ${overlaySubTab === 'logos' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ flex: 1, padding: '6px 2px', fontSize: '11px', fontWeight: 'bold', borderRadius: '6px' }}
+                  onClick={() => setOverlaySubTab('logos')}
+                >
+                  🛡️ Logos
+                </button>
+                <button 
+                  type="button"
+                  className={`btn ${overlaySubTab === 'sizeTag' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ flex: 1, padding: '6px 2px', fontSize: '11px', fontWeight: 'bold', borderRadius: '6px' }}
+                  onClick={() => setOverlaySubTab('sizeTag')}
+                >
+                  🏷️ Size Tag
+                </button>
+              </div>
+
               {/* Hotkey Helper Banner */}
               <div style={{ 
                 background: 'rgba(155, 77, 255, 0.08)', 
@@ -2313,8 +2351,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 <span>⚡ <strong>Text Alignment Shortcuts:</strong> Press <code>C</code> (Center), <code>T</code> (Top), <code>B</code> (Bottom), <code>L</code> (Left), <code>R</code> (Right)</span>
               </div>
 
-              {/* Name Config */}
-              <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '16px', marginBottom: '16px' }}>
+              {/* 1. Name Config Sub-Tab */}
+              {overlaySubTab === 'name' && (
+              <div style={{ paddingBottom: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Name Layer</span>
                   <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
@@ -2551,7 +2590,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       )}
                     </div>
                   )}
-                </div>
 
                 {/* Stroke Outline Controls for Name */}
                 <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-light)', marginTop: '6px' }}>
@@ -2583,12 +2621,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     </div>
                   </div>
                 </div>
-                  </div>
-                )}
               </div>
 
-              {/* Number Config */}
-              <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '16px', marginBottom: '16px' }}>
+              {/* 2. Number Config Sub-Tab */}
+              {overlaySubTab === 'number' && (
+              <div style={{ paddingBottom: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Number Layer</span>
                   <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
@@ -2829,17 +2866,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     </div>
                   </div>
                 </div>
-                  </div>
-                )}
               </div>
+              )}
+              </div>
+              )}
 
-              {/* Logo / Sponsor Graphics Configuration */}
-              <div>
-                <h4 style={{ fontSize: '13px', fontWeight: 'semibold', color: '#fff', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>🏷️ Logo & Sponsor Layers</span>
-                </h4>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* 3. Logos Sub-Tab */}
+              {overlaySubTab === 'logos' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '8px' }}>
                   {/* Left Chest Logo */}
                   {activeTab === 'front' && (
                     <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
@@ -3174,10 +3208,80 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     )}
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
-        </div>
+              )}
+
+              {/* 4. Size Tag Sub-Tab */}
+              {overlaySubTab === 'sizeTag' && (
+                <div style={{ paddingBottom: '8px' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '13px', display: 'block', marginBottom: '12px' }}>Size Tag Overlay (Top Left)</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={activePanel.sizeTagConfig?.enabled ?? true}
+                          onChange={(e) => updateTextConfig('sizeTag', { enabled: e.target.checked })}
+                        />
+                        Enable Size Tag Overlay
+                      </label>
+                    </div>
+
+                    {activePanel.sizeTagConfig?.enabled && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div className="form-row">
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label className="form-label" style={{ fontSize: '11px' }}>Font Size (pt):</label>
+                            <input 
+                              type="number" 
+                              className="form-input" 
+                              value={activePanel.sizeTagConfig?.fontSize ?? 34}
+                              onChange={(e) => updateTextConfig('sizeTag', { fontSize: parseInt(e.target.value) || 20 })}
+                              style={{ padding: '6px' }}
+                            />
+                          </div>
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label className="form-label" style={{ fontSize: '11px' }}>Stroke Width:</label>
+                            <input 
+                              type="number" 
+                              className="form-input" 
+                              value={activePanel.sizeTagConfig?.strokeWidth ?? 3}
+                              onChange={(e) => updateTextConfig('sizeTag', { strokeWidth: parseInt(e.target.value) || 0 })}
+                              style={{ padding: '6px' }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="form-row">
+                          <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                            <label className="form-label" style={{ fontSize: '11px' }}>Text Color:</label>
+                            <input 
+                              type="color" 
+                              value={activePanel.sizeTagConfig?.color || '#ff1744'}
+                              onChange={(e) => updateTextConfig('sizeTag', { color: e.target.value })}
+                              style={{ border: 'none', background: 'none', width: '100%', height: '30px', cursor: 'pointer' }}
+                            />
+                          </div>
+                          <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                            <label className="form-label" style={{ fontSize: '11px' }}>Stroke Color:</label>
+                            <input 
+                              type="color" 
+                              value={activePanel.sizeTagConfig?.strokeColor || '#ffffff'}
+                              onChange={(e) => updateTextConfig('sizeTag', { strokeColor: e.target.value })}
+                              style={{ border: 'none', background: 'none', width: '100%', height: '30px', cursor: 'pointer' }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+)}
+</div>
+</div>
+)}
+</div>
+)}
+</div>
+)}
+</div>
+)}
 
         {/* Step 3: Design Presets Manager Card */}
         <div className="glass-card" style={{ padding: '20px' }}>
@@ -3415,441 +3519,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
 
 
-        {/* Chest & Torso Logos Card (shown when activeTab === 'front') */}
-        {activeTab === 'front' && (
-          <div className="glass-card" style={{ padding: '20px' }}>
-            <h3 
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-success)', marginBottom: collapsed.logos ? 0 : '16px' }}
-              onClick={() => toggleCollapse('logos')}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '18px' }}>🛡️</span> Chest & Torso Logos
-              </span>
-              {collapsed.logos ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-            </h3>
-
-            {!collapsed.logos && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {/* Left Chest Logo */}
-                <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Left Chest Logo</span>
-                    <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={activePanel.leftChestLogo?.enabled ?? false}
-                        onChange={(e) => updateLogoConfig('leftChest', { enabled: e.target.checked })}
-                      />
-                      Enabled
-                    </label>
-                  </div>
-
-                  {(activePanel.leftChestLogo?.enabled ?? false) && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label className="form-label" style={{ fontSize: '11px' }}>Logo Image:</label>
-                        {activePanel.leftChestLogo?.uploadedUrl ? (
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
-                            <img src={activePanel.leftChestLogo.uploadedUrl} style={{ height: '30px', objectFit: 'contain', borderRadius: '4px' }} />
-                            <button 
-                              type="button" 
-                              className="btn" 
-                              style={{ padding: '4px 8px', fontSize: '11px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744', cursor: 'pointer' }}
-                              onClick={() => updateLogoConfig('leftChest', { uploadedUrl: null })}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ) : (
-                          <div>
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              id="left-chest-logo-file"
-                              style={{ display: 'none' }}
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  const reader = new FileReader();
-                                  reader.onload = (event) => {
-                                    const dataUrl = event.target?.result as string;
-                                    const img = new Image();
-                                    img.onload = () => {
-                                      const targetW = parseFloat((img.naturalWidth / 300).toFixed(2));
-                                      const targetH = parseFloat((img.naturalHeight / 300).toFixed(2));
-                                      updateLogoConfig('leftChest', { 
-                                        uploadedUrl: dataUrl,
-                                        width: targetW,
-                                        height: targetH
-                                      });
-                                    };
-                                    img.src = dataUrl;
-                                  };
-                                  reader.readAsDataURL(file);
-                                }
-                              }}
-                            />
-                            <label htmlFor="left-chest-logo-file" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '8px', fontSize: '12px' }}>
-                              <Upload size={14} /> Upload Left Logo
-                            </label>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="form-row">
-                        <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ fontSize: '11px' }}>Width (in):</label>
-                          <input 
-                            type="number" 
-                            step="0.1" 
-                            className="form-input" 
-                            value={activePanel.leftChestLogo?.width ?? 3.5}
-                            onChange={(e) => updateLogoConfig('leftChest', { width: parseFloat(e.target.value) || 1.0 })}
-                            style={{ padding: '6px' }}
-                          />
-                        </div>
-                        <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ fontSize: '11px' }}>Height (in):</label>
-                          <input 
-                            type="number" 
-                            step="0.1" 
-                            className="form-input" 
-                            value={activePanel.leftChestLogo?.height ?? 3.5}
-                            onChange={(e) => updateLogoConfig('leftChest', { height: parseFloat(e.target.value) || 1.0 })}
-                            style={{ padding: '6px' }}
-                          />
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '-2px', marginBottom: '4px' }}>
-                        <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', cursor: 'pointer' }}>
-                          <input 
-                            type="checkbox" 
-                            checked={activePanel.leftChestLogo?.lockAspectRatio ?? true}
-                            onChange={(e) => updateLogoConfig('leftChest', { lockAspectRatio: e.target.checked })}
-                          />
-                          Lock Proportions
-                        </label>
-                      </div>
-
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                          <span>Horizontal Pos (X) (in):</span>
-                          <span>{activePanel.leftChestLogo?.xPos ?? 13.5} in</span>
-                        </div>
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max={physicalWidth}
-                          step="0.1"
-                          value={activePanel.leftChestLogo?.xPos ?? 13.5}
-                          onChange={(e) => updateLogoConfig('leftChest', { xPos: parseFloat(e.target.value) })}
-                        />
-                      </div>
-
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                          <span>Vertical Pos (Y) (in):</span>
-                          <span>{activePanel.leftChestLogo?.yPos ?? 7.5} in</span>
-                        </div>
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max={physicalHeight}
-                          step="0.1"
-                          value={activePanel.leftChestLogo?.yPos ?? 7.5}
-                          onChange={(e) => updateLogoConfig('leftChest', { yPos: parseFloat(e.target.value) })}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Right Chest Logo */}
-                <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Right Chest Logo</span>
-                    <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={activePanel.rightChestLogo?.enabled ?? false}
-                        onChange={(e) => updateLogoConfig('rightChest', { enabled: e.target.checked })}
-                      />
-                      Enabled
-                    </label>
-                  </div>
-
-                  {(activePanel.rightChestLogo?.enabled ?? false) && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label className="form-label" style={{ fontSize: '11px' }}>Logo Image:</label>
-                        {activePanel.rightChestLogo?.uploadedUrl ? (
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
-                            <img src={activePanel.rightChestLogo.uploadedUrl} style={{ height: '30px', objectFit: 'contain', borderRadius: '4px' }} />
-                            <button 
-                              type="button" 
-                              className="btn" 
-                              style={{ padding: '4px 8px', fontSize: '11px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744', cursor: 'pointer' }}
-                              onClick={() => updateLogoConfig('rightChest', { uploadedUrl: null })}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ) : (
-                          <div>
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              id="right-chest-logo-file"
-                              style={{ display: 'none' }}
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  const reader = new FileReader();
-                                  reader.onload = (event) => {
-                                    const dataUrl = event.target?.result as string;
-                                    const img = new Image();
-                                    img.onload = () => {
-                                      const targetW = parseFloat((img.naturalWidth / 300).toFixed(2));
-                                      const targetH = parseFloat((img.naturalHeight / 300).toFixed(2));
-                                      updateLogoConfig('rightChest', { 
-                                        uploadedUrl: dataUrl,
-                                        width: targetW,
-                                        height: targetH
-                                      });
-                                    };
-                                    img.src = dataUrl;
-                                  };
-                                  reader.readAsDataURL(file);
-                                }
-                              }}
-                            />
-                            <label htmlFor="right-chest-logo-file" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '8px', fontSize: '12px' }}>
-                              <Upload size={14} /> Upload Right Logo
-                            </label>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="form-row">
-                        <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ fontSize: '11px' }}>Width (in):</label>
-                          <input 
-                            type="number" 
-                            step="0.1" 
-                            className="form-input" 
-                            value={activePanel.rightChestLogo?.width ?? 3.5}
-                            onChange={(e) => updateLogoConfig('rightChest', { width: parseFloat(e.target.value) || 1.0 })}
-                            style={{ padding: '6px' }}
-                          />
-                        </div>
-                        <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ fontSize: '11px' }}>Height (in):</label>
-                          <input 
-                            type="number" 
-                            step="0.1" 
-                            className="form-input" 
-                            value={activePanel.rightChestLogo?.height ?? 3.5}
-                            onChange={(e) => updateLogoConfig('rightChest', { height: parseFloat(e.target.value) || 1.0 })}
-                            style={{ padding: '6px' }}
-                          />
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '-2px', marginBottom: '4px' }}>
-                        <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', cursor: 'pointer' }}>
-                          <input 
-                            type="checkbox" 
-                            checked={activePanel.rightChestLogo?.lockAspectRatio ?? true}
-                            onChange={(e) => updateLogoConfig('rightChest', { lockAspectRatio: e.target.checked })}
-                          />
-                          Lock Proportions
-                        </label>
-                      </div>
-
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                          <span>Horizontal Pos (X) (in):</span>
-                          <span>{activePanel.rightChestLogo?.xPos ?? 8.5} in</span>
-                        </div>
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max={physicalWidth}
-                          step="0.1"
-                          value={activePanel.rightChestLogo?.xPos ?? 8.5}
-                          onChange={(e) => updateLogoConfig('rightChest', { xPos: parseFloat(e.target.value) })}
-                        />
-                      </div>
-
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                          <span>Vertical Pos (Y) (in):</span>
-                          <span>{activePanel.rightChestLogo?.yPos ?? 7.5} in</span>
-                        </div>
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max={physicalHeight}
-                          step="0.1"
-                          value={activePanel.rightChestLogo?.yPos ?? 7.5}
-                          onChange={(e) => updateLogoConfig('rightChest', { yPos: parseFloat(e.target.value) })}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Torso Logo */}
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Torso Logo / Text</span>
-                    <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={activePanel.torsoLogo?.enabled ?? false}
-                        onChange={(e) => updateLogoConfig('torso', { enabled: e.target.checked })}
-                      />
-                      Enabled
-                    </label>
-                  </div>
-
-                  {(activePanel.torsoLogo?.enabled ?? false) && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label className="form-label" style={{ fontSize: '11px' }}>Logo Text (Optional):</label>
-                        <input 
-                          type="text" 
-                          className="form-input" 
-                          value={activePanel.torsoLogo?.text ?? ''}
-                          onChange={(e) => updateLogoConfig('torso', { text: e.target.value })}
-                          placeholder="Enter torso text..."
-                          style={{ padding: '6px' }}
-                        />
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label className="form-label" style={{ fontSize: '11px' }}>Logo Image:</label>
-                        {activePanel.torsoLogo?.uploadedUrl ? (
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
-                            <img src={activePanel.torsoLogo.uploadedUrl} style={{ height: '30px', objectFit: 'contain', borderRadius: '4px' }} />
-                            <button 
-                              type="button" 
-                              className="btn" 
-                              style={{ padding: '4px 8px', fontSize: '11px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744', cursor: 'pointer' }}
-                              onClick={() => updateLogoConfig('torso', { uploadedUrl: null })}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ) : (
-                          <div>
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              id="torso-logo-file"
-                              style={{ display: 'none' }}
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  const reader = new FileReader();
-                                  reader.onload = (event) => {
-                                    const dataUrl = event.target?.result as string;
-                                    const img = new Image();
-                                    img.onload = () => {
-                                      const targetW = parseFloat((img.naturalWidth / 300).toFixed(2));
-                                      const targetH = parseFloat((img.naturalHeight / 300).toFixed(2));
-                                      updateLogoConfig('torso', { 
-                                        uploadedUrl: dataUrl,
-                                        width: targetW,
-                                        height: targetH
-                                      });
-                                    };
-                                    img.src = dataUrl;
-                                  };
-                                  reader.readAsDataURL(file);
-                                }
-                              }}
-                            />
-                            <label htmlFor="torso-logo-file" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '8px', fontSize: '12px' }}>
-                              <Upload size={14} /> Upload Torso Logo
-                            </label>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="form-row">
-                        <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ fontSize: '11px' }}>Width (in):</label>
-                          <input 
-                            type="number" 
-                            step="0.1" 
-                            className="form-input" 
-                            value={activePanel.torsoLogo?.width ?? 8.0}
-                            onChange={(e) => updateLogoConfig('torso', { width: parseFloat(e.target.value) || 1.0 })}
-                            style={{ padding: '6px' }}
-                          />
-                        </div>
-                        <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ fontSize: '11px' }}>Height (in):</label>
-                          <input 
-                            type="number" 
-                            step="0.1" 
-                            className="form-input" 
-                            value={activePanel.torsoLogo?.height ?? 5.0}
-                            onChange={(e) => updateLogoConfig('torso', { height: parseFloat(e.target.value) || 1.0 })}
-                            style={{ padding: '6px' }}
-                          />
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '-2px', marginBottom: '4px' }}>
-                        <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', cursor: 'pointer' }}>
-                          <input 
-                            type="checkbox" 
-                            checked={activePanel.torsoLogo?.lockAspectRatio ?? true}
-                            onChange={(e) => updateLogoConfig('torso', { lockAspectRatio: e.target.checked })}
-                          />
-                          Lock Proportions
-                        </label>
-                      </div>
-
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                          <span>Horizontal Pos (X) (in):</span>
-                          <span>{activePanel.torsoLogo?.xPos ?? 11.0} in</span>
-                        </div>
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max={physicalWidth}
-                          step="0.1"
-                          value={activePanel.torsoLogo?.xPos ?? 11.0}
-                          onChange={(e) => updateLogoConfig('torso', { xPos: parseFloat(e.target.value) })}
-                        />
-                      </div>
-
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                          <span>Vertical Pos (Y) (in):</span>
-                          <span>{activePanel.torsoLogo?.yPos ?? 16.0} in</span>
-                        </div>
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max={physicalHeight}
-                          step="0.1"
-                          value={activePanel.torsoLogo?.yPos ?? 16.0}
-                          onChange={(e) => updateLogoConfig('torso', { yPos: parseFloat(e.target.value) })}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Custom Guidelines Card */}
         <div className="glass-card" style={{ padding: '20px' }}>
@@ -4107,6 +3776,15 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       {showShortcutsModal && (
         <ShortcutsModal onClose={() => setShowShortcutsModal(false)} />
       )}
+
+      {/* 7. SUBLIMATION CORE PANEL & SIZE GRADING EDITOR MODAL */}
+      <SizesModal 
+        isOpen={showPanelEditorModal} 
+        onClose={() => setShowPanelEditorModal(false)} 
+        onDatabaseChange={() => setPrefTrigger(prev => prev + 1)}
+      />
+      </div>
+    </div>
     </div>
   );
 };

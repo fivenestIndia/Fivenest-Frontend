@@ -447,3 +447,54 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
     </div>
   );
 };
+
+interface SizesModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onDatabaseChange?: (db: SizeDatabase) => void;
+}
+
+export const SizesModal: React.FC<SizesModalProps> = ({ isOpen, onClose, onDatabaseChange }) => {
+  if (!isOpen) return null;
+  return (
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      zIndex: 99999,
+      background: 'rgba(0, 0, 0, 0.85)',
+      backdropFilter: 'blur(16px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '20px'
+    }}>
+      <div style={{
+        background: '#14141c',
+        border: '2px solid rgba(0, 240, 255, 0.6)',
+        boxShadow: '0 0 50px rgba(0, 240, 255, 0.3)',
+        borderRadius: '16px',
+        width: '100%',
+        maxWidth: '960px',
+        maxHeight: '90vh',
+        overflowY: 'auto',
+        padding: '24px',
+        position: 'relative'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
+          <h2 style={{ margin: 0, fontSize: '18px', color: '#00f0ff', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            ⚙️ Sublimation Core Panel & Size Grading Editor
+          </h2>
+          <button 
+            className="btn btn-secondary" 
+            onClick={onClose} 
+            style={{ padding: '6px 16px', fontSize: '12px', color: '#ff1744', fontWeight: 'bold', borderRadius: '20px' }}
+          >
+            ✕ Close Editor
+          </button>
+        </div>
+
+        <SizesDb onDatabaseChange={onDatabaseChange} />
+      </div>
+    </div>
+  );
+};

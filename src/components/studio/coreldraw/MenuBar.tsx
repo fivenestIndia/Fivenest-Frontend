@@ -18,6 +18,7 @@ interface MenuBarProps {
   onOpenBulkImport?: () => void;
   onClearPanel: () => void;
   onOpenShortcutsModal: () => void;
+  onOpenPanelEditor?: () => void;
 }
 
 export const MenuBar: React.FC<MenuBarProps> = ({
@@ -32,7 +33,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   onOpenImport,
   onOpenBulkImport,
   onClearPanel,
-  onOpenShortcutsModal
+  onOpenShortcutsModal,
+  onOpenPanelEditor
 }) => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -148,6 +150,10 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                 {activeTab === p.id && <Check size={13} style={{ color: '#38bdf8' }} />}
               </div>
             ))}
+            <div style={{ height: '1px', background: '#2d2d38', margin: '4px 0' }} />
+            <div className="cd-dropdown-action" onClick={() => { if (onOpenPanelEditor) onOpenPanelEditor(); close(); }} style={{ color: '#00f0ff', fontWeight: 'bold' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>⚙️ Core Panel & Size Editor</span>
+            </div>
           </div>
         )}
       </div>
@@ -167,10 +173,20 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         )}
       </div>
 
-      {/* Active Panel Badge on Right */}
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: '#38bdf8', background: '#0f172a', padding: '2px 8px', borderRadius: '4px', border: '1px solid #1e293b' }}>
-        <span>ACTIVE:</span>
-        <strong style={{ color: '#fff', textTransform: 'uppercase' }}>{activeTab}</strong>
+      {/* Panel Editor Quick Button + Active Panel Badge on Right */}
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <button 
+          className="btn btn-secondary" 
+          onClick={() => { if (onOpenPanelEditor) onOpenPanelEditor(); }}
+          style={{ padding: '3px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '5px', color: '#00f0ff', borderColor: 'rgba(0, 240, 255, 0.4)', borderRadius: '4px', fontWeight: 'bold', background: 'rgba(0, 240, 255, 0.08)' }}
+        >
+          ⚙️ Panel Editor
+        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: '#38bdf8', background: '#0f172a', padding: '2px 8px', borderRadius: '4px', border: '1px solid #1e293b' }}>
+          <span>ACTIVE:</span>
+          <strong style={{ color: '#fff', textTransform: 'uppercase' }}>{activeTab}</strong>
+        </div>
       </div>
     </div>
   );
