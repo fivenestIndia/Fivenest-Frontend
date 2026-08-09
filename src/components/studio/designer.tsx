@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, RotateCcw, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus } from 'lucide-react';
+import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, RotateCcw, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus, Maximize2 } from 'lucide-react';
 import type { OrderMetadata } from './orderEntry';
 import { ThreeDPreview } from './ThreeDPreview';
 import { defaultSizes } from './sizesDb';
@@ -197,7 +197,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [dragStart, setDragStart] = useState<{ x: number; y: number; zoom: number } | null>(null);
   const [spaceKeyPressed, setSpaceKeyPressed] = useState<boolean>(false);
   const [panStart, setPanStart] = useState<{ scrollLeft: number; scrollTop: number; x: number; y: number } | null>(null);
-  const [activeTextLayer, setActiveTextLayer] = useState<'name' | 'number'>('name');
+  const [activeTextLayer, setActiveTextLayer] = useState<'name' | 'number' | null>(null);
 
   const [showGuidelines, setShowGuidelines] = useState<boolean>(true);
   const [activeTool, setActiveTool] = useState<CorelTool>('pick');
@@ -334,10 +334,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       if (e.key === 'Delete') {
         updateActivePanel({ uploadedFileUrl: null });
       }
-      // Zoom reset: Ctrl + 0 or Cmd + 0
+      // Zoom fit: Ctrl + 0 or Cmd + 0
       if ((e.ctrlKey || e.metaKey) && e.key === '0') {
         e.preventDefault();
-        setZoom(1);
+        handleFitToScreen();
       }
       // Toggle guidelines: Ctrl + . or Cmd + .
       if ((e.ctrlKey || e.metaKey) && e.key === '.') {
@@ -504,6 +504,26 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
   const handleTouchEnd = () => {
     touchStartRef.current = null;
+  };
+
+  const handleFitToScreen = () => {
+    if (!scrollWrapperRef.current) {
+      setZoom(1);
+      return;
+    }
+    const containerW = scrollWrapperRef.current.clientWidth - 48;
+    const containerH = scrollWrapperRef.current.clientHeight - 48;
+    const currentRulerOffset = rulersEnabled ? Math.round(0.35 * scale) : 0;
+    const targetW = width + currentRulerOffset;
+    const targetH = height + currentRulerOffset;
+
+    if (containerW > 0 && containerH > 0) {
+      const fitRatio = Math.min(containerW / targetW, containerH / targetH);
+      const optimalZoom = Math.min(1.0, Math.max(0.4, parseFloat(fitRatio.toFixed(2))));
+      setZoom(optimalZoom);
+    } else {
+      setZoom(1);
+    }
   };
 
   // Physical dimensions based on active tab and metadata
@@ -984,10 +1004,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         drawSingleText(previewNumber, panel.numberConfig, width / 2, (panel.numberConfig.yPos / 100) * height, (panel.numberConfig.maxW / 20) * width, 'number');
       }
 
-      // Draw interactive Cyan Selection Box with 8 Control Handles around Active Selected Text Layer
-      if (!is3DPreview) {
-        const activeKey = activeTextLayer || (panel.nameConfig.enabled ? 'name' : 'number');
-        const selectedBox = textBoundingBoxesRef.current[activeKey];
+      // Draw interactive Cyan Selection Box with 8 Control Handles around Active Selected Text Layer ONLY if text is selected
+      if (!is3DPreview && activeTextLayer) {
+        const selectedBox = textBoundingBoxesRef.current[activeTextLayer];
         if (selectedBox) {
           ctx.save();
           ctx.strokeStyle = '#00f0ff';
@@ -1454,7 +1473,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       // Zoom reset: Ctrl + 0
       if (isCtrl && key === '0') {
         e.preventDefault();
-        setZoom(1);
+        handleFitToScreen();
         return;
       }
 
@@ -1787,6 +1806,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         return;
       }
     }
+
+    // If clicked on canvas outside text, deselect text layer
+    setActiveTextLayer(null);
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1999,14 +2021,22 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           >
             <ZoomIn size={14} />
           </button>
+          <button 
+            className="btn btn-secondary" 
+            style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: '#00f0ff' }}
+            onClick={handleFitToScreen}
+            title="Fit Full View to Screen (Ctrl+0)"
+          >
+            <Maximize2 size={12} /> Fit View (Ctrl+0)
+          </button>
           {zoom !== 1 && (
             <button 
               className="btn btn-secondary" 
-              style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-primary)' }}
+              style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)' }}
               onClick={() => setZoom(1)}
-              title="Reset Zoom"
+              title="Reset Zoom to 100%"
             >
-              <RotateCcw size={12} /> Reset
+              <RotateCcw size={12} /> 100%
             </button>
           )}
         </div>
@@ -2141,10 +2171,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     border: '2px solid rgba(0, 240, 255, 0.5)', 
                     boxShadow: '0 0 50px rgba(0,0,0,0.95)',
                     cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : 'pointer',
-                    width: `${width * zoom}px`,
-                    height: `${height * zoom}px`,
-                    maxWidth: zoom > 1 ? 'none' : '100%',
-                    maxHeight: zoom > 1 ? 'none' : '100%',
+                    width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                    height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                    maxWidth: 'none',
+                    maxHeight: 'none',
                     objectFit: 'contain',
                     flexShrink: 0
                   }} 
