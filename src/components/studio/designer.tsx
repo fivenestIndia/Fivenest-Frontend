@@ -181,7 +181,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
 
 export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfigChange, metadata }) => {
   const [activeTab, setActiveTab] = useState<'front' | 'back' | 'dual' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD'>('dual');
-  const [dualActivePanel, setDualActivePanel] = useState<'front' | 'back'>('front');
+  const [dualActivePanel, setDualActivePanel] = useState<'front' | 'back' | 'sleeveLeft' | 'sleeveRight'>('front');
   const [previewName, setPreviewName] = useState<string>("FIVENEST");
   const [previewNumber, setPreviewNumber] = useState<string>("23");
   const [overlaySubTab, setOverlaySubTab] = useState<'name' | 'number' | 'logos' | 'sizeTag'>('name');
@@ -436,6 +436,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const frontCanvasRef = useRef<HTMLCanvasElement>(null);
   const backCanvasRef = useRef<HTMLCanvasElement>(null);
+  const leftSleeveCanvasRef = useRef<HTMLCanvasElement>(null);
+  const rightSleeveCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
   const scrollWrapperRef = useRef<HTMLDivElement>(null);
@@ -565,6 +567,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   }
 
   const scale = width / physicalWidth;
+
+  // Sleeve dimensions for full 4-panel spread
+  const isRaglanStyle = metadata?.raglanStyle ?? false;
+  const sleeveSpreadPhysicalH = previewSleeveType === 'full' ? (isRaglanStyle ? 31 : 25) : (isRaglanStyle ? 16.5 : 11);
+  const sleeveSpreadPhysicalW = 19;
+  const sleeveSpreadWidth = Math.round(sleeveSpreadPhysicalW * scale);
+  const sleeveSpreadHeight = Math.round(sleeveSpreadPhysicalH * scale);
 
   const activePanel = activeTab === 'threeD' ? designConfig.front : activeTab === 'dual' ? designConfig[dualActivePanel] : designConfig[activeTab];
 
@@ -1594,6 +1603,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const rulerOffset = rulersPref ? Math.round(0.35 * scale) : 0;
 
     if (activeTab === 'dual') {
+      // 1. Left Sleeve
+      if (leftSleeveCanvasRef.current) {
+        const lsCtx = leftSleeveCanvasRef.current.getContext('2d');
+        if (lsCtx) {
+          leftSleeveCanvasRef.current.width = (sleeveSpreadWidth + rulerOffset) * zoom;
+          leftSleeveCanvasRef.current.height = (sleeveSpreadHeight + rulerOffset) * zoom;
+          lsCtx.scale(zoom, zoom);
+          renderPanelToCanvas('sleeveLeft', lsCtx, sleeveSpreadWidth, sleeveSpreadHeight, scale, false);
+        }
+      }
+      // 2. Front Panel
       if (frontCanvasRef.current) {
         const fCtx = frontCanvasRef.current.getContext('2d');
         if (fCtx) {
@@ -1603,6 +1623,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           renderPanelToCanvas('front', fCtx, width, height, scale, false);
         }
       }
+      // 3. Back Panel
       if (backCanvasRef.current) {
         const bCtx = backCanvasRef.current.getContext('2d');
         if (bCtx) {
@@ -1610,6 +1631,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           backCanvasRef.current.height = (height + rulerOffset) * zoom;
           bCtx.scale(zoom, zoom);
           renderPanelToCanvas('back', bCtx, width, height, scale, false);
+        }
+      }
+      // 4. Right Sleeve
+      if (rightSleeveCanvasRef.current) {
+        const rsCtx = rightSleeveCanvasRef.current.getContext('2d');
+        if (rsCtx) {
+          rightSleeveCanvasRef.current.width = (sleeveSpreadWidth + rulerOffset) * zoom;
+          rightSleeveCanvasRef.current.height = (sleeveSpreadHeight + rulerOffset) * zoom;
+          rsCtx.scale(zoom, zoom);
+          renderPanelToCanvas('sleeveRight', rsCtx, sleeveSpreadWidth, sleeveSpreadHeight, scale, false);
         }
       }
       return;
@@ -2011,7 +2042,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             style={{ fontWeight: '600' }}
             title="View Front and Back panels side-by-side"
           >
-            👥 Front & Back (Side by Side)
+            👕 Full Spread (Left Sleeve • Front • Back • Right Sleeve)
           </button>
           <button className={`tab-btn ${activeTab === 'sleeveLeft' ? 'active' : ''}`} onClick={() => setActiveTab('sleeveLeft')}>Left Sleeve</button>
           <button className={`tab-btn ${activeTab === 'sleeveRight' ? 'active' : ''}`} onClick={() => setActiveTab('sleeveRight')}>Right Sleeve</button>
@@ -2181,8 +2212,49 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             }}
           >
             {activeTab === 'dual' ? (
-              <div style={{ display: 'flex', flexDirection: 'row', gap: '36px', alignItems: 'center', justifyContent: 'center', flexWrap: 'nowrap' }}>
-                {/* 1. FRONT PANEL CANVAS */}
+              <div style={{ display: 'flex', flexDirection: 'row', gap: '24px', alignItems: 'center', justifyContent: 'center', flexWrap: 'nowrap', padding: '0 20px' }}>
+                {/* 1. LEFT SLEEVE CANVAS */}
+                <div 
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                  onClick={() => setDualActivePanel('sleeveLeft')}
+                >
+                  <div 
+                    className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
+                      dualActivePanel === 'sleeveLeft' 
+                        ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/30' 
+                        : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <span>🧤 LEFT SLEEVE ({sleeveSpreadPhysicalW}" × {sleeveSpreadPhysicalH}")</span>
+                    {dualActivePanel === 'sleeveLeft' && <span className="text-[10px] text-cyan-400 font-semibold">• Active</span>}
+                  </div>
+
+                  <div style={{ position: 'relative', display: 'inline-block' }}>
+                    <canvas 
+                      ref={leftSleeveCanvasRef} 
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setDualActivePanel('sleeveLeft');
+                        fileInputRef.current?.click();
+                      }}
+                      title="Left Sleeve - Double-click to upload artwork image"
+                      style={{ 
+                        borderRadius: '8px', 
+                        border: dualActivePanel === 'sleeveLeft' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
+                        boxShadow: dualActivePanel === 'sleeveLeft' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
+                        cursor: 'pointer',
+                        width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                        height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                        maxWidth: 'none',
+                        maxHeight: 'none',
+                        objectFit: 'contain',
+                        flexShrink: 0
+                      }} 
+                    />
+                  </div>
+                </div>
+
+                {/* 2. FRONT PANEL CANVAS */}
                 <div 
                   style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
                   onClick={() => setDualActivePanel('front')}
@@ -2223,7 +2295,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   </div>
                 </div>
 
-                {/* 2. BACK PANEL CANVAS */}
+                {/* 3. BACK PANEL CANVAS */}
                 <div 
                   style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
                   onClick={() => setDualActivePanel('back')}
@@ -2262,6 +2334,47 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         cursor: 'pointer',
                         width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
                         height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                        maxWidth: 'none',
+                        maxHeight: 'none',
+                        objectFit: 'contain',
+                        flexShrink: 0
+                      }} 
+                    />
+                  </div>
+                </div>
+
+                {/* 4. RIGHT SLEEVE CANVAS */}
+                <div 
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                  onClick={() => setDualActivePanel('sleeveRight')}
+                >
+                  <div 
+                    className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
+                      dualActivePanel === 'sleeveRight' 
+                        ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/30' 
+                        : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <span>🧤 RIGHT SLEEVE ({sleeveSpreadPhysicalW}" × {sleeveSpreadPhysicalH}")</span>
+                    {dualActivePanel === 'sleeveRight' && <span className="text-[10px] text-cyan-400 font-semibold">• Active</span>}
+                  </div>
+
+                  <div style={{ position: 'relative', display: 'inline-block' }}>
+                    <canvas 
+                      ref={rightSleeveCanvasRef} 
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setDualActivePanel('sleeveRight');
+                        fileInputRef.current?.click();
+                      }}
+                      title="Right Sleeve - Double-click to upload artwork image"
+                      style={{ 
+                        borderRadius: '8px', 
+                        border: dualActivePanel === 'sleeveRight' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
+                        boxShadow: dualActivePanel === 'sleeveRight' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
+                        cursor: 'pointer',
+                        width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                        height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
                         maxWidth: 'none',
                         maxHeight: 'none',
                         objectFit: 'contain',
