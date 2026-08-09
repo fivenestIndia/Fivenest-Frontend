@@ -180,7 +180,8 @@ export const defaultDesignConfig: ArtDesignConfig = {
 };
 
 export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfigChange, metadata }) => {
-  const [activeTab, setActiveTab] = useState<'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD'>('back');
+  const [activeTab, setActiveTab] = useState<'front' | 'back' | 'dual' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD'>('dual');
+  const [dualActivePanel, setDualActivePanel] = useState<'front' | 'back'>('front');
   const [previewName, setPreviewName] = useState<string>("FIVENEST");
   const [previewNumber, setPreviewNumber] = useState<string>("23");
   const [overlaySubTab, setOverlaySubTab] = useState<'name' | 'number' | 'logos' | 'sizeTag'>('name');
@@ -433,6 +434,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   }, []);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const frontCanvasRef = useRef<HTMLCanvasElement>(null);
+  const backCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
   const scrollWrapperRef = useRef<HTMLDivElement>(null);
@@ -563,11 +566,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
   const scale = width / physicalWidth;
 
-  const activePanel = activeTab === 'threeD' ? designConfig.front : designConfig[activeTab];
+  const activePanel = activeTab === 'threeD' ? designConfig.front : activeTab === 'dual' ? designConfig[dualActivePanel] : designConfig[activeTab];
 
   // Helper to trigger parent update
   const updateActivePanel = (updatedFields: Partial<PanelConfig>) => {
-    const targetTab = activeTab === 'threeD' ? 'front' : activeTab;
+    const targetTab = activeTab === 'threeD' ? 'front' : activeTab === 'dual' ? dualActivePanel : activeTab;
     const updated = {
       ...designConfig,
       [targetTab]: {
@@ -1579,14 +1582,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     };
   }, [activePanel, activeTextLayer]);
 
-  // Draw preview canvas
+  // Draw preview canvas (Single or Dual Front & Back)
   useEffect(() => {
     if (activeTab === 'threeD') return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
 
     let rulersPref = true;
     try {
@@ -1595,12 +1593,39 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     } catch (e) {}
     const rulerOffset = rulersPref ? Math.round(0.35 * scale) : 0;
 
+    if (activeTab === 'dual') {
+      if (frontCanvasRef.current) {
+        const fCtx = frontCanvasRef.current.getContext('2d');
+        if (fCtx) {
+          frontCanvasRef.current.width = (width + rulerOffset) * zoom;
+          frontCanvasRef.current.height = (height + rulerOffset) * zoom;
+          fCtx.scale(zoom, zoom);
+          renderPanelToCanvas('front', fCtx, width, height, scale, false);
+        }
+      }
+      if (backCanvasRef.current) {
+        const bCtx = backCanvasRef.current.getContext('2d');
+        if (bCtx) {
+          backCanvasRef.current.width = (width + rulerOffset) * zoom;
+          backCanvasRef.current.height = (height + rulerOffset) * zoom;
+          bCtx.scale(zoom, zoom);
+          renderPanelToCanvas('back', bCtx, width, height, scale, false);
+        }
+      }
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
     canvas.width = (width + rulerOffset) * zoom;
     canvas.height = (height + rulerOffset) * zoom;
     ctx.scale(zoom, zoom);
 
     renderPanelToCanvas(activeTab, ctx, width, height, scale, false);
-  }, [activeTab, activePanel, previewName, previewNumber, designConfig, customFonts, metadata, previewSleeveType, prefTrigger, zoom, showGuidelines]);
+  }, [activeTab, dualActivePanel, activePanel, previewName, previewNumber, designConfig, customFonts, metadata, previewSleeveType, prefTrigger, zoom, showGuidelines]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1608,7 +1633,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const reader = new FileReader();
       reader.onload = (uploadEvent) => {
         const url = uploadEvent.target?.result as string;
-        if (activeTab.startsWith('sleeve')) {
+        const targetUpload = activeTab === 'dual' ? dualActivePanel : activeTab;
+        if (targetUpload.startsWith('sleeve')) {
           if (previewSleeveType === 'full') {
             updateActivePanel({
               backgroundType: 'upload',
@@ -1976,9 +2002,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           </div>
         )}
 
-        <div className="tab-btn-group" style={{ width: '100%', maxWidth: '640px' }}>
+        <div className="tab-btn-group" style={{ width: '100%', maxWidth: '780px' }}>
           <button className={`tab-btn ${activeTab === 'front' ? 'active' : ''}`} onClick={() => setActiveTab('front')}>Front</button>
           <button className={`tab-btn ${activeTab === 'back' ? 'active' : ''}`} onClick={() => setActiveTab('back')}>Back</button>
+          <button 
+            className={`tab-btn flex items-center gap-1.5 ${activeTab === 'dual' ? 'active' : ''}`} 
+            onClick={() => setActiveTab('dual')}
+            style={{ fontWeight: '600' }}
+            title="View Front and Back panels side-by-side"
+          >
+            👥 Front & Back (Side by Side)
+          </button>
           <button className={`tab-btn ${activeTab === 'sleeveLeft' ? 'active' : ''}`} onClick={() => setActiveTab('sleeveLeft')}>Left Sleeve</button>
           <button className={`tab-btn ${activeTab === 'sleeveRight' ? 'active' : ''}`} onClick={() => setActiveTab('sleeveRight')}>Right Sleeve</button>
           <button className={`tab-btn ${activeTab === 'a4Print' ? 'active' : ''}`} onClick={() => setActiveTab('a4Print')}>A4 Print</button>
@@ -2146,7 +2180,98 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               position: 'relative'
             }}
           >
-            {activeTab === 'threeD' ? (
+            {activeTab === 'dual' ? (
+              <div style={{ display: 'flex', flexDirection: 'row', gap: '36px', alignItems: 'center', justifyContent: 'center', flexWrap: 'nowrap' }}>
+                {/* 1. FRONT PANEL CANVAS */}
+                <div 
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                  onClick={() => setDualActivePanel('front')}
+                >
+                  <div 
+                    className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
+                      dualActivePanel === 'front' 
+                        ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/30' 
+                        : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <span>👕 FRONT PANEL ({designConfig.front.customWidth || 22}" × {designConfig.front.customHeight || 30}")</span>
+                    {dualActivePanel === 'front' && <span className="text-[10px] text-cyan-400 font-semibold">• Active</span>}
+                  </div>
+
+                  <div style={{ position: 'relative', display: 'inline-block' }}>
+                    <canvas 
+                      ref={frontCanvasRef} 
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setDualActivePanel('front');
+                        fileInputRef.current?.click();
+                      }}
+                      title="Front Panel - Double-click to upload artwork image"
+                      style={{ 
+                        borderRadius: '8px', 
+                        border: dualActivePanel === 'front' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
+                        boxShadow: dualActivePanel === 'front' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
+                        cursor: 'pointer',
+                        width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                        height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                        maxWidth: 'none',
+                        maxHeight: 'none',
+                        objectFit: 'contain',
+                        flexShrink: 0
+                      }} 
+                    />
+                  </div>
+                </div>
+
+                {/* 2. BACK PANEL CANVAS */}
+                <div 
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                  onClick={() => setDualActivePanel('back')}
+                >
+                  <div 
+                    className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
+                      dualActivePanel === 'back' 
+                        ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/30' 
+                        : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <span>👕 BACK PANEL ({designConfig.back.customWidth || 22}" × {designConfig.back.customHeight || 30}")</span>
+                    {dualActivePanel === 'back' && <span className="text-[10px] text-cyan-400 font-semibold">• Active</span>}
+                  </div>
+
+                  <div style={{ position: 'relative', display: 'inline-block' }}>
+                    <canvas 
+                      ref={backCanvasRef} 
+                      onMouseDown={handleCanvasMouseDown}
+                      onMouseMove={handleCanvasMouseMove}
+                      onMouseUp={handleCanvasMouseUp}
+                      onMouseLeave={() => {
+                        setCursorPos(null);
+                        isDraggingTextRef.current = false;
+                      }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setDualActivePanel('back');
+                        fileInputRef.current?.click();
+                      }}
+                      title="Back Panel - Double-click to upload artwork, click & drag player name/number"
+                      style={{ 
+                        borderRadius: '8px', 
+                        border: dualActivePanel === 'back' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
+                        boxShadow: dualActivePanel === 'back' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
+                        cursor: 'pointer',
+                        width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                        height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                        maxWidth: 'none',
+                        maxHeight: 'none',
+                        objectFit: 'contain',
+                        flexShrink: 0
+                      }} 
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : activeTab === 'threeD' ? (
               <div style={{ width: '100%', height: '100%', minHeight: '450px', flexGrow: 1 }}>
                 <ThreeDPreview 
                   designConfig={designConfig} 

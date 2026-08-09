@@ -6,8 +6,8 @@ import {
 import { exportAllLocalData } from '../localDataManager';
 
 interface MenuBarProps {
-  activeTab: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD';
-  onSelectTab: (tab: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD') => void;
+  activeTab: 'front' | 'back' | 'dual' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD';
+  onSelectTab: (tab: 'front' | 'back' | 'dual' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD') => void;
   zoom: number;
   onSetZoom: (zoom: number) => void;
   showGuidelines: boolean;

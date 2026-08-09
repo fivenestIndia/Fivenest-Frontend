@@ -8,7 +8,7 @@ import type { PanelConfig, TextConfig } from '../designer';
 
 interface PropertyBarProps {
   activeTool: CorelTool;
-  activeTab: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD';
+  activeTab: 'front' | 'back' | 'dual' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD';
   panel: PanelConfig;
   physicalWidth: number;
   physicalHeight: number;
