@@ -1047,7 +1047,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           });
 
           // Active Layer Name Badge
-          const badgeText = activeKey === 'name' ? 'PLAYER NAME (SELECTED)' : 'PLAYER NUMBER (SELECTED)';
+          const badgeText = activeTextLayer === 'name' ? 'PLAYER NAME (SELECTED)' : 'PLAYER NUMBER (SELECTED)';
           ctx.font = 'bold 10px sans-serif';
           const badgeW = ctx.measureText(badgeText).width + 14;
           ctx.fillStyle = '#00f0ff';
