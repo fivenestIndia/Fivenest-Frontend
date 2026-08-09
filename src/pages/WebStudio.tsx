@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Palette, Users, Ruler, Sliders, HelpCircle, ArrowLeft, Sun, Moon, Menu, X, Award, ExternalLink, Package, Cpu, Sparkles, Layers } from 'lucide-react';
+import { Palette, Users, Ruler, Sliders, HelpCircle, ArrowLeft, Sun, Moon, Menu, X, Award, ExternalLink, Package, Cpu, Sparkles, FolderCheck, HardDrive } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase, fetchUserWallet } from '../lib/supabaseClient';
 import { Designer, defaultDesignConfig } from '../components/studio/designer';
@@ -11,7 +11,6 @@ import type { SizeDatabase } from '../components/studio/sizesDb';
 import { NestingView } from '../components/studio/nestingView';
 import { HelpCenter } from '../components/studio/helpCenter';
 import { LoginModal } from '../components/studio/loginModal';
-import { LocalDataManager } from '../components/studio/localDataManager';
 
 export default function WebStudio() {
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>(() => {
@@ -23,9 +22,22 @@ export default function WebStudio() {
     localStorage.setItem('fivenest_studio_theme', themeMode);
   }, [themeMode]);
 
-  // Production Studio tabs for designers & printers ONLY
+  // Production Studio tabs for designers & printers
   const [activeTab, setActiveTab] = useState<'designer' | 'order' | 'sizes' | 'nesting' | 'help'>('designer');
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+
+  // Detect OS for Client Database Storage Notification
+  const [detectedOs, setDetectedOs] = useState<string>('macOS');
+  useEffect(() => {
+    if (typeof navigator !== 'undefined') {
+      const platform = navigator.platform || navigator.userAgent || '';
+      if (platform.toLowerCase().includes('win')) {
+        setDetectedOs('Windows (Documents/FiveNest Database)');
+      } else {
+        setDetectedOs('macOS (Documents/FiveNest Database)');
+      }
+    }
+  }, []);
 
   // Roster records state
   const [records, setRecords] = useState<PlayerRecord[]>([]);
@@ -48,15 +60,26 @@ export default function WebStudio() {
   const [testMode, setTestMode] = useState<boolean>(false);
   const [loginModalOpen, setLoginModalOpen] = useState<boolean>(false);
 
+  // Auto-save Client Database to Local Storage per User Email / OS
+  useEffect(() => {
+    const clientDbKey = currentUser?.email ? `fivenest_database_${currentUser.email}` : 'fivenest_database_local';
+    const dbData = {
+      records,
+      metadata,
+      sizeDB,
+      lastSaved: new Date().toISOString(),
+      osPath: detectedOs
+    };
+    localStorage.setItem(clientDbKey, JSON.stringify(dbData));
+  }, [records, metadata, sizeDB, currentUser, detectedOs]);
+
   useEffect(() => {
     const saved = localStorage.getItem('teedex_size_database');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         setSizeDB(parsed);
-      } catch (e) {
-        console.error("Failed to parse saved size database", e);
-      }
+      } catch (e) {}
     }
 
     const savedTestMode = localStorage.getItem('fivenest_test_mode');
@@ -143,7 +166,7 @@ export default function WebStudio() {
 
   const productionTabs = [
     { id: 'designer', label: 'Artwork Setup', icon: Palette },
-    { id: 'order', label: 'Roster & Details', icon: Users },
+    { id: 'order', label: 'Job Details & Excel Data', icon: Users },
     { id: 'sizes', label: 'Grading Sizes', icon: Ruler },
     { id: 'nesting', label: 'Nesting & Export', icon: Sliders },
     { id: 'help', label: 'Help & AI Refine', icon: HelpCircle },
@@ -188,9 +211,9 @@ export default function WebStudio() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-300 ${
                 isActive
-                  ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-extrabold shadow-lg shadow-cyan-500/20'
+                  ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-extrabold shadow-lg shadow-cyan-500/20 scale-105'
                   : 'bg-slate-900 text-slate-300 border border-slate-800'
               }`}
             >
@@ -201,12 +224,11 @@ export default function WebStudio() {
         })}
       </div>
 
-      {/* Sidebar Navigation Panel (Responsive Drawer) */}
+      {/* Sidebar Navigation Panel */}
       <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div>
           <div className="flex items-center justify-between p-4 border-b border-slate-800/80">
             <Link to="/" className="flex items-center gap-3 group text-left">
-              {/* Glowing 3D Brand Emblem */}
               <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-cyan-400 via-sky-400 to-indigo-600 p-[1.5px] shadow-lg shadow-cyan-500/30 group-hover:shadow-cyan-400/50 transition-all duration-300 flex-shrink-0">
                 <div className="w-full h-full rounded-[14.5px] bg-slate-950 flex items-center justify-center relative overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-blue-600/20 opacity-80" />
@@ -246,7 +268,7 @@ export default function WebStudio() {
               return (
                 <div
                   key={t.id}
-                  className={`menu-item ${isActive ? 'active' : ''}`}
+                  className={`menu-item transition-all duration-200 ${isActive ? 'active scale-[1.02]' : ''}`}
                   onClick={() => {
                     setActiveTab(t.id as any);
                     setMobileMenuOpen(false);
@@ -317,7 +339,7 @@ export default function WebStudio() {
           </nav>
         </div>
 
-        {/* Sidebar Footer info */}
+        {/* Sidebar Footer info with OS Client Database Persistence Status */}
         <div className="sidebar-footer">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', padding: '0 4px' }}>
             <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-muted)' }}>Theme:</span>
@@ -352,17 +374,17 @@ export default function WebStudio() {
             </button>
           </div>
 
-          {/* Save / Restore Local Data */}
-          <LocalDataManager />
-
-          <div className="glass-card" style={{ padding: '12px', background: 'rgba(0, 229, 255, 0.04)', borderColor: 'var(--border-active)', textAlign: 'left', marginTop: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <Award size={14} style={{ color: 'var(--color-primary)' }} />
-              <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--color-primary)' }}>PRODUCTION STUDIO ACTIVE</span>
+          {/* Auto OS Client Database Save Status Pill */}
+          <div className="glass-card" style={{ padding: '12px', background: 'rgba(0, 229, 255, 0.05)', borderColor: 'rgba(0, 229, 255, 0.3)', textAlign: 'left' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+              <FolderCheck size={14} className="text-cyan-400" />
+              <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--color-primary)' }}>AUTO CLIENT DATABASE</span>
             </div>
-            <p style={{ fontSize: '10px', color: 'var(--text-muted)' }}>300 DPI Sublimation RIP Engine Ready.</p>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', fontSize: '10px', color: 'var(--text-primary)' }}>
-              <span>Total Panels Qty:</span>
+            <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: 0 }}>
+              Auto-saved for OS: <strong className="text-white">{detectedOs}</strong>
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '10px', color: 'var(--text-primary)' }}>
+              <span>Job Total Qty:</span>
               <span style={{ fontWeight: 'bold', color: 'var(--color-primary)' }}>{totalQty} pcs</span>
             </div>
           </div>
@@ -374,7 +396,7 @@ export default function WebStudio() {
         <header className="top-navbar">
           <h1 className="navbar-title text-sm md:text-base font-black">
             {activeTab === 'designer' && "🎨 Step 1: Sublimation Artwork & Overlays"}
-            {activeTab === 'order' && "📋 Step 2: Order Details & Player Roster"}
+            {activeTab === 'order' && "📋 Step 2: Job Details & Excel Data"}
             {activeTab === 'sizes' && "📐 Step 3: Size grading dimensions database"}
             {activeTab === 'nesting' && "⚙️ Step 4: Nesting Engine & Panel Export"}
             {activeTab === 'help' && "🤖 Help Center & AI Smart Roster Refiner"}

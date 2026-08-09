@@ -225,9 +225,6 @@ export default function OrderManagement() {
 
         {/* Sidebar Footer */}
         <div className="sidebar-footer">
-          {/* Save / Restore Local Data */}
-          <LocalDataManager />
-
           <div className="glass-card" style={{ padding: '12px', background: 'rgba(0, 229, 255, 0.04)', borderColor: 'var(--border-active)', textAlign: 'left', marginTop: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
               <Award size={14} style={{ color: 'var(--color-secondary)' }} />
@@ -260,9 +257,6 @@ export default function OrderManagement() {
                 <Palette size={14} /> Open Production Studio
               </button>
             </Link>
-
-            {/* Save / Restore local data compact button */}
-            <LocalDataManager compact />
 
             {currentUser ? (
               <div 
