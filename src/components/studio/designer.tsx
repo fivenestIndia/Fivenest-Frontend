@@ -213,13 +213,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   });
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
     zip: true,
+    overlays: false,
     presets: true,
-    background: true,
-    overlays: true,
-    logos: true,
+    trim: true,
     guidelines: true,
     fonts: true,
-    trim: true,
   });
 
   const logoImagesRef = useRef<Record<string, HTMLImageElement>>({});
@@ -1862,6 +1860,39 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         />
 
         <div className="cd-canvas-area">
+          {/* Top Artwork Upload & Instruction Bar */}
+          <div 
+            style={{ 
+              width: '100%',
+              maxWidth: '840px',
+              padding: '6px 14px',
+              background: 'linear-gradient(90deg, rgba(0, 240, 255, 0.1) 0%, rgba(139, 92, 246, 0.08) 100%)',
+              border: '1px solid rgba(0, 240, 255, 0.35)',
+              borderRadius: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 4px 20px rgba(0, 240, 255, 0.12)',
+              margin: '2px 0 6px 0',
+              flexShrink: 0
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#00f0ff', fontWeight: 'bold' }}>
+              <span style={{ fontSize: '14px' }}>💡</span>
+              <span><strong>Artwork Graphic Upload:</strong> Double-click canvas or press <code style={{ background: 'rgba(0,240,255,0.2)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(0,240,255,0.4)', color: '#fff' }}>Ctrl+I</code> to select image file</span>
+            </div>
+            <button 
+              type="button"
+              className="btn btn-primary"
+              style={{ padding: '4px 14px', fontSize: '11px', fontWeight: 'bold', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload size={13} /> Upload {activeTab.toUpperCase()} Image
+            </button>
+          </div>
+
           {/* 2D Canvas Mock Renderer */}
           <div 
             className="cd-canvas-container" 
@@ -2228,264 +2259,25 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           )}
         </div>
 
-        {/* Step 2: Design Presets Manager Card */}
-        <div className="glass-card" style={{ padding: '20px' }}>
+        {/* Step 2: Print Layer Overlays (Names, Numbers & Logos - HIGHLY HIGHLIGHTED STEP 2) */}
+        <div 
+          className="glass-card" 
+          style={{ 
+            padding: '20px', 
+            background: 'linear-gradient(180deg, rgba(0, 240, 255, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%)',
+            border: '2px solid rgba(0, 240, 255, 0.8)',
+            boxShadow: '0 0 30px rgba(0, 240, 255, 0.3)',
+            borderRadius: '12px'
+          }}
+        >
           <h3 
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-primary)' }}
-            onClick={() => toggleCollapse('presets')}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '18px' }}>💾</span> Design Presets Manager
-            </span>
-            {collapsed.presets ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-          </h3>
-          {!collapsed.presets && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
-              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                Save the current design configuration (background uploads, colors, fonts, strokes, and text formats) as a reusable template preset.
-              </p>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="Preset Name" 
-                  value={newPresetName}
-                  onChange={(e) => setNewPresetName(e.target.value)}
-                  style={{ padding: '8px', fontSize: '12px' }}
-                />
-                <button 
-                  className="btn btn-primary" 
-                  onClick={handleSavePreset}
-                  style={{ padding: '8px 16px', fontSize: '12px', whiteSpace: 'nowrap' }}
-                >
-                  Save
-                </button>
-              </div>
-
-              {presets.length > 0 && (
-                <div>
-                  <p style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '6px' }}>Select Preset to Load:</p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
-                    {presets.map((preset, idx) => (
-                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '11px' }}>
-                        <span 
-                          style={{ fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-bright)' }}
-                          onClick={() => handleLoadPreset(preset.name)}
-                        >
-                          {preset.name}
-                        </span>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button 
-                            className="btn btn-secondary" 
-                            style={{ padding: '3px 8px', fontSize: '9px' }}
-                            onClick={() => handleLoadPreset(preset.name)}
-                          >
-                            Load
-                          </button>
-                          <button 
-                            className="btn" 
-                            style={{ padding: '3px 8px', fontSize: '9px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744' }}
-                            onClick={() => handleDeletePreset(preset.name)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Step 3: Artwork Background Upload Card */}
-        <div className="glass-card" style={{ padding: '16px', background: 'rgba(0, 240, 255, 0.05)', borderColor: 'rgba(0, 240, 255, 0.3)' }}>
-          <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Paintbrush size={16} /> Background Artwork Upload
-          </h3>
-          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px', marginBottom: '10px' }}>
-            💡 <strong>Double-click directly on any panel canvas</strong> (Front, Back, Sleeves) or click the button below to upload artwork images.
-          </p>
-          <button 
-            type="button"
-            className="btn btn-primary"
-            style={{ width: '100%', padding: '8px', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Upload size={14} /> Upload {activeTab.toUpperCase()} Artwork Image
-          </button>
-        </div>
-
-        {/* Collar & Trim Customization */}
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <h3 
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-primary)' }}
-            onClick={() => toggleCollapse('trim')}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Shirt size={18} /> Collar & Trim Customization
-            </span>
-            {collapsed.trim ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-          </h3>
-
-          {!collapsed.trim && (
-            <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {/* Part 1: Collar */}
-              <div>
-                <h4 style={{ fontSize: '13px', fontWeight: 'semibold', color: '#fff', marginBottom: '8px' }}>Collar & Rib</h4>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input 
-                      type="color" 
-                      value={designConfig.trim?.collar.color || designConfig.front.generatedColor1} 
-                      onChange={(e) => updateTrimConfig('collar', { color: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
-                    />
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      value={(designConfig.trim?.collar.color || designConfig.front.generatedColor1).toUpperCase()}
-                      onChange={(e) => updateTrimConfig('collar', { color: e.target.value })}
-                      style={{ padding: '6px', fontSize: '12px', width: '90px' }}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    {designConfig.trim?.collar.uploadedUrl ? (
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          Image Active
-                        </div>
-                        <button 
-                          className="btn btn-secondary" 
-                          style={{ padding: '4px 8px', fontSize: '11px' }}
-                          onClick={() => updateTrimConfig('collar', { uploadedUrl: null })}
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
-                        Import Image
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={(e) => handleTrimFileUpload('collar', e)} 
-                          style={{ display: 'none' }} 
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Part 2: Placket */}
-              <div>
-                <h4 style={{ fontSize: '13px', fontWeight: 'semibold', color: '#fff', marginBottom: '8px' }}>Button Placket</h4>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input 
-                      type="color" 
-                      value={designConfig.trim?.placket.color || designConfig.front.generatedColor1} 
-                      onChange={(e) => updateTrimConfig('placket', { color: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
-                    />
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      value={(designConfig.trim?.placket.color || designConfig.front.generatedColor1).toUpperCase()}
-                      onChange={(e) => updateTrimConfig('placket', { color: e.target.value })}
-                      style={{ padding: '6px', fontSize: '12px', width: '90px' }}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    {designConfig.trim?.placket.uploadedUrl ? (
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          Image Active
-                        </div>
-                        <button 
-                          className="btn btn-secondary" 
-                          style={{ padding: '4px 8px', fontSize: '11px' }}
-                          onClick={() => updateTrimConfig('placket', { uploadedUrl: null })}
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
-                        Import Image
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={(e) => handleTrimFileUpload('placket', e)} 
-                          style={{ display: 'none' }} 
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Part 3: Sleeve Stripe */}
-              <div>
-                <h4 style={{ fontSize: '13px', fontWeight: 'semibold', color: '#fff', marginBottom: '8px' }}>Sleeve Stripe / Cuff</h4>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input 
-                      type="color" 
-                      value={designConfig.trim?.sleeveStripe.color || designConfig.front.generatedColor1} 
-                      onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
-                    />
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      value={(designConfig.trim?.sleeveStripe.color || designConfig.front.generatedColor1).toUpperCase()}
-                      onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
-                      style={{ padding: '6px', fontSize: '12px', width: '90px' }}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    {designConfig.trim?.sleeveStripe.uploadedUrl ? (
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          Image Active
-                        </div>
-                        <button 
-                          className="btn btn-secondary" 
-                          style={{ padding: '4px 8px', fontSize: '11px' }}
-                          onClick={() => updateTrimConfig('sleeveStripe', { uploadedUrl: null })}
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
-                        Import Image
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={(e) => handleTrimFileUpload('sleeveStripe', e)} 
-                          style={{ display: 'none' }} 
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Name and Number overlays */}
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <h3 
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-secondary)', marginBottom: collapsed.overlays ? 0 : '16px' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: '#00f0ff', marginBottom: collapsed.overlays ? 0 : '16px' }}
             onClick={() => toggleCollapse('overlays')}
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Layers size={18} /> Print Layer Overlays
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
+              <Layers size={20} style={{ color: '#00f0ff' }} /> 
+              <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#00f0ff' }}>Print Layer Overlays</span>
+              <span style={{ fontSize: '9px', background: 'linear-gradient(90deg, #00f0ff, #8b5cf6)', color: '#000', fontWeight: '900', padding: '2px 8px', borderRadius: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>⭐ STEP 2</span>
             </span>
             {collapsed.overlays ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
           </h3>
@@ -2695,7 +2487,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     </div>
                   </div>
 
-                  {/* Solid Fill */}
                   {(!activePanel.nameConfig.fillType || activePanel.nameConfig.fillType === 'solid') && (
                     <div className="form-row">
                       <div className="form-group" style={{ margin: 0, flex: 1 }}>
@@ -2710,7 +2501,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     </div>
                   )}
 
-                  {/* Multi-Color Gradient Fill */}
                   {activePanel.nameConfig.fillType === 'gradient' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -2726,265 +2516,188 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                             updateTextConfig('name', { gradientStops: [...current, '#eab308'] });
                           }}
                         >
-                          <Plus size={9} /> Add Color Stop
+                          <Plus size={9} /> Add Stop
                         </button>
-                      </div>
-
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {(activePanel.nameConfig.gradientStops || [activePanel.nameConfig.gradientColor1 || '#00f0ff', activePanel.nameConfig.gradientColor2 || '#ff0055']).map((c, sIdx, arr) => (
-                          <div key={sIdx} style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
-                            <span style={{ fontSize: '9px', opacity: 0.6 }}>#{sIdx + 1}</span>
-                            <input 
-                              type="color" 
-                              value={c}
-                              onChange={(e) => {
-                                const newStops = [...arr];
-                                newStops[sIdx] = e.target.value;
-                                updateTextConfig('name', { 
-                                  gradientStops: newStops,
-                                  gradientColor1: newStops[0],
-                                  gradientColor2: newStops[newStops.length - 1]
-                                });
-                              }}
-                              style={{ border: 'none', background: 'none', width: '22px', height: '22px', cursor: 'pointer' }}
-                            />
-                            {arr.length > 2 && (
-                              <button
-                                type="button"
-                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0 2px' }}
-                                onClick={() => {
-                                  const newStops = arr.filter((_, i) => i !== sIdx);
-                                  updateTextConfig('name', { gradientStops: newStops });
-                                }}
-                                title="Remove Stop"
-                              >
-                                <Trash2 size={10} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-
-                      <div>
-                        <label className="form-label" style={{ fontSize: '10px' }}>Gradient Direction:</label>
-                        <select 
-                          className="form-select" 
-                          value={activePanel.nameConfig.gradientDirection || 'vertical'}
-                          onChange={(e) => updateTextConfig('name', { gradientDirection: e.target.value as any })}
-                          style={{ padding: '4px 6px', fontSize: '11px' }}
-                        >
-                          <option value="vertical">Vertical (Top → Bottom)</option>
-                          <option value="horizontal">Horizontal (Left → Right)</option>
-                          <option value="diagonal">Diagonal (Corner → Corner)</option>
-                          <option value="radial">Radial (Center Outward)</option>
-                        </select>
                       </div>
                     </div>
                   )}
 
-                  {/* Texture Fill */}
                   {activePanel.nameConfig.fillType === 'texture' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <label className="form-label" style={{ fontSize: '10px' }}>Upload Texture Image (Gold foil, camo, glitter, carbon, pattern):</label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        style={{ fontSize: '11px', color: 'var(--text-muted)' }}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (uploadEvent) => {
-                              const url = uploadEvent.target?.result as string;
-                              updateTextConfig('name', { textureUrl: url, fillType: 'texture' });
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
+                    <div style={{ marginTop: '8px' }}>
+                      <label className="btn btn-secondary" style={{ padding: '6px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'block' }}>
+                        Upload Texture Image
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => handleTextTextureUpload('name', e)} 
+                          style={{ display: 'none' }} 
+                        />
+                      </label>
                       {activePanel.nameConfig.textureUrl && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
-                          <img src={activePanel.nameConfig.textureUrl} alt="Name Texture" style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #00f0ff' }} />
-                          <span style={{ fontSize: '10px', color: '#00f0ff', fontWeight: 'bold' }}>Texture Active</span>
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            style={{ padding: '2px 6px', fontSize: '9px', marginLeft: 'auto', color: '#ef4444' }}
-                            onClick={() => updateTextConfig('name', { textureUrl: null, fillType: 'solid' })}
-                          >
-                            Remove
-                          </button>
+                        <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px', textAlign: 'center' }}>
+                          ✓ Texture Loaded
                         </div>
                       )}
                     </div>
                   )}
                 </div>
 
-                <div className="form-row">
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Stroke Color:</label>
-                    <input 
-                      type="color" 
-                      value={activePanel.nameConfig.strokeColor}
-                      onChange={(e) => updateTextConfig('name', { strokeColor: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '100%', height: '28px', cursor: 'pointer' }}
-                    />
-                  </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Stroke (px):</label>
-                    <input 
-                      type="number" 
-                      min="0" 
-                      max="15" 
-                      className="form-input" 
-                      value={activePanel.nameConfig.strokeWidth}
-                      onChange={(e) => updateTextConfig('name', { strokeWidth: parseInt(e.target.value) || 0 })}
-                      style={{ padding: '6px' }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Number Config */}
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Number Layer</span>
-              <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
-                <input 
-                  type="checkbox" 
-                  checked={activePanel.numberConfig.enabled}
-                  onChange={(e) => updateTextConfig('number', { enabled: e.target.checked })}
-                />
-                Enabled
-              </label>
-            </div>
-
-            {activePanel.numberConfig.enabled && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    <span>Vertical Position (Y):</span>
-                    <span>{activePanel.numberConfig.yPos}%</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="100" 
-                    value={activePanel.numberConfig.yPos}
-                    onChange={(e) => updateTextConfig('number', { yPos: parseInt(e.target.value) })}
-                  />
-                </div>
-
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    <span>Horizontal Spacing (Letter Spacing):</span>
-                    <span>{activePanel.numberConfig.letterSpacing || 0} in</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="1" 
-                    step="0.02" 
-                    value={activePanel.numberConfig.letterSpacing || 0}
-                    onChange={(e) => updateTextConfig('number', { letterSpacing: parseFloat(e.target.value) })}
-                  />
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Font Size (in):</label>
-                    <input 
-                      type="number" 
-                      step="0.1" 
-                      className="form-input" 
-                      value={activePanel.numberConfig.fontSize}
-                      onChange={(e) => updateTextConfig('number', { fontSize: parseFloat(e.target.value) || 1 })}
-                      style={{ padding: '6px' }}
-                    />
-                  </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Max Width (in):</label>
-                    <input 
-                      type="number" 
-                      step="0.5" 
-                      className="form-input" 
-                      value={activePanel.numberConfig.maxW}
-                      onChange={(e) => updateTextConfig('number', { maxW: parseFloat(e.target.value) || 5 })}
-                      style={{ padding: '6px' }}
-                    />
-                  </div>
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Font Style:</label>
-                    <select 
-                      className="form-select" 
-                      value={activePanel.numberConfig.fontFamily}
-                      onChange={(e) => updateTextConfig('number', { fontFamily: e.target.value })}
-                      style={{ padding: '6px' }}
-                    >
-                      <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
-                      <option value="Impact">Impact (Bold Athletic)</option>
-                      <option value="Arial">Arial Black</option>
-                      <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
-                      <option value="Times New Roman">Times (Classic Serif)</option>
-                      {customFonts.map(font => (
-                        <option key={font.name} value={font.name}>{font.name} (Custom)</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Text Effect:</label>
-                    <select 
-                      className="form-select" 
-                      value={activePanel.numberConfig.effect || 'none'}
-                      onChange={(e) => updateTextConfig('number', { effect: e.target.value as any })}
-                      style={{ padding: '6px' }}
-                    >
-                      <option value="none">Flat (Normal)</option>
-                      <option value="arch">Arched Curve</option>
-                      <option value="shadow">Drop Shadow</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Alignment:</label>
-                    <div style={{ display: 'flex', border: '1px solid var(--border-light)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <button
-                        type="button"
-                        className="btn"
-                        style={{ flex: 1, padding: '6px 0', border: 'none', background: activePanel.numberConfig.align === 'left' ? 'var(--color-primary)' : 'transparent', color: activePanel.numberConfig.align === 'left' ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
-                        onClick={() => updateTextConfig('number', { align: 'left' })}
-                        title="Align Left"
-                      >
-                        <AlignLeft size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn"
-                        style={{ flex: 1, padding: '6px 0', border: 'none', borderLeft: '1px solid var(--border-light)', borderRight: '1px solid var(--border-light)', background: (!activePanel.numberConfig.align || activePanel.numberConfig.align === 'center') ? 'var(--color-primary)' : 'transparent', color: (!activePanel.numberConfig.align || activePanel.numberConfig.align === 'center') ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
-                        onClick={() => updateTextConfig('number', { align: 'center' })}
-                        title="Align Center"
-                      >
-                        <AlignCenter size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn"
-                        style={{ flex: 1, padding: '6px 0', border: 'none', background: activePanel.numberConfig.align === 'right' ? 'var(--color-primary)' : 'transparent', color: activePanel.numberConfig.align === 'right' ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
-                        onClick={() => updateTextConfig('number', { align: 'right' })}
-                        title="Align Right"
-                      >
-                        <AlignRight size={14} />
-                      </button>
+                {/* Stroke Outline Controls for Name */}
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-light)', marginTop: '6px' }}>
+                  <label className="form-label" style={{ fontSize: '11px', margin: '0 0 6px 0', fontWeight: 'bold', color: 'var(--color-primary)' }}>
+                    Name Stroke / Outline:
+                  </label>
+                  <div className="grid-2">
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '10px' }}>Stroke Color:</label>
+                      <input 
+                        type="color" 
+                        value={activePanel.nameConfig.strokeColor || '#000000'} 
+                        onChange={(e) => updateTextConfig('name', { strokeColor: e.target.value })}
+                        style={{ border: 'none', background: 'none', width: '100%', height: '28px', cursor: 'pointer' }}
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '10px' }}>Stroke Width (in):</label>
+                      <input 
+                        type="number" 
+                        step="0.01" 
+                        min="0"
+                        max="0.5"
+                        className="form-input" 
+                        value={activePanel.nameConfig.strokeWidth || 0}
+                        onChange={(e) => updateTextConfig('name', { strokeWidth: parseFloat(e.target.value) || 0 })}
+                        style={{ padding: '4px', fontSize: '11px' }}
+                      />
                     </div>
                   </div>
                 </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Number Config */}
+              <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '16px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Number Layer</span>
+                  <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={activePanel.numberConfig.enabled}
+                      onChange={(e) => updateTextConfig('number', { enabled: e.target.checked })}
+                    />
+                    Enabled
+                  </label>
+                </div>
+
+                {activePanel.numberConfig.enabled && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        <span>Vertical Position (Y):</span>
+                        <span>{activePanel.numberConfig.yPos}%</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="0" 
+                        max="100" 
+                        value={activePanel.numberConfig.yPos}
+                        onChange={(e) => updateTextConfig('number', { yPos: parseInt(e.target.value) })}
+                      />
+                    </div>
+
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        <span>Horizontal Spacing (Digit Spacing):</span>
+                        <span>{activePanel.numberConfig.letterSpacing || 0} in</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="0" 
+                        max="1" 
+                        step="0.02" 
+                        value={activePanel.numberConfig.letterSpacing || 0}
+                        onChange={(e) => updateTextConfig('number', { letterSpacing: parseFloat(e.target.value) })}
+                      />
+                    </div>
+
+                    <div className="form-row">
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Font Size (in):</label>
+                        <input 
+                          type="number" 
+                          step="0.5" 
+                          className="form-input" 
+                          value={activePanel.numberConfig.fontSize}
+                          onChange={(e) => updateTextConfig('number', { fontSize: parseFloat(e.target.value) || 5 })}
+                          style={{ padding: '6px' }}
+                        />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Max Width (in):</label>
+                        <input 
+                          type="number" 
+                          step="0.5" 
+                          className="form-input" 
+                          value={activePanel.numberConfig.maxW}
+                          onChange={(e) => updateTextConfig('number', { maxW: parseFloat(e.target.value) || 8 })}
+                          style={{ padding: '6px' }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-row">
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Font Style:</label>
+                        <select 
+                          className="form-select" 
+                          value={activePanel.numberConfig.fontFamily}
+                          onChange={(e) => updateTextConfig('number', { fontFamily: e.target.value })}
+                          style={{ padding: '6px' }}
+                        >
+                          <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
+                          <option value="Impact">Impact (Bold Athletic)</option>
+                          <option value="Arial">Arial Black</option>
+                          <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
+                          <option value="Times New Roman">Times (Classic Serif)</option>
+                          {customFonts.map(font => (
+                            <option key={font.name} value={font.name}>{font.name} (Custom)</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Alignment:</label>
+                        <div style={{ display: 'flex', border: '1px solid var(--border-light)', borderRadius: '4px', overflow: 'hidden' }}>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ flex: 1, padding: '6px 0', border: 'none', background: activePanel.numberConfig.align === 'left' ? 'var(--color-primary)' : 'transparent', color: activePanel.numberConfig.align === 'left' ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+                            onClick={() => updateTextConfig('number', { align: 'left' })}
+                            title="Align Left"
+                          >
+                            <AlignLeft size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ flex: 1, padding: '6px 0', border: 'none', borderLeft: '1px solid var(--border-light)', borderRight: '1px solid var(--border-light)', background: (!activePanel.numberConfig.align || activePanel.numberConfig.align === 'center') ? 'var(--color-primary)' : 'transparent', color: (!activePanel.numberConfig.align || activePanel.numberConfig.align === 'center') ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+                            onClick={() => updateTextConfig('number', { align: 'center' })}
+                            title="Align Center"
+                          >
+                            <AlignCenter size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ flex: 1, padding: '6px 0', border: 'none', background: activePanel.numberConfig.align === 'right' ? 'var(--color-primary)' : 'transparent', color: activePanel.numberConfig.align === 'right' ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+                            onClick={() => updateTextConfig('number', { align: 'right' })}
+                            title="Align Right"
+                          >
+                            <AlignRight size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
 
                 {/* Fill Style & Texture Controls for Number */}
                 <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-light)', marginTop: '4px' }}>
@@ -3020,7 +2733,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     </div>
                   </div>
 
-                  {/* Solid Fill */}
                   {(!activePanel.numberConfig.fillType || activePanel.numberConfig.fillType === 'solid') && (
                     <div className="form-row">
                       <div className="form-group" style={{ margin: 0, flex: 1 }}>
@@ -3035,7 +2747,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     </div>
                   )}
 
-                  {/* Multi-Color Gradient Fill */}
                   {activePanel.numberConfig.fillType === 'gradient' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3051,288 +2762,645 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                             updateTextConfig('number', { gradientStops: [...current, '#eab308'] });
                           }}
                         >
-                          <Plus size={9} /> Add Color Stop
+                          <Plus size={9} /> Add Stop
                         </button>
-                      </div>
-
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {(activePanel.numberConfig.gradientStops || [activePanel.numberConfig.gradientColor1 || '#00f0ff', activePanel.numberConfig.gradientColor2 || '#ff0055']).map((c, sIdx, arr) => (
-                          <div key={sIdx} style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
-                            <span style={{ fontSize: '9px', opacity: 0.6 }}>#{sIdx + 1}</span>
-                            <input 
-                              type="color" 
-                              value={c}
-                              onChange={(e) => {
-                                const newStops = [...arr];
-                                newStops[sIdx] = e.target.value;
-                                updateTextConfig('number', { 
-                                  gradientStops: newStops,
-                                  gradientColor1: newStops[0],
-                                  gradientColor2: newStops[newStops.length - 1]
-                                });
-                              }}
-                              style={{ border: 'none', background: 'none', width: '22px', height: '22px', cursor: 'pointer' }}
-                            />
-                            {arr.length > 2 && (
-                              <button
-                                type="button"
-                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0 2px' }}
-                                onClick={() => {
-                                  const newStops = arr.filter((_, i) => i !== sIdx);
-                                  updateTextConfig('number', { gradientStops: newStops });
-                                }}
-                                title="Remove Stop"
-                              >
-                                <Trash2 size={10} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-
-                      <div>
-                        <label className="form-label" style={{ fontSize: '10px' }}>Gradient Direction:</label>
-                        <select 
-                          className="form-select" 
-                          value={activePanel.numberConfig.gradientDirection || 'vertical'}
-                          onChange={(e) => updateTextConfig('number', { gradientDirection: e.target.value as any })}
-                          style={{ padding: '4px 6px', fontSize: '11px' }}
-                        >
-                          <option value="vertical">Vertical (Top → Bottom)</option>
-                          <option value="horizontal">Horizontal (Left → Right)</option>
-                          <option value="diagonal">Diagonal (Corner → Corner)</option>
-                          <option value="radial">Radial (Center Outward)</option>
-                        </select>
                       </div>
                     </div>
                   )}
 
-                  {/* Texture Fill */}
                   {activePanel.numberConfig.fillType === 'texture' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <label className="form-label" style={{ fontSize: '10px' }}>Upload Texture Image (Gold foil, camo, glitter, carbon, pattern):</label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        style={{ fontSize: '11px', color: 'var(--text-muted)' }}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (uploadEvent) => {
-                              const url = uploadEvent.target?.result as string;
-                              updateTextConfig('number', { textureUrl: url, fillType: 'texture' });
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
+                    <div style={{ marginTop: '8px' }}>
+                      <label className="btn btn-secondary" style={{ padding: '6px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'block' }}>
+                        Upload Texture Image
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => handleTextTextureUpload('number', e)} 
+                          style={{ display: 'none' }} 
+                        />
+                      </label>
                       {activePanel.numberConfig.textureUrl && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
-                          <img src={activePanel.numberConfig.textureUrl} alt="Number Texture" style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #00f0ff' }} />
-                          <span style={{ fontSize: '10px', color: '#00f0ff', fontWeight: 'bold' }}>Texture Active</span>
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            style={{ padding: '2px 6px', fontSize: '9px', marginLeft: 'auto', color: '#ef4444' }}
-                            onClick={() => updateTextConfig('number', { textureUrl: null, fillType: 'solid' })}
-                          >
-                            Remove
-                          </button>
+                        <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px', textAlign: 'center' }}>
+                          ✓ Texture Loaded
                         </div>
                       )}
                     </div>
                   )}
                 </div>
 
-                <div className="form-row">
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Stroke Color:</label>
-                    <input 
-                      type="color" 
-                      value={activePanel.numberConfig.strokeColor}
-                      onChange={(e) => updateTextConfig('number', { strokeColor: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '100%', height: '28px', cursor: 'pointer' }}
-                    />
+                {/* Stroke Outline Controls for Number */}
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-light)', marginTop: '6px' }}>
+                  <label className="form-label" style={{ fontSize: '11px', margin: '0 0 6px 0', fontWeight: 'bold', color: 'var(--color-primary)' }}>
+                    Number Stroke / Outline:
+                  </label>
+                  <div className="grid-2">
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '10px' }}>Stroke Color:</label>
+                      <input 
+                        type="color" 
+                        value={activePanel.numberConfig.strokeColor || '#000000'} 
+                        onChange={(e) => updateTextConfig('number', { strokeColor: e.target.value })}
+                        style={{ border: 'none', background: 'none', width: '100%', height: '28px', cursor: 'pointer' }}
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '10px' }}>Stroke Width (in):</label>
+                      <input 
+                        type="number" 
+                        step="0.01" 
+                        min="0"
+                        max="0.5"
+                        className="form-input" 
+                        value={activePanel.numberConfig.strokeWidth || 0}
+                        onChange={(e) => updateTextConfig('number', { strokeWidth: parseFloat(e.target.value) || 0 })}
+                        style={{ padding: '4px', fontSize: '11px' }}
+                      />
+                    </div>
                   </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Stroke (px):</label>
-                    <input 
-                      type="number" 
-                      min="0" 
-                      max="15" 
-                      className="form-input" 
-                      value={activePanel.numberConfig.strokeWidth}
-                      onChange={(e) => updateTextConfig('number', { strokeWidth: parseInt(e.target.value) || 0 })}
-                      style={{ padding: '6px' }}
-                    />
+                </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Logo / Sponsor Graphics Configuration */}
+              <div>
+                <h4 style={{ fontSize: '13px', fontWeight: 'semibold', color: '#fff', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>🏷️ Logo & Sponsor Layers</span>
+                </h4>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {/* Left Chest Logo */}
+                  {activeTab === 'front' && (
+                    <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Left Chest Logo / Crest</span>
+                        <label className="checkbox-card" style={{ padding: '2px 6px', margin: 0, fontSize: '11px' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={activePanel.leftChestLogo?.enabled ?? false} 
+                            onChange={(e) => updateLogoConfig('leftChest', { enabled: e.target.checked })}
+                          />
+                          Enable
+                        </label>
+                      </div>
+
+                      {activePanel.leftChestLogo?.enabled && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <label className="btn btn-secondary" style={{ flex: 1, padding: '6px', fontSize: '11px', cursor: 'pointer', textAlign: 'center' }}>
+                              Import Logo Image
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={(e) => handleLogoFileUpload('leftChest', e)} 
+                                style={{ display: 'none' }} 
+                              />
+                            </label>
+                            {activePanel.leftChestLogo?.uploadedUrl && (
+                              <button 
+                                className="btn" 
+                                style={{ padding: '6px', fontSize: '10px', background: 'rgba(255,23,68,0.2)', border: 'none', color: '#ff1744' }}
+                                onClick={() => updateLogoConfig('leftChest', { uploadedUrl: null })}
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '-2px', marginBottom: '4px' }}>
+                            <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', cursor: 'pointer' }}>
+                              <input 
+                                type="checkbox" 
+                                checked={activePanel.leftChestLogo?.lockAspectRatio ?? true}
+                                onChange={(e) => updateLogoConfig('leftChest', { lockAspectRatio: e.target.checked })}
+                              />
+                              Lock Proportions
+                            </label>
+                          </div>
+
+                          <div className="grid-2">
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label className="form-label" style={{ fontSize: '10px' }}>Width (in):</label>
+                              <input 
+                                type="number" 
+                                step="0.2" 
+                                className="form-input" 
+                                value={activePanel.leftChestLogo?.width ?? 3.5} 
+                                onChange={(e) => updateLogoConfig('leftChest', { width: parseFloat(e.target.value) || 0 })}
+                                style={{ padding: '4px', fontSize: '11px' }}
+                              />
+                            </div>
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label className="form-label" style={{ fontSize: '10px' }}>Height (in):</label>
+                              <input 
+                                type="number" 
+                                step="0.2" 
+                                className="form-input" 
+                                value={activePanel.leftChestLogo?.height ?? 3.5} 
+                                onChange={(e) => updateLogoConfig('leftChest', { height: parseFloat(e.target.value) || 0 })}
+                                style={{ padding: '4px', fontSize: '11px' }}
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)' }}>
+                              <span>Horizontal Pos (X) (in):</span>
+                              <span>{activePanel.leftChestLogo?.xPos ?? 6.0} in</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min="0" 
+                              max={physicalWidth}
+                              step="0.1"
+                              value={activePanel.leftChestLogo?.xPos ?? 6.0}
+                              onChange={(e) => updateLogoConfig('leftChest', { xPos: parseFloat(e.target.value) })}
+                            />
+                          </div>
+
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)' }}>
+                              <span>Vertical Pos (Y) (in):</span>
+                              <span>{activePanel.leftChestLogo?.yPos ?? 7.0} in</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min="0" 
+                              max={physicalHeight}
+                              step="0.1"
+                              value={activePanel.leftChestLogo?.yPos ?? 7.0}
+                              onChange={(e) => updateLogoConfig('leftChest', { yPos: parseFloat(e.target.value) })}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Right Chest Logo */}
+                  {activeTab === 'front' && (
+                    <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Right Chest Logo / Brand</span>
+                        <label className="checkbox-card" style={{ padding: '2px 6px', margin: 0, fontSize: '11px' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={activePanel.rightChestLogo?.enabled ?? false} 
+                            onChange={(e) => updateLogoConfig('rightChest', { enabled: e.target.checked })}
+                          />
+                          Enable
+                        </label>
+                      </div>
+
+                      {activePanel.rightChestLogo?.enabled && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <label className="btn btn-secondary" style={{ flex: 1, padding: '6px', fontSize: '11px', cursor: 'pointer', textAlign: 'center' }}>
+                              Import Logo Image
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={(e) => handleLogoFileUpload('rightChest', e)} 
+                                style={{ display: 'none' }} 
+                              />
+                            </label>
+                            {activePanel.rightChestLogo?.uploadedUrl && (
+                              <button 
+                                className="btn" 
+                                style={{ padding: '6px', fontSize: '10px', background: 'rgba(255,23,68,0.2)', border: 'none', color: '#ff1744' }}
+                                onClick={() => updateLogoConfig('rightChest', { uploadedUrl: null })}
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '-2px', marginBottom: '4px' }}>
+                            <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', cursor: 'pointer' }}>
+                              <input 
+                                type="checkbox" 
+                                checked={activePanel.rightChestLogo?.lockAspectRatio ?? true}
+                                onChange={(e) => updateLogoConfig('rightChest', { lockAspectRatio: e.target.checked })}
+                              />
+                              Lock Proportions
+                            </label>
+                          </div>
+
+                          <div className="grid-2">
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label className="form-label" style={{ fontSize: '10px' }}>Width (in):</label>
+                              <input 
+                                type="number" 
+                                step="0.2" 
+                                className="form-input" 
+                                value={activePanel.rightChestLogo?.width ?? 3.5} 
+                                onChange={(e) => updateLogoConfig('rightChest', { width: parseFloat(e.target.value) || 0 })}
+                                style={{ padding: '4px', fontSize: '11px' }}
+                              />
+                            </div>
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label className="form-label" style={{ fontSize: '10px' }}>Height (in):</label>
+                              <input 
+                                type="number" 
+                                step="0.2" 
+                                className="form-input" 
+                                value={activePanel.rightChestLogo?.height ?? 3.5} 
+                                onChange={(e) => updateLogoConfig('rightChest', { height: parseFloat(e.target.value) || 0 })}
+                                style={{ padding: '4px', fontSize: '11px' }}
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)' }}>
+                              <span>Horizontal Pos (X) (in):</span>
+                              <span>{activePanel.rightChestLogo?.xPos ?? (physicalWidth - 6.0)} in</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min="0" 
+                              max={physicalWidth}
+                              step="0.1"
+                              value={activePanel.rightChestLogo?.xPos ?? (physicalWidth - 6.0)}
+                              onChange={(e) => updateLogoConfig('rightChest', { xPos: parseFloat(e.target.value) })}
+                            />
+                          </div>
+
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)' }}>
+                              <span>Vertical Pos (Y) (in):</span>
+                              <span>{activePanel.rightChestLogo?.yPos ?? 7.0} in</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min="0" 
+                              max={physicalHeight}
+                              step="0.1"
+                              value={activePanel.rightChestLogo?.yPos ?? 7.0}
+                              onChange={(e) => updateLogoConfig('rightChest', { yPos: parseFloat(e.target.value) })}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Main Center Torso Sponsor Logo */}
+                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Main Center Torso Sponsor Logo</span>
+                      <label className="checkbox-card" style={{ padding: '2px 6px', margin: 0, fontSize: '11px' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={activePanel.torsoLogo?.enabled ?? false} 
+                          onChange={(e) => updateLogoConfig('torso', { enabled: e.target.checked })}
+                        />
+                        Enable
+                      </label>
+                    </div>
+
+                    {activePanel.torsoLogo?.enabled && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <label className="btn btn-secondary" style={{ flex: 1, padding: '6px', fontSize: '11px', cursor: 'pointer', textAlign: 'center' }}>
+                            Import Logo Image
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              onChange={(e) => handleLogoFileUpload('torso', e)} 
+                              style={{ display: 'none' }} 
+                            />
+                          </label>
+                          {activePanel.torsoLogo?.uploadedUrl && (
+                            <button 
+                              className="btn" 
+                              style={{ padding: '6px', fontSize: '10px', background: 'rgba(255,23,68,0.2)', border: 'none', color: '#ff1744' }}
+                              onClick={() => updateLogoConfig('torso', { uploadedUrl: null })}
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="form-label" style={{ fontSize: '10px' }}>Text Logo (If no image):</label>
+                          <input 
+                            type="text" 
+                            className="form-input" 
+                            placeholder="e.g. SPONSOR NAME" 
+                            value={activePanel.torsoLogo?.text || ''} 
+                            onChange={(e) => updateLogoConfig('torso', { text: e.target.value })}
+                            style={{ padding: '4px', fontSize: '11px' }}
+                          />
+                        </div>
+
+                        <div className="grid-2">
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label className="form-label" style={{ fontSize: '10px' }}>Width (in):</label>
+                            <input 
+                              type="number" 
+                              step="0.5" 
+                              className="form-input" 
+                              value={activePanel.torsoLogo?.width ?? 11.0} 
+                              onChange={(e) => updateLogoConfig('torso', { width: parseFloat(e.target.value) || 0 })}
+                              style={{ padding: '6px' }}
+                            />
+                          </div>
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label className="form-label" style={{ fontSize: '10px' }}>Height (in):</label>
+                            <input 
+                              type="number" 
+                              step="0.5" 
+                              className="form-input" 
+                              value={activePanel.torsoLogo?.height ?? 4.0} 
+                              onChange={(e) => updateLogoConfig('torso', { height: parseFloat(e.target.value) || 0 })}
+                              style={{ padding: '6px' }}
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '-2px', marginBottom: '4px' }}>
+                          <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', cursor: 'pointer' }}>
+                            <input 
+                              type="checkbox" 
+                              checked={activePanel.torsoLogo?.lockAspectRatio ?? true}
+                              onChange={(e) => updateLogoConfig('torso', { lockAspectRatio: e.target.checked })}
+                            />
+                            Lock Proportions
+                          </label>
+                        </div>
+
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)' }}>
+                            <span>Horizontal Pos (X) (in):</span>
+                            <span>{activePanel.torsoLogo?.xPos ?? 11.0} in</span>
+                          </div>
+                          <input 
+                            type="range" 
+                            min="0" 
+                            max={physicalWidth}
+                            step="0.1"
+                            value={activePanel.torsoLogo?.xPos ?? 11.0}
+                            onChange={(e) => updateLogoConfig('torso', { xPos: parseFloat(e.target.value) })}
+                          />
+                        </div>
+
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)' }}>
+                            <span>Vertical Pos (Y) (in):</span>
+                            <span>{activePanel.torsoLogo?.yPos ?? 16.0} in</span>
+                          </div>
+                          <input 
+                            type="range" 
+                            min="0" 
+                            max={physicalHeight}
+                            step="0.1"
+                            value={activePanel.torsoLogo?.yPos ?? 16.0}
+                            onChange={(e) => updateLogoConfig('torso', { yPos: parseFloat(e.target.value) })}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+        </div>
 
-          {/* Size Tag Config */}
-            <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '16px', marginTop: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Size Tag Layer (Top Left)</span>
-                <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={activePanel.sizeTagConfig?.enabled ?? true}
-                    onChange={(e) => updateTextConfig('sizeTag', { enabled: e.target.checked })}
-                  />
-                  Enabled
-                </label>
+        {/* Step 3: Design Presets Manager Card */}
+        <div className="glass-card" style={{ padding: '20px' }}>
+          <h3 
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-primary)' }}
+            onClick={() => toggleCollapse('presets')}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '18px' }}>💾</span> Design Presets Manager
+            </span>
+            {collapsed.presets ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+          </h3>
+          {!collapsed.presets && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
+              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                Save the current design configuration (background uploads, colors, fonts, strokes, and text formats) as a reusable template preset.
+              </p>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="Preset Name" 
+                  value={newPresetName}
+                  onChange={(e) => setNewPresetName(e.target.value)}
+                  style={{ padding: '8px', fontSize: '12px' }}
+                />
+                <button 
+                  className="btn btn-primary" 
+                  onClick={handleSavePreset}
+                  style={{ padding: '8px 16px', fontSize: '12px', whiteSpace: 'nowrap' }}
+                >
+                  Save
+                </button>
               </div>
 
-              {(activePanel.sizeTagConfig?.enabled ?? true) && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div className="form-row">
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Text (use {'{size}'} for automatic):</label>
-                      <input 
-                        type="text" 
-                        className="form-input" 
-                        value={activePanel.sizeTagConfig?.text ?? '{size}'}
-                        onChange={(e) => updateTextConfig('sizeTag', { text: e.target.value })}
-                        style={{ padding: '6px' }}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                      <span>Horizontal Spacing (Letter Spacing):</span>
-                      <span>{activePanel.sizeTagConfig?.letterSpacing || 0} in</span>
-                    </div>
-                    <input 
-                      type="range" 
-                      min="0" 
-                      max="1" 
-                      step="0.02" 
-                      value={activePanel.sizeTagConfig?.letterSpacing || 0}
-                      onChange={(e) => updateTextConfig('sizeTag', { letterSpacing: parseFloat(e.target.value) })}
-                    />
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Font Size (pt):</label>
-                      <input 
-                        type="number" 
-                        className="form-input" 
-                        value={activePanel.sizeTagConfig?.fontSize ?? 34}
-                        onChange={(e) => updateTextConfig('sizeTag', { fontSize: parseInt(e.target.value) || 1 })}
-                        style={{ padding: '6px' }}
-                      />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Font Style:</label>
-                      <select 
-                        className="form-select" 
-                        value={activePanel.sizeTagConfig?.fontFamily ?? 'Impact'}
-                        onChange={(e) => updateTextConfig('sizeTag', { fontFamily: e.target.value })}
-                        style={{ padding: '6px' }}
-                      >
-                        <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
-                        <option value="Impact">Impact (Bold Athletic)</option>
-                        <option value="Arial">Arial Black</option>
-                        <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
-                        <option value="Times New Roman">Times (Classic Serif)</option>
-                        {customFonts.map(font => (
-                          <option key={font.name} value={font.name}>{font.name} (Custom)</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Text Effect:</label>
-                      <select 
-                        className="form-select" 
-                        value={activePanel.sizeTagConfig?.effect ?? 'none'}
-                        onChange={(e) => updateTextConfig('sizeTag', { effect: e.target.value as any })}
-                        style={{ padding: '6px' }}
-                      >
-                        <option value="none">Flat (Normal)</option>
-                        <option value="shadow">Drop Shadow</option>
-                      </select>
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Alignment:</label>
-                      <div style={{ display: 'flex', border: '1px solid var(--border-light)', borderRadius: '4px', overflow: 'hidden' }}>
-                        <button
-                          type="button"
-                          className="btn"
-                          style={{ flex: 1, padding: '6px 0', border: 'none', background: (activePanel.sizeTagConfig?.align === 'left' || !activePanel.sizeTagConfig?.align) ? 'var(--color-primary)' : 'transparent', color: (activePanel.sizeTagConfig?.align === 'left' || !activePanel.sizeTagConfig?.align) ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
-                          onClick={() => updateTextConfig('sizeTag', { align: 'left' })}
-                          title="Align Left"
+              {presets.length > 0 && (
+                <div>
+                  <p style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '6px' }}>Select Preset to Load:</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
+                    {presets.map((preset, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '11px' }}>
+                        <span 
+                          style={{ fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-bright)' }}
+                          onClick={() => handleLoadPreset(preset.name)}
                         >
-                          <AlignLeft size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          className="btn"
-                          style={{ flex: 1, padding: '6px 0', border: 'none', borderLeft: '1px solid var(--border-light)', borderRight: '1px solid var(--border-light)', background: activePanel.sizeTagConfig?.align === 'center' ? 'var(--color-primary)' : 'transparent', color: activePanel.sizeTagConfig?.align === 'center' ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
-                          onClick={() => updateTextConfig('sizeTag', { align: 'center' })}
-                          title="Align Center"
-                        >
-                          <AlignCenter size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          className="btn"
-                          style={{ flex: 1, padding: '6px 0', border: 'none', background: activePanel.sizeTagConfig?.align === 'right' ? 'var(--color-primary)' : 'transparent', color: activePanel.sizeTagConfig?.align === 'right' ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
-                          onClick={() => updateTextConfig('sizeTag', { align: 'right' })}
-                          title="Align Right"
-                        >
-                          <AlignRight size={14} />
-                        </button>
+                          {preset.name}
+                        </span>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '3px 8px', fontSize: '9px' }}
+                            onClick={() => handleLoadPreset(preset.name)}
+                          >
+                            Load
+                          </button>
+                          <button 
+                            className="btn" 
+                            style={{ padding: '3px 8px', fontSize: '9px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744' }}
+                            onClick={() => handleDeletePreset(preset.name)}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Fill Color:</label>
-                      <input 
-                        type="color" 
-                        value={activePanel.sizeTagConfig?.color ?? '#ff1744'}
-                        onChange={(e) => updateTextConfig('sizeTag', { color: e.target.value })}
-                        style={{ border: 'none', background: 'none', width: '100%', height: '28px', cursor: 'pointer' }}
-                      />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Stroke Color:</label>
-                      <input 
-                        type="color" 
-                        value={activePanel.sizeTagConfig?.strokeColor ?? '#000000'}
-                        onChange={(e) => updateTextConfig('sizeTag', { strokeColor: e.target.value })}
-                        style={{ border: 'none', background: 'none', width: '100%', height: '28px', cursor: 'pointer' }}
-                      />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Stroke (px):</label>
-                      <input 
-                        type="number" 
-                        min="0" 
-                        max="15" 
-                        className="form-input" 
-                        value={activePanel.sizeTagConfig?.strokeWidth ?? 0}
-                        onChange={(e) => updateTextConfig('sizeTag', { strokeWidth: parseInt(e.target.value) || 0 })}
-                        style={{ padding: '6px' }}
-                      />
-                    </div>
+                    ))}
                   </div>
                 </div>
               )}
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
 
+
+
+        {/* Collar & Trim Customization */}
+        <div className="glass-card" style={{ padding: '20px' }}>
+          <h3 
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-primary)' }}
+            onClick={() => toggleCollapse('trim')}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Shirt size={18} /> Collar & Trim Customization
+            </span>
+            {collapsed.trim ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+          </h3>
+
+          {!collapsed.trim && (
+            <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Part 1: Collar */}
+              <div>
+                <h4 style={{ fontSize: '13px', fontWeight: 'semibold', color: '#fff', marginBottom: '8px' }}>Collar & Rib</h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input 
+                      type="color" 
+                      value={designConfig.trim?.collar.color || designConfig.front.generatedColor1} 
+                      onChange={(e) => updateTrimConfig('collar', { color: e.target.value })}
+                      style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
+                    />
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={(designConfig.trim?.collar.color || designConfig.front.generatedColor1).toUpperCase()}
+                      onChange={(e) => updateTrimConfig('collar', { color: e.target.value })}
+                      style={{ padding: '6px', fontSize: '12px', width: '90px' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    {designConfig.trim?.collar.uploadedUrl ? (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          Image Active
+                        </div>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '4px 8px', fontSize: '11px' }}
+                          onClick={() => updateTrimConfig('collar', { uploadedUrl: null })}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
+                        Import Image
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => handleTrimFileUpload('collar', e)} 
+                          style={{ display: 'none' }} 
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Part 2: Placket */}
+              <div>
+                <h4 style={{ fontSize: '13px', fontWeight: 'semibold', color: '#fff', marginBottom: '8px' }}>Button Placket</h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input 
+                      type="color" 
+                      value={designConfig.trim?.placket.color || designConfig.front.generatedColor1} 
+                      onChange={(e) => updateTrimConfig('placket', { color: e.target.value })}
+                      style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
+                    />
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={(designConfig.trim?.placket.color || designConfig.front.generatedColor1).toUpperCase()}
+                      onChange={(e) => updateTrimConfig('placket', { color: e.target.value })}
+                      style={{ padding: '6px', fontSize: '12px', width: '90px' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    {designConfig.trim?.placket.uploadedUrl ? (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          Image Active
+                        </div>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '4px 8px', fontSize: '11px' }}
+                          onClick={() => updateTrimConfig('placket', { uploadedUrl: null })}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
+                        Import Image
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => handleTrimFileUpload('placket', e)} 
+                          style={{ display: 'none' }} 
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Part 3: Sleeve Stripe */}
+              <div>
+                <h4 style={{ fontSize: '13px', fontWeight: 'semibold', color: '#fff', marginBottom: '8px' }}>Sleeve Stripe / Cuff</h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input 
+                      type="color" 
+                      value={designConfig.trim?.sleeveStripe.color || designConfig.front.generatedColor1} 
+                      onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
+                      style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
+                    />
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={(designConfig.trim?.sleeveStripe.color || designConfig.front.generatedColor1).toUpperCase()}
+                      onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
+                      style={{ padding: '6px', fontSize: '12px', width: '90px' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    {designConfig.trim?.sleeveStripe.uploadedUrl ? (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          Image Active
+                        </div>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '4px 8px', fontSize: '11px' }}
+                          onClick={() => updateTrimConfig('sleeveStripe', { uploadedUrl: null })}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
+                        Import Image
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => handleTrimFileUpload('sleeveStripe', e)} 
+                          style={{ display: 'none' }} 
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
 
 
