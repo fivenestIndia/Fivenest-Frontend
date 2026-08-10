@@ -311,6 +311,8 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
     controls.enableZoom = true;
     controls.zoomSpeed = 1.2;
     controls.enablePan = true;
+    controls.screenSpacePanning = true; // Enables full vertical Y-axis and horizontal X-axis panning
+    controls.panSpeed = 1.8;
     controls.mouseButtons = {
       LEFT: THREE.MOUSE.ROTATE,
       MIDDLE: THREE.MOUSE.DOLLY,
@@ -326,11 +328,24 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
     let isSpaceDown = false;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (
+        activeEl && (
+          activeEl.tagName === 'INPUT' ||
+          activeEl.tagName === 'TEXTAREA' ||
+          activeEl.tagName === 'SELECT' ||
+          (activeEl as HTMLElement).isContentEditable
+        )
+      ) {
+        return;
+      }
+
       if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault();
         if (!isSpaceDown) {
           isSpaceDown = true;
           controls.enablePan = true;
+          controls.screenSpacePanning = true;
           controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
           if (canvasRef.current) {
             canvasRef.current.style.cursor = 'grab';

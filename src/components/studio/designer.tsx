@@ -2582,7 +2582,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   type="button"
                   className={`btn ${overlaySubTab === 'name' ? 'btn-primary' : 'btn-secondary'}`}
                   style={{ flex: 1, padding: '6px 2px', fontSize: '11px', fontWeight: 'bold', borderRadius: '6px' }}
-                  onClick={() => setOverlaySubTab('name')}
+                  onClick={() => {
+                    setOverlaySubTab('name');
+                    setActiveTextLayer('name');
+                    if (activeTab === 'dual') setDualActivePanel('back');
+                    if (!designConfig.back.nameConfig.enabled) updateTextConfig('name', { enabled: true });
+                  }}
                 >
                   👤 Name
                 </button>
@@ -2590,7 +2595,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   type="button"
                   className={`btn ${overlaySubTab === 'number' ? 'btn-primary' : 'btn-secondary'}`}
                   style={{ flex: 1, padding: '6px 2px', fontSize: '11px', fontWeight: 'bold', borderRadius: '6px' }}
-                  onClick={() => setOverlaySubTab('number')}
+                  onClick={() => {
+                    setOverlaySubTab('number');
+                    setActiveTextLayer('number');
+                    if (activeTab === 'dual') setDualActivePanel('back');
+                    if (!designConfig.back.numberConfig.enabled) updateTextConfig('number', { enabled: true });
+                  }}
                 >
                   🔢 Number
                 </button>
