@@ -2655,7 +2655,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   </label>
                 </div>
 
-                {activePanel.nameConfig.enabled && (
+                {true && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
@@ -2927,7 +2927,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   </label>
                 </div>
 
-                {activePanel.numberConfig.enabled && (
+                {true && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
@@ -3164,7 +3164,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               {overlaySubTab === 'logos' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '8px' }}>
                   {/* Left Chest Logo */}
-                  {activeTab === 'front' && (
+                  {(activeTab === 'front' || activeTab === 'dual') && (
                     <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Left Chest Logo / Crest</span>
@@ -3272,7 +3272,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   )}
 
                   {/* Right Chest Logo */}
-                  {activeTab === 'front' && (
+                  {(activeTab === 'front' || activeTab === 'dual') && (
                     <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Right Chest Logo / Brand</span>
@@ -3515,7 +3515,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       </label>
                     </div>
 
-                    {activePanel.sizeTagConfig?.enabled && (
+                    {true && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         <div className="form-row">
                           <div className="form-group" style={{ margin: 0 }}>
