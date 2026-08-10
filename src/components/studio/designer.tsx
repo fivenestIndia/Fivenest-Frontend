@@ -2911,6 +2911,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   </div>
                 </div>
               </div>
+              </div>
+              )}
+              </div>
+              )}
 
               {/* 2. Number Config Sub-Tab */}
               {overlaySubTab === 'number' && (
@@ -3561,16 +3565,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           </div>
                         </div>
                       </div>
-)}
-</div>
-</div>
-)}
-</div>
-)}
-</div>
-)}
-</div>
-)}
+              )}
+              </div>
+              </div>
+              )}
+              </div>
+              )}
+        </div>
 
         {/* Step 3: Design Presets Manager Card */}
         <div className="glass-card" style={{ padding: '20px' }}>
@@ -4041,7 +4042,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             </div>
           )}
         </div>
-      </div>
     </div>
     </div>
 
