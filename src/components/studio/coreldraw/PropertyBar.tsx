@@ -216,6 +216,17 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               onChange={(e) => updateActiveText({ strokeColor: e.target.value })}
               style={{ width: '22px', height: '20px', border: 'none', background: 'none', cursor: 'pointer' }}
             />
+            <span style={{ opacity: 0.6, marginLeft: '6px' }}>W:</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              max="0.5"
+              value={activeTextConfig.strokeWidth || 0}
+              onChange={(e) => updateActiveText({ strokeWidth: parseFloat(e.target.value) || 0 })}
+              className="cd-property-input"
+              style={{ width: '45px', marginLeft: '2px' }}
+            />
           </div>
         </>
       )}
