@@ -2577,7 +2577,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           </h3>
 
           {!collapsed.overlays && (
-            <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 320px)', paddingRight: '4px' }}>
+            <div>
               {/* Sub-Tab Navigation Bar */}
               <div style={{ display: 'flex', gap: '4px', marginBottom: '14px', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
                 <button 
