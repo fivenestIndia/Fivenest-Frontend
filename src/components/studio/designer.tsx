@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, RotateCcw, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus } from 'lucide-react';
+import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, RotateCcw, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus, Maximize2 } from 'lucide-react';
 import type { OrderMetadata } from './orderEntry';
 import { ThreeDPreview } from './ThreeDPreview';
-import { defaultSizes } from './sizesDb';
+import { defaultSizes, SizesModal } from './sizesDb';
 import { toast } from 'sonner';
 
 import { ToolBox, CorelTool } from './coreldraw/ToolBox';
@@ -180,9 +180,12 @@ export const defaultDesignConfig: ArtDesignConfig = {
 };
 
 export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfigChange, metadata }) => {
-  const [activeTab, setActiveTab] = useState<'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD'>('back');
-  const [previewName, setPreviewName] = useState<string>("RODRIGUEZ");
-  const [previewNumber, setPreviewNumber] = useState<string>("10");
+  const [activeTab, setActiveTab] = useState<'front' | 'back' | 'dual' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD'>('dual');
+  const [dualActivePanel, setDualActivePanel] = useState<'front' | 'back' | 'sleeveLeft' | 'sleeveRight'>('front');
+  const [previewName, setPreviewName] = useState<string>("FIVENEST");
+  const [previewNumber, setPreviewNumber] = useState<string>("23");
+  const [overlaySubTab, setOverlaySubTab] = useState<'name' | 'number' | 'logos' | 'sizeTag'>('name');
+  const [showPanelEditorModal, setShowPanelEditorModal] = useState<boolean>(false);
   const [customFonts, setCustomFonts] = useState<{name: string, url: string}[]>([]);
   const [previewSleeveType, setPreviewSleeveType] = useState<'half' | 'full'>('half');
   const [prefTrigger, setPrefTrigger] = useState<number>(0);
@@ -197,7 +200,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [dragStart, setDragStart] = useState<{ x: number; y: number; zoom: number } | null>(null);
   const [spaceKeyPressed, setSpaceKeyPressed] = useState<boolean>(false);
   const [panStart, setPanStart] = useState<{ scrollLeft: number; scrollTop: number; x: number; y: number } | null>(null);
-  const [activeTextLayer, setActiveTextLayer] = useState<'name' | 'number'>('name');
+  const [activeTextLayer, setActiveTextLayer] = useState<'name' | 'number' | null>(null);
 
   const [showGuidelines, setShowGuidelines] = useState<boolean>(true);
   const [activeTool, setActiveTool] = useState<CorelTool>('pick');
@@ -213,13 +216,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   });
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
     zip: true,
-    presets: true,
-    background: true,
     overlays: true,
-    logos: true,
+    presets: true,
+    trim: true,
     guidelines: true,
     fonts: true,
-    trim: true,
   });
 
   const logoImagesRef = useRef<Record<string, HTMLImageElement>>({});
@@ -316,7 +317,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       if (e.key.toLowerCase() === 'g' && !e.ctrlKey && !e.metaKey) {
         setShowGuidelines(prev => !prev);
       }
-      if (e.key.toLowerCase() === 'r' && !e.ctrlKey && !e.metaKey) {
+      if (e.key.toLowerCase() === 'r' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r')) {
+        e.preventDefault();
         setRulersEnabled(prev => {
           const next = !prev;
           localStorage.setItem('fivenest_pref_rulers', JSON.stringify(next));
@@ -336,10 +338,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       if (e.key === 'Delete') {
         updateActivePanel({ uploadedFileUrl: null });
       }
-      // Zoom reset: Ctrl + 0 or Cmd + 0
+      // Zoom fit: Ctrl + 0 or Cmd + 0
       if ((e.ctrlKey || e.metaKey) && e.key === '0') {
         e.preventDefault();
-        setZoom(1);
+        handleFitToScreen();
       }
       // Toggle guidelines: Ctrl + . or Cmd + .
       if ((e.ctrlKey || e.metaKey) && e.key === '.') {
@@ -432,6 +434,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   }, []);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const frontCanvasRef = useRef<HTMLCanvasElement>(null);
+  const backCanvasRef = useRef<HTMLCanvasElement>(null);
+  const leftSleeveCanvasRef = useRef<HTMLCanvasElement>(null);
+  const rightSleeveCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
   const scrollWrapperRef = useRef<HTMLDivElement>(null);
@@ -508,13 +514,32 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     touchStartRef.current = null;
   };
 
+  const handleFitToScreen = () => {
+    if (!scrollWrapperRef.current) {
+      setZoom(1);
+      return;
+    }
+    const containerW = scrollWrapperRef.current.clientWidth - 48;
+    const containerH = scrollWrapperRef.current.clientHeight - 48;
+    const currentRulerOffset = rulersEnabled ? Math.round(0.35 * scale) : 0;
+    const targetW = width + currentRulerOffset;
+    const targetH = height + currentRulerOffset;
+
+    if (containerW > 0 && containerH > 0) {
+      const fitRatio = Math.min(containerW / targetW, containerH / targetH);
+      const optimalZoom = Math.min(1.0, Math.max(0.4, parseFloat(fitRatio.toFixed(2))));
+      setZoom(optimalZoom);
+    } else {
+      setZoom(1);
+    }
+  };
+
   // Physical dimensions based on active tab and metadata
   let physicalHeight = 30;
   let physicalWidth = 22;
 
   if (activeTab === 'sleeveLeft' || activeTab === 'sleeveRight') {
-    const isRaglan = metadata?.raglanStyle ?? false;
-    physicalHeight = previewSleeveType === 'full' ? (isRaglan ? 31 : 25) : (isRaglan ? 16.5 : 11);
+    physicalHeight = previewSleeveType === 'full' ? 25 : 11;
     physicalWidth = 19;
   } else if (activeTab === 'a4Print') {
     physicalHeight = 11;
@@ -542,11 +567,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
   const scale = width / physicalWidth;
 
-  const activePanel = activeTab === 'threeD' ? designConfig.front : designConfig[activeTab];
+  // Sleeve dimensions for full 4-panel spread (Top-Aligned, Half 11" / Full 25")
+  const sleeveSpreadPhysicalH = previewSleeveType === 'full' ? 25 : 11;
+  const sleeveSpreadPhysicalW = 19;
+  const sleeveSpreadWidth = Math.round(sleeveSpreadPhysicalW * scale);
+  const sleeveSpreadHeight = Math.round(sleeveSpreadPhysicalH * scale);
+
+  const activePanel = activeTab === 'threeD' ? designConfig.front : activeTab === 'dual' ? designConfig[dualActivePanel] : designConfig[activeTab];
 
   // Helper to trigger parent update
   const updateActivePanel = (updatedFields: Partial<PanelConfig>) => {
-    const targetTab = activeTab === 'threeD' ? 'front' : activeTab;
+    const targetTab = activeTab === 'threeD' ? 'front' : activeTab === 'dual' ? dualActivePanel : activeTab;
     const updated = {
       ...designConfig,
       [targetTab]: {
@@ -592,7 +623,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const configKey = textType === 'name' ? 'nameConfig' : textType === 'number' ? 'numberConfig' : 'sizeTagConfig';
     updateActivePanel({
       [configKey]: {
-        ...(activePanel[configKey] || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none' }),
+        ...(activePanel[configKey] || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none' }),
         ...fields
       }
     });
@@ -828,7 +859,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.textBaseline = 'middle';
 
         // Proportional outside stroke calculation (scaled directly with font size / panel height)
-        const strokePx = Math.max(1, Math.round((conf.strokeWidth / 100) * fontSizePx));
+        const strokePx = conf.strokeWidth > 1 
+          ? Math.max(1, Math.round((conf.strokeWidth / 100) * fontSizePx)) 
+          : Math.max(1, Math.round(conf.strokeWidth * scale));
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
 
@@ -986,10 +1019,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         drawSingleText(previewNumber, panel.numberConfig, width / 2, (panel.numberConfig.yPos / 100) * height, (panel.numberConfig.maxW / 20) * width, 'number');
       }
 
-      // Draw interactive Cyan Selection Box with 8 Control Handles around Active Selected Text Layer
-      if (!is3DPreview) {
-        const activeKey = activeTextLayer || (panel.nameConfig.enabled ? 'name' : 'number');
-        const selectedBox = textBoundingBoxesRef.current[activeKey];
+      // Draw interactive Cyan Selection Box with 8 Control Handles around Active Selected Text Layer ONLY if text is selected
+      if (!is3DPreview && activeTextLayer) {
+        const selectedBox = textBoundingBoxesRef.current[activeTextLayer];
         if (selectedBox) {
           ctx.save();
           ctx.strokeStyle = '#00f0ff';
@@ -1027,7 +1059,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           });
 
           // Active Layer Name Badge
-          const badgeText = activeKey === 'name' ? 'PLAYER NAME (SELECTED)' : 'PLAYER NUMBER (SELECTED)';
+          const badgeText = activeTextLayer === 'name' ? 'PLAYER NAME (SELECTED)' : 'PLAYER NUMBER (SELECTED)';
           ctx.font = 'bold 10px sans-serif';
           const badgeW = ctx.measureText(badgeText).width + 14;
           ctx.fillStyle = '#00f0ff';
@@ -1040,7 +1072,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
 
       // Draw customizable Size Tag (Top Left) - skip for A4 and skip if 3D preview
-      const sizeTagConf = panel.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
+      const sizeTagConf = panel.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
       if (!is3DPreview && sizeTagConf.enabled && panelKey !== 'a4Print') {
         ctx.save();
         // Use pxPerInch (physicalW-based) so size tag is SAME physical size on all panels
@@ -1139,10 +1171,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
       ctx.setLineDash([]);
 
-      // 2. Photoshop Ruler Background bars (OUTSIDE panel image area)
-      const rulerBg = isLightMode ? '#cbd5e1' : '#1e1e24';
-      const tickColor = isLightMode ? '#0f172a' : '#f8fafc';
-      const borderLineColor = isLightMode ? '#94a3b8' : '#334155';
+      // 2. Illustrator Ruler Background tracks & ticks (OUTSIDE panel image area)
+      const rulerBg = '#333333';
+      const tickColor = '#ffffff';
+      const borderLineColor = '#1a1a1a';
 
       // Top Ruler track (0 .. rulerOffset y)
       ctx.fillStyle = rulerBg;
@@ -1152,7 +1184,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       ctx.fillRect(0, rulerOffset, rulerOffset, height);
 
       // Top-Left Corner Junction Box
-      ctx.fillStyle = isLightMode ? '#94a3b8' : '#2a2a36';
+      ctx.fillStyle = '#242424';
       ctx.fillRect(0, 0, rulerOffset, rulerOffset);
 
       // Divider borders separating ruler from artwork area
@@ -1357,7 +1389,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             setPrefTrigger(prev => prev + 1);
           };
           img.src = bgUrl;
-          ctx.fillStyle = panelKey === 'a4Print' ? '#ffffff' : '#1c1c24';
+          ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, width, height);
           drawLogos(ctx);
           drawTexts(ctx);
@@ -1402,14 +1434,15 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           ctx.arc(width * 0.2, height * 0.8, 90, 0, Math.PI * 2);
           ctx.fill();
         } else {
-          ctx.fillStyle = panelKey === 'a4Print' ? '#ffffff' : '#1c1c24';
+          // Default panel base color: Pure White inside, like Illustrator artboard
+          ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, width, height);
         }
         
         if (!is3DPreview) {
-          ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(10, 10, width - 20, height - 20);
+          ctx.strokeStyle = '#1a1a1a';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(0, 0, width, height);
         }
         
         drawLogos(ctx);
@@ -1456,7 +1489,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       // Zoom reset: Ctrl + 0
       if (isCtrl && key === '0') {
         e.preventDefault();
-        setZoom(1);
+        handleFitToScreen();
         return;
       }
 
@@ -1558,14 +1591,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     };
   }, [activePanel, activeTextLayer]);
 
-  // Draw preview canvas
+  // Draw preview canvas (Single or Dual Front & Back)
   useEffect(() => {
     if (activeTab === 'threeD') return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
 
     let rulersPref = true;
     try {
@@ -1574,12 +1602,61 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     } catch (e) {}
     const rulerOffset = rulersPref ? Math.round(0.35 * scale) : 0;
 
+    if (activeTab === 'dual') {
+      // 1. Left Sleeve
+      if (leftSleeveCanvasRef.current) {
+        const lsCtx = leftSleeveCanvasRef.current.getContext('2d');
+        if (lsCtx) {
+          leftSleeveCanvasRef.current.width = (sleeveSpreadWidth + rulerOffset) * zoom;
+          leftSleeveCanvasRef.current.height = (sleeveSpreadHeight + rulerOffset) * zoom;
+          lsCtx.scale(zoom, zoom);
+          renderPanelToCanvas('sleeveLeft', lsCtx, sleeveSpreadWidth, sleeveSpreadHeight, scale, false);
+        }
+      }
+      // 2. Front Panel
+      if (frontCanvasRef.current) {
+        const fCtx = frontCanvasRef.current.getContext('2d');
+        if (fCtx) {
+          frontCanvasRef.current.width = (width + rulerOffset) * zoom;
+          frontCanvasRef.current.height = (height + rulerOffset) * zoom;
+          fCtx.scale(zoom, zoom);
+          renderPanelToCanvas('front', fCtx, width, height, scale, false);
+        }
+      }
+      // 3. Back Panel
+      if (backCanvasRef.current) {
+        const bCtx = backCanvasRef.current.getContext('2d');
+        if (bCtx) {
+          backCanvasRef.current.width = (width + rulerOffset) * zoom;
+          backCanvasRef.current.height = (height + rulerOffset) * zoom;
+          bCtx.scale(zoom, zoom);
+          renderPanelToCanvas('back', bCtx, width, height, scale, false);
+        }
+      }
+      // 4. Right Sleeve
+      if (rightSleeveCanvasRef.current) {
+        const rsCtx = rightSleeveCanvasRef.current.getContext('2d');
+        if (rsCtx) {
+          rightSleeveCanvasRef.current.width = (sleeveSpreadWidth + rulerOffset) * zoom;
+          rightSleeveCanvasRef.current.height = (sleeveSpreadHeight + rulerOffset) * zoom;
+          rsCtx.scale(zoom, zoom);
+          renderPanelToCanvas('sleeveRight', rsCtx, sleeveSpreadWidth, sleeveSpreadHeight, scale, false);
+        }
+      }
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
     canvas.width = (width + rulerOffset) * zoom;
     canvas.height = (height + rulerOffset) * zoom;
     ctx.scale(zoom, zoom);
 
     renderPanelToCanvas(activeTab, ctx, width, height, scale, false);
-  }, [activeTab, activePanel, previewName, previewNumber, designConfig, customFonts, metadata, previewSleeveType, prefTrigger, zoom, showGuidelines]);
+  }, [activeTab, dualActivePanel, activePanel, previewName, previewNumber, designConfig, customFonts, metadata, previewSleeveType, prefTrigger, zoom, showGuidelines]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1587,7 +1664,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const reader = new FileReader();
       reader.onload = (uploadEvent) => {
         const url = uploadEvent.target?.result as string;
-        if (activeTab.startsWith('sleeve')) {
+        const targetUpload = activeTab === 'dual' ? dualActivePanel : activeTab;
+        if (targetUpload.startsWith('sleeve')) {
           if (previewSleeveType === 'full') {
             updateActivePanel({
               backgroundType: 'upload',
@@ -1751,8 +1829,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current || activeTab === 'threeD') return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const canvasX = (e.clientX - rect.left) * (width / rect.width);
-    const canvasY = (e.clientY - rect.top) * (height / rect.height);
+    const currentRulerOffset = rulersEnabled ? Math.round(0.35 * scale) : 0;
+    const canvasX = (e.clientX - rect.left) / zoom - currentRulerOffset;
+    const canvasY = (e.clientY - rect.top) / zoom - currentRulerOffset;
 
     const pad = 16;
 
@@ -1789,6 +1868,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         return;
       }
     }
+
+    // If clicked on canvas outside text, deselect text layer
+    setActiveTextLayer(null);
+  };
+
+  const handleCanvasMouseUp = () => {
+    isDraggingTextRef.current = false;
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1798,7 +1884,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const mouseY = e.clientY - rect.top;
 
     if (isDraggingTextRef.current && activeTextLayer) {
-      const canvasY = (mouseY / rect.height) * height;
+      const currentRulerOffset = rulersEnabled ? Math.round(0.35 * scale) : 0;
+      const canvasY = (mouseY / zoom) - currentRulerOffset;
       const newYPercent = Math.min(100, Math.max(0, Math.round((canvasY / height) * 100)));
       updateTextConfig(activeTextLayer, { yPos: newYPercent });
     }
@@ -1834,6 +1921,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         onOpenBulkImport={() => zipInputRef.current?.click()}
         onClearPanel={() => updateActivePanel({ uploadedFileUrl: null })}
         onOpenShortcutsModal={() => setShowShortcutsModal(true)}
+        onOpenPanelEditor={() => setShowPanelEditorModal(true)}
       />
 
       {/* 2. COREL CONTEXT PROPERTY BAR */}
@@ -1862,6 +1950,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         />
 
         <div className="cd-canvas-area">
+
+
           {/* 2D Canvas Mock Renderer */}
           <div 
             className="cd-canvas-container" 
@@ -1943,188 +2033,452 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           </div>
         )}
 
-        <div className="tab-btn-group" style={{ width: '100%', maxWidth: '640px' }}>
-          <button className={`tab-btn ${activeTab === 'front' ? 'active' : ''}`} onClick={() => setActiveTab('front')}>Front</button>
-          <button className={`tab-btn ${activeTab === 'back' ? 'active' : ''}`} onClick={() => setActiveTab('back')}>Back</button>
-          <button className={`tab-btn ${activeTab === 'sleeveLeft' ? 'active' : ''}`} onClick={() => setActiveTab('sleeveLeft')}>Left Sleeve</button>
-          <button className={`tab-btn ${activeTab === 'sleeveRight' ? 'active' : ''}`} onClick={() => setActiveTab('sleeveRight')}>Right Sleeve</button>
-          <button className={`tab-btn ${activeTab === 'a4Print' ? 'active' : ''}`} onClick={() => setActiveTab('a4Print')}>A4 Print</button>
-          <button 
-            className={`tab-btn flex items-center gap-1.5 ${activeTab === 'threeD' ? 'active' : ''}`} 
-            onClick={() => setActiveTab('threeD')}
-            style={{ borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '12px' }}
-          >
-            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-            3D View
-          </button>
-        </div>
+
         
-        {(activeTab === 'sleeveLeft' || activeTab === 'sleeveRight') && (
-          <div style={{ display: 'flex', gap: '8px', marginTop: '4px', marginBottom: '4px' }}>
-            <button 
-              className={`btn ${previewSleeveType === 'half' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ padding: '6px 14px', fontSize: '11px', borderRadius: '20px' }}
-              onClick={() => handleSleeveTypeChange('half')}
-            >
-              Half Sleeve ({metadata?.raglanStyle ? "19x17\"" : "19x11\""})
-            </button>
-            <button 
-              className={`btn ${previewSleeveType === 'full' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ padding: '6px 14px', fontSize: '11px', borderRadius: '20px' }}
-              onClick={() => handleSleeveTypeChange('full')}
-            >
-              Full Sleeve ({metadata?.raglanStyle ? "19x31\"" : "19x25\""})
-            </button>
+        {(activeTab === 'dual' || activeTab === 'sleeveLeft' || activeTab === 'sleeveRight') && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', marginBottom: '4px', background: 'rgba(15, 23, 42, 0.85)', padding: '4px 12px', borderRadius: '30px', border: '1px solid rgba(0, 240, 255, 0.3)', backdropFilter: 'blur(8px)' }}>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Sleeve Style:
+            </span>
+            <div style={{ display: 'flex', gap: '4px', background: 'rgba(0, 0, 0, 0.4)', padding: '2px', borderRadius: '20px' }}>
+              <button 
+                className={`btn ${previewSleeveType === 'half' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '4px 14px', fontSize: '11px', borderRadius: '16px', border: 'none', fontWeight: '600' }}
+                onClick={() => handleSleeveTypeChange('half')}
+                title="Switch to Half Sleeve (19x11 in)"
+              >
+                👕 Half Sleeve (19" × 11")
+              </button>
+              <button 
+                className={`btn ${previewSleeveType === 'full' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '4px 14px', fontSize: '11px', borderRadius: '16px', border: 'none', fontWeight: '600' }}
+                onClick={() => handleSleeveTypeChange('full')}
+                title="Switch to Full Sleeve (19x25 in)"
+              >
+                🧤 Full Sleeve (19" × 25")
+              </button>
+            </div>
           </div>
         )}
         
-        {/* Zoom Controls Bar */}
+        {/* Controls Bar: 2D Zoom Bar OR 3D Viewport Bar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', marginBottom: '4px' }}>
-          <button 
-            className="btn btn-secondary" 
-            style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
-            title="Zoom Out"
-          >
-            <ZoomOut size={14} />
-          </button>
-          <span style={{ fontSize: '13px', fontWeight: '600', minWidth: '50px', textAlign: 'center', color: 'var(--text-primary)' }}>
-            {Math.round(zoom * 100)}%
-          </span>
-          <button 
-            className="btn btn-secondary" 
-            style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onClick={() => setZoom(Math.min(3, zoom + 0.25))}
-            title="Zoom In"
-          >
-            <ZoomIn size={14} />
-          </button>
-          {zoom !== 1 && (
-            <button 
-              className="btn btn-secondary" 
-              style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-primary)' }}
-              onClick={() => setZoom(1)}
-              title="Reset Zoom"
-            >
-              <RotateCcw size={12} /> Reset
-            </button>
+          {activeTab === 'threeD' ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(15, 23, 42, 0.85)', padding: '4px 12px', borderRadius: '20px', border: '1px solid rgba(0, 240, 255, 0.3)' }}>
+                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                <span style={{ fontSize: '11px', fontWeight: '700', color: '#38bdf8', letterSpacing: '0.5px' }}>
+                  3D REAL-TIME VIEWPORT ACTIVE (BLENDER CONTROLS)
+                </span>
+              </div>
+              <button 
+                className="btn btn-primary"
+                style={{ padding: '6px 14px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', fontWeight: 'bold' }}
+                onClick={() => setActiveTab('dual')}
+                title="Exit 3D View and Return to 2D Spread Layout"
+              >
+                ✕ Exit 3D View
+              </button>
+            </>
+          ) : (
+            <>
+              <button 
+                className="btn btn-secondary" 
+                style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
+                title="Zoom Out"
+              >
+                <ZoomOut size={14} />
+              </button>
+              <span style={{ fontSize: '13px', fontWeight: '600', minWidth: '50px', textAlign: 'center', color: 'var(--text-primary)' }}>
+                {Math.round(zoom * 100)}%
+              </span>
+              <button 
+                className="btn btn-secondary" 
+                style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                onClick={() => setZoom(Math.min(3, zoom + 0.25))}
+                title="Zoom In"
+              >
+                <ZoomIn size={14} />
+              </button>
+              <button 
+                className="btn btn-secondary" 
+                style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: '#00f0ff' }}
+                onClick={handleFitToScreen}
+                title="Fit Full View to Screen (Ctrl+0)"
+              >
+                <Maximize2 size={12} /> Fit View (Ctrl+0)
+              </button>
+              <button 
+                className="btn btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px' }}
+                onClick={() => setActiveTab('threeD')}
+                title="Enter 3D Jersey Preview"
+              >
+                <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                3D View
+              </button>
+              {zoom !== 1 && (
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)' }}
+                  onClick={() => setZoom(1)}
+                  title="Reset Zoom to 100%"
+                >
+                  <RotateCcw size={12} /> 100%
+                </button>
+              )}
+            </>
           )}
         </div>
 
-        {/* Scrollable Wrapper for Canvas Zoom */}
-        <div 
-          ref={scrollWrapperRef}
-          style={{ 
-            flexGrow: 1, 
-            width: '100%', 
-            height: '100%',
-            overflow: 'auto', 
-            display: 'flex', 
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: 0,
-            padding: '16px',
-            boxSizing: 'border-box',
-            cursor: (spaceKeyPressed || activeTool === 'pan') ? (panStart ? 'grabbing' : 'grab') : ((zKeyPressed || activeTool === 'zoom') ? (dragStart ? 'grabbing' : 'zoom-in') : 'default'),
-            userSelect: (spaceKeyPressed || activeTool === 'pan' || zKeyPressed || activeTool === 'zoom') ? 'none' : 'auto',
-            position: 'relative'
-          }}
-          onWheel={(e) => {
-            e.preventDefault();
-            const sensitivity = 0.0015;
-            const newZoom = Math.min(3, Math.max(0.5, zoom - e.deltaY * sensitivity));
-            setZoom(newZoom);
-          }}
-          onMouseDown={(e) => {
-            if ((spaceKeyPressed || activeTool === 'pan') && e.button === 0) {
-              e.preventDefault();
-              if (scrollWrapperRef.current) {
-                setPanStart({
-                  scrollLeft: scrollWrapperRef.current.scrollLeft,
-                  scrollTop: scrollWrapperRef.current.scrollTop,
-                  x: e.clientX,
-                  y: e.clientY
-                });
-              }
-            } else if ((zKeyPressed || activeTool === 'zoom') && e.button === 0) {
-              e.preventDefault();
-              setDragStart({ x: e.clientX, y: e.clientY, zoom: zoom });
-            }
-          }}
-          onMouseMove={(e) => {
-            if (panStart) {
-              e.preventDefault();
-              const deltaX = e.clientX - panStart.x;
-              const deltaY = e.clientY - panStart.y;
-              if (scrollWrapperRef.current) {
-                scrollWrapperRef.current.scrollLeft = panStart.scrollLeft - deltaX;
-                scrollWrapperRef.current.scrollTop = panStart.scrollTop - deltaY;
-              }
-            } else if (dragStart) {
-              e.preventDefault();
-              const deltaX = e.clientX - dragStart.x;
-              const deltaY = dragStart.y - e.clientY;
-              const dragDistance = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
-              const sensitivity = 0.008;
-              const newZoom = Math.min(3, Math.max(0.5, dragStart.zoom + dragDistance * sensitivity));
-              setZoom(newZoom);
-            }
-          }}
-          onMouseUp={() => {
-            setDragStart(null);
-            setPanStart(null);
-          }}
-          onMouseLeave={() => {
-            setDragStart(null);
-            setPanStart(null);
-          }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          {/* Centering inner container */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '100%',
-            height: '100%',
-            boxSizing: 'border-box'
-          }}>
-            {activeTab === 'threeD' ? (
-              <div style={{ width: '100%', height: '100%', minHeight: '450px', flexGrow: 1 }}>
-                <ThreeDPreview 
-                  designConfig={designConfig} 
-                  renderPanelToCanvas={renderPanelToCanvas}
-                  previewSleeveType={previewSleeveType}
-                  prefTrigger={prefTrigger}
-                  zoom={zoom}
-                />
-              </div>
-            ) : (
-              <canvas 
-                ref={canvasRef} 
-                onMouseDown={handleCanvasMouseDown}
-                onMouseMove={handleCanvasMouseMove}
-                onMouseLeave={() => setCursorPos(null)}
-                style={{ 
-                  borderRadius: '8px', 
-                  border: '2px solid rgba(0, 240, 255, 0.4)', 
-                  boxShadow: '0 0 40px rgba(0,0,0,0.95)',
-                  cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : 'pointer',
-                  width: `${width * zoom}px`,
-                  height: `${height * zoom}px`,
-                  maxWidth: zoom > 1 ? 'none' : '100%',
-                  maxHeight: zoom > 1 ? 'none' : '100%',
-                  objectFit: 'contain',
-                  flexShrink: 0
-                }} 
-              />
-            )}
+        {/* Global Invisible Image File Input for Double Click / Button Upload */}
+        <input 
+          ref={fileInputRef} 
+          type="file" 
+          onChange={handleFileUpload} 
+          accept="image/*" 
+          style={{ display: 'none' }} 
+          id="global-artwork-file-input" 
+        />
+
+        {/* 3D VIEWPORT: 100% Locked Container (Zero DOM zoom, Three.js OrbitControls only) */}
+        {activeTab === 'threeD' ? (
+          <div style={{ width: '100%', height: '100%', flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden', padding: '8px', boxSizing: 'border-box' }}>
+            <ThreeDPreview 
+              designConfig={designConfig} 
+              renderPanelToCanvas={renderPanelToCanvas}
+              previewSleeveType={previewSleeveType}
+              prefTrigger={prefTrigger}
+              zoom={1}
+            />
           </div>
-        </div>
+        ) : (
+          /* 2D CANVAS WORKSPACE: Scrollable Wrapper with Cursor-Centered Zoom */
+          <div 
+            ref={scrollWrapperRef}
+            style={{ 
+              flexGrow: 1, 
+              width: '100%', 
+              height: '100%',
+              overflow: 'auto', 
+              minHeight: 0,
+              boxSizing: 'border-box',
+              cursor: ((spaceKeyPressed || activeTool === 'pan') ? (panStart ? 'grabbing' : 'grab') : ((zKeyPressed || activeTool === 'zoom') ? (dragStart ? 'grabbing' : 'zoom-in') : 'default')),
+              userSelect: (spaceKeyPressed || activeTool === 'pan' || zKeyPressed || activeTool === 'zoom') ? 'none' : 'auto',
+              position: 'relative'
+            }}
+            onWheel={(e) => {
+              e.preventDefault();
+              const wrapper = scrollWrapperRef.current;
+              if (!wrapper) return;
+
+              const sensitivity = 0.0015;
+              const newZoom = Math.min(3, Math.max(0.5, zoom - e.deltaY * sensitivity));
+              if (newZoom === zoom) return;
+
+              const rect = wrapper.getBoundingClientRect();
+              const mouseX = e.clientX - rect.left;
+              const mouseY = e.clientY - rect.top;
+
+              const scrollX = wrapper.scrollLeft;
+              const scrollY = wrapper.scrollTop;
+
+              const contentX = (scrollX + mouseX) / zoom;
+              const contentY = (scrollY + mouseY) / zoom;
+
+              setZoom(newZoom);
+
+              requestAnimationFrame(() => {
+                if (wrapper) {
+                  wrapper.scrollLeft = contentX * newZoom - mouseX;
+                  wrapper.scrollTop = contentY * newZoom - mouseY;
+                }
+              });
+            }}
+            onMouseDown={(e) => {
+              if ((spaceKeyPressed || activeTool === 'pan') && e.button === 0) {
+                e.preventDefault();
+                if (scrollWrapperRef.current) {
+                  setPanStart({
+                    scrollLeft: scrollWrapperRef.current.scrollLeft,
+                    scrollTop: scrollWrapperRef.current.scrollTop,
+                    x: e.clientX,
+                    y: e.clientY
+                  });
+                }
+              } else if ((zKeyPressed || activeTool === 'zoom') && e.button === 0) {
+                e.preventDefault();
+                setDragStart({ x: e.clientX, y: e.clientY, zoom: zoom });
+              }
+            }}
+            onMouseMove={(e) => {
+              if (panStart) {
+                e.preventDefault();
+                const deltaX = e.clientX - panStart.x;
+                const deltaY = e.clientY - panStart.y;
+                if (scrollWrapperRef.current) {
+                  scrollWrapperRef.current.scrollLeft = panStart.scrollLeft - deltaX;
+                  scrollWrapperRef.current.scrollTop = panStart.scrollTop - deltaY;
+                }
+              } else if (dragStart) {
+                e.preventDefault();
+                const deltaX = e.clientX - dragStart.x;
+                const deltaY = dragStart.y - e.clientY;
+                const dragDistance = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
+                const sensitivity = 0.008;
+                const newZoom = Math.min(3, Math.max(0.5, dragStart.zoom + dragDistance * sensitivity));
+                setZoom(newZoom);
+              }
+            }}
+            onMouseUp={() => {
+              setDragStart(null);
+              setPanStart(null);
+            }}
+            onMouseLeave={() => {
+              setDragStart(null);
+              setPanStart(null);
+            }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
+            {/* Centering inner container with full 360-degree corner pan space */}
+            <div 
+              onDoubleClick={() => fileInputRef.current?.click()}
+              title="Double-click canvas to upload artwork background image"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minWidth: '100%',
+                minHeight: '100%',
+                width: zoom > 1 ? `${Math.max(width * zoom + 400, 1200)}px` : '100%',
+                height: zoom > 1 ? `${Math.max(height * zoom + 400, 900)}px` : '100%',
+                padding: zoom > 1 ? `${Math.max(160, 260 * zoom)}px` : '24px',
+                boxSizing: 'border-box',
+                position: 'relative'
+              }}
+            >
+              {activeTab === 'dual' ? (
+                <div style={{ display: 'flex', flexDirection: 'row', gap: '24px', alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'nowrap', padding: '0 20px' }}>
+                  {/* 1. LEFT SLEEVE CANVAS */}
+                  <div 
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                    onClick={() => setDualActivePanel('sleeveLeft')}
+                  >
+                    <div 
+                      className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
+                        dualActivePanel === 'sleeveLeft' 
+                          ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/30' 
+                          : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <span>🧤 LEFT SLEEVE ({sleeveSpreadPhysicalW}" × {sleeveSpreadPhysicalH}")</span>
+                      {dualActivePanel === 'sleeveLeft' && <span className="text-[10px] text-cyan-400 font-semibold">• Active</span>}
+                    </div>
+
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <canvas 
+                        ref={leftSleeveCanvasRef} 
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setDualActivePanel('sleeveLeft');
+                          fileInputRef.current?.click();
+                        }}
+                        title="Left Sleeve - Double-click to upload artwork image"
+                        style={{ 
+                          borderRadius: '8px', 
+                          border: dualActivePanel === 'sleeveLeft' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
+                          boxShadow: dualActivePanel === 'sleeveLeft' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
+                          cursor: 'pointer',
+                          width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          maxWidth: 'none',
+                          maxHeight: 'none',
+                          objectFit: 'contain',
+                          flexShrink: 0
+                        }} 
+                      />
+                    </div>
+                  </div>
+
+                  {/* 2. FRONT PANEL CANVAS */}
+                  <div 
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                    onClick={() => setDualActivePanel('front')}
+                  >
+                    <div 
+                      className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
+                        dualActivePanel === 'front' 
+                          ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/30' 
+                          : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <span>👕 FRONT PANEL ({designConfig.front.customWidth || 22}" × {designConfig.front.customHeight || 30}")</span>
+                      {dualActivePanel === 'front' && <span className="text-[10px] text-cyan-400 font-semibold">• Active</span>}
+                    </div>
+
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <canvas 
+                        ref={frontCanvasRef} 
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setDualActivePanel('front');
+                          fileInputRef.current?.click();
+                        }}
+                        title="Front Panel - Double-click to upload artwork image"
+                        style={{ 
+                          borderRadius: '8px', 
+                          border: dualActivePanel === 'front' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
+                          boxShadow: dualActivePanel === 'front' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
+                          cursor: 'pointer',
+                          width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          maxWidth: 'none',
+                          maxHeight: 'none',
+                          objectFit: 'contain',
+                          flexShrink: 0
+                        }} 
+                      />
+                    </div>
+                  </div>
+
+                  {/* 3. BACK PANEL CANVAS */}
+                  <div 
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                    onClick={() => setDualActivePanel('back')}
+                  >
+                    <div 
+                      className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
+                        dualActivePanel === 'back' 
+                          ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/30' 
+                          : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <span>👕 BACK PANEL ({designConfig.back.customWidth || 22}" × {designConfig.back.customHeight || 30}")</span>
+                      {dualActivePanel === 'back' && <span className="text-[10px] text-cyan-400 font-semibold">• Active</span>}
+                    </div>
+
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <canvas 
+                        ref={backCanvasRef} 
+                        onMouseDown={handleCanvasMouseDown}
+                        onMouseMove={handleCanvasMouseMove}
+                        onMouseUp={handleCanvasMouseUp}
+                        onMouseLeave={() => {
+                          setCursorPos(null);
+                          isDraggingTextRef.current = false;
+                        }}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setDualActivePanel('back');
+                          fileInputRef.current?.click();
+                        }}
+                        title="Back Panel - Double-click to upload artwork, click & drag player name/number"
+                        style={{ 
+                          borderRadius: '8px', 
+                          border: dualActivePanel === 'back' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
+                          boxShadow: dualActivePanel === 'back' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
+                          cursor: 'pointer',
+                          width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          maxWidth: 'none',
+                          maxHeight: 'none',
+                          objectFit: 'contain',
+                          flexShrink: 0
+                        }} 
+                      />
+                    </div>
+                  </div>
+
+                  {/* 4. RIGHT SLEEVE CANVAS */}
+                  <div 
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                    onClick={() => setDualActivePanel('sleeveRight')}
+                  >
+                    <div 
+                      className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
+                        dualActivePanel === 'sleeveRight' 
+                          ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/30' 
+                          : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <span>🧤 RIGHT SLEEVE ({sleeveSpreadPhysicalW}" × {sleeveSpreadPhysicalH}")</span>
+                      {dualActivePanel === 'sleeveRight' && <span className="text-[10px] text-cyan-400 font-semibold">• Active</span>}
+                    </div>
+
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <canvas 
+                        ref={rightSleeveCanvasRef} 
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setDualActivePanel('sleeveRight');
+                          fileInputRef.current?.click();
+                        }}
+                        title="Right Sleeve - Double-click to upload artwork image"
+                        style={{ 
+                          borderRadius: '8px', 
+                          border: dualActivePanel === 'sleeveRight' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
+                          boxShadow: dualActivePanel === 'sleeveRight' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
+                          cursor: 'pointer',
+                          width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          maxWidth: 'none',
+                          maxHeight: 'none',
+                          objectFit: 'contain',
+                          flexShrink: 0
+                        }} 
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  {/* Double click helper badge */}
+                  <div 
+                    className="absolute -top-9 left-1/2 -translate-x-1/2 z-20 pointer-events-none px-3 py-1 rounded-full bg-slate-950/90 border border-cyan-400/40 text-cyan-300 text-[11px] font-bold shadow-xl backdrop-blur-md flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                    style={{ pointerEvents: 'auto' }}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <span>💡 Double-click canvas to upload artwork image</span>
+                  </div>
+
+                  <canvas 
+                    ref={canvasRef} 
+                    onMouseDown={handleCanvasMouseDown}
+                    onMouseMove={handleCanvasMouseMove}
+                    onMouseUp={handleCanvasMouseUp}
+                    onMouseLeave={() => {
+                      setCursorPos(null);
+                      isDraggingTextRef.current = false;
+                    }}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                    title="Double-click to upload artwork background image"
+                    style={{ 
+                      borderRadius: '8px', 
+                      border: '2px solid rgba(0, 240, 255, 0.5)', 
+                      boxShadow: '0 0 50px rgba(0,0,0,0.95)',
+                      cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : 'pointer',
+                      width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                      height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                      maxWidth: 'none',
+                      maxHeight: 'none',
+                      objectFit: 'contain',
+                      flexShrink: 0
+                    }} 
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         
-        {/* Mock inputs for testing positions */}
+        {/* Mock inputs for testing positions (visible in 2D layout) */}
+        {activeTab !== 'threeD' && (
         <div style={{ display: 'flex', gap: '12px', width: '100%', maxWidth: '360px' }}>
           <div style={{ flex: 1 }}>
             <input 
@@ -2147,12 +2501,28 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             />
           </div>
         </div>
+        )}
       </div>
       </div>
 
-      {/* CorelDRAW Right Docker Panel */}
-      <div className="cd-docker-panel">
-        {/* Bulk ZIP Importer Card */}
+      {/* CorelDRAW Right Docker Panel (Strict Single Vertical Column) */}
+      <div 
+        className="cd-docker-panel" 
+        style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          width: '360px', 
+          minWidth: '360px', 
+          maxWidth: '360px', 
+          flexShrink: 0, 
+          height: '100%', 
+          overflowY: 'auto', 
+          padding: '12px', 
+          gap: '12px',
+          boxSizing: 'border-box'
+        }}
+      >
+        {/* Step 1: Bulk ZIP Importer Card */}
         <div className="glass-card" style={{ padding: '20px' }}>
           <h3 
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-secondary)' }}
@@ -2183,518 +2553,83 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           )}
         </div>
 
-        {/* Saved Presets Card */}
-        <div className="glass-card" style={{ padding: '20px' }}>
+        {/* Step 2: Print Layer Overlays (Names, Numbers & Logos - HIGHLY HIGHLIGHTED STEP 2) */}
+        <div 
+          className="glass-card" 
+          style={{ 
+            padding: '20px', 
+            background: 'linear-gradient(180deg, rgba(0, 240, 255, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%)',
+            border: '2px solid rgba(0, 240, 255, 0.8)',
+            boxShadow: '0 0 30px rgba(0, 240, 255, 0.3)',
+            borderRadius: '12px'
+          }}
+        >
           <h3 
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-primary)' }}
-            onClick={() => toggleCollapse('presets')}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '18px' }}>💾</span> Design Presets Manager
-            </span>
-            {collapsed.presets ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-          </h3>
-          {!collapsed.presets && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
-              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                Save the current design configuration (background uploads, colors, fonts, strokes, and text formats) as a reusable template preset.
-              </p>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="Preset Name" 
-                  value={newPresetName}
-                  onChange={(e) => setNewPresetName(e.target.value)}
-                  style={{ padding: '8px', fontSize: '12px' }}
-                />
-                <button 
-                  className="btn btn-primary" 
-                  onClick={handleSavePreset}
-                  style={{ padding: '8px 16px', fontSize: '12px', whiteSpace: 'nowrap' }}
-                >
-                  Save
-                </button>
-              </div>
-
-              {presets.length > 0 && (
-                <div>
-                  <p style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '6px' }}>Select Preset to Load:</p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
-                    {presets.map((preset, idx) => (
-                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '11px' }}>
-                        <span 
-                          style={{ fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-bright)' }}
-                          onClick={() => handleLoadPreset(preset.name)}
-                        >
-                          {preset.name}
-                        </span>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button 
-                            className="btn btn-secondary" 
-                            style={{ padding: '3px 8px', fontSize: '9px' }}
-                            onClick={() => handleLoadPreset(preset.name)}
-                          >
-                            Load
-                          </button>
-                          <button 
-                            className="btn" 
-                            style={{ padding: '3px 8px', fontSize: '9px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744' }}
-                            onClick={() => handleDeletePreset(preset.name)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Artwork Background */}
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <h3 
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-primary)' }}
-            onClick={() => toggleCollapse('background')}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Paintbrush size={18} /> Artwork Background
-            </span>
-            {collapsed.background ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-          </h3>
-
-          {!collapsed.background && (
-            <div style={{ marginTop: '16px' }}>
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
-                <button 
-                  className={`btn ${activePanel.backgroundType === 'generate' ? 'btn-primary' : 'btn-secondary'}`}
-                  style={{ flex: 1, padding: '8px 12px', fontSize: '12px' }}
-                  onClick={() => updateActivePanel({ backgroundType: 'generate' })}
-                >
-                  Pattern Generator
-                </button>
-                <button 
-                  className={`btn ${activePanel.backgroundType === 'upload' ? 'btn-primary' : 'btn-secondary'}`}
-                  style={{ flex: 1, padding: '8px 12px', fontSize: '12px' }}
-                  onClick={() => updateActivePanel({ backgroundType: 'upload' })}
-                >
-                  Upload Graphic
-                </button>
-              </div>
-
-              {activePanel.backgroundType === 'generate' ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label">Pattern Style:</label>
-                    <select 
-                      className="form-select" 
-                      value={activePanel.generatedStyle}
-                      onChange={(e) => updateActivePanel({ generatedStyle: e.target.value as any })}
-                    >
-                      <option value="neon-gradient">Radial Glow Gradient</option>
-                      <option value="classic-stripes">Diagonal Athletic Stripes</option>
-                      <option value="camo-glow">Digital Camo Glow Spots</option>
-                      <option value="blank">Blank Flat Background</option>
-                    </select>
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Theme Color 1:</label>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <input 
-                          type="color" 
-                          value={activePanel.generatedColor1} 
-                          onChange={(e) => updateActivePanel({ generatedColor1: e.target.value })}
-                          style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
-                        />
-                        <input 
-                          type="text" 
-                          className="form-input" 
-                          value={activePanel.generatedColor1.toUpperCase()}
-                          onChange={(e) => updateActivePanel({ generatedColor1: e.target.value })}
-                          style={{ padding: '6px', fontSize: '12px' }}
-                        />
-                      </div>
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Theme Color 2:</label>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <input 
-                          type="color" 
-                          value={activePanel.generatedColor2} 
-                          onChange={(e) => updateActivePanel({ generatedColor2: e.target.value })}
-                          style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
-                        />
-                        <input 
-                          type="text" 
-                          className="form-input" 
-                          value={activePanel.generatedColor2.toUpperCase()}
-                          onChange={(e) => updateActivePanel({ generatedColor2: e.target.value })}
-                          style={{ padding: '6px', fontSize: '12px' }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div 
-                  className="file-dropzone" 
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const file = e.dataTransfer.files?.[0];
-                    if (file && file.type.startsWith('image/')) {
-                      const reader = new FileReader();
-                      reader.onload = (event) => {
-                        const url = event.target?.result as string;
-                        if (activeTab.startsWith('sleeve')) {
-                          if (previewSleeveType === 'full') {
-                            updateActivePanel({
-                              backgroundType: 'upload',
-                              uploadedFileFullUrl: url
-                            });
-                          } else {
-                            updateActivePanel({
-                              backgroundType: 'upload',
-                              uploadedFileHalfUrl: url
-                            });
-                          }
-                        } else if (activeTab === 'a4Print') {
-                          const img = new Image();
-                          img.onload = () => {
-                            const targetW = parseFloat((img.naturalWidth / 300).toFixed(2));
-                            const targetH = parseFloat((img.naturalHeight / 300).toFixed(2));
-                            updateActivePanel({
-                              backgroundType: 'upload',
-                              uploadedFileUrl: url,
-                              bgWidth: targetW,
-                              bgHeight: targetH,
-                              bgX: 0,
-                              bgY: 0,
-                              bgLockAspectRatio: true
-                            });
-                          };
-                          img.src = url;
-                        } else {
-                          updateActivePanel({
-                            backgroundType: 'upload',
-                            uploadedFileUrl: url
-                          });
-                        }
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                >
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    onChange={handleFileUpload} 
-                    accept="image/*" 
-                    style={{ display: 'none' }} 
-                  />
-                  <Upload className="file-dropzone-icon" size={24} />
-                  <div>
-                    <p style={{ fontSize: '13px', fontWeight: 'bold' }}>Choose background template</p>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>PNG, JPG, SVG or TIFF</p>
-                  </div>
-                  {activeTab.startsWith('sleeve') ? (
-                    (previewSleeveType === 'full' ? activePanel.uploadedFileFullUrl : activePanel.uploadedFileHalfUrl) && (
-                      <div style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: 'bold', wordBreak: 'break-all', marginTop: '8px' }}>
-                        Sleeve Image Loaded Successfully ✓
-                      </div>
-                    )
-                  ) : (
-                    activePanel.uploadedFileUrl && (
-                      <div style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: 'bold', wordBreak: 'break-all', marginTop: '8px' }}>
-                        Image Loaded Successfully ✓
-                      </div>
-                    )
-                  )}
-                </div>
-              )}
-
-              {activePanel.backgroundType === 'upload' && activeTab === 'a4Print' && activePanel.uploadedFileUrl && (
-                <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '12px', color: 'var(--color-primary)' }}>A4 Background Image Position & Size</span>
-                  
-                  <div className="grid-2">
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Width (in):</label>
-                      <input 
-                        type="number" 
-                        step="0.05"
-                        className="form-input" 
-                        value={activePanel.bgWidth ?? 10} 
-                        onChange={(e) => updateBackgroundConfig({ bgWidth: parseFloat(e.target.value) || 0 })}
-                        style={{ padding: '6px', fontSize: '12px' }}
-                      />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Height (in):</label>
-                      <input 
-                        type="number" 
-                        step="0.05"
-                        className="form-input" 
-                        value={activePanel.bgHeight ?? 11} 
-                        onChange={(e) => updateBackgroundConfig({ bgHeight: parseFloat(e.target.value) || 0 })}
-                        style={{ padding: '6px', fontSize: '12px' }}
-                      />
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '11px', flex: 1 }}>
-                      <input 
-                        type="checkbox" 
-                        checked={activePanel.bgLockAspectRatio ?? true} 
-                        onChange={(e) => updateBackgroundConfig({ bgLockAspectRatio: e.target.checked })}
-                      />
-                      Lock Proportions
-                    </label>
-                  </div>
-
-                  <div className="grid-2">
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '11px' }}>X Position (in):</label>
-                      <input 
-                        type="number" 
-                        step="0.05"
-                        className="form-input" 
-                        value={activePanel.bgX ?? 0} 
-                        onChange={(e) => updateBackgroundConfig({ bgX: parseFloat(e.target.value) || 0 })}
-                        style={{ padding: '6px', fontSize: '12px' }}
-                      />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Y Position (in):</label>
-                      <input 
-                        type="number" 
-                        step="0.05"
-                        className="form-input" 
-                        value={activePanel.bgY ?? 0} 
-                        onChange={(e) => updateBackgroundConfig({ bgY: parseFloat(e.target.value) || 0 })}
-                        style={{ padding: '6px', fontSize: '12px' }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activePanel.backgroundType === 'upload' && (
-                activeTab.startsWith('sleeve') 
-                  ? (previewSleeveType === 'full' ? activePanel.uploadedFileFullUrl : activePanel.uploadedFileHalfUrl)
-                  : activePanel.uploadedFileUrl
-              ) && (
-                <div style={{ marginTop: '12px' }}>
-                  <button 
-                    type="button" 
-                    className="btn" 
-                    style={{ width: '100%', padding: '6px', fontSize: '11px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744', cursor: 'pointer' }}
-                    onClick={() => {
-                      if (activeTab.startsWith('sleeve')) {
-                        if (previewSleeveType === 'full') {
-                          updateActivePanel({ uploadedFileFullUrl: null });
-                        } else {
-                          updateActivePanel({ uploadedFileHalfUrl: null });
-                        }
-                      } else {
-                        updateActivePanel({ uploadedFileUrl: null });
-                      }
-                    }}
-                  >
-                    Remove Uploaded Background
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Collar & Trim Customization */}
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <h3 
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-primary)' }}
-            onClick={() => toggleCollapse('trim')}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Shirt size={18} /> Collar & Trim Customization
-            </span>
-            {collapsed.trim ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-          </h3>
-
-          {!collapsed.trim && (
-            <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {/* Part 1: Collar */}
-              <div>
-                <h4 style={{ fontSize: '13px', fontWeight: 'semibold', color: '#fff', marginBottom: '8px' }}>Collar & Rib</h4>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input 
-                      type="color" 
-                      value={designConfig.trim?.collar.color || designConfig.front.generatedColor1} 
-                      onChange={(e) => updateTrimConfig('collar', { color: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
-                    />
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      value={(designConfig.trim?.collar.color || designConfig.front.generatedColor1).toUpperCase()}
-                      onChange={(e) => updateTrimConfig('collar', { color: e.target.value })}
-                      style={{ padding: '6px', fontSize: '12px', width: '90px' }}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    {designConfig.trim?.collar.uploadedUrl ? (
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          Image Active
-                        </div>
-                        <button 
-                          className="btn btn-secondary" 
-                          style={{ padding: '4px 8px', fontSize: '11px' }}
-                          onClick={() => updateTrimConfig('collar', { uploadedUrl: null })}
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
-                        Import Image
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={(e) => handleTrimFileUpload('collar', e)} 
-                          style={{ display: 'none' }} 
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Part 2: Placket */}
-              <div>
-                <h4 style={{ fontSize: '13px', fontWeight: 'semibold', color: '#fff', marginBottom: '8px' }}>Button Placket</h4>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input 
-                      type="color" 
-                      value={designConfig.trim?.placket.color || designConfig.front.generatedColor1} 
-                      onChange={(e) => updateTrimConfig('placket', { color: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
-                    />
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      value={(designConfig.trim?.placket.color || designConfig.front.generatedColor1).toUpperCase()}
-                      onChange={(e) => updateTrimConfig('placket', { color: e.target.value })}
-                      style={{ padding: '6px', fontSize: '12px', width: '90px' }}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    {designConfig.trim?.placket.uploadedUrl ? (
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          Image Active
-                        </div>
-                        <button 
-                          className="btn btn-secondary" 
-                          style={{ padding: '4px 8px', fontSize: '11px' }}
-                          onClick={() => updateTrimConfig('placket', { uploadedUrl: null })}
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
-                        Import Image
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={(e) => handleTrimFileUpload('placket', e)} 
-                          style={{ display: 'none' }} 
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Part 3: Sleeve Stripe */}
-              <div>
-                <h4 style={{ fontSize: '13px', fontWeight: 'semibold', color: '#fff', marginBottom: '8px' }}>Sleeve Stripe / Cuff</h4>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input 
-                      type="color" 
-                      value={designConfig.trim?.sleeveStripe.color || designConfig.front.generatedColor1} 
-                      onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
-                    />
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      value={(designConfig.trim?.sleeveStripe.color || designConfig.front.generatedColor1).toUpperCase()}
-                      onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
-                      style={{ padding: '6px', fontSize: '12px', width: '90px' }}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    {designConfig.trim?.sleeveStripe.uploadedUrl ? (
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          Image Active
-                        </div>
-                        <button 
-                          className="btn btn-secondary" 
-                          style={{ padding: '4px 8px', fontSize: '11px' }}
-                          onClick={() => updateTrimConfig('sleeveStripe', { uploadedUrl: null })}
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
-                        Import Image
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={(e) => handleTrimFileUpload('sleeveStripe', e)} 
-                          style={{ display: 'none' }} 
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Name and Number overlays */}
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <h3 
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-secondary)', marginBottom: collapsed.overlays ? 0 : '16px' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: '#00f0ff', marginBottom: collapsed.overlays ? 0 : '16px' }}
             onClick={() => toggleCollapse('overlays')}
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Layers size={18} /> Print Layer Overlays
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
+              <Layers size={20} style={{ color: '#00f0ff' }} /> 
+              <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#00f0ff' }}>Print Layer Overlays</span>
+              <span style={{ fontSize: '9px', background: 'linear-gradient(90deg, #00f0ff, #8b5cf6)', color: '#000', fontWeight: '900', padding: '2px 8px', borderRadius: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>⭐ STEP 2</span>
             </span>
             {collapsed.overlays ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
           </h3>
 
           {!collapsed.overlays && (
-            <div>
+            <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 320px)', paddingRight: '4px' }}>
+              {/* Sub-Tab Navigation Bar */}
+              <div style={{ display: 'flex', gap: '4px', marginBottom: '14px', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                <button 
+                  type="button"
+                  className={`btn ${overlaySubTab === 'name' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ flex: 1, padding: '6px 2px', fontSize: '11px', fontWeight: 'bold', borderRadius: '6px' }}
+                  onClick={() => {
+                    setOverlaySubTab('name');
+                    setActiveTextLayer('name');
+                    setActiveTool('text');
+                    if (activeTab === 'dual') setDualActivePanel('back');
+                    if (!designConfig.back.nameConfig.enabled) updateTextConfig('name', { enabled: true });
+                  }}
+                >
+                  👤 Name
+                </button>
+                <button 
+                  type="button"
+                  className={`btn ${overlaySubTab === 'number' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ flex: 1, padding: '6px 2px', fontSize: '11px', fontWeight: 'bold', borderRadius: '6px' }}
+                  onClick={() => {
+                    setOverlaySubTab('number');
+                    setActiveTextLayer('number');
+                    setActiveTool('text');
+                    if (activeTab === 'dual') setDualActivePanel('back');
+                    if (!designConfig.back.numberConfig.enabled) updateTextConfig('number', { enabled: true });
+                  }}
+                >
+                  🔢 Number
+                </button>
+                <button 
+                  type="button"
+                  className={`btn ${overlaySubTab === 'logos' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ flex: 1, padding: '6px 2px', fontSize: '11px', fontWeight: 'bold', borderRadius: '6px' }}
+                  onClick={() => setOverlaySubTab('logos')}
+                >
+                  🛡️ Logos
+                </button>
+                <button 
+                  type="button"
+                  className={`btn ${overlaySubTab === 'sizeTag' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ flex: 1, padding: '6px 2px', fontSize: '11px', fontWeight: 'bold', borderRadius: '6px' }}
+                  onClick={() => {
+                    setOverlaySubTab('sizeTag');
+                    setActiveTextLayer('sizeTag');
+                    setActiveTool('text');
+                  }}
+                >
+                  🏷️ Size Tag
+                </button>
+              </div>
+
               {/* Hotkey Helper Banner */}
               <div style={{ 
                 background: 'rgba(155, 77, 255, 0.08)', 
@@ -2713,8 +2648,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 <span>⚡ <strong>Text Alignment Shortcuts:</strong> Press <code>C</code> (Center), <code>T</code> (Top), <code>B</code> (Bottom), <code>L</code> (Left), <code>R</code> (Right)</span>
               </div>
 
-              {/* Name Config */}
-              <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '16px', marginBottom: '16px' }}>
+              {/* 1. Name Config Sub-Tab */}
+              {overlaySubTab === 'name' && (
+              <div style={{ paddingBottom: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Name Layer</span>
                   <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
@@ -2727,7 +2663,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   </label>
                 </div>
 
-                {activePanel.nameConfig.enabled && (
+                {true && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
@@ -2898,7 +2834,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     </div>
                   </div>
 
-                  {/* Solid Fill */}
                   {(!activePanel.nameConfig.fillType || activePanel.nameConfig.fillType === 'solid') && (
                     <div className="form-row">
                       <div className="form-group" style={{ margin: 0, flex: 1 }}>
@@ -2913,7 +2848,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     </div>
                   )}
 
-                  {/* Multi-Color Gradient Fill */}
                   {activePanel.nameConfig.fillType === 'gradient' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -2929,265 +2863,204 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                             updateTextConfig('name', { gradientStops: [...current, '#eab308'] });
                           }}
                         >
-                          <Plus size={9} /> Add Color Stop
+                          <Plus size={9} /> Add Stop
                         </button>
-                      </div>
-
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {(activePanel.nameConfig.gradientStops || [activePanel.nameConfig.gradientColor1 || '#00f0ff', activePanel.nameConfig.gradientColor2 || '#ff0055']).map((c, sIdx, arr) => (
-                          <div key={sIdx} style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
-                            <span style={{ fontSize: '9px', opacity: 0.6 }}>#{sIdx + 1}</span>
-                            <input 
-                              type="color" 
-                              value={c}
-                              onChange={(e) => {
-                                const newStops = [...arr];
-                                newStops[sIdx] = e.target.value;
-                                updateTextConfig('name', { 
-                                  gradientStops: newStops,
-                                  gradientColor1: newStops[0],
-                                  gradientColor2: newStops[newStops.length - 1]
-                                });
-                              }}
-                              style={{ border: 'none', background: 'none', width: '22px', height: '22px', cursor: 'pointer' }}
-                            />
-                            {arr.length > 2 && (
-                              <button
-                                type="button"
-                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0 2px' }}
-                                onClick={() => {
-                                  const newStops = arr.filter((_, i) => i !== sIdx);
-                                  updateTextConfig('name', { gradientStops: newStops });
-                                }}
-                                title="Remove Stop"
-                              >
-                                <Trash2 size={10} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-
-                      <div>
-                        <label className="form-label" style={{ fontSize: '10px' }}>Gradient Direction:</label>
-                        <select 
-                          className="form-select" 
-                          value={activePanel.nameConfig.gradientDirection || 'vertical'}
-                          onChange={(e) => updateTextConfig('name', { gradientDirection: e.target.value as any })}
-                          style={{ padding: '4px 6px', fontSize: '11px' }}
-                        >
-                          <option value="vertical">Vertical (Top → Bottom)</option>
-                          <option value="horizontal">Horizontal (Left → Right)</option>
-                          <option value="diagonal">Diagonal (Corner → Corner)</option>
-                          <option value="radial">Radial (Center Outward)</option>
-                        </select>
                       </div>
                     </div>
                   )}
 
-                  {/* Texture Fill */}
                   {activePanel.nameConfig.fillType === 'texture' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <label className="form-label" style={{ fontSize: '10px' }}>Upload Texture Image (Gold foil, camo, glitter, carbon, pattern):</label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        style={{ fontSize: '11px', color: 'var(--text-muted)' }}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (uploadEvent) => {
-                              const url = uploadEvent.target?.result as string;
-                              updateTextConfig('name', { textureUrl: url, fillType: 'texture' });
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
+                    <div style={{ marginTop: '8px' }}>
+                      <label className="btn btn-secondary" style={{ padding: '6px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'block' }}>
+                        Upload Texture Image
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => handleTextTextureUpload('name', e)} 
+                          style={{ display: 'none' }} 
+                        />
+                      </label>
                       {activePanel.nameConfig.textureUrl && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
-                          <img src={activePanel.nameConfig.textureUrl} alt="Name Texture" style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #00f0ff' }} />
-                          <span style={{ fontSize: '10px', color: '#00f0ff', fontWeight: 'bold' }}>Texture Active</span>
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            style={{ padding: '2px 6px', fontSize: '9px', marginLeft: 'auto', color: '#ef4444' }}
-                            onClick={() => updateTextConfig('name', { textureUrl: null, fillType: 'solid' })}
-                          >
-                            Remove
-                          </button>
+                        <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px', textAlign: 'center' }}>
+                          ✓ Texture Loaded
                         </div>
                       )}
                     </div>
                   )}
-                </div>
 
-                <div className="form-row">
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Stroke Color:</label>
-                    <input 
-                      type="color" 
-                      value={activePanel.nameConfig.strokeColor}
-                      onChange={(e) => updateTextConfig('name', { strokeColor: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '100%', height: '28px', cursor: 'pointer' }}
-                    />
-                  </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Stroke (px):</label>
-                    <input 
-                      type="number" 
-                      min="0" 
-                      max="15" 
-                      className="form-input" 
-                      value={activePanel.nameConfig.strokeWidth}
-                      onChange={(e) => updateTextConfig('name', { strokeWidth: parseInt(e.target.value) || 0 })}
-                      style={{ padding: '6px' }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Number Config */}
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Number Layer</span>
-              <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
-                <input 
-                  type="checkbox" 
-                  checked={activePanel.numberConfig.enabled}
-                  onChange={(e) => updateTextConfig('number', { enabled: e.target.checked })}
-                />
-                Enabled
-              </label>
-            </div>
-
-            {activePanel.numberConfig.enabled && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    <span>Vertical Position (Y):</span>
-                    <span>{activePanel.numberConfig.yPos}%</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="100" 
-                    value={activePanel.numberConfig.yPos}
-                    onChange={(e) => updateTextConfig('number', { yPos: parseInt(e.target.value) })}
-                  />
-                </div>
-
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    <span>Horizontal Spacing (Letter Spacing):</span>
-                    <span>{activePanel.numberConfig.letterSpacing || 0} in</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="1" 
-                    step="0.02" 
-                    value={activePanel.numberConfig.letterSpacing || 0}
-                    onChange={(e) => updateTextConfig('number', { letterSpacing: parseFloat(e.target.value) })}
-                  />
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Font Size (in):</label>
-                    <input 
-                      type="number" 
-                      step="0.1" 
-                      className="form-input" 
-                      value={activePanel.numberConfig.fontSize}
-                      onChange={(e) => updateTextConfig('number', { fontSize: parseFloat(e.target.value) || 1 })}
-                      style={{ padding: '6px' }}
-                    />
-                  </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Max Width (in):</label>
-                    <input 
-                      type="number" 
-                      step="0.5" 
-                      className="form-input" 
-                      value={activePanel.numberConfig.maxW}
-                      onChange={(e) => updateTextConfig('number', { maxW: parseFloat(e.target.value) || 5 })}
-                      style={{ padding: '6px' }}
-                    />
-                  </div>
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Font Style:</label>
-                    <select 
-                      className="form-select" 
-                      value={activePanel.numberConfig.fontFamily}
-                      onChange={(e) => updateTextConfig('number', { fontFamily: e.target.value })}
-                      style={{ padding: '6px' }}
-                    >
-                      <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
-                      <option value="Impact">Impact (Bold Athletic)</option>
-                      <option value="Arial">Arial Black</option>
-                      <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
-                      <option value="Times New Roman">Times (Classic Serif)</option>
-                      {customFonts.map(font => (
-                        <option key={font.name} value={font.name}>{font.name} (Custom)</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Text Effect:</label>
-                    <select 
-                      className="form-select" 
-                      value={activePanel.numberConfig.effect || 'none'}
-                      onChange={(e) => updateTextConfig('number', { effect: e.target.value as any })}
-                      style={{ padding: '6px' }}
-                    >
-                      <option value="none">Flat (Normal)</option>
-                      <option value="arch">Arched Curve</option>
-                      <option value="shadow">Drop Shadow</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Alignment:</label>
-                    <div style={{ display: 'flex', border: '1px solid var(--border-light)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <button
-                        type="button"
-                        className="btn"
-                        style={{ flex: 1, padding: '6px 0', border: 'none', background: activePanel.numberConfig.align === 'left' ? 'var(--color-primary)' : 'transparent', color: activePanel.numberConfig.align === 'left' ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
-                        onClick={() => updateTextConfig('number', { align: 'left' })}
-                        title="Align Left"
-                      >
-                        <AlignLeft size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn"
-                        style={{ flex: 1, padding: '6px 0', border: 'none', borderLeft: '1px solid var(--border-light)', borderRight: '1px solid var(--border-light)', background: (!activePanel.numberConfig.align || activePanel.numberConfig.align === 'center') ? 'var(--color-primary)' : 'transparent', color: (!activePanel.numberConfig.align || activePanel.numberConfig.align === 'center') ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
-                        onClick={() => updateTextConfig('number', { align: 'center' })}
-                        title="Align Center"
-                      >
-                        <AlignCenter size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn"
-                        style={{ flex: 1, padding: '6px 0', border: 'none', background: activePanel.numberConfig.align === 'right' ? 'var(--color-primary)' : 'transparent', color: activePanel.numberConfig.align === 'right' ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
-                        onClick={() => updateTextConfig('number', { align: 'right' })}
-                        title="Align Right"
-                      >
-                        <AlignRight size={14} />
-                      </button>
+                {/* Stroke Outline Controls for Name */}
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-light)', marginTop: '6px' }}>
+                  <label className="form-label" style={{ fontSize: '11px', margin: '0 0 6px 0', fontWeight: 'bold', color: 'var(--color-primary)' }}>
+                    Name Stroke / Outline:
+                  </label>
+                  <div className="grid-2">
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '10px' }}>Stroke Color:</label>
+                      <input 
+                        type="color" 
+                        value={activePanel.nameConfig.strokeColor || '#000000'} 
+                        onChange={(e) => updateTextConfig('name', { strokeColor: e.target.value })}
+                        style={{ border: 'none', background: 'none', width: '100%', height: '28px', cursor: 'pointer' }}
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        <span>Stroke Width:</span>
+                        <span>{activePanel.nameConfig.strokeWidth || 0} in</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input 
+                          type="range" 
+                          min="0" 
+                          max="0.5" 
+                          step="0.01"
+                          value={activePanel.nameConfig.strokeWidth || 0}
+                          onChange={(e) => updateTextConfig('name', { strokeWidth: parseFloat(e.target.value) || 0 })}
+                          style={{ flex: 1 }}
+                        />
+                        <input 
+                          type="number" 
+                          step="0.01" 
+                          min="0"
+                          max="0.5"
+                          className="form-input" 
+                          value={activePanel.nameConfig.strokeWidth || 0}
+                          onChange={(e) => updateTextConfig('name', { strokeWidth: parseFloat(e.target.value) || 0 })}
+                          style={{ padding: '2px 4px', fontSize: '10px', width: '40px', textAlign: 'center' }}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
+              </div>
+              </div>
+              )}
+              </div>
+              )}
+
+              {/* 2. Number Config Sub-Tab */}
+              {overlaySubTab === 'number' && (
+              <div style={{ paddingBottom: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Number Layer</span>
+                  <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={activePanel.numberConfig.enabled}
+                      onChange={(e) => updateTextConfig('number', { enabled: e.target.checked })}
+                    />
+                    Enabled
+                  </label>
+                </div>
+
+                {true && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        <span>Vertical Position (Y):</span>
+                        <span>{activePanel.numberConfig.yPos}%</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="0" 
+                        max="100" 
+                        value={activePanel.numberConfig.yPos}
+                        onChange={(e) => updateTextConfig('number', { yPos: parseInt(e.target.value) })}
+                      />
+                    </div>
+
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        <span>Horizontal Spacing (Digit Spacing):</span>
+                        <span>{activePanel.numberConfig.letterSpacing || 0} in</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="0" 
+                        max="1" 
+                        step="0.02" 
+                        value={activePanel.numberConfig.letterSpacing || 0}
+                        onChange={(e) => updateTextConfig('number', { letterSpacing: parseFloat(e.target.value) })}
+                      />
+                    </div>
+
+                    <div className="form-row">
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Font Size (in):</label>
+                        <input 
+                          type="number" 
+                          step="0.5" 
+                          className="form-input" 
+                          value={activePanel.numberConfig.fontSize}
+                          onChange={(e) => updateTextConfig('number', { fontSize: parseFloat(e.target.value) || 5 })}
+                          style={{ padding: '6px' }}
+                        />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Max Width (in):</label>
+                        <input 
+                          type="number" 
+                          step="0.5" 
+                          className="form-input" 
+                          value={activePanel.numberConfig.maxW}
+                          onChange={(e) => updateTextConfig('number', { maxW: parseFloat(e.target.value) || 8 })}
+                          style={{ padding: '6px' }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-row">
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Font Style:</label>
+                        <select 
+                          className="form-select" 
+                          value={activePanel.numberConfig.fontFamily}
+                          onChange={(e) => updateTextConfig('number', { fontFamily: e.target.value })}
+                          style={{ padding: '6px' }}
+                        >
+                          <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
+                          <option value="Impact">Impact (Bold Athletic)</option>
+                          <option value="Arial">Arial Black</option>
+                          <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
+                          <option value="Times New Roman">Times (Classic Serif)</option>
+                          {customFonts.map(font => (
+                            <option key={font.name} value={font.name}>{font.name} (Custom)</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Alignment:</label>
+                        <div style={{ display: 'flex', border: '1px solid var(--border-light)', borderRadius: '4px', overflow: 'hidden' }}>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ flex: 1, padding: '6px 0', border: 'none', background: activePanel.numberConfig.align === 'left' ? 'var(--color-primary)' : 'transparent', color: activePanel.numberConfig.align === 'left' ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+                            onClick={() => updateTextConfig('number', { align: 'left' })}
+                            title="Align Left"
+                          >
+                            <AlignLeft size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ flex: 1, padding: '6px 0', border: 'none', borderLeft: '1px solid var(--border-light)', borderRight: '1px solid var(--border-light)', background: (!activePanel.numberConfig.align || activePanel.numberConfig.align === 'center') ? 'var(--color-primary)' : 'transparent', color: (!activePanel.numberConfig.align || activePanel.numberConfig.align === 'center') ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+                            onClick={() => updateTextConfig('number', { align: 'center' })}
+                            title="Align Center"
+                          >
+                            <AlignCenter size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ flex: 1, padding: '6px 0', border: 'none', background: activePanel.numberConfig.align === 'right' ? 'var(--color-primary)' : 'transparent', color: activePanel.numberConfig.align === 'right' ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+                            onClick={() => updateTextConfig('number', { align: 'right' })}
+                            title="Align Right"
+                          >
+                            <AlignRight size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
 
                 {/* Fill Style & Texture Controls for Number */}
                 <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-light)', marginTop: '4px' }}>
@@ -3223,7 +3096,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     </div>
                   </div>
 
-                  {/* Solid Fill */}
                   {(!activePanel.numberConfig.fillType || activePanel.numberConfig.fillType === 'solid') && (
                     <div className="form-row">
                       <div className="form-group" style={{ margin: 0, flex: 1 }}>
@@ -3238,7 +3110,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     </div>
                   )}
 
-                  {/* Multi-Color Gradient Fill */}
                   {activePanel.numberConfig.fillType === 'gradient' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3254,726 +3125,742 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                             updateTextConfig('number', { gradientStops: [...current, '#eab308'] });
                           }}
                         >
-                          <Plus size={9} /> Add Color Stop
+                          <Plus size={9} /> Add Stop
                         </button>
-                      </div>
-
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {(activePanel.numberConfig.gradientStops || [activePanel.numberConfig.gradientColor1 || '#00f0ff', activePanel.numberConfig.gradientColor2 || '#ff0055']).map((c, sIdx, arr) => (
-                          <div key={sIdx} style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
-                            <span style={{ fontSize: '9px', opacity: 0.6 }}>#{sIdx + 1}</span>
-                            <input 
-                              type="color" 
-                              value={c}
-                              onChange={(e) => {
-                                const newStops = [...arr];
-                                newStops[sIdx] = e.target.value;
-                                updateTextConfig('number', { 
-                                  gradientStops: newStops,
-                                  gradientColor1: newStops[0],
-                                  gradientColor2: newStops[newStops.length - 1]
-                                });
-                              }}
-                              style={{ border: 'none', background: 'none', width: '22px', height: '22px', cursor: 'pointer' }}
-                            />
-                            {arr.length > 2 && (
-                              <button
-                                type="button"
-                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0 2px' }}
-                                onClick={() => {
-                                  const newStops = arr.filter((_, i) => i !== sIdx);
-                                  updateTextConfig('number', { gradientStops: newStops });
-                                }}
-                                title="Remove Stop"
-                              >
-                                <Trash2 size={10} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-
-                      <div>
-                        <label className="form-label" style={{ fontSize: '10px' }}>Gradient Direction:</label>
-                        <select 
-                          className="form-select" 
-                          value={activePanel.numberConfig.gradientDirection || 'vertical'}
-                          onChange={(e) => updateTextConfig('number', { gradientDirection: e.target.value as any })}
-                          style={{ padding: '4px 6px', fontSize: '11px' }}
-                        >
-                          <option value="vertical">Vertical (Top → Bottom)</option>
-                          <option value="horizontal">Horizontal (Left → Right)</option>
-                          <option value="diagonal">Diagonal (Corner → Corner)</option>
-                          <option value="radial">Radial (Center Outward)</option>
-                        </select>
                       </div>
                     </div>
                   )}
 
-                  {/* Texture Fill */}
                   {activePanel.numberConfig.fillType === 'texture' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <label className="form-label" style={{ fontSize: '10px' }}>Upload Texture Image (Gold foil, camo, glitter, carbon, pattern):</label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        style={{ fontSize: '11px', color: 'var(--text-muted)' }}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (uploadEvent) => {
-                              const url = uploadEvent.target?.result as string;
-                              updateTextConfig('number', { textureUrl: url, fillType: 'texture' });
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
+                    <div style={{ marginTop: '8px' }}>
+                      <label className="btn btn-secondary" style={{ padding: '6px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'block' }}>
+                        Upload Texture Image
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => handleTextTextureUpload('number', e)} 
+                          style={{ display: 'none' }} 
+                        />
+                      </label>
                       {activePanel.numberConfig.textureUrl && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
-                          <img src={activePanel.numberConfig.textureUrl} alt="Number Texture" style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #00f0ff' }} />
-                          <span style={{ fontSize: '10px', color: '#00f0ff', fontWeight: 'bold' }}>Texture Active</span>
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            style={{ padding: '2px 6px', fontSize: '9px', marginLeft: 'auto', color: '#ef4444' }}
-                            onClick={() => updateTextConfig('number', { textureUrl: null, fillType: 'solid' })}
-                          >
-                            Remove
-                          </button>
+                        <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px', textAlign: 'center' }}>
+                          ✓ Texture Loaded
                         </div>
                       )}
                     </div>
                   )}
                 </div>
 
-                <div className="form-row">
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Stroke Color:</label>
-                    <input 
-                      type="color" 
-                      value={activePanel.numberConfig.strokeColor}
-                      onChange={(e) => updateTextConfig('number', { strokeColor: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '100%', height: '28px', cursor: 'pointer' }}
-                    />
-                  </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px' }}>Stroke (px):</label>
-                    <input 
-                      type="number" 
-                      min="0" 
-                      max="15" 
-                      className="form-input" 
-                      value={activePanel.numberConfig.strokeWidth}
-                      onChange={(e) => updateTextConfig('number', { strokeWidth: parseInt(e.target.value) || 0 })}
-                      style={{ padding: '6px' }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Size Tag Config */}
-            <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '16px', marginTop: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Size Tag Layer (Top Left)</span>
-                <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={activePanel.sizeTagConfig?.enabled ?? true}
-                    onChange={(e) => updateTextConfig('sizeTag', { enabled: e.target.checked })}
-                  />
-                  Enabled
-                </label>
-              </div>
-
-              {(activePanel.sizeTagConfig?.enabled ?? true) && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div className="form-row">
+                {/* Stroke Outline Controls for Number */}
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-light)', marginTop: '6px' }}>
+                  <label className="form-label" style={{ fontSize: '11px', margin: '0 0 6px 0', fontWeight: 'bold', color: 'var(--color-primary)' }}>
+                    Number Stroke / Outline:
+                  </label>
+                  <div className="grid-2">
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Text (use {'{size}'} for automatic):</label>
+                      <label className="form-label" style={{ fontSize: '10px' }}>Stroke Color:</label>
                       <input 
-                        type="text" 
-                        className="form-input" 
-                        value={activePanel.sizeTagConfig?.text ?? '{size}'}
-                        onChange={(e) => updateTextConfig('sizeTag', { text: e.target.value })}
-                        style={{ padding: '6px' }}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                      <span>Horizontal Spacing (Letter Spacing):</span>
-                      <span>{activePanel.sizeTagConfig?.letterSpacing || 0} in</span>
-                    </div>
-                    <input 
-                      type="range" 
-                      min="0" 
-                      max="1" 
-                      step="0.02" 
-                      value={activePanel.sizeTagConfig?.letterSpacing || 0}
-                      onChange={(e) => updateTextConfig('sizeTag', { letterSpacing: parseFloat(e.target.value) })}
-                    />
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Font Size (pt):</label>
-                      <input 
-                        type="number" 
-                        className="form-input" 
-                        value={activePanel.sizeTagConfig?.fontSize ?? 34}
-                        onChange={(e) => updateTextConfig('sizeTag', { fontSize: parseInt(e.target.value) || 1 })}
-                        style={{ padding: '6px' }}
+                        type="color" 
+                        value={activePanel.numberConfig.strokeColor || '#000000'} 
+                        onChange={(e) => updateTextConfig('number', { strokeColor: e.target.value })}
+                        style={{ border: 'none', background: 'none', width: '100%', height: '28px', cursor: 'pointer' }}
                       />
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Font Style:</label>
-                      <select 
-                        className="form-select" 
-                        value={activePanel.sizeTagConfig?.fontFamily ?? 'Impact'}
-                        onChange={(e) => updateTextConfig('sizeTag', { fontFamily: e.target.value })}
-                        style={{ padding: '6px' }}
-                      >
-                        <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
-                        <option value="Impact">Impact (Bold Athletic)</option>
-                        <option value="Arial">Arial Black</option>
-                        <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
-                        <option value="Times New Roman">Times (Classic Serif)</option>
-                        {customFonts.map(font => (
-                          <option key={font.name} value={font.name}>{font.name} (Custom)</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Text Effect:</label>
-                      <select 
-                        className="form-select" 
-                        value={activePanel.sizeTagConfig?.effect ?? 'none'}
-                        onChange={(e) => updateTextConfig('sizeTag', { effect: e.target.value as any })}
-                        style={{ padding: '6px' }}
-                      >
-                        <option value="none">Flat (Normal)</option>
-                        <option value="shadow">Drop Shadow</option>
-                      </select>
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Alignment:</label>
-                      <div style={{ display: 'flex', border: '1px solid var(--border-light)', borderRadius: '4px', overflow: 'hidden' }}>
-                        <button
-                          type="button"
-                          className="btn"
-                          style={{ flex: 1, padding: '6px 0', border: 'none', background: (activePanel.sizeTagConfig?.align === 'left' || !activePanel.sizeTagConfig?.align) ? 'var(--color-primary)' : 'transparent', color: (activePanel.sizeTagConfig?.align === 'left' || !activePanel.sizeTagConfig?.align) ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
-                          onClick={() => updateTextConfig('sizeTag', { align: 'left' })}
-                          title="Align Left"
-                        >
-                          <AlignLeft size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          className="btn"
-                          style={{ flex: 1, padding: '6px 0', border: 'none', borderLeft: '1px solid var(--border-light)', borderRight: '1px solid var(--border-light)', background: activePanel.sizeTagConfig?.align === 'center' ? 'var(--color-primary)' : 'transparent', color: activePanel.sizeTagConfig?.align === 'center' ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
-                          onClick={() => updateTextConfig('sizeTag', { align: 'center' })}
-                          title="Align Center"
-                        >
-                          <AlignCenter size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          className="btn"
-                          style={{ flex: 1, padding: '6px 0', border: 'none', background: activePanel.sizeTagConfig?.align === 'right' ? 'var(--color-primary)' : 'transparent', color: activePanel.sizeTagConfig?.align === 'right' ? '#fff' : 'var(--text-color)', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
-                          onClick={() => updateTextConfig('sizeTag', { align: 'right' })}
-                          title="Align Right"
-                        >
-                          <AlignRight size={14} />
-                        </button>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        <span>Stroke Width:</span>
+                        <span>{activePanel.numberConfig.strokeWidth || 0} in</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input 
+                          type="range" 
+                          min="0" 
+                          max="0.5" 
+                          step="0.01"
+                          value={activePanel.numberConfig.strokeWidth || 0}
+                          onChange={(e) => updateTextConfig('number', { strokeWidth: parseFloat(e.target.value) || 0 })}
+                          style={{ flex: 1 }}
+                        />
+                        <input 
+                          type="number" 
+                          step="0.01" 
+                          min="0"
+                          max="0.5"
+                          className="form-input" 
+                          value={activePanel.numberConfig.strokeWidth || 0}
+                          onChange={(e) => updateTextConfig('number', { strokeWidth: parseFloat(e.target.value) || 0 })}
+                          style={{ padding: '2px 4px', fontSize: '10px', width: '40px', textAlign: 'center' }}
+                        />
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+              )}
+              </div>
+              )}
 
-                  <div className="form-row">
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Fill Color:</label>
-                      <input 
-                        type="color" 
-                        value={activePanel.sizeTagConfig?.color ?? '#ff1744'}
-                        onChange={(e) => updateTextConfig('sizeTag', { color: e.target.value })}
-                        style={{ border: 'none', background: 'none', width: '100%', height: '28px', cursor: 'pointer' }}
-                      />
+              {/* 3. Logos Sub-Tab */}
+              {overlaySubTab === 'logos' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '8px' }}>
+                  {/* Left Chest Logo */}
+                  {(activeTab === 'front' || activeTab === 'dual') && (
+                    <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Left Chest Logo / Crest</span>
+                        <label className="checkbox-card" style={{ padding: '2px 6px', margin: 0, fontSize: '11px' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={activePanel.leftChestLogo?.enabled ?? false} 
+                            onChange={(e) => updateLogoConfig('leftChest', { enabled: e.target.checked })}
+                          />
+                          Enable
+                        </label>
+                      </div>
+
+                      {activePanel.leftChestLogo?.enabled && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <label className="btn btn-secondary" style={{ flex: 1, padding: '6px', fontSize: '11px', cursor: 'pointer', textAlign: 'center' }}>
+                              Import Logo Image
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={(e) => handleLogoFileUpload('leftChest', e)} 
+                                style={{ display: 'none' }} 
+                              />
+                            </label>
+                            {activePanel.leftChestLogo?.uploadedUrl && (
+                              <button 
+                                className="btn" 
+                                style={{ padding: '6px', fontSize: '10px', background: 'rgba(255,23,68,0.2)', border: 'none', color: '#ff1744' }}
+                                onClick={() => updateLogoConfig('leftChest', { uploadedUrl: null })}
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '-2px', marginBottom: '4px' }}>
+                            <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', cursor: 'pointer' }}>
+                              <input 
+                                type="checkbox" 
+                                checked={activePanel.leftChestLogo?.lockAspectRatio ?? true}
+                                onChange={(e) => updateLogoConfig('leftChest', { lockAspectRatio: e.target.checked })}
+                              />
+                              Lock Proportions
+                            </label>
+                          </div>
+
+                          <div className="grid-2">
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label className="form-label" style={{ fontSize: '10px' }}>Width (in):</label>
+                              <input 
+                                type="number" 
+                                step="0.2" 
+                                className="form-input" 
+                                value={activePanel.leftChestLogo?.width ?? 3.5} 
+                                onChange={(e) => updateLogoConfig('leftChest', { width: parseFloat(e.target.value) || 0 })}
+                                style={{ padding: '4px', fontSize: '11px' }}
+                              />
+                            </div>
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label className="form-label" style={{ fontSize: '10px' }}>Height (in):</label>
+                              <input 
+                                type="number" 
+                                step="0.2" 
+                                className="form-input" 
+                                value={activePanel.leftChestLogo?.height ?? 3.5} 
+                                onChange={(e) => updateLogoConfig('leftChest', { height: parseFloat(e.target.value) || 0 })}
+                                style={{ padding: '4px', fontSize: '11px' }}
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)' }}>
+                              <span>Horizontal Pos (X) (in):</span>
+                              <span>{activePanel.leftChestLogo?.xPos ?? 6.0} in</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min="0" 
+                              max={physicalWidth}
+                              step="0.1"
+                              value={activePanel.leftChestLogo?.xPos ?? 6.0}
+                              onChange={(e) => updateLogoConfig('leftChest', { xPos: parseFloat(e.target.value) })}
+                            />
+                          </div>
+
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)' }}>
+                              <span>Vertical Pos (Y) (in):</span>
+                              <span>{activePanel.leftChestLogo?.yPos ?? 7.0} in</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min="0" 
+                              max={physicalHeight}
+                              step="0.1"
+                              value={activePanel.leftChestLogo?.yPos ?? 7.0}
+                              onChange={(e) => updateLogoConfig('leftChest', { yPos: parseFloat(e.target.value) })}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Stroke Color:</label>
-                      <input 
-                        type="color" 
-                        value={activePanel.sizeTagConfig?.strokeColor ?? '#000000'}
-                        onChange={(e) => updateTextConfig('sizeTag', { strokeColor: e.target.value })}
-                        style={{ border: 'none', background: 'none', width: '100%', height: '28px', cursor: 'pointer' }}
-                      />
+                  )}
+
+                  {/* Right Chest Logo */}
+                  {(activeTab === 'front' || activeTab === 'dual') && (
+                    <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Right Chest Logo / Brand</span>
+                        <label className="checkbox-card" style={{ padding: '2px 6px', margin: 0, fontSize: '11px' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={activePanel.rightChestLogo?.enabled ?? false} 
+                            onChange={(e) => updateLogoConfig('rightChest', { enabled: e.target.checked })}
+                          />
+                          Enable
+                        </label>
+                      </div>
+
+                      {activePanel.rightChestLogo?.enabled && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <label className="btn btn-secondary" style={{ flex: 1, padding: '6px', fontSize: '11px', cursor: 'pointer', textAlign: 'center' }}>
+                              Import Logo Image
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={(e) => handleLogoFileUpload('rightChest', e)} 
+                                style={{ display: 'none' }} 
+                              />
+                            </label>
+                            {activePanel.rightChestLogo?.uploadedUrl && (
+                              <button 
+                                className="btn" 
+                                style={{ padding: '6px', fontSize: '10px', background: 'rgba(255,23,68,0.2)', border: 'none', color: '#ff1744' }}
+                                onClick={() => updateLogoConfig('rightChest', { uploadedUrl: null })}
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '-2px', marginBottom: '4px' }}>
+                            <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', cursor: 'pointer' }}>
+                              <input 
+                                type="checkbox" 
+                                checked={activePanel.rightChestLogo?.lockAspectRatio ?? true}
+                                onChange={(e) => updateLogoConfig('rightChest', { lockAspectRatio: e.target.checked })}
+                              />
+                              Lock Proportions
+                            </label>
+                          </div>
+
+                          <div className="grid-2">
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label className="form-label" style={{ fontSize: '10px' }}>Width (in):</label>
+                              <input 
+                                type="number" 
+                                step="0.2" 
+                                className="form-input" 
+                                value={activePanel.rightChestLogo?.width ?? 3.5} 
+                                onChange={(e) => updateLogoConfig('rightChest', { width: parseFloat(e.target.value) || 0 })}
+                                style={{ padding: '4px', fontSize: '11px' }}
+                              />
+                            </div>
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label className="form-label" style={{ fontSize: '10px' }}>Height (in):</label>
+                              <input 
+                                type="number" 
+                                step="0.2" 
+                                className="form-input" 
+                                value={activePanel.rightChestLogo?.height ?? 3.5} 
+                                onChange={(e) => updateLogoConfig('rightChest', { height: parseFloat(e.target.value) || 0 })}
+                                style={{ padding: '4px', fontSize: '11px' }}
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)' }}>
+                              <span>Horizontal Pos (X) (in):</span>
+                              <span>{activePanel.rightChestLogo?.xPos ?? (physicalWidth - 6.0)} in</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min="0" 
+                              max={physicalWidth}
+                              step="0.1"
+                              value={activePanel.rightChestLogo?.xPos ?? (physicalWidth - 6.0)}
+                              onChange={(e) => updateLogoConfig('rightChest', { xPos: parseFloat(e.target.value) })}
+                            />
+                          </div>
+
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)' }}>
+                              <span>Vertical Pos (Y) (in):</span>
+                              <span>{activePanel.rightChestLogo?.yPos ?? 7.0} in</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min="0" 
+                              max={physicalHeight}
+                              step="0.1"
+                              value={activePanel.rightChestLogo?.yPos ?? 7.0}
+                              onChange={(e) => updateLogoConfig('rightChest', { yPos: parseFloat(e.target.value) })}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Stroke (px):</label>
-                      <input 
-                        type="number" 
-                        min="0" 
-                        max="15" 
-                        className="form-input" 
-                        value={activePanel.sizeTagConfig?.strokeWidth ?? 0}
-                        onChange={(e) => updateTextConfig('sizeTag', { strokeWidth: parseInt(e.target.value) || 0 })}
-                        style={{ padding: '6px' }}
-                      />
+                  )}
+
+                  {/* Main Center Torso Sponsor Logo */}
+                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Main Center Torso Sponsor Logo</span>
+                      <label className="checkbox-card" style={{ padding: '2px 6px', margin: 0, fontSize: '11px' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={activePanel.torsoLogo?.enabled ?? false} 
+                          onChange={(e) => updateLogoConfig('torso', { enabled: e.target.checked })}
+                        />
+                        Enable
+                      </label>
                     </div>
+
+                    {activePanel.torsoLogo?.enabled && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <label className="btn btn-secondary" style={{ flex: 1, padding: '6px', fontSize: '11px', cursor: 'pointer', textAlign: 'center' }}>
+                            Import Logo Image
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              onChange={(e) => handleLogoFileUpload('torso', e)} 
+                              style={{ display: 'none' }} 
+                            />
+                          </label>
+                          {activePanel.torsoLogo?.uploadedUrl && (
+                            <button 
+                              className="btn" 
+                              style={{ padding: '6px', fontSize: '10px', background: 'rgba(255,23,68,0.2)', border: 'none', color: '#ff1744' }}
+                              onClick={() => updateLogoConfig('torso', { uploadedUrl: null })}
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="form-label" style={{ fontSize: '10px' }}>Text Logo (If no image):</label>
+                          <input 
+                            type="text" 
+                            className="form-input" 
+                            placeholder="e.g. SPONSOR NAME" 
+                            value={activePanel.torsoLogo?.text || ''} 
+                            onChange={(e) => updateLogoConfig('torso', { text: e.target.value })}
+                            style={{ padding: '4px', fontSize: '11px' }}
+                          />
+                        </div>
+
+                        <div className="grid-2">
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label className="form-label" style={{ fontSize: '10px' }}>Width (in):</label>
+                            <input 
+                              type="number" 
+                              step="0.5" 
+                              className="form-input" 
+                              value={activePanel.torsoLogo?.width ?? 11.0} 
+                              onChange={(e) => updateLogoConfig('torso', { width: parseFloat(e.target.value) || 0 })}
+                              style={{ padding: '6px' }}
+                            />
+                          </div>
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label className="form-label" style={{ fontSize: '10px' }}>Height (in):</label>
+                            <input 
+                              type="number" 
+                              step="0.5" 
+                              className="form-input" 
+                              value={activePanel.torsoLogo?.height ?? 4.0} 
+                              onChange={(e) => updateLogoConfig('torso', { height: parseFloat(e.target.value) || 0 })}
+                              style={{ padding: '6px' }}
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '-2px', marginBottom: '4px' }}>
+                          <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', cursor: 'pointer' }}>
+                            <input 
+                              type="checkbox" 
+                              checked={activePanel.torsoLogo?.lockAspectRatio ?? true}
+                              onChange={(e) => updateLogoConfig('torso', { lockAspectRatio: e.target.checked })}
+                            />
+                            Lock Proportions
+                          </label>
+                        </div>
+
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)' }}>
+                            <span>Horizontal Pos (X) (in):</span>
+                            <span>{activePanel.torsoLogo?.xPos ?? 11.0} in</span>
+                          </div>
+                          <input 
+                            type="range" 
+                            min="0" 
+                            max={physicalWidth}
+                            step="0.1"
+                            value={activePanel.torsoLogo?.xPos ?? 11.0}
+                            onChange={(e) => updateLogoConfig('torso', { xPos: parseFloat(e.target.value) })}
+                          />
+                        </div>
+
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)' }}>
+                            <span>Vertical Pos (Y) (in):</span>
+                            <span>{activePanel.torsoLogo?.yPos ?? 16.0} in</span>
+                          </div>
+                          <input 
+                            type="range" 
+                            min="0" 
+                            max={physicalHeight}
+                            step="0.1"
+                            value={activePanel.torsoLogo?.yPos ?? 16.0}
+                            onChange={(e) => updateLogoConfig('torso', { yPos: parseFloat(e.target.value) })}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* 4. Size Tag Sub-Tab */}
+              {overlaySubTab === 'sizeTag' && (
+                <div style={{ paddingBottom: '8px' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '13px', display: 'block', marginBottom: '12px' }}>Size Tag Overlay (Top Left)</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={activePanel.sizeTagConfig?.enabled ?? true}
+                          onChange={(e) => updateTextConfig('sizeTag', { enabled: e.target.checked })}
+                        />
+                        Enable Size Tag Overlay
+                      </label>
+                    </div>
+
+                    {true && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div className="form-row">
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label className="form-label" style={{ fontSize: '11px' }}>Font Size (pt):</label>
+                            <input 
+                              type="number" 
+                              className="form-input" 
+                              value={activePanel.sizeTagConfig?.fontSize ?? 34}
+                              onChange={(e) => updateTextConfig('sizeTag', { fontSize: parseInt(e.target.value) || 20 })}
+                              style={{ padding: '6px' }}
+                            />
+                          </div>
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                              <span>Stroke Width:</span>
+                              <span>{activePanel.sizeTagConfig?.strokeWidth ?? 3} pt</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <input 
+                                type="range" 
+                                min="0" 
+                                max="15" 
+                                step="1"
+                                value={activePanel.sizeTagConfig?.strokeWidth ?? 3}
+                                onChange={(e) => updateTextConfig('sizeTag', { strokeWidth: parseInt(e.target.value) || 0 })}
+                                style={{ flex: 1 }}
+                              />
+                              <input 
+                                type="number" 
+                                min="0"
+                                max="15"
+                                className="form-input" 
+                                value={activePanel.sizeTagConfig?.strokeWidth ?? 3}
+                                onChange={(e) => updateTextConfig('sizeTag', { strokeWidth: parseInt(e.target.value) || 0 })}
+                                style={{ padding: '2px 4px', fontSize: '10px', width: '40px', textAlign: 'center' }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="form-row">
+                          <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                            <label className="form-label" style={{ fontSize: '11px' }}>Text Color:</label>
+                            <input 
+                              type="color" 
+                              value={activePanel.sizeTagConfig?.color || '#ff1744'}
+                              onChange={(e) => updateTextConfig('sizeTag', { color: e.target.value })}
+                              style={{ border: 'none', background: 'none', width: '100%', height: '30px', cursor: 'pointer' }}
+                            />
+                          </div>
+                          <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                            <label className="form-label" style={{ fontSize: '11px' }}>Stroke Color:</label>
+                            <input 
+                              type="color" 
+                              value={activePanel.sizeTagConfig?.strokeColor || '#ffffff'}
+                              onChange={(e) => updateTextConfig('sizeTag', { strokeColor: e.target.value })}
+                              style={{ border: 'none', background: 'none', width: '100%', height: '30px', cursor: 'pointer' }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+              )}
+              </div>
+              </div>
+              )}
+              </div>
+              )}
+        </div>
+
+        {/* Step 3: Design Presets Manager Card */}
+        <div className="glass-card" style={{ padding: '20px' }}>
+          <h3 
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-primary)' }}
+            onClick={() => toggleCollapse('presets')}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '18px' }}>💾</span> Design Presets Manager
+            </span>
+            {collapsed.presets ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+          </h3>
+          {!collapsed.presets && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
+              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                Save the current design configuration (background uploads, colors, fonts, strokes, and text formats) as a reusable template preset.
+              </p>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="Preset Name" 
+                  value={newPresetName}
+                  onChange={(e) => setNewPresetName(e.target.value)}
+                  style={{ padding: '8px', fontSize: '12px' }}
+                />
+                <button 
+                  className="btn btn-primary" 
+                  onClick={handleSavePreset}
+                  style={{ padding: '8px 16px', fontSize: '12px', whiteSpace: 'nowrap' }}
+                >
+                  Save
+                </button>
+              </div>
+
+              {presets.length > 0 && (
+                <div>
+                  <p style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '6px' }}>Select Preset to Load:</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
+                    {presets.map((preset, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '11px' }}>
+                        <span 
+                          style={{ fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-bright)' }}
+                          onClick={() => handleLoadPreset(preset.name)}
+                        >
+                          {preset.name}
+                        </span>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '3px 8px', fontSize: '9px' }}
+                            onClick={() => handleLoadPreset(preset.name)}
+                          >
+                            Load
+                          </button>
+                          <button 
+                            className="btn" 
+                            style={{ padding: '3px 8px', fontSize: '9px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744' }}
+                            onClick={() => handleDeletePreset(preset.name)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
 
 
 
+        {/* Collar & Trim Customization */}
+        <div className="glass-card" style={{ padding: '20px' }}>
+          <h3 
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-primary)' }}
+            onClick={() => toggleCollapse('trim')}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Shirt size={18} /> Collar & Trim Customization
+            </span>
+            {collapsed.trim ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+          </h3>
 
-        {/* Chest & Torso Logos Card (shown when activeTab === 'front') */}
-        {activeTab === 'front' && (
-          <div className="glass-card" style={{ padding: '20px' }}>
-            <h3 
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-success)', marginBottom: collapsed.logos ? 0 : '16px' }}
-              onClick={() => toggleCollapse('logos')}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '18px' }}>🛡️</span> Chest & Torso Logos
-              </span>
-              {collapsed.logos ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-            </h3>
-
-            {!collapsed.logos && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {/* Left Chest Logo */}
-                <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Left Chest Logo</span>
-                    <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={activePanel.leftChestLogo?.enabled ?? false}
-                        onChange={(e) => updateLogoConfig('leftChest', { enabled: e.target.checked })}
-                      />
-                      Enabled
-                    </label>
+          {!collapsed.trim && (
+            <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Part 1: Collar */}
+              <div>
+                <h4 style={{ fontSize: '13px', fontWeight: 'semibold', color: '#fff', marginBottom: '8px' }}>Collar & Rib</h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input 
+                      type="color" 
+                      value={designConfig.trim?.collar.color || designConfig.front.generatedColor1} 
+                      onChange={(e) => updateTrimConfig('collar', { color: e.target.value })}
+                      style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
+                    />
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={(designConfig.trim?.collar.color || designConfig.front.generatedColor1).toUpperCase()}
+                      onChange={(e) => updateTrimConfig('collar', { color: e.target.value })}
+                      style={{ padding: '6px', fontSize: '12px', width: '90px' }}
+                    />
                   </div>
-
-                  {(activePanel.leftChestLogo?.enabled ?? false) && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label className="form-label" style={{ fontSize: '11px' }}>Logo Image:</label>
-                        {activePanel.leftChestLogo?.uploadedUrl ? (
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
-                            <img src={activePanel.leftChestLogo.uploadedUrl} style={{ height: '30px', objectFit: 'contain', borderRadius: '4px' }} />
-                            <button 
-                              type="button" 
-                              className="btn" 
-                              style={{ padding: '4px 8px', fontSize: '11px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744', cursor: 'pointer' }}
-                              onClick={() => updateLogoConfig('leftChest', { uploadedUrl: null })}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ) : (
-                          <div>
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              id="left-chest-logo-file"
-                              style={{ display: 'none' }}
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  const reader = new FileReader();
-                                  reader.onload = (event) => {
-                                    const dataUrl = event.target?.result as string;
-                                    const img = new Image();
-                                    img.onload = () => {
-                                      const targetW = parseFloat((img.naturalWidth / 300).toFixed(2));
-                                      const targetH = parseFloat((img.naturalHeight / 300).toFixed(2));
-                                      updateLogoConfig('leftChest', { 
-                                        uploadedUrl: dataUrl,
-                                        width: targetW,
-                                        height: targetH
-                                      });
-                                    };
-                                    img.src = dataUrl;
-                                  };
-                                  reader.readAsDataURL(file);
-                                }
-                              }}
-                            />
-                            <label htmlFor="left-chest-logo-file" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '8px', fontSize: '12px' }}>
-                              <Upload size={14} /> Upload Left Logo
-                            </label>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="form-row">
-                        <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ fontSize: '11px' }}>Width (in):</label>
-                          <input 
-                            type="number" 
-                            step="0.1" 
-                            className="form-input" 
-                            value={activePanel.leftChestLogo?.width ?? 3.5}
-                            onChange={(e) => updateLogoConfig('leftChest', { width: parseFloat(e.target.value) || 1.0 })}
-                            style={{ padding: '6px' }}
-                          />
+                  <div style={{ flex: 1 }}>
+                    {designConfig.trim?.collar.uploadedUrl ? (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          Image Active
                         </div>
-                        <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ fontSize: '11px' }}>Height (in):</label>
-                          <input 
-                            type="number" 
-                            step="0.1" 
-                            className="form-input" 
-                            value={activePanel.leftChestLogo?.height ?? 3.5}
-                            onChange={(e) => updateLogoConfig('leftChest', { height: parseFloat(e.target.value) || 1.0 })}
-                            style={{ padding: '6px' }}
-                          />
-                        </div>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '4px 8px', fontSize: '11px' }}
+                          onClick={() => updateTrimConfig('collar', { uploadedUrl: null })}
+                        >
+                          Clear
+                        </button>
                       </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '-2px', marginBottom: '4px' }}>
-                        <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', cursor: 'pointer' }}>
-                          <input 
-                            type="checkbox" 
-                            checked={activePanel.leftChestLogo?.lockAspectRatio ?? true}
-                            onChange={(e) => updateLogoConfig('leftChest', { lockAspectRatio: e.target.checked })}
-                          />
-                          Lock Proportions
-                        </label>
-                      </div>
-
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                          <span>Horizontal Pos (X) (in):</span>
-                          <span>{activePanel.leftChestLogo?.xPos ?? 13.5} in</span>
-                        </div>
+                    ) : (
+                      <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
+                        Import Image
                         <input 
-                          type="range" 
-                          min="0" 
-                          max={physicalWidth}
-                          step="0.1"
-                          value={activePanel.leftChestLogo?.xPos ?? 13.5}
-                          onChange={(e) => updateLogoConfig('leftChest', { xPos: parseFloat(e.target.value) })}
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => handleTrimFileUpload('collar', e)} 
+                          style={{ display: 'none' }} 
                         />
-                      </div>
-
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                          <span>Vertical Pos (Y) (in):</span>
-                          <span>{activePanel.leftChestLogo?.yPos ?? 7.5} in</span>
-                        </div>
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max={physicalHeight}
-                          step="0.1"
-                          value={activePanel.leftChestLogo?.yPos ?? 7.5}
-                          onChange={(e) => updateLogoConfig('leftChest', { yPos: parseFloat(e.target.value) })}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Right Chest Logo */}
-                <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Right Chest Logo</span>
-                    <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={activePanel.rightChestLogo?.enabled ?? false}
-                        onChange={(e) => updateLogoConfig('rightChest', { enabled: e.target.checked })}
-                      />
-                      Enabled
-                    </label>
+                      </label>
+                    )}
                   </div>
-
-                  {(activePanel.rightChestLogo?.enabled ?? false) && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label className="form-label" style={{ fontSize: '11px' }}>Logo Image:</label>
-                        {activePanel.rightChestLogo?.uploadedUrl ? (
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
-                            <img src={activePanel.rightChestLogo.uploadedUrl} style={{ height: '30px', objectFit: 'contain', borderRadius: '4px' }} />
-                            <button 
-                              type="button" 
-                              className="btn" 
-                              style={{ padding: '4px 8px', fontSize: '11px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744', cursor: 'pointer' }}
-                              onClick={() => updateLogoConfig('rightChest', { uploadedUrl: null })}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ) : (
-                          <div>
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              id="right-chest-logo-file"
-                              style={{ display: 'none' }}
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  const reader = new FileReader();
-                                  reader.onload = (event) => {
-                                    const dataUrl = event.target?.result as string;
-                                    const img = new Image();
-                                    img.onload = () => {
-                                      const targetW = parseFloat((img.naturalWidth / 300).toFixed(2));
-                                      const targetH = parseFloat((img.naturalHeight / 300).toFixed(2));
-                                      updateLogoConfig('rightChest', { 
-                                        uploadedUrl: dataUrl,
-                                        width: targetW,
-                                        height: targetH
-                                      });
-                                    };
-                                    img.src = dataUrl;
-                                  };
-                                  reader.readAsDataURL(file);
-                                }
-                              }}
-                            />
-                            <label htmlFor="right-chest-logo-file" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '8px', fontSize: '12px' }}>
-                              <Upload size={14} /> Upload Right Logo
-                            </label>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="form-row">
-                        <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ fontSize: '11px' }}>Width (in):</label>
-                          <input 
-                            type="number" 
-                            step="0.1" 
-                            className="form-input" 
-                            value={activePanel.rightChestLogo?.width ?? 3.5}
-                            onChange={(e) => updateLogoConfig('rightChest', { width: parseFloat(e.target.value) || 1.0 })}
-                            style={{ padding: '6px' }}
-                          />
-                        </div>
-                        <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ fontSize: '11px' }}>Height (in):</label>
-                          <input 
-                            type="number" 
-                            step="0.1" 
-                            className="form-input" 
-                            value={activePanel.rightChestLogo?.height ?? 3.5}
-                            onChange={(e) => updateLogoConfig('rightChest', { height: parseFloat(e.target.value) || 1.0 })}
-                            style={{ padding: '6px' }}
-                          />
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '-2px', marginBottom: '4px' }}>
-                        <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', cursor: 'pointer' }}>
-                          <input 
-                            type="checkbox" 
-                            checked={activePanel.rightChestLogo?.lockAspectRatio ?? true}
-                            onChange={(e) => updateLogoConfig('rightChest', { lockAspectRatio: e.target.checked })}
-                          />
-                          Lock Proportions
-                        </label>
-                      </div>
-
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                          <span>Horizontal Pos (X) (in):</span>
-                          <span>{activePanel.rightChestLogo?.xPos ?? 8.5} in</span>
-                        </div>
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max={physicalWidth}
-                          step="0.1"
-                          value={activePanel.rightChestLogo?.xPos ?? 8.5}
-                          onChange={(e) => updateLogoConfig('rightChest', { xPos: parseFloat(e.target.value) })}
-                        />
-                      </div>
-
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                          <span>Vertical Pos (Y) (in):</span>
-                          <span>{activePanel.rightChestLogo?.yPos ?? 7.5} in</span>
-                        </div>
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max={physicalHeight}
-                          step="0.1"
-                          value={activePanel.rightChestLogo?.yPos ?? 7.5}
-                          onChange={(e) => updateLogoConfig('rightChest', { yPos: parseFloat(e.target.value) })}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Torso Logo */}
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Torso Logo / Text</span>
-                    <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={activePanel.torsoLogo?.enabled ?? false}
-                        onChange={(e) => updateLogoConfig('torso', { enabled: e.target.checked })}
-                      />
-                      Enabled
-                    </label>
-                  </div>
-
-                  {(activePanel.torsoLogo?.enabled ?? false) && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label className="form-label" style={{ fontSize: '11px' }}>Logo Text (Optional):</label>
-                        <input 
-                          type="text" 
-                          className="form-input" 
-                          value={activePanel.torsoLogo?.text ?? ''}
-                          onChange={(e) => updateLogoConfig('torso', { text: e.target.value })}
-                          placeholder="Enter torso text..."
-                          style={{ padding: '6px' }}
-                        />
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label className="form-label" style={{ fontSize: '11px' }}>Logo Image:</label>
-                        {activePanel.torsoLogo?.uploadedUrl ? (
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
-                            <img src={activePanel.torsoLogo.uploadedUrl} style={{ height: '30px', objectFit: 'contain', borderRadius: '4px' }} />
-                            <button 
-                              type="button" 
-                              className="btn" 
-                              style={{ padding: '4px 8px', fontSize: '11px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744', cursor: 'pointer' }}
-                              onClick={() => updateLogoConfig('torso', { uploadedUrl: null })}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ) : (
-                          <div>
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              id="torso-logo-file"
-                              style={{ display: 'none' }}
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  const reader = new FileReader();
-                                  reader.onload = (event) => {
-                                    const dataUrl = event.target?.result as string;
-                                    const img = new Image();
-                                    img.onload = () => {
-                                      const targetW = parseFloat((img.naturalWidth / 300).toFixed(2));
-                                      const targetH = parseFloat((img.naturalHeight / 300).toFixed(2));
-                                      updateLogoConfig('torso', { 
-                                        uploadedUrl: dataUrl,
-                                        width: targetW,
-                                        height: targetH
-                                      });
-                                    };
-                                    img.src = dataUrl;
-                                  };
-                                  reader.readAsDataURL(file);
-                                }
-                              }}
-                            />
-                            <label htmlFor="torso-logo-file" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '8px', fontSize: '12px' }}>
-                              <Upload size={14} /> Upload Torso Logo
-                            </label>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="form-row">
-                        <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ fontSize: '11px' }}>Width (in):</label>
-                          <input 
-                            type="number" 
-                            step="0.1" 
-                            className="form-input" 
-                            value={activePanel.torsoLogo?.width ?? 8.0}
-                            onChange={(e) => updateLogoConfig('torso', { width: parseFloat(e.target.value) || 1.0 })}
-                            style={{ padding: '6px' }}
-                          />
-                        </div>
-                        <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ fontSize: '11px' }}>Height (in):</label>
-                          <input 
-                            type="number" 
-                            step="0.1" 
-                            className="form-input" 
-                            value={activePanel.torsoLogo?.height ?? 5.0}
-                            onChange={(e) => updateLogoConfig('torso', { height: parseFloat(e.target.value) || 1.0 })}
-                            style={{ padding: '6px' }}
-                          />
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '-2px', marginBottom: '4px' }}>
-                        <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', cursor: 'pointer' }}>
-                          <input 
-                            type="checkbox" 
-                            checked={activePanel.torsoLogo?.lockAspectRatio ?? true}
-                            onChange={(e) => updateLogoConfig('torso', { lockAspectRatio: e.target.checked })}
-                          />
-                          Lock Proportions
-                        </label>
-                      </div>
-
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                          <span>Horizontal Pos (X) (in):</span>
-                          <span>{activePanel.torsoLogo?.xPos ?? 11.0} in</span>
-                        </div>
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max={physicalWidth}
-                          step="0.1"
-                          value={activePanel.torsoLogo?.xPos ?? 11.0}
-                          onChange={(e) => updateLogoConfig('torso', { xPos: parseFloat(e.target.value) })}
-                        />
-                      </div>
-
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                          <span>Vertical Pos (Y) (in):</span>
-                          <span>{activePanel.torsoLogo?.yPos ?? 16.0} in</span>
-                        </div>
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max={physicalHeight}
-                          step="0.1"
-                          value={activePanel.torsoLogo?.yPos ?? 16.0}
-                          onChange={(e) => updateLogoConfig('torso', { yPos: parseFloat(e.target.value) })}
-                        />
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
-            )}
-          </div>
-        )}
+
+              {/* Part 2: Placket */}
+              <div>
+                <h4 style={{ fontSize: '13px', fontWeight: 'semibold', color: '#fff', marginBottom: '8px' }}>Button Placket</h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input 
+                      type="color" 
+                      value={designConfig.trim?.placket.color || designConfig.front.generatedColor1} 
+                      onChange={(e) => updateTrimConfig('placket', { color: e.target.value })}
+                      style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
+                    />
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={(designConfig.trim?.placket.color || designConfig.front.generatedColor1).toUpperCase()}
+                      onChange={(e) => updateTrimConfig('placket', { color: e.target.value })}
+                      style={{ padding: '6px', fontSize: '12px', width: '90px' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    {designConfig.trim?.placket.uploadedUrl ? (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          Image Active
+                        </div>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '4px 8px', fontSize: '11px' }}
+                          onClick={() => updateTrimConfig('placket', { uploadedUrl: null })}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
+                        Import Image
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => handleTrimFileUpload('placket', e)} 
+                          style={{ display: 'none' }} 
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Part 3: Sleeve Stripe */}
+              <div>
+                <h4 style={{ fontSize: '13px', fontWeight: 'semibold', color: '#fff', marginBottom: '8px' }}>Sleeve Stripe / Cuff</h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input 
+                      type="color" 
+                      value={designConfig.trim?.sleeveStripe.color || designConfig.front.generatedColor1} 
+                      onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
+                      style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
+                    />
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={(designConfig.trim?.sleeveStripe.color || designConfig.front.generatedColor1).toUpperCase()}
+                      onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
+                      style={{ padding: '6px', fontSize: '12px', width: '90px' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    {designConfig.trim?.sleeveStripe.uploadedUrl ? (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          Image Active
+                        </div>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '4px 8px', fontSize: '11px' }}
+                          onClick={() => updateTrimConfig('sleeveStripe', { uploadedUrl: null })}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
+                        Import Image
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => handleTrimFileUpload('sleeveStripe', e)} 
+                          style={{ display: 'none' }} 
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+
+
 
         {/* Custom Guidelines Card */}
         <div className="glass-card" style={{ padding: '20px' }}>
@@ -4207,8 +4094,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             </div>
           )}
         </div>
-      </div>
-      </div>
+    </div>
+    </div>
 
       {/* 4. COREL COLOR PALETTE STRIP */}
       <ColorPalette
@@ -4231,6 +4118,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       {showShortcutsModal && (
         <ShortcutsModal onClose={() => setShowShortcutsModal(false)} />
       )}
+
+      {/* 7. SUBLIMATION CORE PANEL & SIZE GRADING EDITOR MODAL */}
+      <SizesModal 
+        isOpen={showPanelEditorModal} 
+        onClose={() => setShowPanelEditorModal(false)} 
+        onDatabaseChange={() => setPrefTrigger(prev => prev + 1)}
+      />
     </div>
   );
 };

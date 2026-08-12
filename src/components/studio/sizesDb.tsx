@@ -447,3 +447,22 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
     </div>
   );
 };
+
+interface SizesModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onDatabaseChange?: () => void;
+}
+
+export const SizesModal: React.FC<SizesModalProps> = ({ isOpen, onClose, onDatabaseChange }) => {
+  if (!isOpen) return null;
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div style={{ background: '#14141a', border: '1px solid var(--border-light)', borderRadius: '12px', width: '100%', maxWidth: '900px', maxHeight: '90vh', overflowY: 'auto', padding: '24px', position: 'relative' }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: '#fff', fontSize: '20px', cursor: 'pointer' }}>✕</button>
+        <SizesDb onDatabaseChange={onDatabaseChange} />
+      </div>
+    </div>
+  );
+};
+
