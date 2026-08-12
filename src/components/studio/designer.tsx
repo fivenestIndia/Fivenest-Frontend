@@ -2649,8 +2649,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               </div>
 
               {/* 1. Name Config Sub-Tab */}
-              {overlaySubTab === 'name' && (
-              <div style={{ paddingBottom: '8px' }}>
+              <div style={{ display: overlaySubTab === 'name' ? 'block' : 'none', paddingBottom: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Name Layer</span>
                   <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
@@ -2887,6 +2886,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       )}
                     </div>
                   )}
+                </div>
 
                 {/* Stroke Outline Controls for Name */}
                 <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-light)', marginTop: '6px' }}>
@@ -2933,14 +2933,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   </div>
                 </div>
               </div>
-              </div>
-              )}
-              </div>
-              )}
+            )}
+          </div>
 
               {/* 2. Number Config Sub-Tab */}
-              {overlaySubTab === 'number' && (
-              <div style={{ paddingBottom: '8px' }}>
+              <div style={{ display: overlaySubTab === 'number' ? 'block' : 'none', paddingBottom: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Number Layer</span>
                   <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
@@ -3196,13 +3193,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   </div>
                 </div>
               </div>
-              )}
-              </div>
-              )}
+            )}
+          </div>
 
               {/* 3. Logos Sub-Tab */}
-              {overlaySubTab === 'logos' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '8px' }}>
+              <div style={{ display: overlaySubTab === 'logos' ? 'flex' : 'none', flexDirection: 'column', gap: '14px', paddingBottom: '8px' }}>
                   {/* Left Chest Logo */}
                   {(activeTab === 'front' || activeTab === 'dual') && (
                     <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
@@ -3535,13 +3530,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         </div>
                       </div>
                     )}
-                  </div>
                 </div>
-              )}
+              </div>
 
               {/* 4. Size Tag Sub-Tab */}
-              {overlaySubTab === 'sizeTag' && (
-                <div style={{ paddingBottom: '8px' }}>
+              <div style={{ display: overlaySubTab === 'sizeTag' ? 'block' : 'none', paddingBottom: '8px' }}>
                   <span style={{ fontWeight: 'bold', fontSize: '13px', display: 'block', marginBottom: '12px' }}>Size Tag Overlay (Top Left)</span>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3617,12 +3610,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           </div>
                         </div>
                       </div>
-              )}
+                    )}
+                  </div>
+                </div>
               </div>
-              </div>
-              )}
-              </div>
-              )}
+            )}
         </div>
 
         {/* Step 3: Design Presets Manager Card */}
