@@ -218,21 +218,59 @@
   50% { box-shadow: 0 0 40px -5px hsl(var(--glow) / 0.5); }
 }
 
-/* Studio Application Layout & Sidebar Styles */
+/* ==========================================================================
+   COREL DRAW DESIGN STUDIO - PROFESSIONAL UI & SPACE MANAGEMENT SYSTEM
+   ========================================================================== */
+
+/* Custom Dark Scrollbars for Studio */
+.cd-docker-panel::-webkit-scrollbar,
+.cd-canvas-area::-webkit-scrollbar,
+.cd-palette-bar::-webkit-scrollbar,
+.cd-propertybar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.cd-docker-panel::-webkit-scrollbar-track,
+.cd-canvas-area::-webkit-scrollbar-track,
+.cd-palette-bar::-webkit-scrollbar-track,
+.cd-propertybar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 3px;
+}
+
+.cd-docker-panel::-webkit-scrollbar-thumb,
+.cd-canvas-area::-webkit-scrollbar-thumb,
+.cd-palette-bar::-webkit-scrollbar-thumb,
+.cd-propertybar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+.cd-docker-panel::-webkit-scrollbar-thumb:hover,
+.cd-canvas-area::-webkit-scrollbar-thumb:hover,
+.cd-palette-bar::-webkit-scrollbar-thumb:hover,
+.cd-propertybar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 240, 255, 0.4);
+}
+
+/* Studio Main Root Layout */
 .app-layout {
   display: flex;
   min-height: 100vh;
   width: 100vw;
   overflow: hidden;
-  background-color: #090a0f;
+  background-color: #0b0c10;
   color: #f1f5f9;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 .sidebar {
   width: 240px;
   min-width: 240px;
-  background: #0d0e15;
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0e0f17;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -251,25 +289,26 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 9px 14px;
   border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.65);
   cursor: pointer;
   transition: all 0.2s ease;
   text-decoration: none;
 }
 
 .menu-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
 }
 
 .menu-item.active {
   background: rgba(0, 240, 255, 0.12);
   color: #00f0ff;
   border: 1px solid rgba(0, 240, 255, 0.3);
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.1);
 }
 
 .main-content {
@@ -278,9 +317,10 @@
   flex-direction: column;
   overflow: hidden;
   height: 100vh;
+  background: #0b0c10;
 }
 
-/* CorelDRAW Studio Layout & Workspace Flex Alignment */
+/* CorelDRAW Studio Container & Space Management */
 .cd-studio-container {
   display: flex;
   flex-direction: column;
@@ -288,7 +328,7 @@
   height: 100vh;
   flex: 1;
   overflow: hidden;
-  background-color: #090a0f;
+  background-color: #0b0c10;
 }
 
 .cd-workspace-main {
@@ -296,7 +336,7 @@
   flex-direction: row;
   flex: 1;
   width: 100%;
-  height: calc(100vh - 100px);
+  height: calc(100vh - 96px);
   overflow: hidden;
   position: relative;
 }
@@ -309,6 +349,7 @@
   overflow-y: auto;
   position: relative;
   min-width: 0;
+  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.6) 0%, rgba(9, 10, 15, 0.95) 100%);
 }
 
 .cd-canvas-container {
@@ -323,6 +364,7 @@
   position: relative;
 }
 
+/* Right Docker Panel Cards & Spacing */
 .cd-docker-panel {
   display: flex;
   flex-direction: column;
@@ -334,21 +376,34 @@
   overflow-y: auto;
   padding: 12px;
   padding-bottom: 120px;
-  gap: 12px;
+  gap: 10px;
   box-sizing: border-box;
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(13, 14, 21, 0.95);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(14, 15, 23, 0.95);
+  backdrop-filter: blur(12px);
 }
 
-/* CorelDRAW Studio Menubar (Top Menus: File, View, Panels, Help) */
+.cd-docker-panel .glass-card {
+  background: rgba(20, 22, 34, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cd-docker-panel .glass-card:hover {
+  border-color: rgba(0, 240, 255, 0.25);
+}
+
+/* CorelDRAW Studio Menubar (Top Menus) */
 .cd-menubar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  height: 36px;
-  min-height: 36px;
-  max-height: 36px;
-  background: #0d0e15;
+  gap: 10px;
+  height: 34px;
+  min-height: 34px;
+  max-height: 34px;
+  background: #0e0f17;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding: 0 12px;
   user-select: none;
@@ -362,7 +417,7 @@
 }
 
 .cd-menu-item {
-  padding: 4px 10px;
+  padding: 3px 9px;
   border-radius: 4px;
   font-size: 12px;
   font-weight: 600;
@@ -373,7 +428,7 @@
 }
 
 .cd-menu-item:hover, .cd-menu-item.active {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   color: #00f0ff;
 }
 
@@ -382,12 +437,12 @@
   top: 100%;
   left: 0;
   margin-top: 4px;
-  background: #13141f;
+  background: #141624;
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
   padding: 6px;
-  min-width: 180px;
+  min-width: 190px;
   z-index: 100;
 }
 
@@ -396,7 +451,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 6px 10px;
-  border-radius: 4px;
+  border-radius: 5px;
   font-size: 12px;
   color: #e2e8f0;
   cursor: pointer;
@@ -406,19 +461,19 @@
 
 .cd-dropdown-action:hover {
   background: rgba(0, 240, 255, 0.15);
-  color: #fff;
+  color: #ffffff;
 }
 
-/* CorelDRAW Property Bar (Tool Controls Bar) */
+/* CorelDRAW Property Bar (Tool Options Strip) */
 .cd-propertybar {
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
-  gap: 10px;
-  height: 40px;
-  min-height: 40px;
-  max-height: 40px;
-  background: #11121c;
+  gap: 8px;
+  height: 38px;
+  min-height: 38px;
+  max-height: 38px;
+  background: #121420;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding: 0 12px;
   overflow-x: auto;
@@ -462,7 +517,7 @@
   gap: 6px;
   width: 44px;
   min-width: 44px;
-  background: #0d0e15;
+  background: #0e0f17;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   padding: 8px 4px;
   box-sizing: border-box;
@@ -486,14 +541,14 @@
 
 .cd-tool-btn:hover {
   background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  color: #ffffff;
 }
 
 .cd-tool-btn.active {
   background: rgba(0, 240, 255, 0.15);
   border-color: rgba(0, 240, 255, 0.4);
   color: #00f0ff;
-  box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
 }
 
 /* CorelDRAW Bottom Color Palette Strip */
@@ -501,12 +556,12 @@
   display: flex;
   align-items: center;
   gap: 3px;
-  height: 32px;
-  min-height: 32px;
-  max-height: 32px;
-  background: #090a0f;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 0 8px;
+  height: 30px;
+  min-height: 30px;
+  max-height: 30px;
+  background: #0a0b12;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0 10px;
   overflow-x: auto;
   overflow-y: hidden;
   box-sizing: border-box;
@@ -515,19 +570,20 @@
 }
 
 .cd-swatch {
-  width: 16px;
-  height: 16px;
-  min-width: 16px;
+  width: 15px;
+  height: 15px;
+  min-width: 15px;
   border-radius: 3px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
   flex-shrink: 0;
-  transition: transform 0.1s ease, border-color 0.1s ease;
+  transition: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.12s ease;
 }
 
 .cd-swatch:hover {
-  transform: scale(1.25);
+  transform: scale(1.3);
   border-color: #00f0ff;
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
   z-index: 10;
 }
 
@@ -539,7 +595,7 @@
   height: 24px;
   min-height: 24px;
   max-height: 24px;
-  background: #07080c;
+  background: #080910;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   padding: 0 12px;
   font-size: 11px;
@@ -552,6 +608,7 @@
   align-items: center;
   gap: 6px;
 }
+
 
 
 
