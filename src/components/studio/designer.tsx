@@ -859,9 +859,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.textBaseline = 'middle';
 
         // Proportional outside stroke calculation (scaled directly with font size / panel height)
-        const strokePx = conf.strokeWidth > 1 
-          ? Math.max(1, Math.round((conf.strokeWidth / 100) * fontSizePx)) 
-          : Math.max(1, Math.round(conf.strokeWidth * scale));
+        const strokePx = Math.max(1, Math.round((conf.strokeWidth / 100) * fontSizePx));
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
 
@@ -2518,6 +2516,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           height: '100%', 
           overflowY: 'auto', 
           padding: '12px', 
+          paddingBottom: '120px',
           gap: '12px',
           boxSizing: 'border-box'
         }}
@@ -2587,7 +2586,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   onClick={() => {
                     setOverlaySubTab('name');
                     setActiveTextLayer('name');
-                    setActiveTool('text');
                     if (activeTab === 'dual') setDualActivePanel('back');
                     if (!designConfig.back.nameConfig.enabled) updateTextConfig('name', { enabled: true });
                   }}
@@ -2601,7 +2599,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   onClick={() => {
                     setOverlaySubTab('number');
                     setActiveTextLayer('number');
-                    setActiveTool('text');
                     if (activeTab === 'dual') setDualActivePanel('back');
                     if (!designConfig.back.numberConfig.enabled) updateTextConfig('number', { enabled: true });
                   }}
@@ -2620,11 +2617,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   type="button"
                   className={`btn ${overlaySubTab === 'sizeTag' ? 'btn-primary' : 'btn-secondary'}`}
                   style={{ flex: 1, padding: '6px 2px', fontSize: '11px', fontWeight: 'bold', borderRadius: '6px' }}
-                  onClick={() => {
-                    setOverlaySubTab('sizeTag');
-                    setActiveTextLayer('sizeTag');
-                    setActiveTool('text');
-                  }}
+                  onClick={() => setOverlaySubTab('sizeTag')}
                 >
                   🏷️ Size Tag
                 </button>
@@ -2649,7 +2642,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               </div>
 
               {/* 1. Name Config Sub-Tab */}
-              <div style={{ display: overlaySubTab === 'name' ? 'block' : 'none', paddingBottom: '8px' }}>
+
+              <div style={{ display: overlaySubTab === "name" ? "block" : "none", paddingBottom: "8px" }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Name Layer</span>
                   <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
@@ -2886,7 +2880,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       )}
                     </div>
                   )}
-                </div>
 
                 {/* Stroke Outline Controls for Name */}
                 <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-light)', marginTop: '6px' }}>
@@ -2904,40 +2897,29 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       />
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                        <span>Stroke Width:</span>
-                        <span>{activePanel.nameConfig.strokeWidth || 0} in</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max="0.5" 
-                          step="0.01"
-                          value={activePanel.nameConfig.strokeWidth || 0}
-                          onChange={(e) => updateTextConfig('name', { strokeWidth: parseFloat(e.target.value) || 0 })}
-                          style={{ flex: 1 }}
-                        />
-                        <input 
-                          type="number" 
-                          step="0.01" 
-                          min="0"
-                          max="0.5"
-                          className="form-input" 
-                          value={activePanel.nameConfig.strokeWidth || 0}
-                          onChange={(e) => updateTextConfig('name', { strokeWidth: parseFloat(e.target.value) || 0 })}
-                          style={{ padding: '2px 4px', fontSize: '10px', width: '40px', textAlign: 'center' }}
-                        />
-                      </div>
+                      <label className="form-label" style={{ fontSize: '10px' }}>Stroke Width (in):</label>
+                      <input 
+                        type="number" 
+                        step="0.01" 
+                        min="0"
+                        max="0.5"
+                        className="form-input" 
+                        value={activePanel.nameConfig.strokeWidth || 0}
+                        onChange={(e) => updateTextConfig('name', { strokeWidth: parseFloat(e.target.value) || 0 })}
+                        style={{ padding: '4px', fontSize: '11px' }}
+                      />
                     </div>
                   </div>
                 </div>
               </div>
-            )}
-          </div>
+              </div>
+              )}
+              </div>
+
 
               {/* 2. Number Config Sub-Tab */}
-              <div style={{ display: overlaySubTab === 'number' ? 'block' : 'none', paddingBottom: '8px' }}>
+
+              <div style={{ display: overlaySubTab === "number" ? "block" : "none", paddingBottom: "8px" }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Number Layer</span>
                   <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
@@ -3164,40 +3146,28 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       />
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                        <span>Stroke Width:</span>
-                        <span>{activePanel.numberConfig.strokeWidth || 0} in</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max="0.5" 
-                          step="0.01"
-                          value={activePanel.numberConfig.strokeWidth || 0}
-                          onChange={(e) => updateTextConfig('number', { strokeWidth: parseFloat(e.target.value) || 0 })}
-                          style={{ flex: 1 }}
-                        />
-                        <input 
-                          type="number" 
-                          step="0.01" 
-                          min="0"
-                          max="0.5"
-                          className="form-input" 
-                          value={activePanel.numberConfig.strokeWidth || 0}
-                          onChange={(e) => updateTextConfig('number', { strokeWidth: parseFloat(e.target.value) || 0 })}
-                          style={{ padding: '2px 4px', fontSize: '10px', width: '40px', textAlign: 'center' }}
-                        />
-                      </div>
+                      <label className="form-label" style={{ fontSize: '10px' }}>Stroke Width (in):</label>
+                      <input 
+                        type="number" 
+                        step="0.01" 
+                        min="0"
+                        max="0.5"
+                        className="form-input" 
+                        value={activePanel.numberConfig.strokeWidth || 0}
+                        onChange={(e) => updateTextConfig('number', { strokeWidth: parseFloat(e.target.value) || 0 })}
+                        style={{ padding: '4px', fontSize: '11px' }}
+                      />
                     </div>
                   </div>
                 </div>
               </div>
-            )}
-          </div>
+              )}
+              </div>
+
 
               {/* 3. Logos Sub-Tab */}
-              <div style={{ display: overlaySubTab === 'logos' ? 'flex' : 'none', flexDirection: 'column', gap: '14px', paddingBottom: '8px' }}>
+
+                <div style={{ display: overlaySubTab === "logos" ? "flex" : "none", flexDirection: "column", gap: "14px", paddingBottom: "8px" }}>
                   {/* Left Chest Logo */}
                   {(activeTab === 'front' || activeTab === 'dual') && (
                     <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
@@ -3530,11 +3500,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         </div>
                       </div>
                     )}
+                  </div>
                 </div>
-              </div>
+
 
               {/* 4. Size Tag Sub-Tab */}
-              <div style={{ display: overlaySubTab === 'sizeTag' ? 'block' : 'none', paddingBottom: '8px' }}>
+
+                <div style={{ display: overlaySubTab === "sizeTag" ? "block" : "none", paddingBottom: "8px" }}>
                   <span style={{ fontWeight: 'bold', fontSize: '13px', display: 'block', marginBottom: '12px' }}>Size Tag Overlay (Top Left)</span>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3562,30 +3534,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                             />
                           </div>
                           <div className="form-group" style={{ margin: 0 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                              <span>Stroke Width:</span>
-                              <span>{activePanel.sizeTagConfig?.strokeWidth ?? 3} pt</span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <input 
-                                type="range" 
-                                min="0" 
-                                max="15" 
-                                step="1"
-                                value={activePanel.sizeTagConfig?.strokeWidth ?? 3}
-                                onChange={(e) => updateTextConfig('sizeTag', { strokeWidth: parseInt(e.target.value) || 0 })}
-                                style={{ flex: 1 }}
-                              />
-                              <input 
-                                type="number" 
-                                min="0"
-                                max="15"
-                                className="form-input" 
-                                value={activePanel.sizeTagConfig?.strokeWidth ?? 3}
-                                onChange={(e) => updateTextConfig('sizeTag', { strokeWidth: parseInt(e.target.value) || 0 })}
-                                style={{ padding: '2px 4px', fontSize: '10px', width: '40px', textAlign: 'center' }}
-                              />
-                            </div>
+                            <label className="form-label" style={{ fontSize: '11px' }}>Stroke Width:</label>
+                            <input 
+                              type="number" 
+                              className="form-input" 
+                              value={activePanel.sizeTagConfig?.strokeWidth ?? 3}
+                              onChange={(e) => updateTextConfig('sizeTag', { strokeWidth: parseInt(e.target.value) || 0 })}
+                              style={{ padding: '6px' }}
+                            />
                           </div>
                         </div>
 
@@ -3610,11 +3566,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           </div>
                         </div>
                       </div>
-                    )}
-                  </div>
-                </div>
+              )}
               </div>
-            )}
+              </div>
+
+              </div>
+              )}
         </div>
 
         {/* Step 3: Design Presets Manager Card */}
