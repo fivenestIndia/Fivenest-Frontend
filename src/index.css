@@ -219,96 +219,104 @@
 }
 
 /* ==========================================================================
-   COREL DRAW DESIGN STUDIO - PROFESSIONAL UI & SPACE MANAGEMENT SYSTEM
+   COREL DRAW DESIGN STUDIO - ULTRA-PREMIUM PROFESSIONAL UI DESIGN SYSTEM
    ========================================================================== */
 
-/* Custom Dark Scrollbars for Studio */
-.cd-docker-panel::-webkit-scrollbar,
-.cd-canvas-area::-webkit-scrollbar,
-.cd-palette-bar::-webkit-scrollbar,
-.cd-propertybar::-webkit-scrollbar {
+/* 1. Advanced Custom Glass Scrollbars */
+*::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
-.cd-docker-panel::-webkit-scrollbar-track,
-.cd-canvas-area::-webkit-scrollbar-track,
-.cd-palette-bar::-webkit-scrollbar-track,
-.cd-propertybar::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: 3px;
+*::-webkit-scrollbar-track {
+  background: rgba(8, 9, 14, 0.6);
+  border-radius: 4px;
 }
 
-.cd-docker-panel::-webkit-scrollbar-thumb,
-.cd-canvas-area::-webkit-scrollbar-thumb,
-.cd-palette-bar::-webkit-scrollbar-thumb,
-.cd-propertybar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
-  transition: background 0.2s ease;
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.cd-docker-panel::-webkit-scrollbar-thumb:hover,
-.cd-canvas-area::-webkit-scrollbar-thumb:hover,
-.cd-palette-bar::-webkit-scrollbar-thumb:hover,
-.cd-propertybar::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 240, 255, 0.4);
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 240, 255, 0.45);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
 }
 
-/* Studio Main Root Layout */
+/* 2. Studio Main Root Layout & Obsidian Color Palette */
 .app-layout {
   display: flex;
   min-height: 100vh;
   width: 100vw;
   overflow: hidden;
-  background-color: #0b0c10;
-  color: #f1f5f9;
+  background-color: #08090e;
+  color: #f8fafc;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  letter-spacing: -0.01em;
 }
 
 .sidebar {
   width: 240px;
   min-width: 240px;
-  background: #0e0f17;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: #0d0f17;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   z-index: 30;
   height: 100vh;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
 }
 
 .sidebar-menu {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 12px;
+  gap: 6px;
+  padding: 14px 10px;
 }
 
 .menu-item {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 14px;
+  gap: 12px;
+  padding: 10px 14px;
   border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.65);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   text-decoration: none;
+  border: 1px solid transparent;
 }
 
 .menu-item:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.05);
   color: #ffffff;
+  transform: translateX(2px);
 }
 
 .menu-item.active {
-  background: rgba(0, 240, 255, 0.12);
+  background: linear-gradient(90deg, rgba(0, 240, 255, 0.15) 0%, rgba(0, 240, 255, 0.04) 100%);
   color: #00f0ff;
-  border: 1px solid rgba(0, 240, 255, 0.3);
-  box-shadow: 0 0 15px rgba(0, 240, 255, 0.1);
+  border-color: rgba(0, 240, 255, 0.3);
+  box-shadow: 0 4px 20px rgba(0, 240, 255, 0.12);
+  font-weight: 700;
+}
+
+.menu-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 15%;
+  bottom: 15%;
+  width: 3px;
+  background: #00f0ff;
+  border-radius: 0 4px 4px 0;
+  box-shadow: 0 0 10px #00f0ff;
 }
 
 .main-content {
@@ -317,10 +325,10 @@
   flex-direction: column;
   overflow: hidden;
   height: 100vh;
-  background: #0b0c10;
+  background: #08090e;
 }
 
-/* CorelDRAW Studio Container & Space Management */
+/* 3. Studio Viewport & Canvas Layout */
 .cd-studio-container {
   display: flex;
   flex-direction: column;
@@ -328,7 +336,7 @@
   height: 100vh;
   flex: 1;
   overflow: hidden;
-  background-color: #0b0c10;
+  background-color: #08090e;
 }
 
 .cd-workspace-main {
@@ -349,7 +357,7 @@
   overflow-y: auto;
   position: relative;
   min-width: 0;
-  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.6) 0%, rgba(9, 10, 15, 0.95) 100%);
+  background: radial-gradient(circle at center, rgba(16, 22, 38, 0.7) 0%, rgba(8, 9, 14, 0.98) 100%);
 }
 
 .cd-canvas-container {
@@ -364,7 +372,7 @@
   position: relative;
 }
 
-/* Right Docker Panel Cards & Spacing */
+/* 4. Right Docker Panel & Glass Cards Micro-Interactions */
 .cd-docker-panel {
   display: flex;
   flex-direction: column;
@@ -378,24 +386,27 @@
   padding-bottom: 120px;
   gap: 10px;
   box-sizing: border-box;
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(14, 15, 23, 0.95);
-  backdrop-filter: blur(12px);
+  border-left: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(13, 15, 24, 0.95);
+  backdrop-filter: blur(16px);
 }
 
 .cd-docker-panel .glass-card {
-  background: rgba(20, 22, 34, 0.6);
+  background: rgba(19, 22, 36, 0.65);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .cd-docker-panel .glass-card:hover {
-  border-color: rgba(0, 240, 255, 0.25);
+  transform: translateY(-1.5px);
+  border-color: rgba(0, 240, 255, 0.35);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 240, 255, 0.12);
 }
 
-/* CorelDRAW Studio Menubar (Top Menus) */
+/* 5. CorelDRAW Studio Menubar (Top Menus) */
 .cd-menubar {
   display: flex;
   align-items: center;
@@ -403,8 +414,8 @@
   height: 34px;
   min-height: 34px;
   max-height: 34px;
-  background: #0e0f17;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: #0d0f17;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   padding: 0 12px;
   user-select: none;
   z-index: 40;
@@ -417,19 +428,20 @@
 }
 
 .cd-menu-item {
-  padding: 3px 9px;
-  border-radius: 4px;
+  padding: 4px 10px;
+  border-radius: 5px;
   font-size: 12px;
   font-weight: 600;
   color: #cbd5e1;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
 }
 
 .cd-menu-item:hover, .cd-menu-item.active {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 240, 255, 0.12);
   color: #00f0ff;
+  transform: translateY(-1px);
 }
 
 .cd-menu-dropdown {
@@ -437,10 +449,10 @@
   top: 100%;
   left: 0;
   margin-top: 4px;
-  background: #141624;
+  background: #141727;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 8px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.7);
   padding: 6px;
   min-width: 190px;
   z-index: 100;
@@ -450,21 +462,22 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 10px;
+  padding: 7px 10px;
   border-radius: 5px;
   font-size: 12px;
   color: #e2e8f0;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: all 0.15s ease;
   white-space: nowrap;
 }
 
 .cd-dropdown-action:hover {
-  background: rgba(0, 240, 255, 0.15);
+  background: rgba(0, 240, 255, 0.18);
   color: #ffffff;
+  transform: translateX(2px);
 }
 
-/* CorelDRAW Property Bar (Tool Options Strip) */
+/* 6. CorelDRAW Property Bar (Tool Options Strip) */
 .cd-propertybar {
   display: flex;
   align-items: center;
@@ -473,8 +486,8 @@
   height: 38px;
   min-height: 38px;
   max-height: 38px;
-  background: #121420;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: #111320;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   padding: 0 12px;
   overflow-x: auto;
   overflow-y: hidden;
@@ -486,30 +499,55 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 8px;
+  padding: 4px 9px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 6px;
   white-space: nowrap;
   flex-shrink: 0;
+  transition: border-color 0.2s ease;
 }
 
-.cd-property-input {
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #f8fafc;
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  outline: none;
+.cd-property-group:hover {
+  border-color: rgba(0, 240, 255, 0.3);
 }
 
-.cd-property-input:focus {
-  border-color: #00f0ff;
-  box-shadow: 0 0 6px rgba(0, 240, 255, 0.3);
+/* 7. High-Contrast Form Inputs & Dropdowns */
+.form-input,
+.form-select,
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+select {
+  background-color: #141727 !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-radius: 6px !important;
+  padding: 6px 10px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  outline: none !important;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
-/* CorelDRAW Toolbox (Left Vertical Bar) */
+.form-input:focus,
+.form-select:focus,
+input[type="text"]:focus,
+input[type="number"]:focus,
+select:focus {
+  border-color: #00f0ff !important;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.35) !important;
+}
+
+select option {
+  background-color: #141727 !important;
+  color: #ffffff !important;
+  padding: 8px !important;
+}
+
+/* 8. CorelDRAW Toolbox (Left Vertical Bar) */
 .cd-toolbox {
   display: flex;
   flex-direction: column;
@@ -517,8 +555,8 @@
   gap: 6px;
   width: 44px;
   min-width: 44px;
-  background: #0e0f17;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: #0d0f17;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
   padding: 8px 4px;
   box-sizing: border-box;
   z-index: 30;
@@ -529,65 +567,30 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
   background: transparent;
   border: 1px solid transparent;
   color: #94a3b8;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .cd-tool-btn:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
+  transform: scale(1.05);
 }
 
 .cd-tool-btn.active {
-  background: rgba(0, 240, 255, 0.15);
-  border-color: rgba(0, 240, 255, 0.4);
+  background: rgba(0, 240, 255, 0.16);
+  border-color: rgba(0, 240, 255, 0.45);
   color: #00f0ff;
-  box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.3);
 }
 
-/* Studio Form Inputs & Dropdowns (Fix White Background & Invisible Text) */
-.form-input,
-.form-select,
-input[type="text"],
-input[type="number"],
-input[type="email"],
-input[type="password"],
-select {
-  background-color: #121422 !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255, 255, 255, 0.18) !important;
-  border-radius: 6px !important;
-  padding: 6px 10px !important;
-  font-size: 12px !important;
-  font-weight: 500 !important;
-  outline: none !important;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4) !important;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
-}
-
-.form-input:focus,
-.form-select:focus,
-input[type="text"]:focus,
-input[type="number"]:focus,
-select:focus {
-  border-color: #00f0ff !important;
-  box-shadow: 0 0 8px rgba(0, 240, 255, 0.35) !important;
-}
-
-/* Ensure Select Dropdown Options Are High Contrast Crisp White Text */
-select option {
-  background-color: #141626 !important;
-  color: #ffffff !important;
-  padding: 8px !important;
-}
-
-/* CorelDRAW Bottom Color Palette Strip (Lifted Up & Fully Visible) */
+/* 9. CorelDRAW Bottom Color Palette Strip (Lifted & Animated) */
 .cd-palette-bar {
   display: flex;
   align-items: center;
@@ -595,7 +598,7 @@ select option {
   height: 36px;
   min-height: 36px;
   max-height: 36px;
-  background: #0d0f19;
+  background: #0e101a;
   border-top: 1px solid rgba(0, 240, 255, 0.25);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding: 0 12px;
@@ -604,7 +607,7 @@ select option {
   box-sizing: border-box;
   z-index: 50;
   width: 100%;
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
 }
 
 .cd-swatch {
@@ -615,17 +618,17 @@ select option {
   border: 1px solid rgba(255, 255, 255, 0.25);
   cursor: pointer;
   flex-shrink: 0;
-  transition: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.12s ease;
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .cd-swatch:hover {
-  transform: scale(1.35);
+  transform: scale(1.4) translateY(-2px);
   border-color: #00f0ff;
-  box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+  box-shadow: 0 4px 12px rgba(0, 240, 255, 0.5);
   z-index: 10;
 }
 
-/* CorelDRAW Bottom Status Bar */
+/* 10. CorelDRAW Bottom Status Bar */
 .cd-statusbar {
   display: flex;
   align-items: center;
@@ -633,8 +636,8 @@ select option {
   height: 24px;
   min-height: 24px;
   max-height: 24px;
-  background: #080910;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: #07080f;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
   padding: 0 12px;
   font-size: 11px;
   color: #64748b;
@@ -647,22 +650,20 @@ select option {
   gap: 6px;
 }
 
-/* ==========================================================================
-   PRODUCTION STUDIO - OTHER TABS LAYOUT, ALIGNMENT & COLOR MANAGEMENT
-   ========================================================================== */
-
-/* Tab Content Body Container */
+/* 11. Production Studio - Other Tabs (Roster, Sizes, Nesting, Help) */
 .content-body {
   flex: 1;
   overflow-y: auto;
   padding: 24px;
-  background-color: #0b0c10;
+  background-color: #08090e;
   box-sizing: border-box;
 }
 
-/* 1. Roster & Details Tab (OrderEntry Container) */
-.order-entry-container {
-  max-width: 1200px;
+.order-entry-container,
+.sizes-db-container,
+.nesting-view-container,
+.help-center-container {
+  max-width: 1250px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -670,21 +671,28 @@ select option {
   color: #f8fafc;
 }
 
-.order-entry-container .glass-card {
-  background: rgba(18, 20, 32, 0.7);
+.order-entry-container .glass-card,
+.sizes-db-container .glass-card,
+.nesting-view-container .glass-card,
+.help-center-container .glass-card {
+  background: rgba(19, 22, 36, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(12px);
+  padding: 22px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(16px);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
-.order-entry-container .glass-card.interactive:hover {
+.order-entry-container .glass-card.interactive:hover,
+.sizes-db-container .glass-card.interactive:hover,
+.nesting-view-container .glass-card.interactive:hover,
+.help-center-container .glass-card.interactive:hover {
+  transform: translateY(-2px);
   border-color: rgba(0, 240, 255, 0.35);
-  box-shadow: 0 0 20px rgba(0, 240, 255, 0.15);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 240, 255, 0.15);
 }
 
-/* Roster Table Styling */
 .roster-table {
   width: 100%;
   border-collapse: separate;
@@ -700,44 +708,27 @@ select option {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  padding: 10px 14px;
+  letter-spacing: 0.05em;
+  padding: 12px 14px;
   text-align: left;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .roster-table td {
-  padding: 8px 14px;
+  padding: 10px 14px;
   background: rgba(14, 16, 26, 0.5);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   color: #f1f5f9;
   font-size: 13px;
+  transition: background 0.15s ease;
 }
 
-.roster-table tr:last-child td {
-  border-bottom: none;
-}
-
-/* 2. Grading Sizes Tab (SizesDb Container) */
-.sizes-db-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  color: #f8fafc;
-}
-
-.sizes-db-container .glass-card {
-  background: rgba(18, 20, 32, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(12px);
+.roster-table tr:hover td {
+  background: rgba(0, 240, 255, 0.05);
 }
 
 .size-pill-btn {
-  padding: 6px 14px;
+  padding: 7px 15px;
   border-radius: 8px;
   font-size: 12px;
   font-weight: 700;
@@ -745,64 +736,26 @@ select option {
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: #cbd5e1;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .size-pill-btn:hover {
   background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  color: #ffffff;
+  transform: translateY(-1px);
 }
 
 .size-pill-btn.active {
-  background: rgba(0, 240, 255, 0.15);
+  background: rgba(0, 240, 255, 0.16);
   border-color: #00f0ff;
   color: #00f0ff;
-  box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.25);
 }
 
-/* 3. Nesting & Export Tab (NestingView Container) */
-.nesting-view-container {
-  max-width: 1400px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  color: #f8fafc;
-}
-
-.nesting-view-container .glass-card {
-  background: rgba(18, 20, 32, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(12px);
-}
-
-/* 4. Help & AI Refine Tab (HelpCenter Container) */
-.help-center-container {
-  max-width: 1100px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  color: #f8fafc;
-}
-
-.help-center-container .glass-card {
-  background: rgba(18, 20, 32, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(12px);
-}
-
-/* General Form Label & Row Utilities across all tabs */
 .form-row {
   display: flex;
   gap: 16px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .form-group {
