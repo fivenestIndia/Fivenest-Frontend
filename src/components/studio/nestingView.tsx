@@ -1062,8 +1062,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
         if (sizeWatermarks && item.panelType !== 'a4-print') {
           ctx.save();
-          // FIXED 14pt font size — same physical size on ALL panels (size 18 through 60)
-          const fontSizePx = Math.round((14 / 72) * scaleDpi);
+          // FIXED 26pt font size — locked identically on ALL panels (size 18 through 60)
+          const fontSizePx = Math.round((26 / 72) * scaleDpi);
           ctx.font = `bold ${fontSizePx}px system-ui`;
           ctx.shadowColor = 'transparent';
 
@@ -1093,6 +1093,24 @@ export const NestingView: React.FC<NestingViewProps> = ({
               ctx.fillStyle = '#ff1744';
               ctx.fillText(typeStr, widthPx - offset, offset);
             }
+          }
+
+          // Sleeve Direction label on top-right of Sleeve panels
+          if (item.panelType === 'sleeve-left' || item.panelType === 'sleeve-right') {
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'top';
+            const dirStr = item.panelType === 'sleeve-left' ? 'LEFT' : 'RIGHT';
+
+            // White 3pt outside stroke
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = stroke3ptPx * 2;
+            ctx.strokeText(dirStr, widthPx - offset, offset);
+
+            // Red Fill
+            ctx.fillStyle = '#ff1744';
+            ctx.fillText(dirStr, widthPx - offset, offset);
           }
           ctx.restore();
         }
@@ -1213,19 +1231,21 @@ export const NestingView: React.FC<NestingViewProps> = ({
         }
 
         // Draw customizable Size Tag (Top Left)
-        const sizeTagConf = conf.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
+        const sizeTagConf = conf.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
         if (sizeTagConf.enabled && item.panelType !== 'a4-print') {
           ctx.save();
-          const fontSizePx = Math.round(((sizeTagConf.fontSize * 0.78) / 72) * scaleDpi);
-          ctx.font = `bold ${fontSizePx}px "${sizeTagConf.fontFamily}"`;
+          // FIXED PHYSICAL SIZE: scaled by DPI so it is IDENTICAL across all panel sizes (18 to 60)
+          const targetFontSize = sizeTagConf.fontSize || 26;
+          const fontSizePx = Math.round((targetFontSize / 72) * scaleDpi);
+          ctx.font = `bold ${fontSizePx}px "${sizeTagConf.fontFamily}", "OldSport02AthleticNcv-E0gj", Impact, sans-serif`;
           
           const align = sizeTagConf.align || 'left';
           ctx.textAlign = align;
           ctx.textBaseline = 'top';
           ctx.lineJoin = 'round';
 
-          const offsetX = Math.round(0.06 * scaleDpi); // ~4px at 72dpi, flush to top-left
-          const offsetY = Math.round(0.05 * scaleDpi); // ~3.5px at 72dpi
+          const offsetX = Math.round(0.08 * scaleDpi);
+          const offsetY = Math.round(0.05 * scaleDpi);
           
           let targetX = offsetX;
           if (align === 'center') {
@@ -1266,19 +1286,15 @@ export const NestingView: React.FC<NestingViewProps> = ({
             ? templateText.replace('{size}', sizeQtyText)
             : sizeQtyText;
 
-          // Slightly compressed width of size tag (0.80x scale) so it takes up less space
-          ctx.scale(0.80, 1.0);
-          const compressedDrawX = drawX / 0.80;
-
           const sw = sizeTagConf.strokeWidth > 0 ? sizeTagConf.strokeWidth : 3;
           const swPx = Math.max(1, Math.round((sw / 72) * scaleDpi));
 
           ctx.strokeStyle = sizeTagConf.strokeColor || '#ffffff';
           ctx.lineWidth = swPx * 2;
-          ctx.strokeText(displayText, compressedDrawX, offsetY);
+          ctx.strokeText(displayText, drawX, offsetY);
 
           ctx.fillStyle = sizeTagConf.color || '#ff1744';
-          ctx.fillText(displayText, compressedDrawX, offsetY);
+          ctx.fillText(displayText, drawX, offsetY);
           ctx.restore();
         }
 
