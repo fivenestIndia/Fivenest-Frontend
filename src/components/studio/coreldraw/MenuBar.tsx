@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   FileUp, Save, Trash2, RotateCcw, ZoomIn, ZoomOut, Maximize2, 
-  Eye, Grid, HelpCircle, Layers, HardDrive, Check 
+  Eye, Grid, Keyboard, Layers, HardDrive, Check 
 } from 'lucide-react';
 import { exportAllLocalData } from '../localDataManager';
 
@@ -152,15 +152,15 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         )}
       </div>
 
-      {/* HELP MENU */}
+      {/* SHORTCUTS MENU */}
       <div className="cd-menu-item-wrapper" style={{ position: 'relative' }}>
         <div className={`cd-menu-item ${openMenu === 'help' ? 'active' : ''}`} onClick={() => toggleMenu('help')}>
-          Help
+          Shortcuts
         </div>
         {openMenu === 'help' && (
           <div className="cd-menu-dropdown">
             <div className="cd-dropdown-action" onClick={() => { onOpenShortcutsModal(); close(); }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><HelpCircle size={13} /> CorelDRAW Shortcuts</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Keyboard size={13} /> Keyboard Shortcuts</span>
               <span style={{ opacity: 0.5 }}>F1</span>
             </div>
           </div>

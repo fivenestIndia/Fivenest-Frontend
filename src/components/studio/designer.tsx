@@ -886,6 +886,24 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           ctx.fillStyle = '#ff1744';
           ctx.fillText(typeStr, width - offset, offset);
         }
+
+        // Sleeve Direction label on top-right of Sleeve panels
+        if (panelKey === 'sleeveLeft' || panelKey === 'sleeveRight') {
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'top';
+          const dirStr = panelKey === 'sleeveLeft' ? 'LEFT' : 'RIGHT';
+
+          // White 3pt outside stroke
+          ctx.lineJoin = 'round';
+          ctx.lineCap = 'round';
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = stroke3ptPx * 2;
+          ctx.strokeText(dirStr, width - offset, offset);
+
+          // Red Fill
+          ctx.fillStyle = '#ff1744';
+          ctx.fillText(dirStr, width - offset, offset);
+        }
         ctx.restore();
       }
     };
@@ -2271,9 +2289,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 justifyContent: 'center',
                 minWidth: '100%',
                 minHeight: '100%',
-                width: zoom > 1 ? `${Math.max(width * zoom + 400, 1200)}px` : '100%',
-                height: zoom > 1 ? `${Math.max(height * zoom + 400, 900)}px` : '100%',
-                padding: zoom > 1 ? `${Math.max(160, 260 * zoom)}px` : '24px',
+                width: `${Math.max(width * zoom + 600, 1600)}px`,
+                height: `${Math.max(height * zoom + 600, 1200)}px`,
+                padding: `${Math.max(200, 300 * zoom)}px`,
                 boxSizing: 'border-box',
                 position: 'relative'
               }}
@@ -2923,9 +2941,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       <label className="form-label" style={{ fontSize: '10px' }}>Stroke Width (in):</label>
                       <input 
                         type="number" 
-                        step="0.01" 
+                        step="0.1" 
                         min="0"
-                        max="0.5"
+                        max="20"
                         className="form-input" 
                         value={activePanel.nameConfig.strokeWidth || 0}
                         onChange={(e) => updateTextConfig('name', { strokeWidth: parseFloat(e.target.value) || 0 })}
@@ -3172,9 +3190,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       <label className="form-label" style={{ fontSize: '10px' }}>Stroke Width (in):</label>
                       <input 
                         type="number" 
-                        step="0.01" 
+                        step="0.1" 
                         min="0"
-                        max="0.5"
+                        max="20"
                         className="form-input" 
                         value={activePanel.numberConfig.strokeWidth || 0}
                         onChange={(e) => updateTextConfig('number', { strokeWidth: parseFloat(e.target.value) || 0 })}
