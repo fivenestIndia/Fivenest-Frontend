@@ -207,38 +207,42 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   // Undo/Redo history stacks
   const [undoStack, setUndoStack] = useState<ArtDesignConfig[]>([]);
   const [redoStack, setRedoStack] = useState<ArtDesignConfig[]>([]);
+  // Use refs so keyboard handler always calls latest version (no stale closure)
+  const undoStackRef = useRef<ArtDesignConfig[]>([]);
+  const redoStackRef = useRef<ArtDesignConfig[]>([]);
+  const designConfigRef = useRef<ArtDesignConfig>(designConfig);
+  useEffect(() => { undoStackRef.current = undoStack; }, [undoStack]);
+  useEffect(() => { redoStackRef.current = redoStack; }, [redoStack]);
+  useEffect(() => { designConfigRef.current = designConfig; }, [designConfig]);
 
-  const applyDesignConfigUpdate = (newConfig: ArtDesignConfig, isUndoRedoAction = false) => {
-    if (!isUndoRedoAction) {
-      setUndoStack(prev => [...prev.slice(-49), designConfig]);
-      setRedoStack([]);
-    }
+  const undoableConfigChange = (newConfig: ArtDesignConfig) => {
+    setUndoStack(prev => [...prev.slice(-29), designConfigRef.current]);
+    setRedoStack([]);
     onDesignConfigChange(newConfig);
   };
-
   const handleUndo = () => {
-    if (undoStack.length === 0) {
-      toast('Nothing to undo', { icon: 'ℹ️' });
-      return;
-    }
-    const prev = undoStack[undoStack.length - 1];
-    setRedoStack(r => [...r.slice(-49), designConfig]);
+    const stack = undoStackRef.current;
+    if (stack.length === 0) return;
+    const prev = stack[stack.length - 1];
+    setRedoStack(r => [...r, designConfigRef.current]);
     setUndoStack(s => s.slice(0, -1));
     onDesignConfigChange(prev);
-    toast.success('Undo (Ctrl+Z)');
+    toast.success('Undo');
   };
-
   const handleRedo = () => {
-    if (redoStack.length === 0) {
-      toast('Nothing to redo', { icon: 'ℹ️' });
-      return;
-    }
-    const next = redoStack[redoStack.length - 1];
-    setUndoStack(s => [...s.slice(-49), designConfig]);
+    const stack = redoStackRef.current;
+    if (stack.length === 0) return;
+    const next = stack[stack.length - 1];
+    setUndoStack(s => [...s, designConfigRef.current]);
     setRedoStack(r => r.slice(0, -1));
     onDesignConfigChange(next);
-    toast.success('Redo (Ctrl+Shift+Z)');
+    toast.success('Redo');
   };
+  // Keep refs up to date so keyboard handler always has fresh callbacks
+  const handleUndoRef = useRef(handleUndo);
+  const handleRedoRef = useRef(handleRedo);
+  useEffect(() => { handleUndoRef.current = handleUndo; });
+  useEffect(() => { handleRedoRef.current = handleRedo; });
 
   const [showGuidelines, setShowGuidelines] = useState<boolean>(true);
   const [activeTool, setActiveTool] = useState<CorelTool>('pick');
@@ -389,12 +393,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       // Undo: Ctrl + Z
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
         e.preventDefault();
-        handleUndo();
+        handleUndoRef.current();
       }
       // Redo: Ctrl + Shift + Z
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && e.shiftKey) {
         e.preventDefault();
-        handleRedo();
+        handleRedoRef.current();
       }
     };
 
@@ -494,6 +498,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     [key: string]: { x: number; y: number; w: number; h: number };
   }>({});
   const isDraggingTextRef = useRef<boolean>(false);
+  const textDragOffsetYRef = useRef<number>(0); // grab offset in canvas-pixels so text doesn't jump
   const touchStartRef = useRef<{
     x: number;
     y: number;
@@ -649,14 +654,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           y: panStartRef.current.initialPanY + deltaY
         });
       }
-      if (isDraggingTextRef.current && activeTextLayer && dragTargetCanvasRef.current) {
-        const rect = dragTargetCanvasRef.current.getBoundingClientRect();
-        const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
-        const canvasY = (e.clientY - rect.top) / zoom - currentRulerOffset;
-        const targetYPx = canvasY - dragOffsetYRef.current;
-        const newYPercent = Math.min(95, Math.max(5, Math.round((targetYPx / height) * 100)));
-        updateTextConfig(activeTextLayer, { yPos: newYPercent });
-      }
     };
 
     const handleWindowMouseUp = () => {
@@ -664,8 +661,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         panStartRef.current = null;
         setIsPanning(false);
       }
-      isDraggingTextRef.current = false;
-      dragTargetCanvasRef.current = null;
     };
 
     const handleWindowBlur = () => {
@@ -742,7 +737,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ...updatedFields
       }
     };
-    applyDesignConfigUpdate(updated);
+    onDesignConfigChange(updated);
   };
 
   const updateTrimConfig = (partKey: 'collar' | 'placket' | 'sleeveStripe', updatedFields: Partial<TrimPartConfig>) => {
@@ -761,7 +756,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         }
       }
     };
-    applyDesignConfigUpdate(updated);
+    onDesignConfigChange(updated);
   };
 
   const handleTrimFileUpload = (partKey: 'collar' | 'placket' | 'sleeveStripe', e: React.ChangeEvent<HTMLInputElement>) => {
@@ -780,7 +775,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const configKey = textType === 'name' ? 'nameConfig' : textType === 'number' ? 'numberConfig' : 'sizeTagConfig';
     updateActivePanel({
       [configKey]: {
-        ...(activePanel[configKey] || { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none' }),
+        ...(activePanel[configKey] || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none' }),
         ...fields
       }
     });
@@ -952,8 +947,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.shadowColor = 'transparent';
 
         // FIXED PHYSICAL SIZE: 0.1" wide x 0.25" tall, same on ALL panels (size 18-60, front/sleeve)
-        const wPx = Math.round(0.1 * scale);
-        const hPx = Math.round(0.25 * scale);
+        // Always compute from physicalW so 0.1" is the same proportion regardless of tab/sleeve switch
+        const pxPerInch = width / physicalW; // canvas pixels per inch for THIS panel
+        const wPx = Math.round(0.1 * pxPerInch);
+        const hPx = Math.round(0.25 * pxPerInch);
         const leftEdgeXPx = Math.round(width / 2 - wPx / 2);
 
         // White 3pt outside stroke for technical center marks
@@ -971,12 +968,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
       if (sizeWatermarks && panelKey !== 'a4Print') {
         ctx.save();
-        // FIXED 26pt text size — same physical size on ALL panels (size 18-60)
-        const fontSizePx = Math.round((26 / 72) * scale);
+        // FIXED 14pt text size — same physical size on ALL panels
+        const pxPerInch = width / physicalW;
+        const fontSizePx = Math.round((14 / 72) * pxPerInch);
         ctx.font = `bold ${fontSizePx}px system-ui`;
         ctx.shadowColor = 'transparent';
 
-        const offset = Math.round(0.04 * scale);
+        const offset = Math.round(0.04 * pxPerInch);
 
         // Sleeve Style on top-right of Back panel
         if (panelKey === 'back') {
@@ -1242,12 +1240,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
 
       // Draw customizable Size Tag (Top Left) - skip for A4 and skip if 3D preview
-      const sizeTagConf = panel.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
+      const sizeTagConf = panel.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
       if (!is3DPreview && sizeTagConf.enabled && panelKey !== 'a4Print') {
         ctx.save();
-        // FIXED PHYSICAL SIZE: scaled by DPI so it is IDENTICAL across all panel sizes (18 to 60)
-        const targetFontSize = sizeTagConf.fontSize || 26;
-        const fontSizePx = Math.round((targetFontSize / 72) * scale);
+        // Use pxPerInch (physicalW-based) so size tag is SAME physical size on all panels
+        const pxPerInch = width / physicalW;
+        const fontSizePx = Math.round((sizeTagConf.fontSize / 72) * pxPerInch);
         ctx.font = `bold ${fontSizePx}px "${sizeTagConf.fontFamily}"`;
         
         const align = sizeTagConf.align || 'left';
@@ -1255,7 +1253,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.textBaseline = 'top';
         ctx.lineJoin = 'round';
 
-        const offsetPx = Math.round(0.08 * scale);
+        const offsetPx = Math.round(0.15 * pxPerInch);
         
         let targetX = offsetPx;
         if (align === 'center') {
@@ -1998,9 +1996,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     });
   };
 
-  const dragTargetCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const dragOffsetYRef = useRef<number>(0);
-
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (spaceKeyPressed || activeTool === 'pan' || e.button === 1) {
       e.preventDefault();
@@ -2013,16 +2008,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       };
       return;
     }
-    const currentCanvas = (e.currentTarget || (activeTab === 'dual' ? backCanvasRef.current : canvasRef.current)) as HTMLCanvasElement;
-    if (!currentCanvas || activeTab === 'threeD') return;
-
-    dragTargetCanvasRef.current = currentCanvas;
-    const rect = currentCanvas.getBoundingClientRect();
+    if (!canvasRef.current || activeTab === 'threeD') return;
+    const rect = canvasRef.current.getBoundingClientRect();
     const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
     const canvasX = (e.clientX - rect.left) / zoom - currentRulerOffset;
     const canvasY = (e.clientY - rect.top) / zoom - currentRulerOffset;
 
-    const pad = 24;
+    const pad = 16;
 
     // Check hit test for Player Name
     const nameBox = textBoundingBoxesRef.current['name'];
@@ -2034,11 +2026,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         canvasY <= nameBox.y + nameBox.h + pad
       ) {
         setActiveTextLayer('name');
-        setOverlaySubTab('name');
         setActiveTool('text');
         isDraggingTextRef.current = true;
-        const currentTextYPx = (activePanel.nameConfig.yPos / 100) * height;
-        dragOffsetYRef.current = canvasY - currentTextYPx;
+        // Record how far from the top of the text box the user clicked
+        textDragOffsetYRef.current = canvasY - nameBox.y;
         setPrefTrigger(prev => prev + 1);
         return;
       }
@@ -2054,11 +2045,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         canvasY <= numBox.y + numBox.h + pad
       ) {
         setActiveTextLayer('number');
-        setOverlaySubTab('number');
         setActiveTool('text');
         isDraggingTextRef.current = true;
-        const currentTextYPx = (activePanel.numberConfig.yPos / 100) * height;
-        dragOffsetYRef.current = canvasY - currentTextYPx;
+        // Record how far from the top of the text box the user clicked
+        textDragOffsetYRef.current = canvasY - numBox.y;
         setPrefTrigger(prev => prev + 1);
         return;
       }
@@ -2070,21 +2060,19 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
   const handleCanvasMouseUp = () => {
     isDraggingTextRef.current = false;
-    dragTargetCanvasRef.current = null;
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const currentCanvas = (e.currentTarget || (activeTab === 'dual' ? backCanvasRef.current : canvasRef.current)) as HTMLCanvasElement;
-    if (!currentCanvas) return;
-    const rect = currentCanvas.getBoundingClientRect();
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
     if (isDraggingTextRef.current && activeTextLayer) {
       const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
-      const canvasY = (mouseY / zoom) - currentRulerOffset;
-      const targetYPx = canvasY - dragOffsetYRef.current;
-      const newYPercent = Math.min(95, Math.max(5, Math.round((targetYPx / height) * 100)));
+      // Subtract grab offset so the text follows the cursor without jumping
+      const canvasY = (mouseY / zoom) - currentRulerOffset - textDragOffsetYRef.current;
+      const newYPercent = Math.min(100, Math.max(0, Math.round((canvasY / height) * 100)));
       updateTextConfig(activeTextLayer, { yPos: newYPercent });
     }
 
