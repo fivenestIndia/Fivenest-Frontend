@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Palette, Users, Ruler, Sliders, HelpCircle, ArrowLeft, Sun, Moon, Menu, X, Award, ExternalLink, Package } from 'lucide-react';
+import { Palette, Users, Ruler, Sliders, Keyboard, ArrowLeft, Sun, Moon, Menu, X, Award, ExternalLink, Package } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase, fetchUserWallet } from '../lib/supabaseClient';
 import { Designer, defaultDesignConfig } from '../components/studio/designer';
@@ -11,7 +11,7 @@ import type { SizeDatabase } from '../components/studio/sizesDb';
 import { NestingView } from '../components/studio/nestingView';
 import { HelpCenter } from '../components/studio/helpCenter';
 import { LoginModal } from '../components/studio/loginModal';
-import { LocalDataManager } from '../components/studio/localDataManager';
+
 
 export default function WebStudio() {
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>(() => {
@@ -143,10 +143,10 @@ export default function WebStudio() {
 
   const productionTabs = [
     { id: 'designer', label: 'Artwork Setup', icon: Palette },
-    { id: 'order', label: 'Roster & Details', icon: Users },
+    { id: 'order', label: 'Job Details & Excel Data', icon: Users },
     { id: 'sizes', label: 'Grading Sizes', icon: Ruler },
     { id: 'nesting', label: 'Nesting & Export', icon: Sliders },
-    { id: 'help', label: 'Help & AI Refine', icon: HelpCircle },
+    { id: 'help', label: 'Shortcuts', icon: Keyboard },
   ];
 
   return (
@@ -296,8 +296,7 @@ export default function WebStudio() {
             </button>
           </div>
 
-          {/* Save / Restore Local Data */}
-          <LocalDataManager />
+
 
           <div className="glass-card" style={{ padding: '12px', background: 'rgba(155, 77, 255, 0.04)', borderColor: 'var(--border-active)', textAlign: 'left', marginTop: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
@@ -318,10 +317,10 @@ export default function WebStudio() {
         <header className="top-navbar">
           <h1 className="navbar-title text-sm md:text-base font-black">
             {activeTab === 'designer' && "🎨 Step 1: Sublimation Artwork & Overlays"}
-            {activeTab === 'order' && "📋 Step 2: Order Details & Player Roster"}
+            {activeTab === 'order' && "📋 Step 2: Job Details & Excel Data"}
             {activeTab === 'sizes' && "📐 Step 3: Size grading dimensions database"}
             {activeTab === 'nesting' && "⚙️ Step 4: Nesting Engine & Panel Export"}
-            {activeTab === 'help' && "🤖 Help Center & AI Smart Roster Refiner"}
+            {activeTab === 'help' && "🤖 Shortcuts"}
           </h1>
           
           <div className="navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

@@ -176,6 +176,16 @@ select option { background: #141829 !important; color: var(--text-primary) !impo
 .custom-table td { padding: 10px 14px; background: rgba(10,12,22,0.5); border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text-primary); vertical-align: middle; transition: background 0.15s ease; }
 .custom-table tbody tr:hover td { background: rgba(0,229,255,0.04); }
 .custom-table tbody tr:last-child td { border-bottom: none; }
+
+/* Google Sheets Style Table */
+.sheets-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.sheets-table th { background: rgba(66,133,244,0.08); color: #8ab4f8; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 8px 12px; text-align: left; border: 1px solid var(--border-subtle); white-space: nowrap; position: sticky; top: 0; z-index: 2; }
+.sheets-table td { padding: 6px 12px; border: 1px solid var(--border-subtle); color: var(--text-primary); background: var(--bg-input); transition: background 0.1s ease; }
+.sheets-table tbody tr:hover td { background: rgba(66,133,244,0.06); }
+.sheets-row-num { width: 36px; min-width: 36px; text-align: center; color: var(--text-muted); font-size: 11px; font-weight: 600; background: rgba(255,255,255,0.03) !important; border-right: 2px solid var(--border-default) !important; }
+.sheets-col-letter { display: block; font-size: 9px; color: var(--text-muted); font-weight: 500; letter-spacing: 0.1em; }
+.sheets-summary-bar { display: flex; align-items: center; gap: 16px; padding: 8px 14px; background: rgba(66,133,244,0.06); border: 1px solid var(--border-subtle); border-top: none; border-radius: 0 0 var(--radius-md) var(--radius-md); font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+
 .file-dropzone { border: 2px dashed var(--border-default); border-radius: var(--radius-lg); padding: 36px 24px; text-align: center; cursor: pointer; transition: all 0.25s var(--spring); background: rgba(17,21,39,0.4); display: flex; flex-direction: column; align-items: center; gap: 12px; color: var(--text-secondary); }
 .file-dropzone:hover, .file-dropzone.active { border-color: var(--accent-cyan); background: rgba(0,229,255,0.04); box-shadow: 0 0 24px rgba(0,229,255,0.12); color: var(--text-primary); }
 .file-dropzone-icon { color: var(--accent-cyan); opacity: 0.8; }

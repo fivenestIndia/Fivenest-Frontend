@@ -65,36 +65,25 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
         <span style={{ opacity: 0.6 }}>Page Size:</span>
         <span style={{ color: '#00f0ff', fontWeight: '600' }}>{physicalWidth}" × {physicalHeight}"</span>
 
-        {(activeTab === 'sleeveLeft' || activeTab === 'sleeveRight') && onSleeveTypeChange && (
-          <div style={{ display: 'flex', gap: '4px', marginLeft: '6px' }}>
+        {(activeTab === 'dual' || activeTab === 'sleeveLeft' || activeTab === 'sleeveRight') && previewSleeveType && onSleeveTypeChange && (
+          <div className="cd-property-group" style={{ gap: '3px' }}>
+            <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>Sleeve:</span>
             <button
               onClick={() => onSleeveTypeChange('half')}
               style={{
-                padding: '1px 6px',
-                borderRadius: '3px',
-                fontSize: '10px',
-                background: previewSleeveType === 'half' ? '#0284c7' : '#22222e',
-                color: previewSleeveType === 'half' ? '#fff' : '#94a3b8',
-                border: 'none',
-                cursor: 'pointer'
+                padding: '2px 8px', fontSize: '10px', fontWeight: '700', borderRadius: '4px', border: 'none', cursor: 'pointer',
+                background: previewSleeveType === 'half' ? 'rgba(0,229,255,0.2)' : 'transparent',
+                color: previewSleeveType === 'half' ? 'var(--accent-cyan)' : 'var(--text-muted)',
               }}
-            >
-              Half
-            </button>
+            >½</button>
             <button
               onClick={() => onSleeveTypeChange('full')}
               style={{
-                padding: '1px 6px',
-                borderRadius: '3px',
-                fontSize: '10px',
-                background: previewSleeveType === 'full' ? '#0284c7' : '#22222e',
-                color: previewSleeveType === 'full' ? '#fff' : '#94a3b8',
-                border: 'none',
-                cursor: 'pointer'
+                padding: '2px 8px', fontSize: '10px', fontWeight: '700', borderRadius: '4px', border: 'none', cursor: 'pointer',
+                background: previewSleeveType === 'full' ? 'rgba(0,229,255,0.2)' : 'transparent',
+                color: previewSleeveType === 'full' ? 'var(--accent-cyan)' : 'var(--text-muted)',
               }}
-            >
-              Full
-            </button>
+            >Full</button>
           </div>
         )}
       </div>

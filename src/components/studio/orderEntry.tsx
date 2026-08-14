@@ -417,30 +417,31 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
       {/* 4. Order Table details */}
       <div className="glass-card" style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h3>📋 Active Panel Order List ({records.length} items)</h3>
+          <h3>📋 Step 2: Job Details & Excel Data</h3>
           <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={handleAddRow}>
             <Plus size={14} /> Add Row
           </button>
         </div>
 
         {records.length > 0 ? (
-          <div className="table-container" style={{ maxHeight: '400px' }}>
-            <table className="custom-table">
+          <>
+            <div className="table-container" style={{ maxHeight: '400px' }}>
+            <table className="custom-table sheets-table">
               <thead>
                 <tr>
-                  <th style={{ width: '50px' }}>#</th>
-                  <th>Player Name</th>
-                  <th>Number</th>
-                  <th>Size</th>
-                  <th>Sleeve Style</th>
-                  <th>Qty</th>
-                  <th>Actions</th>
+                  <th style={{ width: '50px' }}></th>
+                  <th><span className="sheets-col-letter">A</span>Player Name</th>
+                  <th><span className="sheets-col-letter">B</span>Number</th>
+                  <th><span className="sheets-col-letter">C</span>Size</th>
+                  <th><span className="sheets-col-letter">D</span>Sleeve Style</th>
+                  <th><span className="sheets-col-letter">E</span>Qty</th>
+                  <th><span className="sheets-col-letter">F</span>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {records.map((record, index) => (
                   <tr key={record.id}>
-                    <td>{index + 1}</td>
+                    <td className="sheets-row-num">{index + 1}</td>
                     <td>
                       {editingRowId === record.id ? (
                         <input 
@@ -526,6 +527,12 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
               </tbody>
             </table>
           </div>
+          <div className="sheets-summary-bar">
+            <span>Rows: {records.length}</span>
+            <span>|</span>
+            <span>Total Qty: {records.reduce((acc, r) => acc + r.qty, 0)}</span>
+          </div>
+          </>
         ) : (
           <div style={{ padding: '40px', fontStyle: 'italic', color: 'var(--text-muted)' }}>
             Order list is empty. Add a manual row or import a CSV file to get started.

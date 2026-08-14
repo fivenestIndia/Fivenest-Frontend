@@ -202,6 +202,31 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [panStart, setPanStart] = useState<{ scrollLeft: number; scrollTop: number; x: number; y: number } | null>(null);
   const [activeTextLayer, setActiveTextLayer] = useState<'name' | 'number' | null>(null);
 
+  // Undo/Redo history stacks
+  const [undoStack, setUndoStack] = useState<ArtDesignConfig[]>([]);
+  const [redoStack, setRedoStack] = useState<ArtDesignConfig[]>([]);
+  const undoableConfigChange = (newConfig: ArtDesignConfig) => {
+    setUndoStack(prev => [...prev.slice(-29), designConfig]);
+    setRedoStack([]);
+    onDesignConfigChange(newConfig);
+  };
+  const handleUndo = () => {
+    if (undoStack.length === 0) return;
+    const prev = undoStack[undoStack.length - 1];
+    setRedoStack(r => [...r, designConfig]);
+    setUndoStack(s => s.slice(0, -1));
+    onDesignConfigChange(prev);
+    toast.success('Undo');
+  };
+  const handleRedo = () => {
+    if (redoStack.length === 0) return;
+    const next = redoStack[redoStack.length - 1];
+    setUndoStack(s => [...s, designConfig]);
+    setRedoStack(r => r.slice(0, -1));
+    onDesignConfigChange(next);
+    toast.success('Redo');
+  };
+
   const [showGuidelines, setShowGuidelines] = useState<boolean>(true);
   const [activeTool, setActiveTool] = useState<CorelTool>('pick');
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
@@ -347,6 +372,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       if ((e.ctrlKey || e.metaKey) && e.key === '.') {
         e.preventDefault();
         setShowGuidelines(prev => !prev);
+      }
+      // Undo: Ctrl + Z
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+      // Redo: Ctrl + Shift + Z
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && e.shiftKey) {
+        e.preventDefault();
+        handleRedo();
       }
     };
 
@@ -521,18 +556,25 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     }
     const containerW = scrollWrapperRef.current.clientWidth - 48;
     const containerH = scrollWrapperRef.current.clientHeight - 48;
-    const currentRulerOffset = rulersEnabled ? Math.round(0.35 * scale) : 0;
+    const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
     const targetW = width + currentRulerOffset;
     const targetH = height + currentRulerOffset;
 
     if (containerW > 0 && containerH > 0) {
       const fitRatio = Math.min(containerW / targetW, containerH / targetH);
-      const optimalZoom = Math.min(1.0, Math.max(0.4, parseFloat(fitRatio.toFixed(2))));
+      const optimalZoom = Math.min(2.0, Math.max(0.3, parseFloat(fitRatio.toFixed(2))));
       setZoom(optimalZoom);
     } else {
       setZoom(1);
     }
   };
+
+  // Auto-fit panels to screen on first mount
+  useEffect(() => {
+    const timer = setTimeout(() => handleFitToScreen(), 400);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Physical dimensions based on active tab and metadata
   let physicalHeight = 30;
@@ -1134,7 +1176,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       if (savedR !== null) rulersPref = JSON.parse(savedR);
     } catch (e) {}
     const rulersEnabled = !is3DPreview && rulersPref;
-    const rulerOffset = rulersEnabled ? Math.round(0.35 * scale) : 0;
+    const rulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
 
     const drawRulersAndGrid = (ctx: CanvasRenderingContext2D) => {
       if (is3DPreview || !rulersEnabled) return;
@@ -1169,9 +1211,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
       ctx.setLineDash([]);
 
-      // 2. Illustrator Ruler Background tracks & ticks (OUTSIDE panel image area)
-      const rulerBg = '#333333';
-      const tickColor = '#ffffff';
+      // 2. Photoshop-style Ruler Background tracks & ticks
+      const rulerBg = '#2a2a2a';
+      const tickColor = '#e0e0e0';
       const borderLineColor = '#1a1a1a';
 
       // Top Ruler track (0 .. rulerOffset y)
@@ -1211,10 +1253,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       ctx.strokeStyle = tickColor;
       ctx.fillStyle = tickColor;
 
-      for (let x = 0; x <= physicalW; x += 0.5) {
+      for (let x = 0; x <= physicalW; x += 0.25) {
         const xPx = rulerOffset + Math.round(x * scale);
         const isWhole = x % 1 === 0;
-        const tickLen = isWhole ? Math.round(0.10 * scale) : Math.round(0.05 * scale);
+        const isHalf = x % 0.5 === 0 && !isWhole;
+        const tickLen = isWhole ? Math.round(0.12 * scale) : isHalf ? Math.round(0.07 * scale) : Math.round(0.04 * scale);
+        ctx.lineWidth = isWhole ? 1 : 0.5;
         ctx.beginPath();
         ctx.moveTo(xPx, rulerOffset - tickLen);
         ctx.lineTo(xPx, rulerOffset);
@@ -1598,7 +1642,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const savedR = localStorage.getItem('fivenest_pref_rulers');
       if (savedR !== null) rulersPref = JSON.parse(savedR);
     } catch (e) {}
-    const rulerOffset = rulersPref ? Math.round(0.35 * scale) : 0;
+    const rulerOffset = rulersPref ? Math.round(0.55 * scale) : 0;
 
     if (activeTab === 'dual') {
       // 1. Left Sleeve
@@ -1827,7 +1871,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current || activeTab === 'threeD') return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const currentRulerOffset = rulersEnabled ? Math.round(0.35 * scale) : 0;
+    const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
     const canvasX = (e.clientX - rect.left) / zoom - currentRulerOffset;
     const canvasY = (e.clientY - rect.top) / zoom - currentRulerOffset;
 
@@ -1882,7 +1926,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const mouseY = e.clientY - rect.top;
 
     if (isDraggingTextRef.current && activeTextLayer) {
-      const currentRulerOffset = rulersEnabled ? Math.round(0.35 * scale) : 0;
+      const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
       const canvasY = (mouseY / zoom) - currentRulerOffset;
       const newYPercent = Math.min(100, Math.max(0, Math.round((canvasY / height) * 100)));
       updateTextConfig(activeTextLayer, { yPos: newYPercent });
@@ -2033,31 +2077,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
 
         
-        {(activeTab === 'dual' || activeTab === 'sleeveLeft' || activeTab === 'sleeveRight') && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', marginBottom: '4px', background: 'rgba(15, 23, 42, 0.85)', padding: '4px 12px', borderRadius: '30px', border: '1px solid rgba(0, 240, 255, 0.3)', backdropFilter: 'blur(8px)' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700', color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Sleeve Style:
-            </span>
-            <div style={{ display: 'flex', gap: '4px', background: 'rgba(0, 0, 0, 0.4)', padding: '2px', borderRadius: '20px' }}>
-              <button 
-                className={`btn ${previewSleeveType === 'half' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ padding: '4px 14px', fontSize: '11px', borderRadius: '16px', border: 'none', fontWeight: '600' }}
-                onClick={() => handleSleeveTypeChange('half')}
-                title="Switch to Half Sleeve (19x11 in)"
-              >
-                👕 Half Sleeve (19" × 11")
-              </button>
-              <button 
-                className={`btn ${previewSleeveType === 'full' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ padding: '4px 14px', fontSize: '11px', borderRadius: '16px', border: 'none', fontWeight: '600' }}
-                onClick={() => handleSleeveTypeChange('full')}
-                title="Switch to Full Sleeve (19x25 in)"
-              >
-                🧤 Full Sleeve (19" × 25")
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Sleeve Style moved to PropertyBar — clean center canvas */}
         
         {/* Controls Bar: 2D Zoom Bar OR 3D Viewport Bar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', marginBottom: '4px' }}>
@@ -2290,8 +2310,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           border: dualActivePanel === 'sleeveLeft' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
                           boxShadow: dualActivePanel === 'sleeveLeft' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
                           cursor: 'pointer',
-                          width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                          height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
                           objectFit: 'contain',
@@ -2331,8 +2351,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           border: dualActivePanel === 'front' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
                           boxShadow: dualActivePanel === 'front' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
                           cursor: 'pointer',
-                          width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                          height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          width: `${Math.round((width + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((height + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
                           objectFit: 'contain',
@@ -2379,8 +2399,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           border: dualActivePanel === 'back' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
                           boxShadow: dualActivePanel === 'back' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
                           cursor: 'pointer',
-                          width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                          height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          width: `${Math.round((width + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((height + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
                           objectFit: 'contain',
@@ -2420,8 +2440,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           border: dualActivePanel === 'sleeveRight' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
                           boxShadow: dualActivePanel === 'sleeveRight' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
                           cursor: 'pointer',
-                          width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                          height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
                           objectFit: 'contain',
@@ -2461,8 +2481,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       border: '2px solid rgba(0, 240, 255, 0.5)', 
                       boxShadow: '0 0 50px rgba(0,0,0,0.95)',
                       cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : 'pointer',
-                      width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                      height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                      width: `${Math.round((width + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                      height: `${Math.round((height + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                       maxWidth: 'none',
                       maxHeight: 'none',
                       objectFit: 'contain',
@@ -2579,6 +2599,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             <div>
               {/* Sub-Tab Navigation Bar */}
               <div style={{ display: 'flex', gap: '4px', marginBottom: '14px', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                {/* Hide Name sub-tab for sleeve panels */}
+                {!(activeTab === 'sleeveLeft' || activeTab === 'sleeveRight' || (activeTab === 'dual' && (dualActivePanel === 'sleeveLeft' || dualActivePanel === 'sleeveRight'))) && (
                 <button 
                   type="button"
                   className={`btn ${overlaySubTab === 'name' ? 'btn-primary' : 'btn-secondary'}`}
@@ -2592,6 +2614,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 >
                   👤 Name
                 </button>
+                )}
                 <button 
                   type="button"
                   className={`btn ${overlaySubTab === 'number' ? 'btn-primary' : 'btn-secondary'}`}
