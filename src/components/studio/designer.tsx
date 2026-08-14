@@ -105,7 +105,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     uploadedFileUrl: null,
     nameConfig: { enabled: false, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     numberConfig: { enabled: false, yPos: 44, fontSize: 3.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 3, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.08 },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [2.0, 8.5, 11.0, 13.5, 20.0], horizontal: [7.0, 10.0, 12.0, 27.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 15.0, yPos: 8.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 7.0, yPos: 8.5, lockAspectRatio: true },
@@ -119,7 +119,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     uploadedFileUrl: null,
     nameConfig: { enabled: true, yPos: 24, fontSize: 2.5, color: '#000000', strokeColor: '#ffffff', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 11, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.18 },
     numberConfig: { enabled: true, yPos: 47, fontSize: 9.0, color: '#000000', strokeColor: '#ffffff', strokeWidth: 5, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8.5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.2 },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 30, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0.06 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0.06 },
     guidelines: { vertical: [2.0, 11.0, 20.0], horizontal: [2.5, 6.0, 8.0, 9.5, 16.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
@@ -133,7 +133,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     uploadedFileUrl: null,
     nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [9.5], horizontal: [8.0] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
@@ -147,7 +147,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     uploadedFileUrl: null,
     nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [9.5], horizontal: [8.0] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
@@ -166,7 +166,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     bgLockAspectRatio: true,
     nameConfig: { enabled: false, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     numberConfig: { enabled: true, yPos: 55, fontSize: 6.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [5.0], horizontal: [5.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
@@ -207,26 +207,37 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   // Undo/Redo history stacks
   const [undoStack, setUndoStack] = useState<ArtDesignConfig[]>([]);
   const [redoStack, setRedoStack] = useState<ArtDesignConfig[]>([]);
-  const undoableConfigChange = (newConfig: ArtDesignConfig) => {
-    setUndoStack(prev => [...prev.slice(-29), designConfig]);
-    setRedoStack([]);
+
+  const applyDesignConfigUpdate = (newConfig: ArtDesignConfig, isUndoRedoAction = false) => {
+    if (!isUndoRedoAction) {
+      setUndoStack(prev => [...prev.slice(-49), designConfig]);
+      setRedoStack([]);
+    }
     onDesignConfigChange(newConfig);
   };
+
   const handleUndo = () => {
-    if (undoStack.length === 0) return;
+    if (undoStack.length === 0) {
+      toast('Nothing to undo', { icon: 'ℹ️' });
+      return;
+    }
     const prev = undoStack[undoStack.length - 1];
-    setRedoStack(r => [...r, designConfig]);
+    setRedoStack(r => [...r.slice(-49), designConfig]);
     setUndoStack(s => s.slice(0, -1));
     onDesignConfigChange(prev);
-    toast.success('Undo');
+    toast.success('Undo (Ctrl+Z)');
   };
+
   const handleRedo = () => {
-    if (redoStack.length === 0) return;
+    if (redoStack.length === 0) {
+      toast('Nothing to redo', { icon: 'ℹ️' });
+      return;
+    }
     const next = redoStack[redoStack.length - 1];
-    setUndoStack(s => [...s, designConfig]);
+    setUndoStack(s => [...s.slice(-49), designConfig]);
     setRedoStack(r => r.slice(0, -1));
     onDesignConfigChange(next);
-    toast.success('Redo');
+    toast.success('Redo (Ctrl+Shift+Z)');
   };
 
   const [showGuidelines, setShowGuidelines] = useState<boolean>(true);
@@ -638,6 +649,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           y: panStartRef.current.initialPanY + deltaY
         });
       }
+      if (isDraggingTextRef.current && activeTextLayer && dragTargetCanvasRef.current) {
+        const rect = dragTargetCanvasRef.current.getBoundingClientRect();
+        const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
+        const canvasY = (e.clientY - rect.top) / zoom - currentRulerOffset;
+        const targetYPx = canvasY - dragOffsetYRef.current;
+        const newYPercent = Math.min(95, Math.max(5, Math.round((targetYPx / height) * 100)));
+        updateTextConfig(activeTextLayer, { yPos: newYPercent });
+      }
     };
 
     const handleWindowMouseUp = () => {
@@ -645,6 +664,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         panStartRef.current = null;
         setIsPanning(false);
       }
+      isDraggingTextRef.current = false;
+      dragTargetCanvasRef.current = null;
     };
 
     const handleWindowBlur = () => {
@@ -721,7 +742,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ...updatedFields
       }
     };
-    onDesignConfigChange(updated);
+    applyDesignConfigUpdate(updated);
   };
 
   const updateTrimConfig = (partKey: 'collar' | 'placket' | 'sleeveStripe', updatedFields: Partial<TrimPartConfig>) => {
@@ -740,7 +761,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         }
       }
     };
-    onDesignConfigChange(updated);
+    applyDesignConfigUpdate(updated);
   };
 
   const handleTrimFileUpload = (partKey: 'collar' | 'placket' | 'sleeveStripe', e: React.ChangeEvent<HTMLInputElement>) => {
@@ -759,7 +780,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const configKey = textType === 'name' ? 'nameConfig' : textType === 'number' ? 'numberConfig' : 'sizeTagConfig';
     updateActivePanel({
       [configKey]: {
-        ...(activePanel[configKey] || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none' }),
+        ...(activePanel[configKey] || { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none' }),
         ...fields
       }
     });
@@ -952,9 +973,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
       if (sizeWatermarks && panelKey !== 'a4Print') {
         ctx.save();
-        // FIXED 14pt text size — same physical size on ALL panels
+        // FIXED 26pt text size — same physical size on ALL panels
         const pxPerInch = width / physicalW;
-        const fontSizePx = Math.round((14 / 72) * pxPerInch);
+        const fontSizePx = Math.round((26 / 72) * pxPerInch);
         ctx.font = `bold ${fontSizePx}px system-ui`;
         ctx.shadowColor = 'transparent';
 
@@ -1224,7 +1245,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
 
       // Draw customizable Size Tag (Top Left) - skip for A4 and skip if 3D preview
-      const sizeTagConf = panel.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
+      const sizeTagConf = panel.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
       if (!is3DPreview && sizeTagConf.enabled && panelKey !== 'a4Print') {
         ctx.save();
         // Use pxPerInch (physicalW-based) so size tag is SAME physical size on all panels
@@ -1980,6 +2001,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     });
   };
 
+  const dragTargetCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const dragOffsetYRef = useRef<number>(0);
+
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (spaceKeyPressed || activeTool === 'pan' || e.button === 1) {
       e.preventDefault();
@@ -1992,13 +2016,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       };
       return;
     }
-    if (!canvasRef.current || activeTab === 'threeD') return;
-    const rect = canvasRef.current.getBoundingClientRect();
+    const currentCanvas = (e.currentTarget || (activeTab === 'dual' ? backCanvasRef.current : canvasRef.current)) as HTMLCanvasElement;
+    if (!currentCanvas || activeTab === 'threeD') return;
+
+    dragTargetCanvasRef.current = currentCanvas;
+    const rect = currentCanvas.getBoundingClientRect();
     const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
     const canvasX = (e.clientX - rect.left) / zoom - currentRulerOffset;
     const canvasY = (e.clientY - rect.top) / zoom - currentRulerOffset;
 
-    const pad = 16;
+    const pad = 24;
 
     // Check hit test for Player Name
     const nameBox = textBoundingBoxesRef.current['name'];
@@ -2010,8 +2037,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         canvasY <= nameBox.y + nameBox.h + pad
       ) {
         setActiveTextLayer('name');
+        setOverlaySubTab('name');
         setActiveTool('text');
         isDraggingTextRef.current = true;
+        const currentTextYPx = (activePanel.nameConfig.yPos / 100) * height;
+        dragOffsetYRef.current = canvasY - currentTextYPx;
         setPrefTrigger(prev => prev + 1);
         return;
       }
@@ -2027,8 +2057,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         canvasY <= numBox.y + numBox.h + pad
       ) {
         setActiveTextLayer('number');
+        setOverlaySubTab('number');
         setActiveTool('text');
         isDraggingTextRef.current = true;
+        const currentTextYPx = (activePanel.numberConfig.yPos / 100) * height;
+        dragOffsetYRef.current = canvasY - currentTextYPx;
         setPrefTrigger(prev => prev + 1);
         return;
       }
@@ -2040,18 +2073,21 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
   const handleCanvasMouseUp = () => {
     isDraggingTextRef.current = false;
+    dragTargetCanvasRef.current = null;
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current) return;
-    const rect = canvasRef.current.getBoundingClientRect();
+    const currentCanvas = (e.currentTarget || (activeTab === 'dual' ? backCanvasRef.current : canvasRef.current)) as HTMLCanvasElement;
+    if (!currentCanvas) return;
+    const rect = currentCanvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
     if (isDraggingTextRef.current && activeTextLayer) {
       const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
       const canvasY = (mouseY / zoom) - currentRulerOffset;
-      const newYPercent = Math.min(100, Math.max(0, Math.round((canvasY / height) * 100)));
+      const targetYPx = canvasY - dragOffsetYRef.current;
+      const newYPercent = Math.min(95, Math.max(5, Math.round((targetYPx / height) * 100)));
       updateTextConfig(activeTextLayer, { yPos: newYPercent });
     }
 

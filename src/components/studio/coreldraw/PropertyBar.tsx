@@ -35,14 +35,17 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
   previewSleeveType,
   onSleeveTypeChange
 }) => {
+  const effectiveLayer: 'name' | 'number' | 'sizeTag' = 
+    activeTextLayer || (panel.numberConfig?.enabled ? 'number' : (panel.nameConfig?.enabled ? 'name' : 'number'));
+
   const activeTextConfig: TextConfig | undefined = 
-    activeTextLayer === 'name' ? panel.nameConfig :
-    activeTextLayer === 'number' ? panel.numberConfig :
+    effectiveLayer === 'name' ? panel.nameConfig :
+    effectiveLayer === 'number' ? panel.numberConfig :
     panel.sizeTagConfig;
 
   const updateActiveText = (fields: Partial<TextConfig>) => {
     if (!activeTextConfig) return;
-    const configKey = activeTextLayer === 'name' ? 'nameConfig' : activeTextLayer === 'number' ? 'numberConfig' : 'sizeTagConfig';
+    const configKey = effectiveLayer === 'name' ? 'nameConfig' : effectiveLayer === 'number' ? 'numberConfig' : 'sizeTagConfig';
     onUpdatePanel({
       [configKey]: {
         ...activeTextConfig,
@@ -208,13 +211,13 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
             <span style={{ opacity: 0.6, marginLeft: '6px' }}>W:</span>
             <input
               type="number"
-              step="0.01"
+              step="0.5"
               min="0"
-              max="0.5"
-              value={activeTextConfig.strokeWidth || 0}
+              max="50"
+              value={activeTextConfig.strokeWidth ?? 0}
               onChange={(e) => updateActiveText({ strokeWidth: parseFloat(e.target.value) || 0 })}
               className="cd-property-input"
-              style={{ width: '45px', marginLeft: '2px' }}
+              style={{ width: '52px', marginLeft: '2px' }}
             />
           </div>
         </>
