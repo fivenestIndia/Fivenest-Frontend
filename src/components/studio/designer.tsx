@@ -199,7 +199,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [zKeyPressed, setZKeyPressed] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number; zoom: number } | null>(null);
   const [spaceKeyPressed, setSpaceKeyPressed] = useState<boolean>(false);
-  const [panStart, setPanStart] = useState<{ scrollLeft: number; scrollTop: number; x: number; y: number } | null>(null);
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState<boolean>(false);
+  const panStartRef = useRef<{ startX: number; startY: number; initialPanX: number; initialPanY: number } | null>(null);
   const [activeTextLayer, setActiveTextLayer] = useState<'name' | 'number' | null>(null);
 
   // Undo/Redo history stacks
@@ -493,23 +495,27 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (e.touches.length === 1) {
       const touch = e.touches[0];
-      if (scrollWrapperRef.current) {
-        touchStartRef.current = {
-          x: touch.clientX,
-          y: touch.clientY,
-          scrollLeft: scrollWrapperRef.current.scrollLeft,
-          scrollTop: scrollWrapperRef.current.scrollTop,
-          distance: 0,
-          zoom: zoom
-        };
-      }
+      setIsPanning(true);
+      panStartRef.current = {
+        startX: touch.clientX,
+        startY: touch.clientY,
+        initialPanX: panOffset.x,
+        initialPanY: panOffset.y
+      };
+      touchStartRef.current = null;
     } else if (e.touches.length === 2) {
+      setIsPanning(false);
+      panStartRef.current = null;
       const t1 = e.touches[0];
       const t2 = e.touches[1];
       const distance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const wrapper = scrollWrapperRef.current;
+      const rect = wrapper ? wrapper.getBoundingClientRect() : { left: 0, top: 0 };
+      const centerX = (t1.clientX + t2.clientX) / 2 - rect.left;
+      const centerY = (t1.clientY + t2.clientY) / 2 - rect.top;
       touchStartRef.current = {
-        x: 0,
-        y: 0,
+        x: centerX,
+        y: centerY,
         scrollLeft: 0,
         scrollTop: 0,
         distance,
@@ -519,62 +525,150 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (!touchStartRef.current) return;
-
-    if (e.touches.length === 1 && touchStartRef.current.distance === 0) {
-      // Touch drag pan
+    if (e.touches.length === 1 && panStartRef.current) {
+      if (e.cancelable) e.preventDefault();
       const touch = e.touches[0];
-      const deltaX = touch.clientX - touchStartRef.current.x;
-      const deltaY = touch.clientY - touchStartRef.current.y;
-      if (scrollWrapperRef.current) {
-        if (zoom > 1) {
-          if (e.cancelable) e.preventDefault();
-          scrollWrapperRef.current.scrollLeft = touchStartRef.current.scrollLeft - deltaX;
-          scrollWrapperRef.current.scrollTop = touchStartRef.current.scrollTop - deltaY;
-        }
-      }
-    } else if (e.touches.length === 2 && touchStartRef.current.distance > 0) {
-      // Touch pinch zoom
+      const deltaX = touch.clientX - panStartRef.current.startX;
+      const deltaY = touch.clientY - panStartRef.current.startY;
+      setPanOffset({
+        x: panStartRef.current.initialPanX + deltaX,
+        y: panStartRef.current.initialPanY + deltaY
+      });
+    } else if (e.touches.length === 2 && touchStartRef.current && touchStartRef.current.distance > 0) {
       if (e.cancelable) e.preventDefault();
       const t1 = e.touches[0];
       const t2 = e.touches[1];
       const currentDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
       const ratio = currentDistance / touchStartRef.current.distance;
-      const newZoom = Math.min(3, Math.max(0.5, touchStartRef.current.zoom * ratio));
-      setZoom(newZoom);
+      const newZoom = Math.min(4.0, Math.max(0.15, Math.round(touchStartRef.current.zoom * ratio * 100) / 100));
+      if (newZoom !== zoom) {
+        const mouseX = touchStartRef.current.x;
+        const mouseY = touchStartRef.current.y;
+        const worldX = (mouseX - panOffset.x) / zoom;
+        const worldY = (mouseY - panOffset.y) / zoom;
+        const newPanX = Math.round(mouseX - worldX * newZoom);
+        const newPanY = Math.round(mouseY - worldY * newZoom);
+        setZoom(newZoom);
+        setPanOffset({ x: newPanX, y: newPanY });
+      }
     }
   };
 
   const handleTouchEnd = () => {
+    panStartRef.current = null;
     touchStartRef.current = null;
+    setIsPanning(false);
+  };
+
+  const handleZoomChange = (newZoom: number) => {
+    const wrapper = scrollWrapperRef.current;
+    const clampedZoom = Math.min(4.0, Math.max(0.15, Math.round(newZoom * 100) / 100));
+    if (clampedZoom === zoom) return;
+
+    if (!wrapper) {
+      setZoom(clampedZoom);
+      return;
+    }
+    const rect = wrapper.getBoundingClientRect();
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    const worldX = (centerX - panOffset.x) / zoom;
+    const worldY = (centerY - panOffset.y) / zoom;
+
+    const newPanX = Math.round(centerX - worldX * clampedZoom);
+    const newPanY = Math.round(centerY - worldY * clampedZoom);
+
+    setZoom(clampedZoom);
+    setPanOffset({ x: newPanX, y: newPanY });
   };
 
   const handleFitToScreen = () => {
-    if (!scrollWrapperRef.current) {
+    const wrapper = scrollWrapperRef.current;
+    if (!wrapper) {
       setZoom(1);
+      setPanOffset({ x: 0, y: 0 });
       return;
     }
-    const containerW = scrollWrapperRef.current.clientWidth - 48;
-    const containerH = scrollWrapperRef.current.clientHeight - 48;
-    const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
-    const targetW = width + currentRulerOffset;
-    const targetH = height + currentRulerOffset;
+    const containerW = wrapper.clientWidth;
+    const containerH = wrapper.clientHeight;
+    if (containerW <= 0 || containerH <= 0) return;
 
-    if (containerW > 0 && containerH > 0) {
-      const fitRatio = Math.min(containerW / targetW, containerH / targetH);
-      const optimalZoom = Math.min(2.0, Math.max(0.3, parseFloat(fitRatio.toFixed(2))));
-      setZoom(optimalZoom);
+    const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
+    
+    let contentW = 0;
+    let contentH = 0;
+
+    if (activeTab === 'dual') {
+      const leftW = sleeveSpreadWidth + currentRulerOffset;
+      const frontW = width + currentRulerOffset;
+      const backW = width + currentRulerOffset;
+      const rightW = sleeveSpreadWidth + currentRulerOffset;
+      const gap = 24;
+      contentW = leftW + frontW + backW + rightW + (gap * 3) + 24;
+      contentH = Math.max(height + currentRulerOffset, sleeveSpreadHeight + currentRulerOffset) + 40;
     } else {
-      setZoom(1);
+      contentW = width + currentRulerOffset + 24;
+      contentH = height + currentRulerOffset + 40;
     }
+
+    const padX = 40;
+    const padY = 40;
+    const availW = Math.max(100, containerW - padX);
+    const availH = Math.max(100, containerH - padY);
+
+    const fitRatio = Math.min(availW / contentW, availH / contentH);
+    const optimalZoom = Math.min(2.0, Math.max(0.2, parseFloat(fitRatio.toFixed(2))));
+
+    const newPanX = Math.round((containerW - contentW * optimalZoom) / 2);
+    const newPanY = Math.round((containerH - contentH * optimalZoom) / 2);
+
+    setZoom(optimalZoom);
+    setPanOffset({ x: newPanX, y: newPanY });
   };
+
+  // Global window listeners for pan dragging
+  useEffect(() => {
+    const handleWindowMouseMove = (e: MouseEvent) => {
+      if (panStartRef.current) {
+        const deltaX = e.clientX - panStartRef.current.startX;
+        const deltaY = e.clientY - panStartRef.current.startY;
+        setPanOffset({
+          x: panStartRef.current.initialPanX + deltaX,
+          y: panStartRef.current.initialPanY + deltaY
+        });
+      }
+    };
+
+    const handleWindowMouseUp = () => {
+      if (panStartRef.current) {
+        panStartRef.current = null;
+        setIsPanning(false);
+      }
+    };
+
+    const handleWindowBlur = () => {
+      setSpaceKeyPressed(false);
+      setIsPanning(false);
+      panStartRef.current = null;
+    };
+
+    window.addEventListener('mousemove', handleWindowMouseMove);
+    window.addEventListener('mouseup', handleWindowMouseUp);
+    window.addEventListener('blur', handleWindowBlur);
+    return () => {
+      window.removeEventListener('mousemove', handleWindowMouseMove);
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
+  }, []);
 
   // Auto-fit panels to screen on first mount
   useEffect(() => {
-    const timer = setTimeout(() => handleFitToScreen(), 400);
+    const timer = setTimeout(() => handleFitToScreen(), 350);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeTab]);
 
   // Physical dimensions based on active tab and metadata
   let physicalHeight = 30;
@@ -1887,6 +1981,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   };
 
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (spaceKeyPressed || activeTool === 'pan' || e.button === 1) {
+      e.preventDefault();
+      setIsPanning(true);
+      panStartRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        initialPanX: panOffset.x,
+        initialPanY: panOffset.y
+      };
+      return;
+    }
     if (!canvasRef.current || activeTab === 'threeD') return;
     const rect = canvasRef.current.getBoundingClientRect();
     const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
@@ -2121,7 +2226,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               <button 
                 className="btn btn-secondary" 
                 style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
+                onClick={() => handleZoomChange(zoom - 0.25)}
                 title="Zoom Out"
               >
                 <ZoomOut size={14} />
@@ -2132,7 +2237,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               <button 
                 className="btn btn-secondary" 
                 style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                onClick={() => setZoom(Math.min(3, zoom + 0.25))}
+                onClick={() => handleZoomChange(zoom + 0.25)}
                 title="Zoom In"
               >
                 <ZoomIn size={14} />
@@ -2158,7 +2263,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 <button 
                   className="btn btn-secondary" 
                   style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)' }}
-                  onClick={() => setZoom(1)}
+                  onClick={() => handleZoomChange(1)}
                   title="Reset Zoom to 100%"
                 >
                   <RotateCcw size={12} /> 100%
@@ -2190,110 +2295,75 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             />
           </div>
         ) : (
-          /* 2D CANVAS WORKSPACE: Scrollable Wrapper with Cursor-Centered Zoom */
           <div 
             ref={scrollWrapperRef}
             style={{ 
               flexGrow: 1, 
               width: '100%', 
               height: '100%',
-              overflow: 'auto', 
+              overflow: 'hidden', 
               minHeight: 0,
               boxSizing: 'border-box',
-              cursor: ((spaceKeyPressed || activeTool === 'pan') ? (panStart ? 'grabbing' : 'grab') : ((zKeyPressed || activeTool === 'zoom') ? (dragStart ? 'grabbing' : 'zoom-in') : 'default')),
-              userSelect: (spaceKeyPressed || activeTool === 'pan' || zKeyPressed || activeTool === 'zoom') ? 'none' : 'auto',
-              position: 'relative'
+              cursor: (spaceKeyPressed || activeTool === 'pan' || isPanning) 
+                ? (isPanning ? 'grabbing' : 'grab') 
+                : (activeTool === 'zoom' ? 'zoom-in' : 'default'),
+              userSelect: 'none',
+              position: 'relative',
+              touchAction: 'none'
             }}
             onWheel={(e) => {
               e.preventDefault();
               const wrapper = scrollWrapperRef.current;
               if (!wrapper) return;
 
-              const sensitivity = 0.0015;
-              const newZoom = Math.min(3, Math.max(0.5, zoom - e.deltaY * sensitivity));
-              if (newZoom === zoom) return;
-
               const rect = wrapper.getBoundingClientRect();
               const mouseX = e.clientX - rect.left;
               const mouseY = e.clientY - rect.top;
 
-              const scrollX = wrapper.scrollLeft;
-              const scrollY = wrapper.scrollTop;
+              const zoomDelta = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+              const newZoom = Math.min(4.0, Math.max(0.15, Math.round(zoom * zoomDelta * 100) / 100));
+              if (newZoom === zoom) return;
 
-              const contentX = (scrollX + mouseX) / zoom;
-              const contentY = (scrollY + mouseY) / zoom;
+              const worldX = (mouseX - panOffset.x) / zoom;
+              const worldY = (mouseY - panOffset.y) / zoom;
+
+              const newPanX = Math.round(mouseX - worldX * newZoom);
+              const newPanY = Math.round(mouseY - worldY * newZoom);
 
               setZoom(newZoom);
-
-              requestAnimationFrame(() => {
-                if (wrapper) {
-                  wrapper.scrollLeft = contentX * newZoom - mouseX;
-                  wrapper.scrollTop = contentY * newZoom - mouseY;
-                }
-              });
+              setPanOffset({ x: newPanX, y: newPanY });
             }}
             onMouseDown={(e) => {
-              if ((spaceKeyPressed || activeTool === 'pan') && e.button === 0) {
+              if (spaceKeyPressed || activeTool === 'pan' || e.button === 1 || (e.button === 0 && e.target === scrollWrapperRef.current)) {
                 e.preventDefault();
-                if (scrollWrapperRef.current) {
-                  setPanStart({
-                    scrollLeft: scrollWrapperRef.current.scrollLeft,
-                    scrollTop: scrollWrapperRef.current.scrollTop,
-                    x: e.clientX,
-                    y: e.clientY
-                  });
-                }
-              } else if ((zKeyPressed || activeTool === 'zoom') && e.button === 0) {
-                e.preventDefault();
-                setDragStart({ x: e.clientX, y: e.clientY, zoom: zoom });
+                setIsPanning(true);
+                panStartRef.current = {
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  initialPanX: panOffset.x,
+                  initialPanY: panOffset.y
+                };
               }
-            }}
-            onMouseMove={(e) => {
-              if (panStart) {
-                e.preventDefault();
-                const deltaX = e.clientX - panStart.x;
-                const deltaY = e.clientY - panStart.y;
-                if (scrollWrapperRef.current) {
-                  scrollWrapperRef.current.scrollLeft = panStart.scrollLeft - deltaX;
-                  scrollWrapperRef.current.scrollTop = panStart.scrollTop - deltaY;
-                }
-              } else if (dragStart) {
-                e.preventDefault();
-                const deltaX = e.clientX - dragStart.x;
-                const deltaY = dragStart.y - e.clientY;
-                const dragDistance = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
-                const sensitivity = 0.008;
-                const newZoom = Math.min(3, Math.max(0.5, dragStart.zoom + dragDistance * sensitivity));
-                setZoom(newZoom);
-              }
-            }}
-            onMouseUp={() => {
-              setDragStart(null);
-              setPanStart(null);
-            }}
-            onMouseLeave={() => {
-              setDragStart(null);
-              setPanStart(null);
             }}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
-            {/* Centering inner container with full 360-degree corner pan space */}
+            {/* Transform Layer for Locked Panels */}
             <div 
-              onDoubleClick={() => fileInputRef.current?.click()}
+              onDoubleClick={() => {
+                if (!spaceKeyPressed) fileInputRef.current?.click();
+              }}
               title="Double-click canvas to upload artwork background image"
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                minWidth: '100%',
-                minHeight: '100%',
-                width: `${Math.max(width * zoom + 600, 1600)}px`,
-                height: `${Math.max(height * zoom + 600, 1200)}px`,
-                padding: `${Math.max(200, 300 * zoom)}px`,
-                boxSizing: 'border-box',
-                position: 'relative'
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0)`,
+                willChange: 'transform',
+                display: 'inline-flex',
+                alignItems: 'flex-start',
+                justifyContent: 'flex-start'
               }}
             >
               {activeTab === 'dual' ? (
@@ -2317,6 +2387,18 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     <div style={{ position: 'relative', display: 'inline-block' }}>
                       <canvas 
                         ref={leftSleeveCanvasRef} 
+                        onMouseDown={(e) => {
+                          if (spaceKeyPressed || activeTool === 'pan' || e.button === 1) {
+                            e.preventDefault();
+                            setIsPanning(true);
+                            panStartRef.current = {
+                              startX: e.clientX,
+                              startY: e.clientY,
+                              initialPanX: panOffset.x,
+                              initialPanY: panOffset.y
+                            };
+                          }
+                        }}
                         onDoubleClick={(e) => {
                           e.stopPropagation();
                           setDualActivePanel('sleeveLeft');
@@ -2327,7 +2409,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           borderRadius: '8px', 
                           border: dualActivePanel === 'sleeveLeft' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
                           boxShadow: dualActivePanel === 'sleeveLeft' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
-                          cursor: 'pointer',
+                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer',
                           width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
@@ -2341,8 +2423,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
                   {/* 2. FRONT PANEL CANVAS */}
                   <div 
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                    onClick={() => setDualActivePanel('front')}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer' }}
+                    onClick={() => { if (!spaceKeyPressed) setDualActivePanel('front'); }}
                   >
                     <div 
                       className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
@@ -2358,6 +2440,18 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     <div style={{ position: 'relative', display: 'inline-block' }}>
                       <canvas 
                         ref={frontCanvasRef} 
+                        onMouseDown={(e) => {
+                          if (spaceKeyPressed || activeTool === 'pan' || e.button === 1) {
+                            e.preventDefault();
+                            setIsPanning(true);
+                            panStartRef.current = {
+                              startX: e.clientX,
+                              startY: e.clientY,
+                              initialPanX: panOffset.x,
+                              initialPanY: panOffset.y
+                            };
+                          }
+                        }}
                         onDoubleClick={(e) => {
                           e.stopPropagation();
                           setDualActivePanel('front');
@@ -2368,7 +2462,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           borderRadius: '8px', 
                           border: dualActivePanel === 'front' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
                           boxShadow: dualActivePanel === 'front' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
-                          cursor: 'pointer',
+                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer',
                           width: `${Math.round((width + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           height: `${Math.round((height + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
@@ -2382,8 +2476,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
                   {/* 3. BACK PANEL CANVAS */}
                   <div 
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                    onClick={() => setDualActivePanel('back')}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer' }}
+                    onClick={() => { if (!spaceKeyPressed) setDualActivePanel('back'); }}
                   >
                     <div 
                       className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
@@ -2416,7 +2510,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           borderRadius: '8px', 
                           border: dualActivePanel === 'back' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
                           boxShadow: dualActivePanel === 'back' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
-                          cursor: 'pointer',
+                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer',
                           width: `${Math.round((width + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           height: `${Math.round((height + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
@@ -2430,8 +2524,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
                   {/* 4. RIGHT SLEEVE CANVAS */}
                   <div 
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                    onClick={() => setDualActivePanel('sleeveRight')}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer' }}
+                    onClick={() => { if (!spaceKeyPressed) setDualActivePanel('sleeveRight'); }}
                   >
                     <div 
                       className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
@@ -2447,6 +2541,18 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     <div style={{ position: 'relative', display: 'inline-block' }}>
                       <canvas 
                         ref={rightSleeveCanvasRef} 
+                        onMouseDown={(e) => {
+                          if (spaceKeyPressed || activeTool === 'pan' || e.button === 1) {
+                            e.preventDefault();
+                            setIsPanning(true);
+                            panStartRef.current = {
+                              startX: e.clientX,
+                              startY: e.clientY,
+                              initialPanX: panOffset.x,
+                              initialPanY: panOffset.y
+                            };
+                          }
+                        }} 
                         onDoubleClick={(e) => {
                           e.stopPropagation();
                           setDualActivePanel('sleeveRight');
@@ -2938,12 +3044,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       />
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '10px' }}>Stroke Width (in):</label>
+                      <label className="form-label" style={{ fontSize: '10px' }}>Stroke Width:</label>
                       <input 
                         type="number" 
-                        step="0.1" 
+                        step="0.5" 
                         min="0"
-                        max="20"
+                        max="50"
                         className="form-input" 
                         value={activePanel.nameConfig.strokeWidth || 0}
                         onChange={(e) => updateTextConfig('name', { strokeWidth: parseFloat(e.target.value) || 0 })}
@@ -3187,12 +3293,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       />
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '10px' }}>Stroke Width (in):</label>
+                      <label className="form-label" style={{ fontSize: '10px' }}>Stroke Width:</label>
                       <input 
                         type="number" 
-                        step="0.1" 
+                        step="0.5" 
                         min="0"
-                        max="20"
+                        max="50"
                         className="form-input" 
                         value={activePanel.numberConfig.strokeWidth || 0}
                         onChange={(e) => updateTextConfig('number', { strokeWidth: parseFloat(e.target.value) || 0 })}

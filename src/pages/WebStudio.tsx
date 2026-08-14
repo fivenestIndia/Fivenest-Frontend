@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Palette, Users, Ruler, Sliders, Keyboard, ArrowLeft, Sun, Moon, Menu, X, Award, ExternalLink, Package } from 'lucide-react';
+import { Palette, Users, Ruler, Sliders, HelpCircle, ArrowLeft, Sun, Moon, Menu, X, Award, ExternalLink, Package } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase, fetchUserWallet } from '../lib/supabaseClient';
 import { Designer, defaultDesignConfig } from '../components/studio/designer';
@@ -146,7 +146,7 @@ export default function WebStudio() {
     { id: 'order', label: 'Job Details & Excel Data', icon: Users },
     { id: 'sizes', label: 'Grading Sizes', icon: Ruler },
     { id: 'nesting', label: 'Nesting & Export', icon: Sliders },
-    { id: 'help', label: 'Shortcuts', icon: Keyboard },
+    { id: 'help', label: 'Help & AI Refiner', icon: HelpCircle },
   ];
 
   return (
