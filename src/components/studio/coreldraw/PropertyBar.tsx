@@ -65,10 +65,11 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
         <span style={{ opacity: 0.6 }}>Page Size:</span>
         <span style={{ color: '#00f0ff', fontWeight: '600' }}>{physicalWidth}" × {physicalHeight}"</span>
 
-        {(activeTab === 'dual' || activeTab === 'sleeveLeft' || activeTab === 'sleeveRight') && previewSleeveType && onSleeveTypeChange && (
+        {previewSleeveType && onSleeveTypeChange && (
           <div className="cd-property-group" style={{ gap: '3px' }}>
             <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>Sleeve:</span>
             <button
+              type="button"
               onClick={() => onSleeveTypeChange('half')}
               style={{
                 padding: '2px 8px', fontSize: '10px', fontWeight: '700', borderRadius: '4px', border: 'none', cursor: 'pointer',
@@ -77,6 +78,7 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               }}
             >Half Sleeve</button>
             <button
+              type="button"
               onClick={() => onSleeveTypeChange('full')}
               style={{
                 padding: '2px 8px', fontSize: '10px', fontWeight: '700', borderRadius: '4px', border: 'none', cursor: 'pointer',
