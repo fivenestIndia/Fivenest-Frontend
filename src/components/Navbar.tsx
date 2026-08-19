@@ -88,10 +88,10 @@ const Navbar = () => {
         {/* CTA */}
         <div className="hidden lg:flex items-center gap-3 shrink-0">
           <Link
-            to="/studio"
+            to="/production"
             className="px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:opacity-90 transition-opacity glow-sm"
           >
-            Launch Web Studio
+            Launch Production Studio
           </Link>
         </div>
 
@@ -130,11 +130,11 @@ const Navbar = () => {
           ))}
 
           <Link
-            to="/studio"
+            to="/production"
             onClick={() => setOpen(false)}
             className="mt-4 px-8 py-3.5 rounded-xl bg-primary text-primary-foreground font-bold glow-sm"
           >
-            Launch Web Studio
+            Launch Production Studio
           </Link>
         </div>
       </div>

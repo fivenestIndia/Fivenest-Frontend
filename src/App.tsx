@@ -6,7 +6,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import DesignHub from "./pages/DesignHub.tsx";
 import OrderManagement from "./pages/OrderManagement.tsx";
-import Production from "./pages/Production.tsx";
 import WebStudio from "./pages/WebStudio.tsx";
 import Plugins from "./pages/Plugins.tsx";
 import Academy from "./pages/Academy.tsx";
@@ -26,12 +25,10 @@ const App = () => (
           <Route path="/design-hub" element={<DesignHub />} />
           <Route path="/orders" element={<OrderManagement />} />
           <Route path="/orders/*" element={<OrderManagement />} />
-          <Route path="/production" element={<Production />} />
-          <Route path="/production/*" element={<Production />} />
+          <Route path="/production" element={<WebStudio />} />
+          <Route path="/production/*" element={<WebStudio />} />
           <Route path="/studio" element={<WebStudio />} />
           <Route path="/studio/*" element={<WebStudio />} />
-          <Route path="/production-studio" element={<WebStudio />} />
-          <Route path="/production-studio/*" element={<WebStudio />} />
           <Route path="/plugin" element={<Plugins />} />
           <Route path="/plugins" element={<Plugins />} />
           <Route path="/plugins/*" element={<Plugins />} />

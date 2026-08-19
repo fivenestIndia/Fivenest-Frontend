@@ -38,7 +38,7 @@ export default function OrderManagement() {
     blankKit: false,
     a4BackPrint: false,
     raglanStyle: false,
-    halfSleeveMerge: false,
+    halfSleeveMerge: true,
     manualMode: false
   });
   // Central user-scoped orders state for live Dashboard sync

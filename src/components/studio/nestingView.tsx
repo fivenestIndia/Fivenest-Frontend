@@ -5,33 +5,209 @@ import { Play, Download, Sliders, Coins, QrCode, CheckCircle, AlertTriangle, Loa
 import JSZip from 'jszip';
 import { supabase, fetchUserWallet } from '../../lib/supabaseClient';
 
-const getCanvasBlob = (canvas: HTMLCanvasElement): Promise<Blob> => {
+// ---- Export format utilities ----
+type ExportFormat = 'jpg' | 'png' | 'tiff';
+type ColorProfile = 'rgb' | 'cmyk';
+
+/** Convert RGB pixel to CMYK approximation */
+const rgbToCmyk = (r: number, g: number, b: number): [number, number, number, number] => {
+  if (r === 0 && g === 0 && b === 0) return [0, 0, 0, 1];
+  const rn = r / 255, gn = g / 255, bn = b / 255;
+  const k = 1 - Math.max(rn, gn, bn);
+  const c = (1 - rn - k) / (1 - k);
+  const m = (1 - gn - k) / (1 - k);
+  const y = (1 - bn - k) / (1 - k);
+  return [c, m, y, k];
+};
+
+/** Convert RGB canvas to PNG blob */
+const canvasToPngBlob = (canvas: HTMLCanvasElement): Promise<Blob> => {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => {
+      resolve(blob || new Blob());
+    }, 'image/png');
+  });
+};
+
+/** Inject DPI into PNG blob via pHYs chunk (pixels per metre) */
+const injectPngDpi = (blob: Blob, dpiValue: number): Promise<Blob> => {
+  return new Promise((resolve) => {
+    const ppm = Math.round(dpiValue / 0.0254); // pixels per metre
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const ab = e.target!.result as ArrayBuffer;
+        const orig = new Uint8Array(ab);
+        // Build pHYs chunk: 4 bytes type "pHYs", 4+4+1 = 9 bytes data, 4 bytes CRC
+        const chunkData = new Uint8Array(9);
+        const view = new DataView(chunkData.buffer);
+        view.setUint32(0, ppm); // X pixels per unit
+        view.setUint32(4, ppm); // Y pixels per unit
+        chunkData[8] = 1; // unit: metre
+        // CRC32 over "pHYs" + data
+        const crcInput = new Uint8Array(13);
+        crcInput.set([112, 72, 89, 115]); // "pHYs"
+        crcInput.set(chunkData, 4);
+        const crc = crc32(crcInput);
+        const chunk = new Uint8Array(4 + 4 + 9 + 4);
+        const cv = new DataView(chunk.buffer);
+        cv.setUint32(0, 9); // chunk length
+        chunk.set([112, 72, 89, 115], 4); // "pHYs"
+        chunk.set(chunkData, 8);
+        cv.setUint32(17, crc);
+        // Insert after PNG signature (8 bytes) + IHDR chunk (4+4+13+4=25 bytes) = offset 33
+        const insertAt = 33;
+        const result = new Uint8Array(orig.length + chunk.length);
+        result.set(orig.slice(0, insertAt));
+        result.set(chunk, insertAt);
+        result.set(orig.slice(insertAt), insertAt + chunk.length);
+        resolve(new Blob([result], { type: 'image/png' }));
+      } catch {
+        resolve(blob);
+      }
+    };
+    reader.onerror = () => resolve(blob);
+    reader.readAsArrayBuffer(blob);
+  });
+};
+
+/** Simple CRC32 for PNG chunk */
+const crc32 = (data: Uint8Array): number => {
+  let crc = 0xFFFFFFFF;
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    table[i] = c;
+  }
+  for (let i = 0; i < data.length; i++) crc = table[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8);
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+};
+
+/** Encode canvas as minimal TIFF (baseline, uncompressed, RGB or CMYK) */
+const canvasToTiffBlob = (canvas: HTMLCanvasElement, dpiValue: number, cmyk: boolean): Promise<Blob> => {
   return new Promise((resolve) => {
     try {
-      canvas.toBlob((blob) => {
-        if (blob) {
-          resolve(blob);
+      const ctx = canvas.getContext('2d')!;
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const { data, width, height } = imgData;
+      const samplesPerPixel = cmyk ? 4 : 3;
+      const pixelCount = width * height;
+      const stripData = new Uint8Array(pixelCount * samplesPerPixel);
+      for (let i = 0; i < pixelCount; i++) {
+        const r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2];
+        if (cmyk) {
+          const [c, m, y, k] = rgbToCmyk(r, g, b);
+          stripData[i * 4]     = Math.round(c * 255);
+          stripData[i * 4 + 1] = Math.round(m * 255);
+          stripData[i * 4 + 2] = Math.round(y * 255);
+          stripData[i * 4 + 3] = Math.round(k * 255);
         } else {
-          try {
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-            const parts = dataUrl.split(',');
-            const byteString = atob(parts[1]);
-            const ab = new ArrayBuffer(byteString.length);
-            const ia = new Uint8Array(ab);
-            for (let i = 0; i < byteString.length; i++) {
-              ia[i] = byteString.charCodeAt(i);
-            }
-            resolve(new Blob([ab], { type: 'image/jpeg' }));
-          } catch (e) {
-            resolve(new Blob());
-          }
+          stripData[i * 3]     = r;
+          stripData[i * 3 + 1] = g;
+          stripData[i * 3 + 2] = b;
         }
-      }, 'image/jpeg', 0.85);
-    } catch (err) {
+      }
+      // TIFF header: II (little endian), magic 42, offset to first IFD
+      const ifdEntryCount = 12;
+      const ifdOffset = 8;
+      const ifdSize = 2 + ifdEntryCount * 12 + 4;
+      const extraDataOffset = ifdOffset + ifdSize;
+      // Extra data: BitsPerSample (3 or 4 SHORTs), XRes rational (2 LONGs), YRes rational
+      const bpsSize = samplesPerPixel * 2;
+      const resSize = 8; // rational = 2 * uint32
+      const stripOffset = extraDataOffset + bpsSize + resSize * 2;
+      const totalSize = stripOffset + stripData.length;
+      const buf = new ArrayBuffer(totalSize);
+      const v = new DataView(buf);
+      const u = new Uint8Array(buf);
+      // TIFF header
+      v.setUint16(0, 0x4949, true); // 'II' little endian
+      v.setUint16(2, 42, true);
+      v.setUint32(4, ifdOffset, true);
+      // IFD
+      let p = ifdOffset;
+      v.setUint16(p, ifdEntryCount, true); p += 2;
+      const setEntry = (tag: number, type: number, count: number, valOrOffset: number) => {
+        v.setUint16(p, tag, true);
+        v.setUint16(p + 2, type, true);
+        v.setUint32(p + 4, count, true);
+        v.setUint32(p + 8, valOrOffset, true);
+        p += 12;
+      };
+      setEntry(256, 4, 1, width);               // ImageWidth
+      setEntry(257, 4, 1, height);              // ImageLength
+      setEntry(258, 3, samplesPerPixel, bpsSize > 4 ? extraDataOffset : (samplesPerPixel === 1 ? 8 : 0x00080008)); // BitsPerSample
+      setEntry(259, 3, 1, 1);                   // Compression: none
+      setEntry(262, 3, 1, cmyk ? 5 : 2);        // PhotometricInterpretation: 5=CMYK, 2=RGB
+      setEntry(278, 4, 1, height);              // RowsPerStrip
+      setEntry(279, 4, 1, stripData.length);   // StripByteCounts
+      setEntry(282, 5, 1, extraDataOffset + bpsSize);       // XResolution rational offset
+      setEntry(283, 5, 1, extraDataOffset + bpsSize + resSize); // YResolution rational offset
+      setEntry(284, 3, 1, 1);                   // PlanarConfig: chunky
+      setEntry(296, 3, 1, 2);                   // ResolutionUnit: inch
+      setEntry(273, 4, 1, stripOffset);         // StripOffsets
+      v.setUint32(p, 0, true); // next IFD offset = 0 (none)
+      // Write BitsPerSample values
+      for (let i = 0; i < samplesPerPixel; i++) {
+        v.setUint16(extraDataOffset + i * 2, 8, true);
+      }
+      // Write XRes and YRes rationals
+      const resOff = extraDataOffset + bpsSize;
+      v.setUint32(resOff, dpiValue, true);
+      v.setUint32(resOff + 4, 1, true);
+      v.setUint32(resOff + resSize, dpiValue, true);
+      v.setUint32(resOff + resSize + 4, 1, true);
+      // Write pixel data
+      u.set(stripData, stripOffset);
+      resolve(new Blob([buf], { type: 'image/tiff' }));
+    } catch (e) {
+      console.warn('TIFF encode error:', e);
       resolve(new Blob());
     }
   });
 };
+
+/** Get canvas blob in the selected format */
+const getCanvasBlobForFormat = async (
+  canvas: HTMLCanvasElement,
+  format: ExportFormat,
+  profile: ColorProfile,
+  dpi: number
+): Promise<Blob> => {
+  if (format === 'png') {
+    let blob = await canvasToPngBlob(canvas);
+    blob = await injectPngDpi(blob, dpi);
+    return blob;
+  }
+  if (format === 'tiff') {
+    return canvasToTiffBlob(canvas, dpi, profile === 'cmyk');
+  }
+  // Default: JPG
+  return new Promise((resolve) => {
+    try {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else {
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+          const parts = dataUrl.split(',');
+          const byteString = atob(parts[1]);
+          const ab = new ArrayBuffer(byteString.length);
+          const ia = new Uint8Array(ab);
+          for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+          resolve(new Blob([ab], { type: 'image/jpeg' }));
+        }
+      }, 'image/jpeg', 0.92);
+    } catch {
+      resolve(new Blob());
+    }
+  });
+};
+
+const getCanvasBlob = (canvas: HTMLCanvasElement): Promise<Blob> => {
+  return getCanvasBlobForFormat(canvas, 'jpg', 'rgb', 300);
+};
+
 
 const logoPathCyan = typeof Path2D !== 'undefined' ? new Path2D("M32.55,0l3.08,2.98c.82.79.83,2.1.03,2.91l-14.83,14.9c-1.88,1.98-2.2,4.93-.21,6.95l4.84,4.94,13.51-13.47,2.99,2.72c.8.73,1.1,2.2.22,3.09l-8.72,8.82c-1.7,1.72-2.03,4.58-.29,6.38l3.18,3.3-4.6,4.57-1.44-1.69-14.48-14.7c-3.92-3.98-3.89-10.64.04-14.63L32.55,0Z") : null;
 const logoPathWhite = typeof Path2D !== 'undefined' ? new Path2D("M43.8,27.28c1.93-1.94,2.44-4.88.4-6.88l-4.99-4.88-13.44,13.22-2.84-2.54c-.35-.31-.94-.94-.94-1.63,0-.79.52-1.52.98-2.01l15.96-16.62,9.95,10.2c4.27,4.37,3.79,11.05-.3,15.32l-10.11,10.18-3.15-2.92c-.83-.88-.93-2,0-2.94l8.46-8.49h.02Z") : null;
@@ -238,7 +414,18 @@ export const NestingView: React.FC<NestingViewProps> = ({
   const [itemGap, setItemGap] = useState<number>(0.25);
   const [tightestFit, setTightestFit] = useState<boolean>(true);
   const [rotateToFit, setRotateToFit] = useState<boolean>(true);
-  const [dpi, setDpi] = useState<number>(100); // Render DPI: 72, 100, 150, 300
+  const [dpi, setDpi] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('fivenest_pref_dpi');
+      return saved ? JSON.parse(saved) : 300;
+    } catch { return 300; }
+  });
+  const [exportFormat, setExportFormat] = useState<ExportFormat>(() => {
+    try { return (localStorage.getItem('fivenest_pref_export_format') as ExportFormat) || 'jpg'; } catch { return 'jpg'; }
+  });
+  const [colorProfile, setColorProfile] = useState<ColorProfile>(() => {
+    try { return (localStorage.getItem('fivenest_pref_color_profile') as ColorProfile) || 'rgb'; } catch { return 'rgb'; }
+  });
   
   const [includeWatermarkLogo, setIncludeWatermarkLogo] = useState<boolean>(() => {
     try {
@@ -1027,6 +1214,12 @@ export const NestingView: React.FC<NestingViewProps> = ({
       }
       const conf = designConfig[panelTypeKey] || designConfig.front;
 
+      // Reference Size 40 base dimensions (inches) for perfect grading normalization across Size 18-60
+      const refW = (item.panelType === 'front' || item.panelType === 'back') ? 22 : item.panelType.startsWith('sleeve') ? 20 : 10;
+      const refH = (item.panelType === 'front' || item.panelType === 'back') ? 30 : item.panelType.startsWith('sleeve') ? 26 : 11;
+      const relW = item.w / refW;
+      const relH = item.h / refH;
+
       // Load optional guides preferences from localStorage (Default ON = true)
       const savedCenter = localStorage.getItem('fivenest_pref_center_marks');
       const centerMarks = savedCenter !== null ? JSON.parse(savedCenter) : true;
@@ -1034,24 +1227,22 @@ export const NestingView: React.FC<NestingViewProps> = ({
       const sizeWatermarks = savedWater !== null ? JSON.parse(savedWater) : true;
 
       const drawTechnicalMarks = () => {
-        // Fixed physical inch-based stroke: 3pt = 3/72 inches
-        const stroke3ptPx = Math.max(1, Math.round((3 / 72) * scaleDpi));
-
         if (centerMarks && item.panelType !== 'a4-print') {
           ctx.save();
           ctx.shadowColor = 'transparent';
           
-          // FIXED PHYSICAL SIZE: always 0.1" wide × 0.25" tall
-          // Uses scaleDpi so physical size in inches is IDENTICAL on all panels at same DPI
-          const wPx = Math.round(0.1 * scaleDpi);
-          const hPx = Math.round(0.25 * scaleDpi);
+          // Smart normalized notch mark: Normalized to reference Size 40 proportions
+          // Identical relative appearance & razor sharp across all sizes 18 to 60
+          const wPx = Math.max(2, Math.round(0.08 * scaleDpi * relW));
+          const hPx = Math.max(4, Math.round(0.22 * scaleDpi * relH));
+          const strokePx = Math.max(1, Math.round(((1.5 / 72) * scaleDpi) * relW));
           const leftEdgeXPx = Math.round(widthPx / 2 - wPx / 2);
 
-          // White 3pt outside stroke for technical center marks
+          // White outside stroke for technical center marks
           ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = stroke3ptPx;
-          ctx.strokeRect(leftEdgeXPx - stroke3ptPx / 2, 0, wPx + stroke3ptPx, hPx + stroke3ptPx / 2);
-          ctx.strokeRect(leftEdgeXPx - stroke3ptPx / 2, heightPx - hPx - stroke3ptPx / 2, wPx + stroke3ptPx, hPx + stroke3ptPx / 2);
+          ctx.lineWidth = strokePx;
+          ctx.strokeRect(leftEdgeXPx - strokePx / 2, 0, wPx + strokePx, hPx + strokePx / 2);
+          ctx.strokeRect(leftEdgeXPx - strokePx / 2, heightPx - hPx - strokePx / 2, wPx + strokePx, hPx + strokePx / 2);
 
           // Top Center & Bottom Center solid patch in Red
           ctx.fillStyle = '#ff1744';
@@ -1062,12 +1253,13 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
         if (sizeWatermarks && item.panelType !== 'a4-print') {
           ctx.save();
-          // FIXED 26pt font size — locked identically on ALL panels (size 18 through 60)
-          const fontSizePx = Math.round((26 / 72) * scaleDpi);
+          // Smart normalized sleeve watermark (14pt reference scaled with panel width)
+          const fontSizePx = Math.max(8, Math.round(((14 / 72) * scaleDpi) * relW));
+          const strokePx = Math.max(1, Math.round(fontSizePx * 0.12));
           ctx.font = `bold ${fontSizePx}px system-ui`;
           ctx.shadowColor = 'transparent';
 
-          const offset = Math.round(0.04 * scaleDpi);
+          const offset = Math.max(4, Math.round(0.06 * scaleDpi * relW));
 
           // Sleeve Style on top-right of Back panel
           if (item.panelType === 'back') {
@@ -1082,35 +1274,17 @@ export const NestingView: React.FC<NestingViewProps> = ({
                 ? (isRaglan ? 'RAGLAN FULL' : 'FULL')
                 : (isRaglan ? 'RAGLAN HALF' : 'HALF');
 
-              // White 3pt outside stroke
+              // White outside stroke
               ctx.lineJoin = 'round';
               ctx.lineCap = 'round';
               ctx.strokeStyle = '#ffffff';
-              ctx.lineWidth = stroke3ptPx * 2;
+              ctx.lineWidth = strokePx * 2;
               ctx.strokeText(typeStr, widthPx - offset, offset);
 
               // Red Fill
               ctx.fillStyle = '#ff1744';
               ctx.fillText(typeStr, widthPx - offset, offset);
             }
-          }
-
-          // Sleeve Direction label on top-right of Sleeve panels
-          if (item.panelType === 'sleeve-left' || item.panelType === 'sleeve-right') {
-            ctx.textAlign = 'right';
-            ctx.textBaseline = 'top';
-            const dirStr = item.panelType === 'sleeve-left' ? 'LEFT' : 'RIGHT';
-
-            // White 3pt outside stroke
-            ctx.lineJoin = 'round';
-            ctx.lineCap = 'round';
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = stroke3ptPx * 2;
-            ctx.strokeText(dirStr, widthPx - offset, offset);
-
-            // Red Fill
-            ctx.fillStyle = '#ff1744';
-            ctx.fillText(dirStr, widthPx - offset, offset);
           }
           ctx.restore();
         }
@@ -1127,7 +1301,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
         ctx.textBaseline = 'middle';
 
         // Proportional stroke calculation matching screen preview
-        const strokePx = Math.max(1, Math.round((textConf.strokeWidth / 100) * fontSizePx));
+        const strokePx = Math.max(1, Math.round((textConf.strokeWidth / 50) * fontSizePx));
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
 
@@ -1234,18 +1408,18 @@ export const NestingView: React.FC<NestingViewProps> = ({
         const sizeTagConf = conf.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
         if (sizeTagConf.enabled && item.panelType !== 'a4-print') {
           ctx.save();
-          // FIXED PHYSICAL SIZE: scaled by DPI so it is IDENTICAL across all panel sizes (18 to 60)
-          const targetFontSize = sizeTagConf.fontSize || 26;
-          const fontSizePx = Math.round((targetFontSize / 72) * scaleDpi);
-          ctx.font = `bold ${fontSizePx}px "${sizeTagConf.fontFamily}", "OldSport02AthleticNcv-E0gj", Impact, sans-serif`;
-          
+          // Smart normalized size tag font (reference pt scaled with panel width relative to Size 40)
+          const basePt = sizeTagConf.fontSize || 26;
+          const fontSizePx = Math.max(8, Math.round(((basePt / 72) * scaleDpi) * relW));
+          ctx.font = `bold ${fontSizePx}px "${sizeTagConf.fontFamily}", Impact, sans-serif`;
+
           const align = sizeTagConf.align || 'left';
           ctx.textAlign = align;
           ctx.textBaseline = 'top';
           ctx.lineJoin = 'round';
 
-          const offsetX = Math.round(0.08 * scaleDpi);
-          const offsetY = Math.round(0.05 * scaleDpi);
+          const offsetX = Math.max(4, Math.round(0.06 * scaleDpi * relW));
+          const offsetY = Math.max(4, Math.round(0.05 * scaleDpi * relH));
           
           let targetX = offsetX;
           if (align === 'center') {
@@ -1258,7 +1432,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
           let spacingPx = 0;
 
           if (sizeTagConf.letterSpacing !== undefined) {
-            spacingPx = Math.round(sizeTagConf.letterSpacing * scaleDpi);
+            spacingPx = Math.round(sizeTagConf.letterSpacing * scaleDpi * relW);
             ctx.letterSpacing = `${spacingPx}px`;
             if (align === 'center') {
               drawX += spacingPx / 2;
@@ -1269,9 +1443,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
           if (sizeTagConf.effect === 'shadow') {
             ctx.shadowColor = 'rgba(0,0,0,0.6)';
-            ctx.shadowBlur = 4 * (scaleDpi / 100);
-            ctx.shadowOffsetX = 2 * (scaleDpi / 100);
-            ctx.shadowOffsetY = 2 * (scaleDpi / 100);
+            ctx.shadowBlur = 4 * (scaleDpi / 100) * relW;
+            ctx.shadowOffsetX = 2 * (scaleDpi / 100) * relW;
+            ctx.shadowOffsetY = 2 * (scaleDpi / 100) * relW;
           }
 
           // Calculate total quantity for this size in the roster order
@@ -1286,15 +1460,19 @@ export const NestingView: React.FC<NestingViewProps> = ({
             ? templateText.replace('{size}', sizeQtyText)
             : sizeQtyText;
 
+          // Slightly compressed width of size tag (0.80x scale) so it takes up less space
+          ctx.scale(0.80, 1.0);
+          const compressedDrawX = drawX / 0.80;
+
           const sw = sizeTagConf.strokeWidth > 0 ? sizeTagConf.strokeWidth : 3;
-          const swPx = Math.max(1, Math.round((sw / 72) * scaleDpi));
+          const swPx = Math.max(1, Math.round(((sw / 72) * scaleDpi) * relW));
 
           ctx.strokeStyle = sizeTagConf.strokeColor || '#ffffff';
           ctx.lineWidth = swPx * 2;
-          ctx.strokeText(displayText, drawX, offsetY);
+          ctx.strokeText(displayText, compressedDrawX, offsetY);
 
           ctx.fillStyle = sizeTagConf.color || '#ff1744';
-          ctx.fillText(displayText, drawX, offsetY);
+          ctx.fillText(displayText, compressedDrawX, offsetY);
           ctx.restore();
         }
 
@@ -1304,13 +1482,12 @@ export const NestingView: React.FC<NestingViewProps> = ({
         // Draw FiveNest Watermark Logo in 180° (upside-down) with full brand text "FiveNest" in original colors without stroke
         if (includeWatermarkLogo && item.panelType === 'front') {
           ctx.save();
-          // Slightly smaller logo size: 0.26" width, 0.19" height
-          const logoW = Math.round(0.26 * scaleDpi);
-          const logoH = Math.round((0.26 * (48.1 / 64.8)) * scaleDpi);
+          // Scaled proportionally with relW
+          const logoW = Math.round(0.26 * scaleDpi * relW);
+          const logoH = Math.round((0.26 * (48.1 / 64.8)) * scaleDpi * relW);
 
-          // Position watermark shifted right towards right edge
-          const marginX = Math.round(0.10 * scaleDpi);
-          const marginY = Math.round(0.20 * scaleDpi);
+          const marginX = Math.round(0.10 * scaleDpi * relW);
+          const marginY = Math.round(0.20 * scaleDpi * relH);
 
           const cx = widthPx - marginX;
           const cy = heightPx - marginY;
@@ -1338,12 +1515,12 @@ export const NestingView: React.FC<NestingViewProps> = ({
           }
 
           // Draw full "FiveNest" brand text right below icon in Original Dark Maroon color (#650f24), NO STROKE
-          const textFontSize = Math.round(0.09 * scaleDpi); // ~6.5pt crisp text size
+          const textFontSize = Math.round(0.09 * scaleDpi * relW);
           ctx.font = `bold ${textFontSize}px system-ui, -apple-system, sans-serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'top';
 
-          const textY = (logoH / 2) + Math.round(0.03 * scaleDpi);
+          const textY = (logoH / 2) + Math.round(0.03 * scaleDpi * relW);
 
           // Solid Dark Maroon text fill without any stroke
           ctx.fillStyle = '#650f24';
@@ -1959,13 +2136,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
               allBackItems.push(...backSizeMap[size]);
             });
             allBackItems.forEach((item, index) => {
-              const safeName = (item.playerName || 'BLANK').replace(/[\/\\:*?"<>|]/g, "_").trim();
-              const safeNum = (item.playerNum || '').replace(/[\/\\:*?"<>|]/g, "_").trim();
-              const namePart = (safeName && safeName !== 'BLANK') ? `_${safeName}` : '';
-              const numPart = safeNum ? `_${safeNum}` : '';
               renderActions.push({
                 representativeItem: item,
-                fileName: `${item.size}_${index + 1}${namePart}${numPart}_B.jpg`,
+                fileName: `${item.size} ${index + 1} B.jpg`,
                 folder: 'Back'
               });
             });
@@ -2023,24 +2196,29 @@ export const NestingView: React.FC<NestingViewProps> = ({
           });
 
           const zip = new JSZip();
+          const fileExt = exportFormat === 'png' ? '.png' : exportFormat === 'tiff' ? '.tif' : '.jpg';
 
           for (let i = 0; i < renderActions.length; i++) {
             const action = renderActions[i];
-            setExportProgress(`Rendering ${action.folder || 'other'} panel: ${action.fileName} (${i + 1}/${renderActions.length}) at ${activeDpi} DPI...`);
+            // Replace .jpg extension in fileName with selected format extension
+            const outFileName = action.fileName.replace(/\.jpe?g$/i, fileExt);
+            setExportProgress(`Rendering ${action.folder || 'other'} panel: ${outFileName} (${i + 1}/${renderActions.length}) at ${activeDpi} DPI...`);
 
             // Yield control to main thread so browser repaints progress text
             await new Promise(r => setTimeout(r, 0));
 
             const itemCanvas = await renderPanelGraphic(action.representativeItem, activeDpi);
-            let blob = await getCanvasBlob(itemCanvas);
+            let blob = await getCanvasBlobForFormat(itemCanvas, exportFormat, colorProfile, activeDpi);
 
-            // Pipe through injectJPDpi to ensure physical size is correct in inches
-            blob = await injectJPDpi(blob, activeDpi);
+            // For JPG, inject DPI metadata into EXIF
+            if (exportFormat === 'jpg') {
+              blob = await injectJPDpi(blob, activeDpi);
+            }
 
             if (action.folder) {
-              zip.folder(action.folder)?.file(action.fileName, blob);
+              zip.folder(action.folder)?.file(outFileName, blob);
             } else {
-              zip.file(action.fileName, blob);
+              zip.file(outFileName, blob);
             }
 
             // Immediately release GPU canvas memory
@@ -2440,22 +2618,62 @@ export const NestingView: React.FC<NestingViewProps> = ({
             </>
           )}
 
-          <div className="form-group" style={{ margin: 0 }}>
-            <label className="form-label">Export Print DPI Resolution:</label>
-            <select 
-              className="form-select" 
-              value={dpi} 
-              onChange={(e) => {
-                const d = parseInt(e.target.value);
-                setDpi(d);
-                localStorage.setItem('fivenest_pref_dpi', JSON.stringify(d));
-              }}
-            >
-              <option value="72">72 DPI (Low-res Preview Fast)</option>
-              <option value="100">100 DPI (Medium Standard)</option>
-              <option value="150">150 DPI (High-res Sublimation Print)</option>
-              <option value="300">300 DPI (Ultra high-res Professional Rip)</option>
-            </select>
+          {/* Export Settings: DPI + Format + Color Profile */}
+          <div style={{ background: 'rgba(0,229,255,0.04)', border: '1px solid var(--border-active)', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <label style={{ fontSize: '11px', fontWeight: '800', color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>📤 Export Settings</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: '10px' }}>Resolution:</label>
+                <select
+                  className="form-select"
+                  value={dpi}
+                  onChange={(e) => {
+                    const d = parseInt(e.target.value);
+                    setDpi(d);
+                    localStorage.setItem('fivenest_pref_dpi', JSON.stringify(d));
+                  }}
+                >
+                  <option value="72">72 DPI (Preview)</option>
+                  <option value="100">100 DPI (Medium)</option>
+                  <option value="150">150 DPI (High)</option>
+                  <option value="300">300 DPI (Professional ★)</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: '10px' }}>File Format:</label>
+                <select
+                  className="form-select"
+                  value={exportFormat}
+                  onChange={(e) => {
+                    const f = e.target.value as ExportFormat;
+                    setExportFormat(f);
+                    localStorage.setItem('fivenest_pref_export_format', f);
+                  }}
+                >
+                  <option value="jpg">JPG (Default ★)</option>
+                  <option value="png">PNG (Lossless)</option>
+                  <option value="tiff">TIFF (Professional)</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: '10px' }}>Color Profile:</label>
+                <select
+                  className="form-select"
+                  value={colorProfile}
+                  onChange={(e) => {
+                    const p = e.target.value as ColorProfile;
+                    setColorProfile(p);
+                    localStorage.setItem('fivenest_pref_color_profile', p);
+                  }}
+                >
+                  <option value="rgb">RGB (Default ★)</option>
+                  <option value="cmyk">CMYK (TIFF only)</option>
+                </select>
+              </div>
+            </div>
+            {colorProfile === 'cmyk' && exportFormat !== 'tiff' && (
+              <p style={{ fontSize: '10px', color: '#ffaa00', margin: 0 }}>⚠️ CMYK output is only applied for TIFF format. Switch format to TIFF for CMYK export.</p>
+            )}
           </div>
         </div>
 

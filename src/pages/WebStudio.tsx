@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Palette, Users, Ruler, Sliders, HelpCircle, ArrowLeft, Sun, Moon, Menu, X, Award, ExternalLink, Package } from 'lucide-react';
+import { Palette, Users, Ruler, Sliders, Sparkles, ArrowLeft, Sun, Moon, Menu, X, Award, ExternalLink, Package } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase, fetchUserWallet } from '../lib/supabaseClient';
 import { Designer, defaultDesignConfig } from '../components/studio/designer';
@@ -24,8 +24,9 @@ export default function WebStudio() {
   }, [themeMode]);
 
   // Production Studio tabs for designers & printers ONLY
-  const [activeTab, setActiveTab] = useState<'designer' | 'order' | 'sizes' | 'nesting' | 'help'>('designer');
+  const [activeTab, setActiveTab] = useState<'designer' | 'order' | 'nesting' | 'help'>('designer');
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const [sizeEditorOpen, setSizeEditorOpen] = useState<boolean>(false);
 
   // Roster records state
   const [records, setRecords] = useState<PlayerRecord[]>([]);
@@ -37,7 +38,7 @@ export default function WebStudio() {
     blankKit: false,
     a4BackPrint: false,
     raglanStyle: false,
-    halfSleeveMerge: false,
+    halfSleeveMerge: true,
     manualMode: false
   });
 
@@ -142,11 +143,10 @@ export default function WebStudio() {
   };
 
   const productionTabs = [
-    { id: 'designer', label: 'Artwork Setup', icon: Palette },
-    { id: 'order', label: 'Job Details & Excel Data', icon: Users },
-    { id: 'sizes', label: 'Grading Sizes', icon: Ruler },
-    { id: 'nesting', label: 'Nesting & Export', icon: Sliders },
-    { id: 'help', label: 'Help & AI Refiner', icon: HelpCircle },
+    { id: 'designer', label: 'Artwork', icon: Palette },
+    { id: 'order', label: 'Job Details', icon: Users },
+    { id: 'nesting', label: 'Export', icon: Sliders },
+    { id: 'help', label: 'AI Refiner', icon: Sparkles },
   ];
 
   return (
@@ -316,11 +316,11 @@ export default function WebStudio() {
       <main className="main-content">
         <header className="top-navbar">
           <h1 className="navbar-title text-sm md:text-base font-black">
-            {activeTab === 'designer' && "🎨 Step 1: Sublimation Artwork & Overlays"}
-            {activeTab === 'order' && "📋 Step 2: Job Details & Excel Data"}
-            {activeTab === 'sizes' && "📐 Step 3: Size grading dimensions database"}
-            {activeTab === 'nesting' && "⚙️ Step 4: Nesting Engine & Panel Export"}
-            {activeTab === 'help' && "🤖 Shortcuts"}
+            {activeTab === 'designer' && "🎨 Artwork & Overlays"}
+            {activeTab === 'order' && "📋 Job Details"}
+            {activeTab === 'sizes' && "📐 Size Grading"}
+            {activeTab === 'nesting' && "⚙️ Nesting & Export"}
+            {activeTab === 'help' && "✨ AI Data Refiner"}
           </h1>
           
           <div className="navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -329,18 +329,18 @@ export default function WebStudio() {
               <button 
                 className="btn btn-secondary"
                 style={{ 
-                  padding: '6px 12px', 
-                  borderRadius: '30px', 
-                  fontSize: '11px', 
+                  padding: '4px 10px', 
+                  borderRadius: '20px', 
+                  fontSize: '10px', 
                   fontWeight: 'bold', 
                   display: 'flex', 
                   alignItems: 'center', 
-                  gap: '6px',
-                  borderColor: 'rgba(0, 229, 255, 0.4)',
+                  gap: '4px',
+                  borderColor: 'rgba(0, 229, 255, 0.3)',
                   color: 'var(--color-secondary)'
                 }}
               >
-                <Package size={14} /> Order Management (/orders)
+                <Package size={12} /> Orders
               </button>
             </Link>
 
@@ -348,12 +348,12 @@ export default function WebStudio() {
             <label className="test-mode-toggle" style={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: '6px', 
+              gap: '4px', 
               cursor: 'pointer', 
-              fontSize: '11px', 
+              fontSize: '10px', 
               background: testMode ? 'rgba(255, 140, 0, 0.1)' : 'rgba(255,255,255,0.03)', 
-              padding: '6px 12px', 
-              borderRadius: '30px', 
+              padding: '4px 10px', 
+              borderRadius: '20px', 
               border: testMode ? '1px solid var(--color-secondary)' : '1px solid var(--border-light)',
               userSelect: 'none',
               transition: 'all 0.2s ease'
@@ -365,7 +365,7 @@ export default function WebStudio() {
                 style={{ display: 'none' }} 
               />
               <span style={{ color: testMode ? 'var(--color-secondary)' : 'var(--text-muted)', fontWeight: 'bold' }}>
-                {testMode ? "🧪 Test Mode" : "⚡ Production Mode"}
+                {testMode ? "🧪 Test" : "⚡ Live"}
               </span>
             </label>
 
@@ -418,14 +418,10 @@ export default function WebStudio() {
               metadata={metadata}
               onMetadataChange={setMetadata}
               availableSizes={Object.keys(sizeDB)}
+              onOpenSizeEditor={() => setSizeEditorOpen(true)}
             />
           )}
 
-          {activeTab === 'sizes' && (
-            <SizesDb 
-              onDatabaseChange={handleSizeDatabaseChange} 
-            />
-          )}
 
           {activeTab === 'nesting' && (
             <NestingView 
@@ -447,6 +443,24 @@ export default function WebStudio() {
           )}
         </section>
       </main>
+
+      {/* Size Editor Popup Modal */}
+      {sizeEditorOpen && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setSizeEditorOpen(false); }}
+        >
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-active)', borderRadius: '12px', width: '100%', maxWidth: '920px', maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid var(--border-light)', background: 'rgba(0,229,255,0.04)' }}>
+              <span style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)' }}>📐 Size Grading Editor</span>
+              <button onClick={() => setSizeEditorOpen(false)} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid var(--border-light)', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '14px', fontWeight: '700' }}>✕</button>
+            </div>
+            <div style={{ overflow: 'auto', flex: 1 }}>
+              <SizesDb onDatabaseChange={handleSizeDatabaseChange} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Login Modal Overlay */}
       {loginModalOpen && (

@@ -75,7 +75,7 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
                 background: previewSleeveType === 'half' ? 'rgba(0,229,255,0.2)' : 'transparent',
                 color: previewSleeveType === 'half' ? 'var(--accent-cyan)' : 'var(--text-muted)',
               }}
-            >½</button>
+            >Half Sleeve</button>
             <button
               onClick={() => onSleeveTypeChange('full')}
               style={{
@@ -83,7 +83,7 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
                 background: previewSleeveType === 'full' ? 'rgba(0,229,255,0.2)' : 'transparent',
                 color: previewSleeveType === 'full' ? 'var(--accent-cyan)' : 'var(--text-muted)',
               }}
-            >Full</button>
+            >Full Sleeve</button>
           </div>
         )}
       </div>

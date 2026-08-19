@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, RotateCcw, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus, Maximize2 } from 'lucide-react';
 import type { OrderMetadata } from './orderEntry';
 import { ThreeDPreview } from './ThreeDPreview';
-import { defaultSizes, SizesModal } from './sizesDb';
+import { defaultSizes } from './sizesDb';
 import { toast } from 'sonner';
 
 import { ToolBox, CorelTool } from './coreldraw/ToolBox';
@@ -32,6 +32,9 @@ export interface TextConfig {
   gradientStops?: string[];
   gradientDirection?: 'vertical' | 'horizontal' | 'radial' | 'diagonal';
   textureUrl?: string | null;
+  textureOffsetX?: number;
+  textureOffsetY?: number;
+  textureScale?: number;
 }
 
 export interface LogoConfig {
@@ -103,8 +106,8 @@ export const defaultDesignConfig: ArtDesignConfig = {
     generatedColor1: '#9b4dff',
     generatedColor2: '#ff8c00',
     uploadedFileUrl: null,
-    nameConfig: { enabled: false, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    numberConfig: { enabled: false, yPos: 44, fontSize: 3.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 3, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.08 },
+    nameConfig: { enabled: false, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    numberConfig: { enabled: false, yPos: 44, fontSize: 3.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1.75, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 3, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.08 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [2.0, 8.5, 11.0, 13.5, 20.0], horizontal: [7.0, 10.0, 12.0, 27.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 15.0, yPos: 8.5, lockAspectRatio: true },
@@ -118,7 +121,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     generatedColor2: '#ff8c00',
     uploadedFileUrl: null,
     nameConfig: { enabled: true, yPos: 24, fontSize: 2.5, color: '#000000', strokeColor: '#ffffff', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 11, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.18 },
-    numberConfig: { enabled: true, yPos: 47, fontSize: 9.0, color: '#000000', strokeColor: '#ffffff', strokeWidth: 5, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8.5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.2 },
+    numberConfig: { enabled: true, yPos: 47, fontSize: 9.0, color: '#000000', strokeColor: '#ffffff', strokeWidth: 1.75, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8.5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.2 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0.06 },
     guidelines: { vertical: [2.0, 11.0, 20.0], horizontal: [2.5, 6.0, 8.0, 9.5, 16.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
@@ -131,8 +134,8 @@ export const defaultDesignConfig: ArtDesignConfig = {
     generatedColor1: '#9b4dff',
     generatedColor2: '#0a0a0f',
     uploadedFileUrl: null,
-    nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1.75, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [9.5], horizontal: [8.0] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
@@ -145,8 +148,8 @@ export const defaultDesignConfig: ArtDesignConfig = {
     generatedColor1: '#9b4dff',
     generatedColor2: '#0a0a0f',
     uploadedFileUrl: null,
-    nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1.75, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [9.5], horizontal: [8.0] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
@@ -164,8 +167,8 @@ export const defaultDesignConfig: ArtDesignConfig = {
     bgX: 0,
     bgY: 0,
     bgLockAspectRatio: true,
-    nameConfig: { enabled: false, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    numberConfig: { enabled: true, yPos: 55, fontSize: 6.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    nameConfig: { enabled: false, yPos: 24, fontSize: 2.5, color: '#000000', strokeColor: '#ffffff', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 11, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.18 },
+    numberConfig: { enabled: true, yPos: 47, fontSize: 9.0, color: '#000000', strokeColor: '#ffffff', strokeWidth: 1.75, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8.5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.2 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [5.0], horizontal: [5.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
@@ -185,7 +188,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [previewName, setPreviewName] = useState<string>("FIVENEST");
   const [previewNumber, setPreviewNumber] = useState<string>("23");
   const [overlaySubTab, setOverlaySubTab] = useState<'name' | 'number' | 'logos' | 'sizeTag'>('name');
-  const [showPanelEditorModal, setShowPanelEditorModal] = useState<boolean>(false);
   const [customFonts, setCustomFonts] = useState<{name: string, url: string}[]>([]);
   const [previewSleeveType, setPreviewSleeveType] = useState<'half' | 'full'>('half');
   const [prefTrigger, setPrefTrigger] = useState<number>(0);
@@ -499,6 +501,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   }>({});
   const isDraggingTextRef = useRef<boolean>(false);
   const textDragOffsetYRef = useRef<number>(0); // grab offset in canvas-pixels so text doesn't jump
+  const dragStartConfigRef = useRef<ArtDesignConfig | null>(null); // snapshot config at drag start for clean undo
   const touchStartRef = useRef<{
     x: number;
     y: number;
@@ -737,7 +740,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ...updatedFields
       }
     };
-    onDesignConfigChange(updated);
+    undoableConfigChange(updated);
   };
 
   const updateTrimConfig = (partKey: 'collar' | 'placket' | 'sleeveStripe', updatedFields: Partial<TrimPartConfig>) => {
@@ -771,11 +774,46 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     }
   };
 
+  const handleTextTextureUpload = (textType: 'name' | 'number', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const url = event.target?.result as string;
+      // Pre-load into texture cache for instant canvas rendering
+      const img = new Image();
+      img.onload = () => {
+        textureCache.current.set(url, img);
+        setPrefTrigger(prev => prev + 1);
+      };
+      img.src = url;
+      // Update config with texture URL and default offsets
+      const configKey = textType === 'name' ? 'nameConfig' : 'numberConfig';
+      const targetTab = (activeTab === 'threeD' ? 'front' : activeTab === 'dual' ? dualActivePanel : activeTab) as 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print';
+      undoableConfigChange({
+        ...designConfig,
+        [targetTab]: {
+          ...activePanel,
+          [configKey]: {
+            ...activePanel[configKey],
+            fillType: 'texture' as const,
+            textureUrl: url,
+            textureOffsetX: 50,
+            textureOffsetY: 50,
+            textureScale: 1.0
+          }
+        }
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   const updateTextConfig = (textType: 'name' | 'number' | 'sizeTag', fields: Partial<TextConfig>) => {
     const configKey = textType === 'name' ? 'nameConfig' : textType === 'number' ? 'numberConfig' : 'sizeTagConfig';
     updateActivePanel({
       [configKey]: {
-        ...(activePanel[configKey] || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none' }),
+        ...(activePanel[configKey] || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none' }),
         ...fields
       }
     });
@@ -1029,7 +1067,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.textBaseline = 'middle';
 
         // Proportional outside stroke calculation (scaled directly with font size / panel height)
-        const strokePx = Math.max(1, Math.round((conf.strokeWidth / 100) * fontSizePx));
+        const strokePx = Math.max(1, Math.round((conf.strokeWidth / 50) * fontSizePx));
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
 
@@ -1119,8 +1157,24 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             const cached = textureCache.current.get(conf.textureUrl);
             if (cached && cached.complete && cached.naturalWidth > 0) {
               try {
-                const pattern = ctx.createPattern(cached, 'repeat');
-                if (pattern) return pattern;
+                const scale = conf.textureScale || 1.0;
+                const patternCanvas = document.createElement('canvas');
+                const scaledW = Math.max(1, Math.round(cached.naturalWidth * scale));
+                const scaledH = Math.max(1, Math.round(cached.naturalHeight * scale));
+                patternCanvas.width = scaledW;
+                patternCanvas.height = scaledH;
+                const patCtx = patternCanvas.getContext('2d')!;
+                patCtx.drawImage(cached, 0, 0, scaledW, scaledH);
+                const pattern = ctx.createPattern(patternCanvas, 'repeat');
+                if (pattern) {
+                  const offsetX = ((conf.textureOffsetX ?? 50) / 100) * scaledW;
+                  const offsetY = ((conf.textureOffsetY ?? 50) / 100) * scaledH;
+                  const matrix = new DOMMatrix();
+                  matrix.e = -offsetX;
+                  matrix.f = -offsetY;
+                  pattern.setTransform(matrix);
+                  return pattern;
+                }
               } catch (err) {}
             } else if (!cached) {
               const img = new Image();
@@ -1188,15 +1242,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
 
       // Draw interactive Cyan Selection Box with 8 Control Handles around Active Selected Text Layer ONLY if text is selected
-      if (!is3DPreview && activeTextLayer) {
+      // Skip selection box on sleeve panels (no name/number placement there)
+      if (!is3DPreview && activeTextLayer && panelKey !== 'sleeveLeft' && panelKey !== 'sleeveRight') {
         const selectedBox = textBoundingBoxesRef.current[activeTextLayer];
         if (selectedBox) {
           ctx.save();
           ctx.strokeStyle = '#00f0ff';
-          ctx.lineWidth = 2;
-          ctx.setLineDash([6, 4]);
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([5, 3]);
 
-          const pad = 10;
+          const pad = 4;
           const bx = selectedBox.x - pad;
           const by = selectedBox.y - pad;
           const bw = selectedBox.w + pad * 2;
@@ -1240,7 +1295,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
 
       // Draw customizable Size Tag (Top Left) - skip for A4 and skip if 3D preview
-      const sizeTagConf = panel.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
+      const sizeTagConf = panel.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
       if (!is3DPreview && sizeTagConf.enabled && panelKey !== 'a4Print') {
         ctx.save();
         // Use pxPerInch (physicalW-based) so size tag is SAME physical size on all panels
@@ -1253,7 +1308,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.textBaseline = 'top';
         ctx.lineJoin = 'round';
 
-        const offsetPx = Math.round(0.15 * pxPerInch);
+        const offsetPx = Math.round(0.06 * pxPerInch);
         
         let targetX = offsetPx;
         if (align === 'center') {
@@ -1285,7 +1340,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         const templateText = sizeTagConf.text || '{size}';
         const displayText = templateText.replace('{size}', "40");
 
-        const sw = sizeTagConf.strokeWidth > 0 ? sizeTagConf.strokeWidth : 7;
+        const sw = sizeTagConf.strokeWidth > 0 ? sizeTagConf.strokeWidth : 3;
         const swPx = Math.max(1, Math.round((sw / 72) * pxPerInch));
 
         ctx.strokeStyle = sizeTagConf.strokeColor || '#ffffff';
@@ -2028,7 +2083,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         setActiveTextLayer('name');
         setActiveTool('text');
         isDraggingTextRef.current = true;
-        // Record how far from the top of the text box the user clicked
+        dragStartConfigRef.current = JSON.parse(JSON.stringify(designConfig)); // snapshot for undo
         textDragOffsetYRef.current = canvasY - nameBox.y;
         setPrefTrigger(prev => prev + 1);
         return;
@@ -2047,7 +2102,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         setActiveTextLayer('number');
         setActiveTool('text');
         isDraggingTextRef.current = true;
-        // Record how far from the top of the text box the user clicked
+        dragStartConfigRef.current = JSON.parse(JSON.stringify(designConfig)); // snapshot for undo
         textDragOffsetYRef.current = canvasY - numBox.y;
         setPrefTrigger(prev => prev + 1);
         return;
@@ -2059,6 +2114,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   };
 
   const handleCanvasMouseUp = () => {
+    // Push ONE undo snapshot for the entire drag operation
+    if (isDraggingTextRef.current && dragStartConfigRef.current) {
+      setUndoStack(prev => [...prev.slice(-29), dragStartConfigRef.current!]);
+      setRedoStack([]);
+      dragStartConfigRef.current = null;
+    }
     isDraggingTextRef.current = false;
   };
 
@@ -2073,7 +2134,19 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       // Subtract grab offset so the text follows the cursor without jumping
       const canvasY = (mouseY / zoom) - currentRulerOffset - textDragOffsetYRef.current;
       const newYPercent = Math.min(100, Math.max(0, Math.round((canvasY / height) * 100)));
-      updateTextConfig(activeTextLayer, { yPos: newYPercent });
+      // During drag: update directly without pushing to undo stack (snapshot pushed on mouseUp)
+      const configKey = activeTextLayer === 'name' ? 'nameConfig' : 'numberConfig';
+      const targetTab = activeTab === 'threeD' ? 'front' : activeTab === 'dual' ? dualActivePanel : activeTab;
+      onDesignConfigChange({
+        ...designConfig,
+        [targetTab]: {
+          ...activePanel,
+          [configKey]: {
+            ...activePanel[configKey],
+            yPos: newYPercent
+          }
+        }
+      });
     }
 
     const currentScale = scale * zoom;
@@ -2107,7 +2180,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         onOpenBulkImport={() => zipInputRef.current?.click()}
         onClearPanel={() => updateActivePanel({ uploadedFileUrl: null })}
         onOpenShortcutsModal={() => setShowShortcutsModal(true)}
-        onOpenPanelEditor={() => setShowPanelEditorModal(true)}
       />
 
       {/* 2. COREL CONTEXT PROPERTY BAR */}
@@ -3009,41 +3081,121 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     </div>
                   )}
 
-                  {activePanel.nameConfig.fillType === 'gradient' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <label className="form-label" style={{ fontSize: '10px', margin: 0, fontWeight: 'bold' }}>
-                          Color Stops ({(activePanel.nameConfig.gradientStops || [activePanel.nameConfig.gradientColor1 || '#00f0ff', activePanel.nameConfig.gradientColor2 || '#ff0055']).length}):
-                        </label>
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          style={{ padding: '2px 6px', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '3px', color: '#00f0ff' }}
-                          onClick={() => {
-                            const current = activePanel.nameConfig.gradientStops || [activePanel.nameConfig.gradientColor1 || '#00f0ff', activePanel.nameConfig.gradientColor2 || '#ff0055'];
-                            updateTextConfig('name', { gradientStops: [...current, '#eab308'] });
-                          }}
-                        >
-                          <Plus size={9} /> Add Stop
-                        </button>
+                  {activePanel.nameConfig.fillType === 'gradient' && (() => {
+                    const stops = activePanel.nameConfig.gradientStops || [activePanel.nameConfig.gradientColor1 || '#00f0ff', activePanel.nameConfig.gradientColor2 || '#ff0055'];
+                    const dir = activePanel.nameConfig.gradientDirection || 'vertical';
+                    const gradAngle = dir === 'horizontal' ? '90deg' : dir === 'diagonal' ? '135deg' : dir === 'radial' ? '90deg' : '180deg';
+                    const previewBg = dir === 'radial'
+                      ? `radial-gradient(circle, ${stops.join(', ')})`
+                      : `linear-gradient(${gradAngle}, ${stops.join(', ')})`;
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {/* Gradient Preview Bar */}
+                        <div style={{
+                          height: '20px', borderRadius: '6px', border: '1px solid var(--border-default)',
+                          background: previewBg, cursor: 'pointer'
+                        }} title="Gradient Preview" />
+
+                        {/* Direction Selector */}
+                        <div style={{ display: 'flex', gap: '3px' }}>
+                          {(['vertical', 'horizontal', 'diagonal', 'radial'] as const).map(d => (
+                            <button key={d} type="button"
+                              className={`btn ${dir === d ? 'btn-primary' : 'btn-secondary'}`}
+                              style={{ flex: 1, padding: '2px 0', fontSize: '8px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.03em' }}
+                              onClick={() => updateTextConfig('name', { gradientDirection: d })}
+                            >{d === 'vertical' ? '↕' : d === 'horizontal' ? '↔' : d === 'diagonal' ? '⤡' : '◎'} {d.slice(0, 4)}</button>
+                          ))}
+                        </div>
+
+                        {/* Color Stops Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <label className="form-label" style={{ fontSize: '10px', margin: 0, fontWeight: 'bold' }}>
+                            Color Stops ({stops.length}):
+                          </label>
+                          <button type="button" className="btn btn-secondary"
+                            style={{ padding: '2px 6px', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '3px', color: '#00f0ff' }}
+                            onClick={() => updateTextConfig('name', { gradientStops: [...stops, '#eab308'], fillType: 'gradient' })}
+                          ><Plus size={9} /> Add</button>
+                        </div>
+
+                        {/* Individual Color Stop Pickers */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {stops.map((color, idx) => (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: '700', minWidth: '14px' }}>
+                                {idx + 1}
+                              </span>
+                              <input
+                                type="color"
+                                value={color}
+                                onChange={(e) => {
+                                  const updated = [...stops];
+                                  updated[idx] = e.target.value;
+                                  updateTextConfig('name', { gradientStops: updated, gradientColor1: updated[0], gradientColor2: updated[updated.length - 1] });
+                                }}
+                                style={{ width: '28px', height: '22px', border: 'none', borderRadius: '4px', cursor: 'pointer', background: 'transparent', padding: 0 }}
+                              />
+                              <input
+                                type="text"
+                                value={color}
+                                onChange={(e) => {
+                                  const updated = [...stops];
+                                  updated[idx] = e.target.value;
+                                  updateTextConfig('name', { gradientStops: updated, gradientColor1: updated[0], gradientColor2: updated[updated.length - 1] });
+                                }}
+                                style={{ flex: 1, fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontFamily: 'monospace' }}
+                              />
+                              {stops.length > 2 && (
+                                <button type="button"
+                                  style={{ background: 'rgba(255,50,50,0.15)', border: 'none', borderRadius: '4px', padding: '2px 4px', cursor: 'pointer', color: '#ff4444', fontSize: '10px', fontWeight: '900' }}
+                                  onClick={() => {
+                                    const updated = stops.filter((_, i) => i !== idx);
+                                    updateTextConfig('name', { gradientStops: updated, gradientColor1: updated[0], gradientColor2: updated[updated.length - 1] });
+                                  }}
+                                >✕</button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {activePanel.nameConfig.fillType === 'texture' && (
-                    <div style={{ marginTop: '8px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <label className="btn btn-secondary" style={{ padding: '6px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'block' }}>
-                        Upload Texture Image
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={(e) => handleTextTextureUpload('name', e)} 
-                          style={{ display: 'none' }} 
-                        />
+                        {activePanel.nameConfig.textureUrl ? '🔄 Change Texture' : '⬆️ Upload Texture'}
+                        <input type="file" accept="image/*" onChange={(e) => handleTextTextureUpload('name', e)} style={{ display: 'none' }} />
                       </label>
                       {activePanel.nameConfig.textureUrl && (
-                        <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px', textAlign: 'center' }}>
-                          ✓ Texture Loaded
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <img src={activePanel.nameConfig.textureUrl} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-default)', flexShrink: 0 }} alt="Texture" />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: '10px', color: '#10b981', fontWeight: 'bold' }}>✓ Texture Loaded</div>
+                              <button type="button" style={{ fontSize: '9px', color: '#ff4444', background: 'rgba(255,50,50,0.1)', border: 'none', borderRadius: '3px', padding: '1px 6px', cursor: 'pointer', marginTop: '2px' }} onClick={() => updateTextConfig('name', { textureUrl: null, fillType: 'solid' })}>✕ Remove</button>
+                            </div>
+                          </div>
+                          <div style={{ background: 'rgba(255,255,255,0.03)', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
+                            <div style={{ fontSize: '9px', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Position & Scale</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '12px', fontWeight: '700' }}>X</span>
+                                <input type="range" min={0} max={100} step={1} value={activePanel.nameConfig.textureOffsetX ?? 50} onChange={(e) => updateTextConfig('name', { textureOffsetX: Number(e.target.value) })} style={{ flex: 1 }} />
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '26px', textAlign: 'right' }}>{activePanel.nameConfig.textureOffsetX ?? 50}%</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '12px', fontWeight: '700' }}>Y</span>
+                                <input type="range" min={0} max={100} step={1} value={activePanel.nameConfig.textureOffsetY ?? 50} onChange={(e) => updateTextConfig('name', { textureOffsetY: Number(e.target.value) })} style={{ flex: 1 }} />
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '26px', textAlign: 'right' }}>{activePanel.nameConfig.textureOffsetY ?? 50}%</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '12px', fontWeight: '700' }}>S</span>
+                                <input type="range" min={25} max={300} step={5} value={Math.round((activePanel.nameConfig.textureScale ?? 1.0) * 100)} onChange={(e) => updateTextConfig('name', { textureScale: Number(e.target.value) / 100 })} style={{ flex: 1 }} />
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '26px', textAlign: 'right' }}>{Math.round((activePanel.nameConfig.textureScale ?? 1.0) * 100)}%</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -3257,41 +3409,121 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     </div>
                   )}
 
-                  {activePanel.numberConfig.fillType === 'gradient' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <label className="form-label" style={{ fontSize: '10px', margin: 0, fontWeight: 'bold' }}>
-                          Color Stops ({(activePanel.numberConfig.gradientStops || [activePanel.numberConfig.gradientColor1 || '#00f0ff', activePanel.numberConfig.gradientColor2 || '#ff0055']).length}):
-                        </label>
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          style={{ padding: '2px 6px', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '3px', color: '#00f0ff' }}
-                          onClick={() => {
-                            const current = activePanel.numberConfig.gradientStops || [activePanel.numberConfig.gradientColor1 || '#00f0ff', activePanel.numberConfig.gradientColor2 || '#ff0055'];
-                            updateTextConfig('number', { gradientStops: [...current, '#eab308'] });
-                          }}
-                        >
-                          <Plus size={9} /> Add Stop
-                        </button>
+                  {activePanel.numberConfig.fillType === 'gradient' && (() => {
+                    const stops = activePanel.numberConfig.gradientStops || [activePanel.numberConfig.gradientColor1 || '#00f0ff', activePanel.numberConfig.gradientColor2 || '#ff0055'];
+                    const dir = activePanel.numberConfig.gradientDirection || 'vertical';
+                    const gradAngle = dir === 'horizontal' ? '90deg' : dir === 'diagonal' ? '135deg' : dir === 'radial' ? '90deg' : '180deg';
+                    const previewBg = dir === 'radial'
+                      ? `radial-gradient(circle, ${stops.join(', ')})`
+                      : `linear-gradient(${gradAngle}, ${stops.join(', ')})`;
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {/* Gradient Preview Bar */}
+                        <div style={{
+                          height: '20px', borderRadius: '6px', border: '1px solid var(--border-default)',
+                          background: previewBg, cursor: 'pointer'
+                        }} title="Gradient Preview" />
+
+                        {/* Direction Selector */}
+                        <div style={{ display: 'flex', gap: '3px' }}>
+                          {(['vertical', 'horizontal', 'diagonal', 'radial'] as const).map(d => (
+                            <button key={d} type="button"
+                              className={`btn ${dir === d ? 'btn-primary' : 'btn-secondary'}`}
+                              style={{ flex: 1, padding: '2px 0', fontSize: '8px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.03em' }}
+                              onClick={() => updateTextConfig('number', { gradientDirection: d })}
+                            >{d === 'vertical' ? '↕' : d === 'horizontal' ? '↔' : d === 'diagonal' ? '⤡' : '◎'} {d.slice(0, 4)}</button>
+                          ))}
+                        </div>
+
+                        {/* Color Stops Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <label className="form-label" style={{ fontSize: '10px', margin: 0, fontWeight: 'bold' }}>
+                            Color Stops ({stops.length}):
+                          </label>
+                          <button type="button" className="btn btn-secondary"
+                            style={{ padding: '2px 6px', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '3px', color: '#00f0ff' }}
+                            onClick={() => updateTextConfig('number', { gradientStops: [...stops, '#eab308'], fillType: 'gradient' })}
+                          ><Plus size={9} /> Add</button>
+                        </div>
+
+                        {/* Individual Color Stop Pickers */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {stops.map((color, idx) => (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: '700', minWidth: '14px' }}>
+                                {idx + 1}
+                              </span>
+                              <input
+                                type="color"
+                                value={color}
+                                onChange={(e) => {
+                                  const updated = [...stops];
+                                  updated[idx] = e.target.value;
+                                  updateTextConfig('number', { gradientStops: updated, gradientColor1: updated[0], gradientColor2: updated[updated.length - 1] });
+                                }}
+                                style={{ width: '28px', height: '22px', border: 'none', borderRadius: '4px', cursor: 'pointer', background: 'transparent', padding: 0 }}
+                              />
+                              <input
+                                type="text"
+                                value={color}
+                                onChange={(e) => {
+                                  const updated = [...stops];
+                                  updated[idx] = e.target.value;
+                                  updateTextConfig('number', { gradientStops: updated, gradientColor1: updated[0], gradientColor2: updated[updated.length - 1] });
+                                }}
+                                style={{ flex: 1, fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontFamily: 'monospace' }}
+                              />
+                              {stops.length > 2 && (
+                                <button type="button"
+                                  style={{ background: 'rgba(255,50,50,0.15)', border: 'none', borderRadius: '4px', padding: '2px 4px', cursor: 'pointer', color: '#ff4444', fontSize: '10px', fontWeight: '900' }}
+                                  onClick={() => {
+                                    const updated = stops.filter((_, i) => i !== idx);
+                                    updateTextConfig('number', { gradientStops: updated, gradientColor1: updated[0], gradientColor2: updated[updated.length - 1] });
+                                  }}
+                                >✕</button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {activePanel.numberConfig.fillType === 'texture' && (
-                    <div style={{ marginTop: '8px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <label className="btn btn-secondary" style={{ padding: '6px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'block' }}>
-                        Upload Texture Image
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={(e) => handleTextTextureUpload('number', e)} 
-                          style={{ display: 'none' }} 
-                        />
+                        {activePanel.numberConfig.textureUrl ? '🔄 Change Texture' : '⬆️ Upload Texture'}
+                        <input type="file" accept="image/*" onChange={(e) => handleTextTextureUpload('number', e)} style={{ display: 'none' }} />
                       </label>
                       {activePanel.numberConfig.textureUrl && (
-                        <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px', textAlign: 'center' }}>
-                          ✓ Texture Loaded
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <img src={activePanel.numberConfig.textureUrl} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-default)', flexShrink: 0 }} alt="Texture" />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: '10px', color: '#10b981', fontWeight: 'bold' }}>✓ Texture Loaded</div>
+                              <button type="button" style={{ fontSize: '9px', color: '#ff4444', background: 'rgba(255,50,50,0.1)', border: 'none', borderRadius: '3px', padding: '1px 6px', cursor: 'pointer', marginTop: '2px' }} onClick={() => updateTextConfig('number', { textureUrl: null, fillType: 'solid' })}>✕ Remove</button>
+                            </div>
+                          </div>
+                          <div style={{ background: 'rgba(255,255,255,0.03)', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
+                            <div style={{ fontSize: '9px', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Position & Scale</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '12px', fontWeight: '700' }}>X</span>
+                                <input type="range" min={0} max={100} step={1} value={activePanel.numberConfig.textureOffsetX ?? 50} onChange={(e) => updateTextConfig('number', { textureOffsetX: Number(e.target.value) })} style={{ flex: 1 }} />
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '26px', textAlign: 'right' }}>{activePanel.numberConfig.textureOffsetX ?? 50}%</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '12px', fontWeight: '700' }}>Y</span>
+                                <input type="range" min={0} max={100} step={1} value={activePanel.numberConfig.textureOffsetY ?? 50} onChange={(e) => updateTextConfig('number', { textureOffsetY: Number(e.target.value) })} style={{ flex: 1 }} />
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '26px', textAlign: 'right' }}>{activePanel.numberConfig.textureOffsetY ?? 50}%</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '12px', fontWeight: '700' }}>S</span>
+                                <input type="range" min={25} max={300} step={5} value={Math.round((activePanel.numberConfig.textureScale ?? 1.0) * 100)} onChange={(e) => updateTextConfig('number', { textureScale: Number(e.target.value) / 100 })} style={{ flex: 1 }} />
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '26px', textAlign: 'right' }}>{Math.round((activePanel.numberConfig.textureScale ?? 1.0) * 100)}%</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -4235,13 +4467,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       {showShortcutsModal && (
         <ShortcutsModal onClose={() => setShowShortcutsModal(false)} />
       )}
-
-      {/* 7. SUBLIMATION CORE PANEL & SIZE GRADING EDITOR MODAL */}
-      <SizesModal 
-        isOpen={showPanelEditorModal} 
-        onClose={() => setShowPanelEditorModal(false)} 
-        onDatabaseChange={() => setPrefTrigger(prev => prev + 1)}
-      />
     </div>
   );
 };

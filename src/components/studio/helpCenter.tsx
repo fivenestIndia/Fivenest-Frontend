@@ -173,24 +173,27 @@ export const HelpCenter: React.FC<HelpCenterProps> = ({ onImportRecords }) => {
       const trimmed = line.trim();
       if (!trimmed || trimmed.length < 2) return;
 
-      const sizeMatch = trimmed.match(/(?:size|sz)\s*([0-9]{2}|S|M|L|XL|XXL)/i) || trimmed.match(/\b(36|38|40|42|44|46|48|50|S|M|L|XL|XXL)\b/i);
+      const sizeMatch = trimmed.match(/(?:size|sz)\s*([0-9]{2}|S|M|L|XL|XXL)/i) || trimmed.match(/\b(18|20|22|24|26|28|30|32|34|36|38|40|42|44|46|48|50|52|54|56|58|60|S|M|L|XL|XXL)\b/i);
       const numMatch = trimmed.match(/(?:number|num|#)\s*([0-9]+)/i) || trimmed.match(/#([0-9]+)/);
       const qtyMatch = trimmed.match(/(?:qty|quantity|count)\s*([0-9]+)/i) || trimmed.match(/(?:qty|\(qty|x)\s*([0-9]+)/i);
+      const sleeveMatch = trimmed.match(/\b(full\s*sleeve|half\s*sleeve|full|half|fls|lhs|sleeveless|no\s*sleeve)\b/i);
 
       const num = numMatch ? numMatch[1] : "";
       const size = sizeMatch ? sizeMatch[1].toUpperCase() : "40";
       const qty = qtyMatch ? parseInt(qtyMatch[1]) || 1 : 1;
+      const sleeve: 'half' | 'full' | 'none' = sleeveMatch && (sleeveMatch[1].toLowerCase().includes('full') || sleeveMatch[1].toLowerCase() === 'fls') ? 'full' : sleeveMatch && (sleeveMatch[1].toLowerCase().includes('less') || sleeveMatch[1].toLowerCase().includes('no')) ? 'none' : 'half';
 
       let cleanName = trimmed
-        .replace(/(?:size|sz|number|num|qty|quantity|count)\s*[:=]?\s*[a-z0-9]+/gi, '')
-        .replace(/\b(36|38|40|42|44|46|48|50|S|M|L|XL|XXL)\b/gi, '')
+        .replace(/(?:size|sz|number|num|qty|quantity|count|sleeve)\s*[:=]?\s*[a-z0-9]+/gi, '')
+        .replace(/\b(full\s*sleeve|half\s*sleeve|full|half|fls|lhs|sleeveless)\b/gi, '')
+        .replace(/\b(18|20|22|24|26|28|30|32|34|36|38|40|42|44|46|48|50|52|54|56|58|60|S|M|L|XL|XXL)\b/gi, '')
         .replace(/#[0-9]+/g, '')
         .replace(/^[0-9]+[\s.\-)]+/, '')
         .replace(/[^a-zA-Z\s]/g, ' ')
         .trim();
 
       if (!cleanName || cleanName.length < 2) {
-        cleanName = "BLANK";
+        cleanName = "";
       }
 
       records.push({
@@ -199,7 +202,7 @@ export const HelpCenter: React.FC<HelpCenterProps> = ({ onImportRecords }) => {
         number: num,
         size: size,
         qty: qty,
-        sleeve: 'half'
+        sleeve: sleeve
       });
     });
 
@@ -260,26 +263,19 @@ export const HelpCenter: React.FC<HelpCenterProps> = ({ onImportRecords }) => {
 
   // Clipboard Paste Event Listener for Images (Ctrl+V / Cmd+V)
   useEffect(() => {
-    if (activeSubTab !== 'refiner') return;
-
     const handlePaste = (e: ClipboardEvent) => {
       const items = e.clipboardData?.items;
       if (!items) return;
-
       for (let i = 0; i < items.length; i++) {
         if (items[i].type.indexOf('image') !== -1) {
           const blob = items[i].getAsFile();
-          if (blob) {
-            processImageOCR(blob);
-            break;
-          }
+          if (blob) { processImageOCR(blob); break; }
         }
       }
     };
-
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [activeSubTab]);
+  }, []);
 
   const handleCopyToClipboard = () => {
     navigator.clipboard.writeText(refinedCSV);
@@ -296,238 +292,212 @@ export const HelpCenter: React.FC<HelpCenterProps> = ({ onImportRecords }) => {
   };
 
   return (
-    <div className="help-center-container fade-in">
-      {/* Sub tabs */}
-      <div className="tab-btn-group" style={{ marginBottom: '24px', maxWidth: '360px' }}>
-        <button className={`tab-btn ${activeSubTab === 'manual' ? 'active' : ''}`} onClick={() => setActiveSubTab('manual')}>Interactive User Manual</button>
-        <button className={`tab-btn ${activeSubTab === 'refiner' ? 'active' : ''}`} onClick={() => setActiveSubTab('refiner')}>AI Smart CSV Roster Refiner</button>
+    <div className="help-center-container fade-in" style={{ padding: '24px', maxWidth: '1100px', margin: '0 auto' }}>
+
+      {/* Header */}
+      <div style={{ marginBottom: '24px' }}>
+        <h2 style={{ margin: '0 0 6px', fontSize: '22px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Sparkles size={24} style={{ color: 'var(--color-primary)' }} /> AI Data Refiner
+        </h2>
+        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+          Paste a messy client message, WhatsApp order, or email — or upload a photo of a handwritten list.
+          AI extracts player <strong>Name, Number, Size &amp; Qty</strong> and sends it straight to Job Details.
+        </p>
       </div>
 
-      {activeSubTab === 'manual' ? (
-        <div className="chat-window">
-          {/* Chat history */}
-          <div className="chat-history">
-            {messages.map((msg, i) => (
-              <div key={i} className={`chat-bubble chat-bubble-${msg.sender}`} style={{ whiteSpace: 'pre-wrap' }}>
-                {msg.text}
-              </div>
-            ))}
-            <div ref={chatEndRef} />
-          </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
 
-          {/* Quick pills */}
-          <div className="chat-suggestions">
-            <span className="suggestion-pill" onClick={() => handleSuggestionClick("Blank Kit")}>Blank Kit</span>
-            <span className="suggestion-pill" onClick={() => handleSuggestionClick("Half-Sleeve Merge")}>Half-Sleeve Merge</span>
-            <span className="suggestion-pill" onClick={() => handleSuggestionClick("A4-Back Print")}>A4-Back Print</span>
-            <span className="suggestion-pill" onClick={() => handleSuggestionClick("Raglan Style")}>Raglan Style</span>
-            <span className="suggestion-pill" onClick={() => handleSuggestionClick("Auto Nesting & Bin Packing")}>Auto Nesting</span>
-            <span className="suggestion-pill" onClick={() => handleSuggestionClick("How to Run a Batch Job")}>How to Run</span>
-          </div>
+        {/* LEFT — Input Panel */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
 
-          {/* Input field */}
-          <div className="chat-input-row">
-            <input 
-              type="text" 
-              className="form-input" 
-              placeholder="Ask a question about sublimation rendering, sizing, or nesting..." 
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage(); }}
-            />
-            <button className="btn btn-primary" onClick={() => handleSendMessage()}>
-              <Send size={16} /> Send
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          
-          {/* ✨ Gemini Gem Banner */}
-          <div className="glass-card" style={{ 
-            background: 'linear-gradient(135deg, rgba(155, 77, 255, 0.18), rgba(0, 229, 255, 0.12))', 
-            border: '1px solid rgba(155, 77, 255, 0.4)', 
-            padding: '20px 24px', 
-            borderRadius: '12px',
-            boxShadow: '0 4px 20px rgba(155, 77, 255, 0.15)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
-              <div>
-                <h3 style={{ margin: '0 0 6px', fontSize: '17px', fontWeight: '800', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Sparkles size={20} style={{ color: 'var(--color-primary)' }} /> FiveNest AI Roster Refiner Gem (Gemini AI)
-                </h3>
-                <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255, 255, 255, 0.75)', lineHeight: '1.5', maxWidth: '650px' }}>
-                  Use our custom Google Gemini Gem to automatically refine, extract, and clean raw client emails or WhatsApp roster text into structured CSV format.
-                </p>
-              </div>
-              <a 
-                href="https://gemini.google.com/gem/1vc3MbyzLtt5RspOpQualSpuViseurHd4?usp=sharing" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="btn btn-primary"
-                style={{ 
-                  padding: '11px 20px', 
-                  fontSize: '13px', 
-                  fontWeight: 'bold', 
-                  display: 'inline-flex', 
-                  alignItems: 'center', 
-                  gap: '8px', 
-                  whiteSpace: 'nowrap',
-                  boxShadow: '0 4px 16px rgba(155, 77, 255, 0.4)'
-                }}
-              >
-                <Sparkles size={16} /> Launch Gemini AI Gem <ExternalLink size={14} />
-              </a>
-            </div>
-          </div>
-
-          {/* 📸 Upload / Paste Image OCR Reader Card */}
-          <div className="glass-card" style={{ background: 'rgba(0, 229, 255, 0.04)', borderColor: 'rgba(0, 229, 255, 0.3)', padding: '18px 22px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', color: '#00e5ff' }}>
-                <Camera size={18} /> Image Roster OCR Reader (Upload or Paste Photo)
-              </h3>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                Press <strong>Ctrl + V</strong> to paste any image from clipboard
+          {/* Image Upload / Paste Zone */}
+          <div
+            style={{
+              background: 'rgba(0,229,255,0.04)',
+              border: '2px dashed rgba(0,229,255,0.3)',
+              borderRadius: '10px',
+              padding: '18px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const file = e.dataTransfer.files?.[0];
+              if (file && file.type.startsWith('image/')) processImageOCR(file);
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+              <span style={{ fontSize: '12px', fontWeight: '800', color: '#00e5ff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Camera size={15} /> SCAN IMAGE (Photo / Screenshot / Handwritten)
               </span>
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Ctrl+V to paste from clipboard</span>
             </div>
-
-            <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <label 
-                className="btn btn-secondary" 
-                style={{ 
-                  padding: '10px 18px', 
-                  fontSize: '12px', 
-                  fontWeight: 'bold', 
-                  cursor: 'pointer',
-                  display: 'inline-flex', 
-                  alignItems: 'center', 
-                  gap: '8px',
-                  borderColor: 'rgba(0, 229, 255, 0.5)',
-                  color: '#00e5ff',
-                  background: 'rgba(0, 229, 255, 0.08)'
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <label
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  padding: '8px 14px', fontSize: '12px', fontWeight: '700',
+                  background: 'rgba(0,229,255,0.1)', border: '1px solid rgba(0,229,255,0.4)',
+                  borderRadius: '6px', cursor: 'pointer', color: '#00e5ff'
                 }}
               >
-                <Upload size={16} /> Choose / Drop Image File
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  style={{ display: 'none' }}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) processImageOCR(file);
-                  }}
-                />
+                <Upload size={14} /> Choose Image File
+                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) processImageOCR(file);
+                }} />
               </label>
-
-              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)' }}>
-                or paste written roster images directly with <strong>Ctrl + V</strong>
-              </div>
-
+              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>or drag &amp; drop here</span>
               {ocrLoading && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#00e5ff', fontWeight: 'bold' }}>
-                  <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> OCR Reading text... ({ocrProgress}%)
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#00e5ff', fontWeight: 'bold' }}>
+                  <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Reading... {ocrProgress}%
                 </div>
               )}
             </div>
-
             {scannedImagePreview && (
-              <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(0,0,0,0.4)', padding: '8px 12px', borderRadius: '8px' }}>
-                <img src={scannedImagePreview} alt="Scanned Roster" style={{ height: '48px', borderRadius: '4px', objectFit: 'cover' }} />
-                <span style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: 'bold' }}>
-                  ✅ Image scanned successfully! Extracted production roster below.
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(0,0,0,0.3)', padding: '6px 10px', borderRadius: '6px', marginTop: '4px' }}>
+                <img src={scannedImagePreview} alt="Scanned" style={{ height: '40px', borderRadius: '4px', objectFit: 'cover' }} />
+                <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 'bold' }}>✅ Scanned — text extracted below</span>
               </div>
             )}
           </div>
 
-          <div className="grid-2">
-            {/* Unstructured Text Input */}
-            <div className="glass-card">
-              <h3 style={{ marginBottom: '12px' }}>📝 Paste Client Email / Unstructured Text</h3>
-              <p className="form-label" style={{ marginBottom: '16px' }}>
-                Paste raw emails or text lists. The refiner will extract player names, numbers, sizes, and quantities into a structured list.
+          {/* Gemini AI Gem Banner */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(155,77,255,0.14), rgba(0,229,255,0.09))',
+            border: '1px solid rgba(155,77,255,0.35)',
+            borderRadius: '10px', padding: '14px 16px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap'
+          }}>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: '800', color: '#c084fc', marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Sparkles size={14} /> Use Gemini AI for complex / multilingual data
+              </div>
+              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', margin: 0 }}>
+                For messy multi-language orders, use our Gemini Gem for best results.
               </p>
-              
-              <textarea
-                className="form-input"
-                rows={12}
-                value={unstructuredText}
-                onChange={(e) => setUnstructuredText(e.target.value)}
-                style={{ fontFamily: 'ui-monospace, monospace', fontSize: '13px', lineHeight: '1.5', resize: 'vertical' }}
-              />
-
-              <button className="btn btn-primary" onClick={handleRefineText} style={{ width: '100%', marginTop: '16px' }}>
-                <RefreshCw size={16} /> Clean & Extract Roster List
-              </button>
             </div>
+            <a
+              href="https://gemini.google.com/gem/1vc3MbyzLtt5RspOpQualSpuViseurHd4?usp=sharing"
+              target="_blank" rel="noopener noreferrer"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                padding: '7px 14px', fontSize: '11px', fontWeight: '700',
+                background: 'rgba(155,77,255,0.2)', border: '1px solid rgba(155,77,255,0.5)',
+                borderRadius: '6px', color: '#c084fc', textDecoration: 'none', whiteSpace: 'nowrap'
+              }}
+            >
+              <ExternalLink size={13} /> Open Gemini Gem
+            </a>
+          </div>
 
-            {/* Structured Output CSV */}
-            <div className="glass-card">
-              <h3 style={{ marginBottom: '12px' }}>📊 Structured Output (CSV Data)</h3>
-              
-              {refinedCSV ? (
-                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
-                  <div>
-                    <textarea
-                      className="form-input"
-                      rows={10}
-                      value={refinedCSV}
-                      readOnly
-                      style={{ fontFamily: 'ui-monospace, monospace', fontSize: '12px', background: 'rgba(0,0,0,0.4)', resize: 'vertical', color: 'var(--color-success)' }}
-                    />
-                    
-                    <div className="table-container" style={{ maxHeight: '180px', marginTop: '12px' }}>
-                      <table className="custom-table" style={{ fontSize: '11px' }}>
-                        <thead>
-                          <tr>
-                            <th>Name</th>
-                            <th>#</th>
-                            <th>Size</th>
-                            <th>Qty</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {refinedRecords.slice(0, 5).map(r => (
-                            <tr key={r.id}>
-                              <td>{r.name}</td>
-                              <td>{r.number}</td>
-                              <td>Size {r.size}</td>
-                              <td>{r.qty}</td>
-                            </tr>
-                          ))}
-                          {refinedRecords.length > 5 && (
-                            <tr>
-                              <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-                                + {refinedRecords.length - 5} more entries
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-                    <button className="btn btn-secondary" onClick={handleCopyToClipboard} style={{ flex: 1 }}>
-                      {copied ? <Check size={16} style={{ color: 'var(--color-success)' }} /> : <Copy size={16} />} 
-                      {copied ? "Copied!" : "Copy CSV"}
-                    </button>
-                    <button className="btn btn-success" onClick={handleImportToProject} style={{ flex: 1 }}>
-                      <Check size={16} /> Import into Active Order
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '80%', color: 'var(--text-muted)', fontStyle: 'italic', padding: '40px' }}>
-                  <FileText size={48} style={{ opacity: 0.3, marginBottom: '12px' }} />
-                  Click "Clean & Extract Roster List" to parse the text.
-                </div>
-              )}
-            </div>
+          {/* Text Input Area */}
+          <div className="glass-card" style={{ padding: '16px', flex: 1 }}>
+            <label style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '8px' }}>
+              📝 Paste Text / Email / WhatsApp Message
+            </label>
+            <textarea
+              className="form-input"
+              rows={10}
+              value={unstructuredText}
+              onChange={(e) => setUnstructuredText(e.target.value)}
+              placeholder={"Example:\nPlease print these:\n- Size 38, Number 7, RONALDO\n- Size 40, Number 10, MESSI\n- Size 44, #23, JORDAN (qty 2)"}
+              style={{ fontFamily: 'ui-monospace, monospace', fontSize: '12px', lineHeight: '1.6', resize: 'vertical', width: '100%' }}
+            />
+            <button
+              className="btn btn-primary"
+              onClick={handleRefineText}
+              style={{ width: '100%', marginTop: '10px', padding: '10px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+            >
+              <Sparkles size={16} /> ✨ Refine &amp; Extract Data
+            </button>
           </div>
         </div>
-      )}
+
+        {/* RIGHT — Output Panel */}
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              📊 Extracted Order Data
+            </h3>
+            {refinedRecords.length > 0 && (
+              <span style={{ fontSize: '11px', background: 'rgba(16,185,129,0.15)', color: '#10b981', padding: '2px 10px', borderRadius: '20px', fontWeight: '700' }}>
+                {refinedRecords.length} players
+              </span>
+            )}
+          </div>
+
+          {refinedRecords.length > 0 ? (
+            <>
+              {/* Results Table */}
+              <div className="table-container" style={{ flex: 1, overflow: 'auto', maxHeight: '340px' }}>
+                <table className="custom-table" style={{ fontSize: '12px', width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Name</th>
+                      <th>Number</th>
+                      <th>Size</th>
+                      <th>Qty</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {refinedRecords.map((r, idx) => (
+                      <tr key={r.id}>
+                        <td style={{ color: 'var(--text-muted)' }}>{idx + 1}</td>
+                        <td style={{ fontWeight: '600' }}>{r.name}</td>
+                        <td style={{ textAlign: 'center' }}>{r.number}</td>
+                        <td style={{ textAlign: 'center' }}>{r.size}</td>
+                        <td style={{ textAlign: 'center' }}>{r.qty}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* CSV Preview (collapsible) */}
+              <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '6px', padding: '10px' }}>
+                <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase' }}>CSV Preview</div>
+                <textarea
+                  className="form-input"
+                  rows={4}
+                  value={refinedCSV}
+                  readOnly
+                  style={{ fontFamily: 'ui-monospace, monospace', fontSize: '10px', background: 'transparent', resize: 'none', color: '#10b981', border: 'none', padding: 0, width: '100%' }}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '10px', marginTop: 'auto' }}>
+                <button className="btn btn-secondary" onClick={handleCopyToClipboard} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                  {copied ? <><Check size={15} style={{ color: '#10b981' }} /> Copied!</> : <><Copy size={15} /> Copy CSV</>}
+                </button>
+                <button
+                  className="btn btn-success"
+                  onClick={handleImportToProject}
+                  style={{ flex: 1, fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  <Check size={15} /> → Send to Job Details
+                </button>
+              </div>
+            </>
+          ) : (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', padding: '40px 20px', textAlign: 'center', gap: '12px' }}>
+              <Sparkles size={48} style={{ opacity: 0.2 }} />
+              <p style={{ margin: 0, fontSize: '13px', lineHeight: '1.6', opacity: 0.7 }}>
+                Paste your order data on the left or upload a photo,<br />then click <strong>Refine &amp; Extract Data</strong>.
+              </p>
+              <p style={{ margin: 0, fontSize: '11px', opacity: 0.5 }}>
+                Supports: emails, WhatsApp messages, handwritten notes, screenshots
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
+
+

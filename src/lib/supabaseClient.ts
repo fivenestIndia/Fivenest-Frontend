@@ -1,14 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
-// REAL VERIFIED SUPABASE CREDENTIALS FOR FIVENEST
-const DEFAULT_SUPABASE_URL = 'https://qppfrmmfsfqigeciedlg.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwcGZybW1mc2ZxaWdlY2llZGxnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MTE3ODEsImV4cCI6MjA5NzA4Nzc4MX0.VA4-dLEWceZEz_MYk7vUA8lve6a2-GG6iYK14OjPo3g';
+// VERIFIED WORKING SUPABASE CREDENTIALS FOR FIVENEST
+const SUPABASE_URL = 'https://qppfrmmfsfqigeciedlg.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwcGZybW1mc2ZxaWdlY2llZGxnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MTE3ODEsImV4cCI6MjA5NzA4Nzc4MX0.VA4-dLEWceZEz_MYk7vUA8lve6a2-GG6iYK14OjPo3g';
 
-export const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_URL.startsWith('http') && !import.meta.env.VITE_SUPABASE_URL.includes('jeciedlg')) 
-  ? import.meta.env.VITE_SUPABASE_URL 
-  : DEFAULT_SUPABASE_URL;
-
-export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+export const supabaseUrl = SUPABASE_URL;
+export const supabaseAnonKey = SUPABASE_ANON_KEY;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 if (typeof window !== 'undefined') {

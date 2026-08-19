@@ -51,6 +51,43 @@
   --border-light: rgba(255,255,255,0.1); --border-active: rgba(0,229,255,0.4);
 }
 
+/* ========================================================================
+   LIGHT THEME OVERRIDES
+   ======================================================================== */
+.app-layout.light {
+  --bg-void: #f0f2f5; --bg-base: #ffffff; --bg-surface: #f8f9fb;
+  --bg-raised: #eef0f4; --bg-input: #f3f4f6;
+  --border-subtle: rgba(0,0,0,0.06);
+  --border-default: rgba(0,0,0,0.10);
+  --border-strong: rgba(0,0,0,0.18);
+  --border-active: rgba(0,120,200,0.45);
+  --accent-cyan: #0078c8; --accent-cyan-dim: rgba(0,120,200,0.10);
+  --accent-violet: #7c3aed; --accent-violet-dim: rgba(124,58,237,0.10);
+  --text-primary: #1e293b; --text-secondary: #475569; --text-muted: #94a3b8;
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-md: 0 6px 24px rgba(0,0,0,0.12);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.16);
+  --glow-cyan: 0 0 24px rgba(0,120,200,0.15);
+  --glow-cyan-soft: 0 0 12px rgba(0,120,200,0.08);
+  --color-primary: #0078c8; --color-secondary: #f59e0b;
+  --border-light: rgba(0,0,0,0.1);
+  background: var(--bg-void); color: var(--text-primary);
+}
+
+.app-layout.light .glass { background: rgba(255,255,255,0.8); backdrop-filter: blur(20px); border-color: rgba(0,0,0,0.08); }
+.app-layout.light .cd-menubar,
+.app-layout.light .cd-toolbar,
+.app-layout.light .cd-property-bar,
+.app-layout.light .cd-statusbar { background: #ffffff; border-color: rgba(0,0,0,0.1); color: #1e293b; }
+.app-layout.light .cd-docker-panel { background: #f8f9fb; border-color: rgba(0,0,0,0.1); color: #1e293b; }
+.app-layout.light .sidebar { background: #ffffff; border-color: rgba(0,0,0,0.08); }
+.app-layout.light .sidebar .menu-item { color: #475569; }
+.app-layout.light .sidebar .menu-item:hover,
+.app-layout.light .sidebar .menu-item.active { background: rgba(0,120,200,0.08); color: #0078c8; }
+.app-layout.light .form-input,
+.app-layout.light .cd-property-input { background: #f3f4f6; border-color: rgba(0,0,0,0.12); color: #1e293b; }
+.app-layout.light select { background: #f3f4f6; color: #1e293b; border-color: rgba(0,0,0,0.12); }
+
 @layer base {
   * { @apply border-border; }
   body { @apply bg-background text-foreground font-sans antialiased; font-family: "Inter", system-ui, sans-serif; background: var(--bg-void); color: var(--text-primary); }
@@ -177,14 +214,54 @@ select option { background: #141829 !important; color: var(--text-primary) !impo
 .custom-table tbody tr:hover td { background: rgba(0,229,255,0.04); }
 .custom-table tbody tr:last-child td { border-bottom: none; }
 
-/* Google Sheets Style Table */
-.sheets-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.sheets-table th { background: rgba(66,133,244,0.08); color: #8ab4f8; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 8px 12px; text-align: left; border: 1px solid var(--border-subtle); white-space: nowrap; position: sticky; top: 0; z-index: 2; }
+/* Google Sheets Style Table & Scroll Container */
+.sheets-scroll-container {
+  max-height: 480px;
+  overflow-y: auto;
+  overflow-x: auto;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border: 1px solid var(--border-subtle);
+  border-bottom: none;
+  background: var(--bg-surface);
+}
+
+.sheets-scroll-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.sheets-scroll-container::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.25);
+}
+.sheets-scroll-container::-webkit-scrollbar-thumb {
+  background: rgba(66, 133, 244, 0.5);
+  border-radius: 4px;
+}
+.sheets-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(66, 133, 244, 0.8);
+}
+
+.sheets-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.sheets-table thead th { 
+  background: #141930 !important; 
+  color: #8ab4f8; 
+  font-size: 11px; 
+  font-weight: 700; 
+  text-transform: uppercase; 
+  letter-spacing: 0.06em; 
+  padding: 8px 12px; 
+  text-align: left; 
+  border: 1px solid var(--border-subtle); 
+  white-space: nowrap; 
+  position: sticky; 
+  top: 0; 
+  z-index: 10; 
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+}
 .sheets-table td { padding: 6px 12px; border: 1px solid var(--border-subtle); color: var(--text-primary); background: var(--bg-input); transition: background 0.1s ease; }
-.sheets-table tbody tr:hover td { background: rgba(66,133,244,0.06); }
-.sheets-row-num { width: 36px; min-width: 36px; text-align: center; color: var(--text-muted); font-size: 11px; font-weight: 600; background: rgba(255,255,255,0.03) !important; border-right: 2px solid var(--border-default) !important; }
+.sheets-table tbody tr:hover td { background: rgba(66,133,244,0.08); }
+.sheets-row-num { width: 36px; min-width: 36px; text-align: center; color: var(--text-muted); font-size: 11px; font-weight: 600; background: #0f1224 !important; border-right: 2px solid var(--border-default) !important; position: sticky; left: 0; z-index: 5; }
 .sheets-col-letter { display: block; font-size: 9px; color: var(--text-muted); font-weight: 500; letter-spacing: 0.1em; }
-.sheets-summary-bar { display: flex; align-items: center; gap: 16px; padding: 8px 14px; background: rgba(66,133,244,0.06); border: 1px solid var(--border-subtle); border-top: none; border-radius: 0 0 var(--radius-md) var(--radius-md); font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.sheets-summary-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 16px; background: rgba(66,133,244,0.08); border: 1px solid var(--border-subtle); border-radius: 0 0 var(--radius-md) var(--radius-md); font-size: 12px; font-weight: 600; color: var(--text-secondary); }
 
 .file-dropzone { border: 2px dashed var(--border-default); border-radius: var(--radius-lg); padding: 36px 24px; text-align: center; cursor: pointer; transition: all 0.25s var(--spring); background: rgba(17,21,39,0.4); display: flex; flex-direction: column; align-items: center; gap: 12px; color: var(--text-secondary); }
 .file-dropzone:hover, .file-dropzone.active { border-color: var(--accent-cyan); background: rgba(0,229,255,0.04); box-shadow: 0 0 24px rgba(0,229,255,0.12); color: var(--text-primary); }

@@ -72,6 +72,10 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
   });
   const [showRulers, setShowRulers] = useState<boolean>(true);
   const [gridSpacing, setGridSpacing] = useState<number>(2);
+  const [presetName, setPresetName] = useState<string>('');
+  const [savedPresets, setSavedPresets] = useState<Record<string, SizeDatabase>>(() => {
+    try { return JSON.parse(localStorage.getItem('fivenest_size_presets') || '{}'); } catch { return {}; }
+  });
 
   // Load technical marks preferences from localStorage on mount
   useEffect(() => {
@@ -190,6 +194,65 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
 
   return (
     <div className="sizes-db-container fade-in">
+      {/* Size Presets Panel */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 16px', background: 'rgba(0,229,255,0.04)', borderBottom: '1px solid var(--border-subtle)', marginBottom: '0' }}>
+        <label style={{ fontSize: '11px', fontWeight: '800', color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>📦 Size Presets</label>
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <select
+            style={{ flex: 1, fontSize: '11px', padding: '5px 8px', borderRadius: '6px', background: 'var(--bg-input)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+            value=""
+            onChange={(e) => {
+              const name = e.target.value;
+              if (!name || !savedPresets[name]) return;
+              const loaded = savedPresets[name];
+              setSizeDB(loaded);
+              if (onDatabaseChange) onDatabaseChange(loaded);
+              localStorage.setItem('teedex_size_database', JSON.stringify(loaded));
+            }}
+          >
+            <option value="">— Load a preset —</option>
+            {Object.keys(savedPresets).map(name => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            title="Delete a preset"
+            style={{ fontSize: '11px', padding: '5px 10px', color: '#ff4444', whiteSpace: 'nowrap' }}
+            onClick={() => {
+              const name = prompt('Enter preset name to delete:');
+              if (!name || !savedPresets[name]) return;
+              const updated = { ...savedPresets };
+              delete updated[name];
+              setSavedPresets(updated);
+              localStorage.setItem('fivenest_size_presets', JSON.stringify(updated));
+            }}
+          >🗑 Delete</button>
+        </div>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <input
+            type="text"
+            placeholder="New preset name..."
+            value={presetName}
+            onChange={(e) => setPresetName(e.target.value)}
+            style={{ flex: 1, fontSize: '11px', padding: '5px 8px', borderRadius: '6px', background: 'var(--bg-input)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+          />
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ fontSize: '11px', padding: '5px 12px', whiteSpace: 'nowrap' }}
+            onClick={() => {
+              if (!presetName.trim()) return;
+              const updated = { ...savedPresets, [presetName.trim()]: sizeDB };
+              setSavedPresets(updated);
+              localStorage.setItem('fivenest_size_presets', JSON.stringify(updated));
+              setPresetName('');
+            }}
+          >💾 Save Preset</button>
+        </div>
+      </div>
+
       <div className="glass-card" style={{ marginBottom: '24px' }}>
         <h2 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           👕 Sublimation Grading Size Database
