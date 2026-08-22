@@ -150,7 +150,7 @@ export default function WebStudio() {
   ];
 
   return (
-    <div className={`app-layout ${themeMode}`}>
+    <div className={`app-layout ${themeMode}`} style={{ background: 'radial-gradient(ellipse at 10% 20%, rgba(0, 229, 255, 0.15) 0%, transparent 40%), radial-gradient(ellipse at 85% 75%, rgba(124, 58, 237, 0.18) 0%, transparent 40%), radial-gradient(ellipse at 50% 50%, rgba(16, 185, 129, 0.06) 0%, transparent 60%), #060813' }}>
       {/* Mobile Top Header */}
       <div className="md:hidden flex items-center justify-between p-3 bg-black/80 border-b border-white/10 sticky top-0 z-40 backdrop-blur-md">
         <Link to="/" className="flex items-center gap-2">
@@ -191,7 +191,16 @@ export default function WebStudio() {
       </div>
 
       {/* Sidebar Navigation Panel (Responsive Drawer) */}
-      <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
+      <aside 
+        className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}
+        style={{
+          background: 'rgba(6, 9, 20, 0.55)',
+          backdropFilter: 'blur(40px) saturate(200%)',
+          WebkitBackdropFilter: 'blur(40px) saturate(200%)',
+          borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+          boxShadow: '4px 0 40px rgba(0, 0, 0, 0.5), inset -1px 0 0 rgba(0, 229, 255, 0.12)'
+        }}
+      >
         <div>
           <div className="flex items-center justify-between p-4 border-b border-white/10">
             <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -314,7 +323,16 @@ export default function WebStudio() {
 
       {/* Main Content Area */}
       <main className="main-content">
-        <header className="top-navbar">
+        <header 
+          className="top-navbar"
+          style={{
+            background: 'rgba(6, 9, 20, 0.55)',
+            backdropFilter: 'blur(40px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 -1px 0 rgba(0, 229, 255, 0.1)'
+          }}
+        >
           <h1 className="navbar-title text-sm md:text-base font-black">
             {activeTab === 'designer' && "🎨 Artwork & Overlays"}
             {activeTab === 'order' && "📋 Job Details"}
@@ -323,24 +341,25 @@ export default function WebStudio() {
             {activeTab === 'help' && "✨ AI Data Refiner"}
           </h1>
           
-          <div className="navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div className="navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             {/* Direct Switch to Order Management Portal */}
-            <Link to="/orders">
+            <Link to="/orders" style={{ textDecoration: 'none' }}>
               <button 
                 className="btn btn-secondary"
                 style={{ 
-                  padding: '4px 10px', 
-                  borderRadius: '20px', 
-                  fontSize: '10px', 
-                  fontWeight: 'bold', 
+                  padding: '5px 12px', 
+                  borderRadius: '9999px', 
+                  fontSize: '11px', 
+                  fontWeight: '700', 
                   display: 'flex', 
                   alignItems: 'center', 
-                  gap: '4px',
-                  borderColor: 'rgba(0, 229, 255, 0.3)',
-                  color: 'var(--color-secondary)'
+                  gap: '5px',
+                  background: 'rgba(255,255,255,0.04)',
+                  borderColor: 'rgba(0, 229, 255, 0.25)',
+                  color: 'var(--accent-cyan)'
                 }}
               >
-                <Package size={12} /> Orders
+                <Package size={13} /> Orders
               </button>
             </Link>
 
@@ -348,13 +367,13 @@ export default function WebStudio() {
             <label className="test-mode-toggle" style={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: '4px', 
+              gap: '5px', 
               cursor: 'pointer', 
-              fontSize: '10px', 
-              background: testMode ? 'rgba(255, 140, 0, 0.1)' : 'rgba(255,255,255,0.03)', 
-              padding: '4px 10px', 
-              borderRadius: '20px', 
-              border: testMode ? '1px solid var(--color-secondary)' : '1px solid var(--border-light)',
+              fontSize: '11px', 
+              background: testMode ? 'rgba(245, 158, 11, 0.12)' : 'rgba(255,255,255,0.04)', 
+              padding: '5px 12px', 
+              borderRadius: '9999px', 
+              border: testMode ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(255,255,255,0.08)',
               userSelect: 'none',
               transition: 'all 0.2s ease'
             }}>
@@ -364,7 +383,7 @@ export default function WebStudio() {
                 onChange={(e) => handleTestModeChange(e.target.checked)} 
                 style={{ display: 'none' }} 
               />
-              <span style={{ color: testMode ? 'var(--color-secondary)' : 'var(--text-muted)', fontWeight: 'bold' }}>
+              <span style={{ color: testMode ? '#f59e0b' : 'var(--text-muted)', fontWeight: '800' }}>
                 {testMode ? "🧪 Test" : "⚡ Live"}
               </span>
             </label>
@@ -378,23 +397,25 @@ export default function WebStudio() {
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: '8px', 
-                  background: 'rgba(155, 77, 255, 0.08)', 
-                  border: '1px solid var(--border-active)', 
-                  padding: '6px 12px', 
-                  borderRadius: '30px', 
+                  background: 'rgba(15, 23, 42, 0.65)', 
+                  backdropFilter: 'blur(16px)',
+                  border: '1px solid rgba(0, 229, 255, 0.3)', 
+                  padding: '5px 14px', 
+                  borderRadius: '9999px', 
                   cursor: 'pointer',
                   fontSize: '11px',
-                  fontWeight: '600'
+                  fontWeight: '700',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
                 }}
               >
-                <span style={{ color: 'white' }}>{currentUser.name.split(' ')[0]}</span>
-                <span style={{ color: 'var(--color-status-success)', fontWeight: 'bold' }}>₹{currentUser.balance.toFixed(2)}</span>
+                <span style={{ color: '#ffffff' }}>{currentUser.name.split(' ')[0]}</span>
+                <span style={{ color: '#4ade80', fontWeight: '800' }}>₹{currentUser.balance.toFixed(2)}</span>
               </div>
             ) : (
               <button 
-                className="btn btn-secondary" 
+                className="btn btn-primary" 
                 onClick={() => setLoginModalOpen(true)}
-                style={{ padding: '6px 12px', borderRadius: '30px', fontSize: '11px', fontWeight: 'bold' }}
+                style={{ padding: '5px 14px', borderRadius: '9999px', fontSize: '11px', fontWeight: '800' }}
               >
                 Sign In
               </button>

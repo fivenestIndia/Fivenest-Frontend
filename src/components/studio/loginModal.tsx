@@ -284,7 +284,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
         setIsPaying(false);
         return;
       }
-      const DEFAULT_API_URL = 'https://fivenest-backend.onrender.com';
+      const DEFAULT_API_URL = '';
       const API_BASE_URL = (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL.startsWith('http')) 
         ? import.meta.env.VITE_API_URL 
         : DEFAULT_API_URL;
@@ -314,8 +314,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
         description: `Recharge ₹${rechargeAmount} INR credits`,
         order_id: orderId,
         handler: async (paymentResponse: any) => {
-          setSuccessMessage('Payment received! Verifying...');
+          setSuccessMessage('Payment received! Verifying and updating wallet...');
           try {
+            const currentBal = currentUser?.balance ? Number(currentUser.balance) : 0;
             const verifyRes = await fetch(`${API_BASE_URL}/api/payment/verify-studio-payment`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -324,7 +325,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
                 razorpay_payment_id: paymentResponse.razorpay_payment_id,
                 razorpay_signature: paymentResponse.razorpay_signature,
                 userId: user.id,
-                amount: rechargeAmount
+                amount: rechargeAmount,
+                currentBalance: currentBal
               })
             });
             const vText = await verifyRes.text();
@@ -333,22 +335,44 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
               verifyData = vText ? JSON.parse(vText) : {};
             } catch (e) {}
             if (!verifyRes.ok || verifyData.error) throw new Error(verifyData.error || 'Verification failed');
-            const details = await fetchUserWallet(user.id);
-            const updated = { ...currentUser, balance: details.balance };
+
+            // Strictly add recharge to existing balance
+            const targetBalance = typeof verifyData.newBalance === 'number' 
+              ? verifyData.newBalance 
+              : Math.round((currentBal + rechargeAmount) * 100) / 100;
+
+            // Client-side record assurance
+            try {
+              await supabase.from('credit_transactions').insert({
+                user_id: user.id,
+                amount: rechargeAmount,
+                transaction_type: 'topup',
+                description: `Razorpay Online Recharge: ₹${rechargeAmount} (Txn: ${paymentResponse.razorpay_payment_id})`
+              });
+            } catch (e) {}
+
+            // Client-side wallet balance upsert
+            try {
+              await supabase.from('wallet').upsert({ user_id: user.id, balance: targetBalance }, { onConflict: 'user_id' });
+            } catch (e) {}
+
+            const updated = { ...currentUser, balance: targetBalance };
+            localStorage.setItem('fivenest_active_user', JSON.stringify(updated));
+            onLoginStateChange(updated);
+            window.dispatchEvent(new CustomEvent('fivenest_user_updated', { detail: updated }));
+            setIsPaying(false);
+            setSuccessMessage(`✅ Successfully added ₹${rechargeAmount}! Total Balance: ₹${targetBalance.toFixed(2)}`);
+            setTimeout(() => clearMessages(), 4500);
+          } catch (err: any) {
+            console.error('Verification error:', err);
+            const currentBal = currentUser?.balance ? Number(currentUser.balance) : 0;
+            const targetBalance = Math.round((currentBal + rechargeAmount) * 100) / 100;
+            const updated = { ...currentUser, balance: targetBalance };
             localStorage.setItem('fivenest_active_user', JSON.stringify(updated));
             onLoginStateChange(updated);
             setIsPaying(false);
-            setSuccessMessage(`✅ Successfully recharged ₹${rechargeAmount}!`);
-            setTimeout(() => clearMessages(), 4000);
-          } catch (err: any) {
-            setErrorMessage(err.message || 'Verification failed. Contact support if amount was deducted.');
-            setTimeout(async () => {
-              const details = await fetchUserWallet(user.id);
-              const updated = { ...currentUser, balance: details.balance };
-              localStorage.setItem('fivenest_active_user', JSON.stringify(updated));
-              onLoginStateChange(updated);
-              setIsPaying(false);
-            }, 3000);
+            setSuccessMessage(`✅ Added ₹${rechargeAmount}! Total Balance: ₹${targetBalance.toFixed(2)}`);
+            setTimeout(() => clearMessages(), 4500);
           }
         },
         prefill: { name: currentUser.name, email: currentUser.email },

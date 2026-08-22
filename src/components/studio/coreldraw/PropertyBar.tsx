@@ -52,7 +52,7 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
   };
 
   return (
-    <div className="cd-propertybar">
+    <div className="cd-propertybar" style={{ background: 'rgba(5, 7, 18, 0.72)', backdropFilter: 'blur(40px) saturate(180%)', WebkitBackdropFilter: 'blur(40px) saturate(180%)', borderBottom: '1px solid rgba(0, 229, 255, 0.18)', boxShadow: '0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)' }}>
       {/* 1. TOOL INDICATOR BADGE */}
       <div className="cd-property-group">
         <span style={{ fontWeight: '700', color: '#38bdf8', textTransform: 'uppercase', fontSize: '10px' }}>
@@ -64,31 +64,48 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
       <div className="cd-property-group">
         <span style={{ opacity: 0.6 }}>Page Size:</span>
         <span style={{ color: '#00f0ff', fontWeight: '600' }}>{physicalWidth}" × {physicalHeight}"</span>
-
-        {previewSleeveType && onSleeveTypeChange && (
-          <div className="cd-property-group" style={{ gap: '3px' }}>
-            <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>Sleeve:</span>
-            <button
-              type="button"
-              onClick={() => onSleeveTypeChange('half')}
-              style={{
-                padding: '2px 8px', fontSize: '10px', fontWeight: '700', borderRadius: '4px', border: 'none', cursor: 'pointer',
-                background: previewSleeveType === 'half' ? 'rgba(0,229,255,0.2)' : 'transparent',
-                color: previewSleeveType === 'half' ? 'var(--accent-cyan)' : 'var(--text-muted)',
-              }}
-            >Half Sleeve</button>
-            <button
-              type="button"
-              onClick={() => onSleeveTypeChange('full')}
-              style={{
-                padding: '2px 8px', fontSize: '10px', fontWeight: '700', borderRadius: '4px', border: 'none', cursor: 'pointer',
-                background: previewSleeveType === 'full' ? 'rgba(0,229,255,0.2)' : 'transparent',
-                color: previewSleeveType === 'full' ? 'var(--accent-cyan)' : 'var(--text-muted)',
-              }}
-            >Full Sleeve</button>
-          </div>
-        )}
       </div>
+
+      {/* 3. SLEEVE STYLE TOGGLE */}
+      {previewSleeveType && onSleeveTypeChange && (
+        <div className="cd-property-group" style={{ gap: '4px' }}>
+          <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sleeve:</span>
+          <button
+            type="button"
+            onClick={() => onSleeveTypeChange('half')}
+            style={{
+              padding: '3px 10px',
+              fontSize: '11px',
+              fontWeight: '700',
+              borderRadius: '4px',
+              border: previewSleeveType === 'half' ? '1px solid rgba(0,229,255,0.45)' : '1px solid transparent',
+              cursor: 'pointer',
+              background: previewSleeveType === 'half' ? 'rgba(0,229,255,0.2)' : 'rgba(255,255,255,0.05)',
+              color: previewSleeveType === 'half' ? 'var(--accent-cyan)' : 'var(--text-muted)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            Half Sleeve
+          </button>
+          <button
+            type="button"
+            onClick={() => onSleeveTypeChange('full')}
+            style={{
+              padding: '3px 10px',
+              fontSize: '11px',
+              fontWeight: '700',
+              borderRadius: '4px',
+              border: previewSleeveType === 'full' ? '1px solid rgba(0,229,255,0.45)' : '1px solid transparent',
+              cursor: 'pointer',
+              background: previewSleeveType === 'full' ? 'rgba(0,229,255,0.2)' : 'rgba(255,255,255,0.05)',
+              color: previewSleeveType === 'full' ? 'var(--accent-cyan)' : 'var(--text-muted)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            Full Sleeve
+          </button>
+        </div>
+      )}
 
       {/* 3. TOOL-SPECIFIC CONTROLS */}
       {activeTool === 'zoom' && (

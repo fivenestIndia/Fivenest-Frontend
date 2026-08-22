@@ -63,11 +63,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   ];
 
   return (
-    <div className="cd-menubar" ref={containerRef}>
+    <div className="cd-menubar" ref={containerRef} style={{ background: 'rgba(5, 7, 18, 0.7)', backdropFilter: 'blur(40px) saturate(200%)', WebkitBackdropFilter: 'blur(40px) saturate(200%)', borderBottom: '1px solid rgba(255, 255, 255, 0.07)', boxShadow: '0 2px 16px rgba(0,0,0,0.5)' }}>
       {/* Brand Badge */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '8px', color: '#00f0ff', fontWeight: '800' }}>
-        <span style={{ background: '#0284c7', color: '#fff', padding: '1px 5px', borderRadius: '3px', fontSize: '10px' }}>Corel</span>
-        <span>Studio</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '10px', color: '#00e5ff', fontWeight: '900', letterSpacing: '-0.02em' }}>
+        <span style={{ background: 'linear-gradient(135deg, rgba(0,229,255,0.25) 0%, rgba(124,58,237,0.25) 100%)', border: '1px solid rgba(0,229,255,0.4)', color: '#00e5ff', padding: '2px 7px', borderRadius: '5px', fontSize: '10px', fontWeight: '800', boxShadow: '0 0 10px rgba(0,229,255,0.2)' }}>Corel</span>
+        <span style={{ fontSize: '13px', color: '#ffffff' }}>Studio</span>
       </div>
 
       {/* FILE MENU */}
@@ -168,9 +168,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({
       </div>
 
       {/* Active Panel Badge on Right */}
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: '#38bdf8', background: '#0f172a', padding: '2px 8px', borderRadius: '4px', border: '1px solid #1e293b' }}>
-        <span>ACTIVE:</span>
-        <strong style={{ color: '#fff', textTransform: 'uppercase' }}>{activeTab}</strong>
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: 'var(--accent-cyan)', background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(16px)', padding: '3px 10px', borderRadius: '9999px', border: '1px solid rgba(0, 229, 255, 0.3)', boxShadow: '0 2px 10px rgba(0,0,0,0.3)' }}>
+        <span style={{ fontWeight: '700', letterSpacing: '0.05em' }}>ACTIVE:</span>
+        <strong style={{ color: '#ffffff', textTransform: 'uppercase', fontWeight: '800' }}>{activeTab}</strong>
       </div>
     </div>
   );

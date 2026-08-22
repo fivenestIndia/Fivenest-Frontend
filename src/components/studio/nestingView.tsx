@@ -4,6 +4,7 @@ import confetti from 'canvas-confetti';
 import { Play, Download, Sliders, Coins, QrCode, CheckCircle, AlertTriangle, Loader2, X } from 'lucide-react';
 import JSZip from 'jszip';
 import { supabase, fetchUserWallet } from '../../lib/supabaseClient';
+import { fivenestLabelTagDataUrl } from '../../assets/labelTagBase64';
 
 // ---- Export format utilities ----
 type ExportFormat = 'jpg' | 'png' | 'tiff';
@@ -214,6 +215,9 @@ const logoPathWhite = typeof Path2D !== 'undefined' ? new Path2D("M43.8,27.28c1.
 
 const fivenestLogoImageInstance = new Image();
 fivenestLogoImageInstance.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64.8 48.1"><path fill="#0acbf9" d="M32.55,0l3.08,2.98c.82.79.83,2.1.03,2.91l-14.83,14.9c-1.88,1.98-2.2,4.93-.21,6.95l4.84,4.94,13.51-13.47,2.99,2.72c.8.73,1.1,2.2.22,3.09l-8.72,8.82c-1.7,1.72-2.03,4.58-.29,6.38l3.18,3.3-4.6,4.57-1.44-1.69-14.48-14.7c-3.92-3.98-3.89-10.64.04-14.63L32.55,0Z"/><path fill="#ffffff" d="M43.8,27.28c1.93-1.94,2.44-4.88.4-6.88l-4.99-4.88-13.44,13.22-2.84-2.54c-.35-.31-.94-.94-.94-1.63,0-.79.52-1.52.98-2.01l15.96-16.62,9.95,10.2c4.27,4.37,3.79,11.05-.3,15.32l-10.11,10.18-3.15-2.92c-.83-.88-.93-2,0-2.94l8.46-8.49h.02Z"/></svg>`)}`;
+
+const fivenestLabelTagImageInstance = new Image();
+fivenestLabelTagImageInstance.src = fivenestLabelTagDataUrl;
 
 const injectJPDpi = (blob: Blob, dpiValue: number): Promise<Blob> => {
   return new Promise((resolve) => {
@@ -646,21 +650,20 @@ export const NestingView: React.FC<NestingViewProps> = ({
     }
   }, []);
 
-  // Trigger Nesting layout calculations
-  // Helper to compile the list of all panel pieces to export on the fly with Selective Panel Filtering
+  // Trigger Nesting layout cal  // Helper to compile the list of all panel pieces to export on the fly with Selective Panel Filtering
   const getItemsToExport = (): PlacedItem[] => {
     const items: PlacedItem[] = [];
 
-    // Check panel artwork status: panel has uploaded image OR generated pattern
+    // Check panel artwork status: Strictly check if graphic files are uploaded or text overlays are enabled
     const frontHasArtwork = Boolean(
-      designConfig?.front?.uploadedFileUrl || 
-      (designConfig?.front?.backgroundType === 'upload' && designConfig?.front?.uploadedFileUrl) ||
-      designConfig?.front?.backgroundType === 'generate'
+      designConfig?.front?.uploadedFileUrl ||
+      (designConfig?.front?.nameConfig?.enabled && !metadata?.blankKit) ||
+      (designConfig?.front?.numberConfig?.enabled && !metadata?.blankKit)
     );
     const backHasArtwork = Boolean(
-      designConfig?.back?.uploadedFileUrl || 
-      (designConfig?.back?.backgroundType === 'upload' && designConfig?.back?.uploadedFileUrl) ||
-      designConfig?.back?.backgroundType === 'generate'
+      designConfig?.back?.uploadedFileUrl ||
+      (designConfig?.back?.nameConfig?.enabled && !metadata?.blankKit) ||
+      (designConfig?.back?.numberConfig?.enabled && !metadata?.blankKit)
     );
     const sleeveHasArtwork = Boolean(
       designConfig?.sleeveLeft?.uploadedFileUrl || 
@@ -668,15 +671,18 @@ export const NestingView: React.FC<NestingViewProps> = ({
       designConfig?.sleeveLeft?.uploadedFileFullUrl || 
       designConfig?.sleeveRight?.uploadedFileUrl ||
       designConfig?.sleeveRight?.uploadedFileHalfUrl ||
-      designConfig?.sleeveRight?.uploadedFileFullUrl ||
-      designConfig?.sleeveLeft?.backgroundType === 'upload' || 
-      designConfig?.sleeveRight?.backgroundType === 'upload' ||
-      designConfig?.sleeveLeft?.backgroundType === 'generate' ||
-      designConfig?.sleeveRight?.backgroundType === 'generate'
+      designConfig?.sleeveRight?.uploadedFileFullUrl
+    );
+    const a4HasArtwork = Boolean(
+      metadata?.a4BackPrint && (
+        designConfig?.a4Print?.uploadedFileUrl ||
+        (designConfig?.a4Print?.nameConfig?.enabled && !metadata?.blankKit) ||
+        (designConfig?.a4Print?.numberConfig?.enabled && !metadata?.blankKit)
+      )
     );
 
-    // If any artwork is uploaded, only export panels that have uploaded/active artwork (unless explicitly entered in roster)
-    const anyArtworkUploaded = frontHasArtwork || backHasArtwork || sleeveHasArtwork;
+    // If any artwork is uploaded, strictly only export panels that have uploaded/active artwork!
+    const anyArtworkUploaded = frontHasArtwork || backHasArtwork || sleeveHasArtwork || a4HasArtwork;
 
     records.forEach((player, idx) => {
       const sizeConf = sizeDB[player.size] || sizeDB["40"] || Object.values(sizeDB)[0];
@@ -688,7 +694,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
       for (let q = 0; q < player.qty; q++) {
         const itemIndex = `${player.id}-item-${idx}-${q}`;
         
-        // Front panel: Include if front artwork exists (or if no artwork uploaded at all or explicitly requested)
+        // Front panel: Include if front artwork exists (or fallback if nothing uploaded)
         const includeFront = (!anyArtworkUploaded || frontHasArtwork || isFrontOnly) && !isSleeveOnly && !isBackOnly;
         if (includeFront) {
           items.push({
@@ -705,7 +711,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
           });
         }
         
-        // Back panel: Include if back artwork exists (or if no artwork uploaded at all or explicitly requested)
+        // Back panel: Include if back artwork exists (or fallback if nothing uploaded)
         const includeBack = (!anyArtworkUploaded || backHasArtwork || isBackOnly) && !isSleeveOnly && !isFrontOnly;
         if (includeBack) {
           items.push({
@@ -722,9 +728,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
           });
         }
 
-        // Sleeve panels: Include if sleeve artwork exists (or if no artwork uploaded at all or sleeve style requested)
+        // Sleeve panels: Include ONLY if sleeve artwork was actually uploaded!
         const effectiveSleeveType: 'half' | 'full' = player.sleeve === 'full' ? 'full' : 'half';
-        const includeSleeve = (!anyArtworkUploaded || sleeveHasArtwork || player.sleeve !== 'none') && !isFrontOnly && !isBackOnly;
+        const includeSleeve = sleeveHasArtwork && player.sleeve !== 'none' && !isFrontOnly && !isBackOnly;
 
         if (includeSleeve) {
           let sleeveW = 0;
@@ -785,7 +791,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
         }
 
         // Standalone A4 chest/print panel (10x11 in)
-        if (metadata.a4BackPrint && !isSleeveOnly) {
+        const includeA4 = metadata.a4BackPrint && (!anyArtworkUploaded || a4HasArtwork) && !isSleeveOnly;
+        if (includeA4) {
           items.push({
             recordId: itemIndex,
             playerName: player.name,
@@ -801,6 +808,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
         }
       }
     });
+
     return items;
   };
 
@@ -1381,14 +1389,12 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
       const drawOverlays = () => {
         const hideOverlays = metadata.blankKit;
-        // Force name/number overlay on front panel in preview mode so customers can verify
-        const isFrontPreview = item.panelType === 'front' && isPreview;
-        const isNameEnabled = conf.nameConfig.enabled || isFrontPreview;
-        const isNumEnabled = conf.numberConfig.enabled || isFrontPreview;
+        const isNameEnabled = conf.nameConfig.enabled;
+        const isNumEnabled = conf.numberConfig.enabled;
 
         // Draw Name overlay if enabled
         if (!hideOverlays && isNameEnabled && item.playerName && item.playerName !== "BLANK") {
-          const textX = widthPx / 2;
+          const textX = conf.nameConfig.xPos !== undefined ? (conf.nameConfig.xPos / 100) * widthPx : widthPx / 2;
           const textY = (conf.nameConfig.yPos / 100) * heightPx;
           // Scale maxLimitPx proportionally to reference width (22in) so scaling across sizes (18 to 60) stays proportional
           const maxLimitPx = (conf.nameConfig.maxW / 22) * widthPx;
@@ -1397,7 +1403,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
         // Draw Number overlay if enabled
         if (!hideOverlays && isNumEnabled && item.playerNum) {
-          const textX = widthPx / 2;
+          const textX = conf.numberConfig.xPos !== undefined ? (conf.numberConfig.xPos / 100) * widthPx : widthPx / 2;
           const textY = (conf.numberConfig.yPos / 100) * heightPx;
           // Scale maxLimitPx proportionally to reference width (22in) so scaling across sizes (18 to 60) stays proportional
           const maxLimitPx = (conf.numberConfig.maxW / 22) * widthPx;
@@ -1479,52 +1485,32 @@ export const NestingView: React.FC<NestingViewProps> = ({
         // Draw center tick marks and corner watermark text labels
         drawTechnicalMarks();
 
-        // Draw FiveNest Watermark Logo in 180° (upside-down) with full brand text "FiveNest" in original colors without stroke
+        // Draw FiveNest Woven Label Tag (Upright, 0.50 in from Right side, 0.05 in from Bottom edge, FIXED 1" x 0.4" on ALL sizes)
         if (includeWatermarkLogo && item.panelType === 'front') {
           ctx.save();
-          // Scaled proportionally with relW
-          const logoW = Math.round(0.26 * scaleDpi * relW);
-          const logoH = Math.round((0.26 * (48.1 / 64.8)) * scaleDpi * relW);
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
 
-          const marginX = Math.round(0.10 * scaleDpi * relW);
-          const marginY = Math.round(0.20 * scaleDpi * relH);
+          // FIXED physical dimensions: 1.00" x 0.40" (identical physical size on all panels 18 to 60)
+          const physicalPatchW = 1.00; // in inches
+          const physicalPatchH = 0.40; // in inches
+          const patchW = Math.round(physicalPatchW * scaleDpi);
+          const patchH = Math.round(physicalPatchH * scaleDpi);
 
-          const cx = widthPx - marginX;
-          const cy = heightPx - marginY;
+          // EXACT Placement: 0.50 inches from Right edge and 0.05 inches from Bottom edge
+          const marginFromRight = Math.round(0.50 * scaleDpi);
+          const marginFromBottom = Math.round(0.05 * scaleDpi);
 
-          ctx.translate(cx, cy);
-          ctx.rotate(Math.PI); // Rotate 180 Degrees (upside down)
+          const drawX = widthPx - marginFromRight - patchW;
+          const drawY = heightPx - marginFromBottom - patchH;
 
           ctx.globalAlpha = 1.0;
 
-          if (logoPathCyan && logoPathWhite) {
-            ctx.save();
-            ctx.scale(logoW / 64.8, logoH / 48.1);
-            ctx.translate(-64.8 / 2, -48.1 / 2);
-
-            // Dark Maroon Main Shape (#650f24) - Original Brand Color, NO STROKE
-            ctx.fillStyle = '#650f24';
-            ctx.fill(logoPathCyan);
-
-            // Orange Accent Path (#ee6f30) - Original Brand Color, NO STROKE
-            ctx.fillStyle = '#ee6f30';
-            ctx.fill(logoPathWhite);
-            ctx.restore();
+          if (fivenestLabelTagImageInstance && fivenestLabelTagImageInstance.complete && fivenestLabelTagImageInstance.naturalWidth > 0) {
+            ctx.drawImage(fivenestLabelTagImageInstance, drawX, drawY, patchW, patchH);
           } else if (fivenestLogoImageInstance && fivenestLogoImageInstance.complete && fivenestLogoImageInstance.naturalWidth > 0) {
-            ctx.drawImage(fivenestLogoImageInstance, -logoW / 2, -logoH / 2, logoW, logoH);
+            ctx.drawImage(fivenestLogoImageInstance, drawX, drawY, patchW, patchH);
           }
-
-          // Draw full "FiveNest" brand text right below icon in Original Dark Maroon color (#650f24), NO STROKE
-          const textFontSize = Math.round(0.09 * scaleDpi * relW);
-          ctx.font = `bold ${textFontSize}px system-ui, -apple-system, sans-serif`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'top';
-
-          const textY = (logoH / 2) + Math.round(0.03 * scaleDpi * relW);
-
-          // Solid Dark Maroon text fill without any stroke
-          ctx.fillStyle = '#650f24';
-          ctx.fillText("FiveNest", 0, textY);
 
           ctx.restore();
         }
@@ -2515,189 +2501,495 @@ export const NestingView: React.FC<NestingViewProps> = ({
   };
 
   return (
-    <div className="nesting-view fade-in">
-      <div className="glass-card" style={{ marginBottom: '24px' }}>
-        <h2 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Sliders size={20} style={{ color: 'var(--color-primary)' }} /> Nesting Engine Configuration
-        </h2>
+    <div className="nesting-view fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '30px' }}>
+      
+      {/* Top Hero Glass Header & Quick Stat Tiles */}
+      <div className="glass-panel" style={{ padding: '20px 24px', position: 'relative', overflow: 'hidden' }}>
+        {/* Ambient background glow orb */}
+        <div style={{ position: 'absolute', top: '-60px', right: '-40px', width: '220px', height: '220px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,229,255,0.15) 0%, transparent 70%)', pointerEvents: 'none', filter: 'blur(30px)' }}></div>
+        <div style={{ position: 'absolute', bottom: '-60px', left: '20%', width: '180px', height: '180px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(124,58,237,0.12) 0%, transparent 70%)', pointerEvents: 'none', filter: 'blur(30px)' }}></div>
 
-        {enableNesting && (
-          <div className="grid-3" style={{ marginBottom: '20px' }}>
-            <div className="form-group">
-              <label className="form-label">Roll Canvas Width (in):</label>
-              <input 
-                type="number" 
-                className="form-input" 
-                value={rollW} 
-                onChange={(e) => {
-                  const w = parseFloat(e.target.value) || 64;
-                  setRollW(w);
-                  localStorage.setItem('fivenest_pref_roll_w', JSON.stringify(w));
-                }} 
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Max Print Height (in):</label>
-              <input 
-                type="number" 
-                className="form-input" 
-                value={rollH} 
-                onChange={(e) => {
-                  const h = parseFloat(e.target.value) || 100;
-                  setRollH(h);
-                  localStorage.setItem('fivenest_pref_roll_h', JSON.stringify(h));
-                }} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Item Safety Gap (in):</label>
-              <input 
-                type="number" 
-                step="0.05" 
-                className="form-input" 
-                value={itemGap} 
-                onChange={(e) => {
-                  const g = parseFloat(e.target.value) || 0.25;
-                  setItemGap(g);
-                  localStorage.setItem('fivenest_pref_item_gap', JSON.stringify(g));
-                }} 
-              />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', marginBottom: '18px', position: 'relative', zIndex: 1 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, rgba(0,229,255,0.2) 0%, rgba(124,58,237,0.2) 100%)', border: '1px solid rgba(0,229,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 15px rgba(0,229,255,0.2)' }}>
+                <Sliders size={20} style={{ color: 'var(--accent-cyan)' }} />
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '900', letterSpacing: '-0.02em', color: '#ffffff' }}>
+                  Production & Export Engine
+                </h2>
+                <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  High-Precision Sublimation RIP Layouts, Roll Packing & 300 DPI Export
+                </p>
+              </div>
             </div>
           </div>
-        )}
 
-        <div className="form-row" style={{ marginBottom: '24px' }}>
-          <label className={`checkbox-card ${enableNesting ? 'checked' : ''}`}>
-            <input 
-              type="checkbox" 
-              checked={enableNesting} 
-              onChange={(e) => {
-                setEnableNesting(e.target.checked);
-                localStorage.setItem('fivenest_pref_enable_nesting', JSON.stringify(e.target.checked));
-              }} 
-            />
+          {/* Wallet Balance Pill */}
+          <div 
+            onClick={onOpenLogin}
+            style={{ 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: '10px', 
+              padding: '8px 16px', 
+              borderRadius: '9999px', 
+              background: 'rgba(15,23,42,0.65)', 
+              backdropFilter: 'blur(16px)', 
+              border: '1px solid rgba(0,229,255,0.3)', 
+              boxShadow: '0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            title="Click to manage wallet / recharge"
+          >
+            <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(0,229,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Coins size={14} style={{ color: 'var(--accent-cyan)' }} />
+            </div>
             <div style={{ textAlign: 'left' }}>
-              <p style={{ fontWeight: 'bold', fontSize: '13px' }}>Enable Roll Nesting</p>
-              <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Pack panels onto a continuous roll. Uncheck to export as individual files</p>
-            </div>
-          </label>
-
-          {enableNesting && (
-            <>
-              <label className={`checkbox-card ${tightestFit ? 'checked' : ''}`}>
-                <input 
-                  type="checkbox" 
-                  checked={tightestFit} 
-                  onChange={(e) => {
-                    setTightestFit(e.target.checked);
-                    localStorage.setItem('fivenest_pref_tightest_fit', JSON.stringify(e.target.checked));
-                  }} 
-                />
-                <div style={{ textAlign: 'left' }}>
-                  <p style={{ fontWeight: 'bold', fontSize: '13px' }}>Tightest 2D Fit (Bin Packing)</p>
-                  <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Maximize roll space using nested gaps</p>
-                </div>
-              </label>
-
-              <label className={`checkbox-card ${rotateToFit ? 'checked' : ''}`}>
-                <input 
-                  type="checkbox" 
-                  checked={rotateToFit} 
-                  onChange={(e) => {
-                    setRotateToFit(e.target.checked);
-                    localStorage.setItem('fivenest_pref_rotate_to_fit', JSON.stringify(e.target.checked));
-                  }} 
-                />
-                <div style={{ textAlign: 'left' }}>
-                  <p style={{ fontWeight: 'bold', fontSize: '13px' }}>Rotate Panels to Fit</p>
-                  <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Allows 90° rotation to fit tight empty spots</p>
-                </div>
-              </label>
-            </>
-          )}
-
-          {/* Export Settings: DPI + Format + Color Profile */}
-          <div style={{ background: 'rgba(0,229,255,0.04)', border: '1px solid var(--border-active)', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <label style={{ fontSize: '11px', fontWeight: '800', color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>📤 Export Settings</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontSize: '10px' }}>Resolution:</label>
-                <select
-                  className="form-select"
-                  value={dpi}
-                  onChange={(e) => {
-                    const d = parseInt(e.target.value);
-                    setDpi(d);
-                    localStorage.setItem('fivenest_pref_dpi', JSON.stringify(d));
-                  }}
-                >
-                  <option value="72">72 DPI (Preview)</option>
-                  <option value="100">100 DPI (Medium)</option>
-                  <option value="150">150 DPI (High)</option>
-                  <option value="300">300 DPI (Professional ★)</option>
-                </select>
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontSize: '10px' }}>File Format:</label>
-                <select
-                  className="form-select"
-                  value={exportFormat}
-                  onChange={(e) => {
-                    const f = e.target.value as ExportFormat;
-                    setExportFormat(f);
-                    localStorage.setItem('fivenest_pref_export_format', f);
-                  }}
-                >
-                  <option value="jpg">JPG (Default ★)</option>
-                  <option value="png">PNG (Lossless)</option>
-                  <option value="tiff">TIFF (Professional)</option>
-                </select>
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontSize: '10px' }}>Color Profile:</label>
-                <select
-                  className="form-select"
-                  value={colorProfile}
-                  onChange={(e) => {
-                    const p = e.target.value as ColorProfile;
-                    setColorProfile(p);
-                    localStorage.setItem('fivenest_pref_color_profile', p);
-                  }}
-                >
-                  <option value="rgb">RGB (Default ★)</option>
-                  <option value="cmyk">CMYK (TIFF only)</option>
-                </select>
+              <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Wallet Balance</div>
+              <div style={{ fontSize: '13px', fontWeight: '900', color: (currentUser?.balance || 0) > 0 ? '#4ade80' : '#f59e0b' }}>
+                ₹{(currentUser?.balance || 0).toFixed(2)} INR
               </div>
             </div>
-            {colorProfile === 'cmyk' && exportFormat !== 'tiff' && (
-              <p style={{ fontSize: '10px', color: '#ffaa00', margin: 0 }}>⚠️ CMYK output is only applied for TIFF format. Switch format to TIFF for CMYK export.</p>
-            )}
+            <span style={{ fontSize: '10px', fontWeight: '800', background: 'rgba(0,229,255,0.15)', color: 'var(--accent-cyan)', padding: '2px 8px', borderRadius: '12px', border: '1px solid rgba(0,229,255,0.3)' }}>
+              + Add
+            </span>
           </div>
         </div>
 
-        {enableNesting && (
-          <button className="btn btn-primary" onClick={runNesting} style={{ width: '100%', padding: '12px' }} disabled={isNesting}>
-            <Play size={16} /> {isNesting ? "Preparing Export Layout..." : "▶ RUN NESTING CALCULATION"}
-          </button>
-        )}
+        {/* 4 Glassmorphism Stat Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', position: 'relative', zIndex: 1 }}>
+          
+          {/* Card 1: Printable Panels */}
+          <div className="glass-stat-card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Printable Panels</span>
+              <span style={{ fontSize: '16px' }}>📦</span>
+            </div>
+            <div style={{ fontSize: '20px', fontWeight: '900', color: 'var(--text-primary)' }}>
+              {enableNesting 
+                ? `${nestingSheets.reduce((acc, sheet) => acc + sheet.items.length, 0)} Panels`
+                : `${getItemsToExport().length} Panels`}
+            </div>
+            <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '3px' }}>
+              {records.reduce((acc, r) => acc + r.qty, 0)} Total Garments in Job
+            </div>
+          </div>
+
+          {/* Card 2: Export Resolution */}
+          <div className="glass-stat-card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profile & Quality</span>
+              <span style={{ fontSize: '16px' }}>⚙️</span>
+            </div>
+            <div style={{ fontSize: '20px', fontWeight: '900', color: 'var(--accent-cyan)' }}>
+              {dpi} DPI
+            </div>
+            <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '3px' }}>
+              {exportFormat.toUpperCase()} • {colorProfile.toUpperCase()} Profile
+            </div>
+          </div>
+
+          {/* Card 3: Woven Label Watermark Tag */}
+          <div 
+            className="glass-stat-card" 
+            style={{ cursor: 'pointer', border: includeWatermarkLogo ? '1px solid rgba(74, 222, 128, 0.4)' : '1px solid rgba(255, 171, 0, 0.4)' }}
+            onClick={() => {
+              const val = !includeWatermarkLogo;
+              setIncludeWatermarkLogo(val);
+              localStorage.setItem('fivenest_pref_logo_watermark', JSON.stringify(val));
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>FiveNest Woven Label</span>
+              <span style={{ fontSize: '14px' }}>{includeWatermarkLogo ? '🏷️' : '🚫'}</span>
+            </div>
+            <div style={{ fontSize: '20px', fontWeight: '900', color: includeWatermarkLogo ? '#4ade80' : '#f59e0b' }}>
+              {includeWatermarkLogo ? 'ON (₹3/pc)' : 'OFF (₹5/pc)'}
+            </div>
+            <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '3px' }}>
+              {includeWatermarkLogo ? 'Discounted Rate Applied' : 'Standard Rate (No Tag)'}
+            </div>
+          </div>
+
+          {/* Card 4: Layout Efficiency */}
+          <div className="glass-stat-card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Layout Strategy</span>
+              <span style={{ fontSize: '16px' }}>🗺️</span>
+            </div>
+            <div style={{ fontSize: '20px', fontWeight: '900', color: '#a78bfa' }}>
+              {enableNesting 
+                ? `${nestingSheets[activeSheetIndex]?.efficiency || 0}% Efficiency` 
+                : 'Individual ZIP'}
+            </div>
+            <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '3px' }}>
+              {enableNesting ? `Roll: ${rollW}" × ${Math.round(nestingSheets[activeSheetIndex]?.height || 0)}"` : 'Organized in Subfolders'}
+            </div>
+          </div>
+
+        </div>
       </div>
 
+      {/* Main Dual Configuration Container (Mode Selection + Export Bar) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '20px', alignItems: 'start' }}>
+        
+        {/* Left Column: Mode Selector & Roll Options */}
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', color: '#ffffff' }}>
+              <Sliders size={16} style={{ color: 'var(--accent-cyan)' }} /> Production Packaging Mode
+            </h3>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)' }}>Select Workflow</span>
+          </div>
+
+          {/* Segmented Mode Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            
+            {/* Mode 1: Individual Panels (ZIP) */}
+            <div 
+              onClick={() => {
+                setEnableNesting(false);
+                localStorage.setItem('fivenest_pref_enable_nesting', JSON.stringify(false));
+              }}
+              style={{
+                padding: '12px 14px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                background: !enableNesting ? 'rgba(0, 229, 255, 0.08)' : 'rgba(255, 255, 255, 0.03)',
+                border: !enableNesting ? '1px solid rgba(0, 229, 255, 0.45)' : '1px solid rgba(255, 255, 255, 0.08)',
+                boxShadow: !enableNesting ? '0 0 20px rgba(0, 229, 255, 0.15)' : 'none',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '20px' }}>📦</span>
+                <span style={{ width: '14px', height: '14px', borderRadius: '50%', border: !enableNesting ? '4px solid var(--accent-cyan)' : '2px solid rgba(255,255,255,0.2)', background: !enableNesting ? '#ffffff' : 'transparent' }}></span>
+              </div>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: !enableNesting ? '#00e5ff' : 'var(--text-primary)' }}>
+                Individual (ZIP)
+              </div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: '1.3' }}>
+                Separated panel files sorted into Front, Back, and Sleeves.
+              </div>
+            </div>
+
+            {/* Mode 2: Roll Nesting (PDF) */}
+            <div 
+              onClick={() => {
+                setEnableNesting(true);
+                localStorage.setItem('fivenest_pref_enable_nesting', JSON.stringify(true));
+              }}
+              style={{
+                padding: '12px 14px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                background: enableNesting ? 'rgba(0, 229, 255, 0.08)' : 'rgba(255, 255, 255, 0.03)',
+                border: enableNesting ? '1px solid rgba(0, 229, 255, 0.45)' : '1px solid rgba(255, 255, 255, 0.08)',
+                boxShadow: enableNesting ? '0 0 20px rgba(0, 229, 255, 0.15)' : 'none',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '20px' }}>🗺️</span>
+                <span style={{ width: '14px', height: '14px', borderRadius: '50%', border: enableNesting ? '4px solid var(--accent-cyan)' : '2px solid rgba(255,255,255,0.2)', background: enableNesting ? '#ffffff' : 'transparent' }}></span>
+              </div>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: enableNesting ? '#00e5ff' : 'var(--text-primary)' }}>
+                Roll Nesting (PDF)
+              </div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: '1.3' }}>
+                Continuous tightly-packed canvas for direct RIP roll printing.
+              </div>
+            </div>
+
+          </div>
+
+          {/* Roll Nesting Specific Sub-controls */}
+          {enableNesting && (
+            <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Roll W (in):</label>
+                  <input 
+                    type="number" 
+                    className="form-input" 
+                    style={{ padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
+                    value={rollW} 
+                    onChange={(e) => {
+                      const w = parseFloat(e.target.value) || 64;
+                      setRollW(w);
+                      localStorage.setItem('fivenest_pref_roll_w', JSON.stringify(w));
+                    }} 
+                  />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Max H (in):</label>
+                  <input 
+                    type="number" 
+                    className="form-input" 
+                    style={{ padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
+                    value={rollH} 
+                    onChange={(e) => {
+                      const h = parseFloat(e.target.value) || 100;
+                      setRollH(h);
+                      localStorage.setItem('fivenest_pref_roll_h', JSON.stringify(h));
+                    }} 
+                  />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Gap (in):</label>
+                  <input 
+                    type="number" 
+                    step="0.05" 
+                    className="form-input" 
+                    style={{ padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
+                    value={itemGap} 
+                    onChange={(e) => {
+                      const g = parseFloat(e.target.value) || 0.25;
+                      setItemGap(g);
+                      localStorage.setItem('fivenest_pref_item_gap', JSON.stringify(g));
+                    }} 
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={tightestFit} 
+                    onChange={(e) => {
+                      setTightestFit(e.target.checked);
+                      localStorage.setItem('fivenest_pref_tightest_fit', JSON.stringify(e.target.checked));
+                    }} 
+                  />
+                  <span>Tightest 2D Fit</span>
+                </label>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={rotateToFit} 
+                    onChange={(e) => {
+                      setRotateToFit(e.target.checked);
+                      localStorage.setItem('fivenest_pref_rotate_to_fit', JSON.stringify(e.target.checked));
+                    }} 
+                  />
+                  <span>Rotate 90° to Fit</span>
+                </label>
+              </div>
+
+              <button 
+                className="btn btn-primary" 
+                onClick={runNesting} 
+                style={{ width: '100%', padding: '8px 14px', fontSize: '11px', fontWeight: '800', borderRadius: '8px' }} 
+                disabled={isNesting}
+              >
+                <Play size={14} /> {isNesting ? "Computing Optimal Layout..." : "▶ Re-Calculate Roll Packing"}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Smart Export Parameters & Download CTA */}
+        <div className="glass-card" style={{ background: 'linear-gradient(135deg, rgba(13,17,34,0.75) 0%, rgba(15,23,42,0.85) 100%)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', color: '#ffffff' }}>
+              <Download size={16} style={{ color: 'var(--accent-cyan)' }} /> Export Configuration
+            </h3>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)' }}>Print Parameters</span>
+          </div>
+
+          {/* Row 1: Dropdown Selectors */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Resolution:</label>
+              <select
+                className="form-select"
+                style={{ padding: '6px 8px', fontSize: '11px', borderRadius: '6px' }}
+                value={dpi}
+                onChange={(e) => {
+                  const d = parseInt(e.target.value);
+                  setDpi(d);
+                  localStorage.setItem('fivenest_pref_dpi', JSON.stringify(d));
+                }}
+              >
+                <option value="72">72 DPI</option>
+                <option value="100">100 DPI</option>
+                <option value="150">150 DPI</option>
+                <option value="300">300 DPI ★</option>
+              </select>
+            </div>
+
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Format:</label>
+              <select
+                className="form-select"
+                style={{ padding: '6px 8px', fontSize: '11px', borderRadius: '6px' }}
+                value={exportFormat}
+                onChange={(e) => {
+                  const f = e.target.value as ExportFormat;
+                  setExportFormat(f);
+                  localStorage.setItem('fivenest_pref_export_format', f);
+                }}
+              >
+                <option value="jpg">JPG (Default ★)</option>
+                <option value="png">PNG (Lossless)</option>
+                <option value="tiff">TIFF (Pro)</option>
+              </select>
+            </div>
+
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Color Mode:</label>
+              <select
+                className="form-select"
+                style={{ padding: '6px 8px', fontSize: '11px', borderRadius: '6px' }}
+                value={colorProfile}
+                onChange={(e) => {
+                  const p = e.target.value as ColorProfile;
+                  setColorProfile(p);
+                  localStorage.setItem('fivenest_pref_color_profile', p);
+                }}
+              >
+                <option value="rgb">RGB (Default ★)</option>
+                <option value="cmyk">CMYK</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Row 2: Artwork Detection Indicators */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', background: 'rgba(0,0,0,0.25)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Detected Artwork:</span>
+            
+            {(() => {
+              const frontHasArtwork = Boolean(
+                designConfig?.front?.uploadedFileUrl ||
+                (designConfig?.front?.nameConfig?.enabled && !metadata?.blankKit) ||
+                (designConfig?.front?.numberConfig?.enabled && !metadata?.blankKit)
+              );
+              const backHasArtwork = Boolean(
+                designConfig?.back?.uploadedFileUrl ||
+                (designConfig?.back?.nameConfig?.enabled && !metadata?.blankKit) ||
+                (designConfig?.back?.numberConfig?.enabled && !metadata?.blankKit)
+              );
+              const sleeveHasArtwork = Boolean(
+                designConfig?.sleeveLeft?.uploadedFileUrl || 
+                designConfig?.sleeveLeft?.uploadedFileHalfUrl || 
+                designConfig?.sleeveLeft?.uploadedFileFullUrl || 
+                designConfig?.sleeveRight?.uploadedFileUrl ||
+                designConfig?.sleeveRight?.uploadedFileHalfUrl ||
+                designConfig?.sleeveRight?.uploadedFileFullUrl
+              );
+
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ 
+                    fontSize: '10px', 
+                    fontWeight: '800', 
+                    padding: '3px 8px', 
+                    borderRadius: '6px', 
+                    background: frontHasArtwork ? 'rgba(74, 222, 128, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                    color: frontHasArtwork ? '#4ade80' : 'var(--text-muted)',
+                    border: frontHasArtwork ? '1px solid rgba(74, 222, 128, 0.35)' : '1px solid rgba(255, 255, 255, 0.08)'
+                  }}>
+                    Front {frontHasArtwork ? '✓' : '—'}
+                  </span>
+                  <span style={{ 
+                    fontSize: '10px', 
+                    fontWeight: '800', 
+                    padding: '3px 8px', 
+                    borderRadius: '6px', 
+                    background: backHasArtwork ? 'rgba(74, 222, 128, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                    color: backHasArtwork ? '#4ade80' : 'var(--text-muted)',
+                    border: backHasArtwork ? '1px solid rgba(74, 222, 128, 0.35)' : '1px solid rgba(255, 255, 255, 0.08)'
+                  }}>
+                    Back {backHasArtwork ? '✓' : '—'}
+                  </span>
+                  <span style={{ 
+                    fontSize: '10px', 
+                    fontWeight: '800', 
+                    padding: '3px 8px', 
+                    borderRadius: '6px', 
+                    background: sleeveHasArtwork ? 'rgba(74, 222, 128, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                    color: sleeveHasArtwork ? '#4ade80' : 'var(--text-muted)',
+                    border: sleeveHasArtwork ? '1px solid rgba(74, 222, 128, 0.35)' : '1px solid rgba(255, 255, 255, 0.08)'
+                  }}>
+                    Sleeves {sleeveHasArtwork ? '✓' : '—'}
+                  </span>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Row 3: Hero Download Action Button */}
+          {isExporting ? (
+            <div style={{ textAlign: 'center', background: 'rgba(0, 229, 255, 0.12)', border: '1px solid var(--accent-cyan)', padding: '12px 16px', borderRadius: '10px', boxShadow: '0 0 25px rgba(0,229,255,0.2)' }}>
+              <div style={{ display: 'inline-block', width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.2)', borderTopColor: 'var(--color-primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', verticalAlign: 'middle', marginRight: '8px' }}></div>
+              <span style={{ fontSize: '13px', fontWeight: '800', color: '#ffffff' }}>Rendering Production Panels... {exportProgress}</span>
+            </div>
+          ) : (
+            <button 
+              type="button"
+              className="btn"
+              onClick={handleExportPDF} 
+              disabled={getItemsToExport().length === 0}
+              style={{ 
+                width: '100%', 
+                padding: '13px 20px', 
+                fontSize: '13px', 
+                fontWeight: '900', 
+                letterSpacing: '0.04em',
+                borderRadius: '10px',
+                border: 'none',
+                background: getItemsToExport().length > 0 
+                  ? 'linear-gradient(135deg, #00e5ff 0%, #10b981 100%)' 
+                  : 'rgba(255,255,255,0.06)',
+                color: getItemsToExport().length > 0 ? '#07080f' : 'var(--text-muted)',
+                boxShadow: getItemsToExport().length > 0 
+                  ? '0 0 25px rgba(0, 229, 255, 0.4), 0 4px 18px rgba(16, 185, 129, 0.35)' 
+                  : 'none',
+                cursor: getItemsToExport().length === 0 ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '9px',
+                transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+              }}
+            >
+              <Download size={18} style={{ color: '#07080f' }} /> 
+              {testMode 
+                ? "TEST DOWNLOAD (FREE - 72 DPI)" 
+                : (enableNesting ? "DOWNLOAD PRINT-READY ROLL (PDF)" : "DOWNLOAD INDIVIDUAL PANELS (ZIP)")}
+            </button>
+          )}
+
+        </div>
+      </div>
+
+      {/* Main View Canvas / Roster Area */}
       {(!enableNesting || (enableNesting && nestingSheets.length > 0)) && (
-        <div className="grid-2">
-          {/* Visual Canvas Panel */}
-          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column' }}>
+        <div style={{ width: '100%' }}>
+          <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {enableNesting ? (
               <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <h3>🗺️ Visual Roll Sheet Preview</h3>
-                  <div style={{ display: 'flex', background: 'rgba(0,0,0,0.3)', padding: '2px', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                  <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: '800', color: '#ffffff' }}>
+                    🗺️ Visual Roll Sheet Preview
+                  </h3>
+                  <div style={{ display: 'flex', background: 'rgba(0,0,0,0.4)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
                     {nestingSheets.map((_, index) => (
                       <button 
                         key={index} 
                         className={`btn ${activeSheetIndex === index ? 'btn-primary' : 'btn-secondary'}`} 
-                        style={{ padding: '4px 10px', fontSize: '12px' }}
+                        style={{ padding: '5px 12px', fontSize: '12px', borderRadius: '6px' }}
                         onClick={() => setActiveSheetIndex(index)}
                       >
                         Sheet {index + 1}
@@ -2706,24 +2998,24 @@ export const NestingView: React.FC<NestingViewProps> = ({
                   </div>
                 </div>
 
-                <div className="nesting-roll-canvas">
+                <div className="nesting-roll-canvas" style={{ minHeight: '420px', background: 'rgba(5,7,15,0.85)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.5)' }}>
                   <canvas ref={previewCanvasRef} />
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '16px', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', background: 'rgba(15,23,42,0.6)', padding: '14px 18px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Total Roll Width</p>
-                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--color-primary)' }}>{rollW}"</p>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 4px', fontWeight: '700', textTransform: 'uppercase' }}>Total Roll Width</p>
+                    <p style={{ fontSize: '20px', fontWeight: '900', color: 'var(--accent-cyan)', margin: 0 }}>{rollW}"</p>
                   </div>
                   <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Roll Length Height</p>
-                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--color-secondary)' }}>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 4px', fontWeight: '700', textTransform: 'uppercase' }}>Roll Length Height</p>
+                    <p style={{ fontSize: '20px', fontWeight: '900', color: 'var(--accent-amber)', margin: 0 }}>
                       {Math.round(nestingSheets[activeSheetIndex]?.height || 0)}"
                     </p>
                   </div>
                   <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Efficiency</p>
-                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--color-success)' }}>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 4px', fontWeight: '700', textTransform: 'uppercase' }}>Nesting Efficiency</p>
+                    <p style={{ fontSize: '20px', fontWeight: '900', color: '#4ade80', margin: 0 }}>
                       {nestingSheets[activeSheetIndex]?.efficiency || 0}%
                     </p>
                   </div>
@@ -2731,143 +3023,45 @@ export const NestingView: React.FC<NestingViewProps> = ({
               </>
             ) : (
               <>
-                <h3 style={{ marginBottom: '16px' }}>📋 Individual Export Roster ({getItemsToExport().length} Panels)</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: '800', color: '#ffffff' }}>
+                    📋 Individual Export Roster ({getItemsToExport().length} Panels)
+                  </h3>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>
+                    Exporting as {exportFormat.toUpperCase()} at {dpi} DPI ({colorProfile.toUpperCase()})
+                  </span>
+                </div>
+
                 {getItemsToExport().length > 0 ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '10px', maxHeight: '420px', overflowY: 'auto', padding: '10px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '10px', maxHeight: '540px', overflowY: 'auto', padding: '14px', background: 'rgba(5,7,15,0.6)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
                     {getItemsToExport().map((item, idx) => (
-                      <div key={idx} style={{ padding: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-light)', borderRadius: '6px', textAlign: 'left' }}>
-                        <span style={{ fontSize: '9px', textTransform: 'uppercase', color: 'var(--color-secondary)', fontWeight: 'bold' }}>
+                      <div key={idx} className="glass-card" style={{ padding: '12px', textAlign: 'left', borderRadius: '8px' }}>
+                        <span style={{ fontSize: '9px', textTransform: 'uppercase', color: 'var(--accent-cyan)', fontWeight: '800', letterSpacing: '0.05em' }}>
                           {item.panelType.replace('-', ' ')}
                         </span>
-                        <p style={{ fontSize: '13px', fontWeight: 'bold', margin: '2px 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {item.playerName || 'BLANK'}
+                        <p style={{ fontSize: '13px', fontWeight: '800', margin: '4px 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#ffffff' }}>
+                          {item.playerName || '— (Blank)'}
                         </p>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                          <span>Size {item.size}</span>
-                          <span>{item.w}"x{item.h}"</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginTop: '6px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '6px' }}>
+                          <span style={{ fontWeight: '800', color: '#4ade80' }}>Size {item.size}</span>
+                          <span>{item.w}" × {item.h}"</span>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div style={{ textAlign: 'center', padding: '60px 20px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', border: '1px dashed var(--border-light)', width: '100%' }}>
-                    <p style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '6px' }}>📋 Roster is currently empty</p>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Go to the <strong>Roster & Details</strong> tab to import or add items.</p>
+                  <div style={{ textAlign: 'center', padding: '70px 20px', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', border: '1px dashed rgba(255,255,255,0.1)', width: '100%' }}>
+                    <p style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '6px' }}>📋 Roster is currently empty</p>
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Go to the <strong>Job Details & Excel Data</strong> tab to import CSV or enter sizes.</p>
                   </div>
                 )}
               </>
             )}
           </div>
-
-          {/* Export Action Card */}
-          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div>
-              <h3 style={{ marginBottom: '16px' }}>📦 Export Options & Summary</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left', marginBottom: '20px' }}>
-                <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '8px' }}>
-                  <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Export Format Mode:</p>
-                  <p style={{ fontSize: '16px', fontWeight: 'bold' }}>
-                    {enableNesting ? `${nestingSheets.length} Roll Pages` : `Individual Panel Images (ZIP)`}
-                  </p>
-                </div>
-                
-                <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '8px' }}>
-                  <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Total Packed Components:</p>
-                  <p style={{ fontSize: '16px', fontWeight: 'bold' }}>
-                    {enableNesting 
-                      ? nestingSheets.reduce((acc, sheet) => acc + sheet.items.length, 0)
-                      : getItemsToExport().length} printable panels
-                  </p>
-                </div>
-
-                <div>
-                  <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Output Document DPI:</p>
-                  <p style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--color-primary)' }}>
-                    {testMode ? "72 DPI (Forced in Test Mode)" : `${dpi} DPI`} {enableNesting ? `(${dpi * rollW} x ${Math.round(dpi * (nestingSheets[activeSheetIndex]?.height || 0))} pixels)` : ''}
-                  </p>
-                </div>
-
-                <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '12px', marginTop: '4px' }}>
-                  <div style={{ 
-                    background: includeWatermarkLogo ? 'rgba(0, 230, 118, 0.06)' : 'rgba(255, 171, 0, 0.06)', 
-                    border: `1px solid ${includeWatermarkLogo ? 'rgba(0, 230, 118, 0.3)' : 'rgba(255, 171, 0, 0.3)'}`, 
-                    borderRadius: '8px', 
-                    padding: '12px 14px'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '13px', fontWeight: 'bold' }}>FiveNest 180° Watermark Logo</span>
-                          <span style={{ 
-                            fontSize: '10px', 
-                            background: includeWatermarkLogo ? 'rgba(0, 230, 118, 0.2)' : 'rgba(255, 171, 0, 0.2)', 
-                            color: includeWatermarkLogo ? '#00e676' : '#ffab00', 
-                            padding: '2px 6px', 
-                            borderRadius: '4px', 
-                            fontWeight: 'bold' 
-                          }}>
-                            {includeWatermarkLogo ? '₹3 / pc (Discounted)' : '₹5 / pc (Standard)'}
-                          </span>
-                        </div>
-                        <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '3px' }}>
-                          Renders small 0.3" FiveNest logo upside-down (180°) at bottom-right of Front files.
-                        </p>
-                      </div>
-
-                      <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '6px' }}>
-                        <input 
-                          type="checkbox" 
-                          checked={includeWatermarkLogo}
-                          onChange={(e) => {
-                            const val = e.target.checked;
-                            setIncludeWatermarkLogo(val);
-                            localStorage.setItem('fivenest_pref_logo_watermark', JSON.stringify(val));
-                          }}
-                          style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#00e676' }}
-                        />
-                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: includeWatermarkLogo ? '#00e676' : '#ffab00' }}>
-                          {includeWatermarkLogo ? 'ON (₹3)' : 'OFF (₹5)'}
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {isExporting ? (
-                <div style={{ textAlign: 'center', background: 'rgba(155, 77, 255, 0.08)', border: '1px solid var(--border-active)', padding: '16px', borderRadius: '8px' }}>
-                  <div style={{ display: 'inline-block', width: '20px', height: '20px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--color-primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '8px' }}></div>
-                  <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-                  <p style={{ fontSize: '13px', fontWeight: 'bold' }}>Rendering High-Resolution Graphics...</p>
-                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>{exportProgress}</p>
-                </div>
-              ) : (
-                <>
-                  <button 
-                    className={`btn ${testMode ? 'btn-secondary' : 'btn-success'}`}
-                    onClick={handleExportPDF} 
-                    style={{ width: '100%', padding: '14px' }} 
-                    disabled={getItemsToExport().length === 0}
-                  >
-                    <Download size={18} /> {testMode ? "TEST DOWNLOAD (FREE - 72 DPI)" : (enableNesting ? "DOWNLOAD PRINT-READY ROLL (PDF)" : "DOWNLOAD INDIVIDUAL PANELS (ZIP)")}
-                  </button>
-                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center' }}>
-                    {testMode 
-                      ? "Downloads a watermarked, low-resolution 72 DPI copy of your panels for layout verification."
-                      : (enableNesting 
-                          ? "Saves a direct multi-page PDF vector container file. Ideal for loading straight into Rip Software (Wasatch, ErgoSoft, Caldera)."
-                          : "Saves a structured ZIP file containing individual JPEG panels sorted into Front, Back, and Sleeve folders.")}
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
         </div>
       )}
 
-      {/* UPI QR Payment Modal */}
+      {/* Glassmorphic Sublimation Checkout Modal */}
       {showPaymentModal && (
         <div className="modal-backdrop" style={{
           position: 'fixed',
@@ -2875,23 +3069,21 @@ export const NestingView: React.FC<NestingViewProps> = ({
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(5, 5, 10, 0.85)',
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
+          background: 'rgba(5, 7, 15, 0.85)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000,
           padding: '16px'
         }}>
-          <div className="glass-card fade-in" style={{
+          <div className="glass-panel fade-in" style={{
             width: '100%',
-            maxWidth: '440px',
-            padding: '30px',
-            background: 'rgba(15, 15, 25, 0.85)',
-            border: '1px solid var(--border-active)',
+            maxWidth: '460px',
+            padding: '28px',
             position: 'relative',
-            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5)'
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.6), 0 0 30px rgba(0, 229, 255, 0.15)'
           }}>
             <button 
               onClick={() => {
@@ -2900,62 +3092,67 @@ export const NestingView: React.FC<NestingViewProps> = ({
               }}
               style={{
                 position: 'absolute',
-                top: '20px',
-                right: '20px',
-                background: 'none',
-                border: 'none',
+                top: '18px',
+                right: '18px',
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '6px',
                 color: 'var(--text-muted)',
                 cursor: 'pointer',
-                padding: '4px'
+                padding: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
             >
-              <X size={20} />
+              <X size={16} />
             </button>
 
-            <h3 style={{ fontSize: '20px', fontWeight: 'bold', color: 'white', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <QrCode size={22} style={{ color: 'var(--color-primary)' }} /> Sublimation Panel Checkout
+            <h3 style={{ fontSize: '18px', fontWeight: '900', color: 'white', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <QrCode size={20} style={{ color: 'var(--accent-cyan)' }} /> Sublimation Panel Checkout
             </h3>
             
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px' }}>
-              Production-ready rendering is billed at **₹3.00 INR per Back panel** and **₹0.50 INR per A4 size print panel**. Front and sleeve panels are free.
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '18px', lineHeight: '1.4' }}>
+              Production rendering is billed at <strong>₹3.00/pc</strong> for Back panels with FiveNest label tag (or ₹5.00/pc standard). Front and sleeve panels are free.
             </p>
 
-            <div className="glass-card" style={{ background: 'rgba(0,0,0,0.15)', padding: '16px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* Pricing Breakdown Card */}
+            <div style={{ background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '14px 16px', marginBottom: '18px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Player Roster Count:</span>
-                <span style={{ fontWeight: '600' }}>{records.reduce((acc, r) => acc + r.qty, 0)} players</span>
+                <span style={{ fontWeight: '700', color: '#ffffff' }}>{records.reduce((acc, r) => acc + r.qty, 0)} players</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Charged Back Panels:</span>
-                <span style={{ fontWeight: '600' }}>{getItemsToExport().filter(item => item.panelType === 'back').length} pcs (₹3.00 each)</span>
+                <span style={{ fontWeight: '700', color: '#ffffff' }}>{getItemsToExport().filter(item => item.panelType === 'back').length} pcs (₹{includeWatermarkLogo ? '3.00' : '5.00'} each)</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Charged A4 Prints:</span>
-                <span style={{ fontWeight: '600' }}>{getItemsToExport().filter(item => item.panelType === 'a4-print').length} pcs (₹0.50 each)</span>
+                <span style={{ fontWeight: '700', color: '#ffffff' }}>{getItemsToExport().filter(item => item.panelType === 'a4-print').length} pcs (₹0.50 each)</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Free Panels (Front/Sleeve):</span>
-                <span style={{ fontWeight: '600' }}>{getItemsToExport().filter(item => item.panelType !== 'back' && item.panelType !== 'a4-print').length} pcs (₹0.00 each)</span>
+                <span style={{ fontWeight: '700', color: '#4ade80' }}>{getItemsToExport().filter(item => item.panelType !== 'back' && item.panelType !== 'a4-print').length} pcs (₹0.00)</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', borderTop: '1px solid var(--border-light)', paddingTop: '8px', marginTop: '4px' }}>
-                <span style={{ fontWeight: 'bold', color: 'white' }}>Total Amount Due:</span>
-                <span style={{ fontWeight: 'bold', color: 'var(--color-secondary)', fontSize: '15px' }}>₹{paymentCost.toFixed(2)} INR</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '10px', marginTop: '4px' }}>
+                <span style={{ fontWeight: '800', color: '#ffffff' }}>Total Amount Due:</span>
+                <span style={{ fontWeight: '900', color: 'var(--accent-cyan)', fontSize: '16px' }}>₹{paymentCost.toFixed(2)} INR</span>
               </div>
             </div>
 
             {/* Payment Method Selector */}
-            <div className="tab-btn-group" style={{ marginBottom: '20px' }}>
+            <div className="tab-btn-group" style={{ marginBottom: '18px' }}>
               <button 
                 className={`tab-btn ${upiPaymentMethod === 'wallet' ? 'active' : ''}`}
                 onClick={() => setUpiPaymentMethod('wallet')}
-                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '11px' }}
+                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '11px', borderRadius: '6px' }}
               >
                 <Coins size={14} /> Pay via Wallet
               </button>
               <button 
                 className={`tab-btn ${upiPaymentMethod === 'upi' ? 'active' : ''}`}
                 onClick={() => setUpiPaymentMethod('upi')}
-                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '11px' }}
+                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '11px', borderRadius: '6px' }}
               >
                 <QrCode size={14} /> Scan UPI QR
               </button>
@@ -2963,29 +3160,29 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
             {/* Wallet Deduct Panel */}
             {upiPaymentMethod === 'wallet' && currentUser && (
-              <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
-                  Wallet Balance: <strong style={{ color: currentUser.balance >= paymentCost ? 'var(--color-success)' : 'var(--color-danger)' }}>₹{currentUser.balance.toFixed(2)}</strong>
+              <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                  Wallet Balance: <strong style={{ color: currentUser.balance >= paymentCost ? '#4ade80' : '#f43f5e', fontSize: '15px' }}>₹{currentUser.balance.toFixed(2)}</strong>
                 </div>
 
                 {currentUser.balance >= paymentCost ? (
                   <button 
                     className="btn btn-primary"
                     onClick={executePaymentWithWallet}
-                    style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                    style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', borderRadius: '8px', fontSize: '13px', fontWeight: '800' }}
                   >
                     <CheckCircle size={16} /> Deduct ₹{paymentCost.toFixed(2)} & Export High-Res
                   </button>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <div style={{ color: 'var(--color-danger)', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
+                    <div style={{ color: '#f43f5e', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
                       <AlertTriangle size={14} /> Insufficient balance (₹{currentUser.balance.toFixed(2)}). Add funds below.
                     </div>
 
                     {/* Custom topup input */}
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <div style={{ position: 'relative', flex: 1 }}>
-                        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-secondary)', fontWeight: '700', fontSize: '13px' }}>₹</span>
+                        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--accent-cyan)', fontWeight: '700', fontSize: '13px' }}>₹</span>
                         <input
                           type="number"
                           min="1"
@@ -3013,9 +3210,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
                           background: topupLoading ? 'rgba(0,229,255,0.3)' : 'rgba(0,229,255,0.15)',
                           border: '1px solid rgba(0,229,255,0.4)',
                           borderRadius: '8px',
-                          color: 'var(--color-secondary)',
+                          color: 'var(--accent-cyan)',
                           fontSize: '11px',
-                          fontWeight: '700',
+                          fontWeight: '800',
                           cursor: topupLoading ? 'not-allowed' : 'pointer',
                           whiteSpace: 'nowrap',
                           display: 'flex',
@@ -3047,7 +3244,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
                         setShowPaymentModal(false);
                         onOpenLogin();
                       }}
-                      style={{ width: '100%', padding: '8px', fontSize: '11px' }}
+                      style={{ width: '100%', padding: '9px', fontSize: '11px', borderRadius: '8px' }}
                     >
                       Or Recharge via Razorpay
                     </button>
@@ -3058,20 +3255,20 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
             {/* UPI QR Scanner Panel */}
             {upiPaymentMethod === 'upi' && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', position: 'relative' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', position: 'relative' }}>
                 {simulatedPaymentLoading ? (
-                  <div style={{ height: '220px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-                    <Loader2 size={36} className="spin" style={{ color: 'var(--color-primary)' }} />
-                    <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Confirming UPI Payment...</p>
+                  <div style={{ height: '200px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                    <Loader2 size={36} className="spin" style={{ color: 'var(--accent-cyan)' }} />
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Confirming UPI Payment...</p>
                   </div>
                 ) : (
                   <>
                     <div style={{ 
                       padding: '10px', 
-                      background: 'white', 
+                      background: '#ffffff', 
                       borderRadius: '12px', 
                       position: 'relative', 
-                      boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+                      boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center'
@@ -3088,8 +3285,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
                         left: '10px',
                         right: '10px',
                         height: '2px',
-                        background: 'var(--color-primary)',
-                        boxShadow: '0 0 8px var(--color-primary)',
+                        background: 'var(--accent-cyan)',
+                        boxShadow: '0 0 10px var(--accent-cyan)',
                         animation: 'scan 2.5s linear infinite'
                       }}></div>
                       <style>{`
@@ -3103,74 +3300,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
                       `}</style>
                     </div>
                     
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>
-                      Scan this QR code using GPay, PhonePe, Paytm, or BHIM to pay ₹{paymentCost.toFixed(2)} INR.
+                    <p style={{ fontSize: '11px', color: 'var(--text-secondary)', textAlign: 'center', margin: 0 }}>
+                      Scan QR code using GPay, PhonePe, Paytm, or BHIM to pay ₹{paymentCost.toFixed(2)} INR.
                     </p>
-
-                    {/* Custom amount top-up section */}
-                    <div style={{ width: '100%', borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '12px' }}>
-                      <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', textAlign: 'center' }}>
-                        💳 Add any amount to your wallet
-                      </p>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <div style={{ position: 'relative', flex: 1 }}>
-                          <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-secondary)', fontWeight: '700', fontSize: '13px' }}>₹</span>
-                          <input
-                            type="number"
-                            min="1"
-                            placeholder="Amount to add"
-                            value={customTopupAmount}
-                            onChange={(e) => setCustomTopupAmount(e.target.value)}
-                            style={{
-                              width: '100%',
-                              padding: '9px 10px 9px 26px',
-                              background: 'rgba(255,255,255,0.05)',
-                              border: '1px solid rgba(0,229,255,0.3)',
-                              borderRadius: '8px',
-                              color: 'white',
-                              fontSize: '13px',
-                              outline: 'none',
-                              boxSizing: 'border-box'
-                            }}
-                          />
-                        </div>
-                        <button
-                          onClick={handleCustomTopup}
-                          disabled={topupLoading}
-                          style={{
-                            padding: '9px 14px',
-                            background: topupLoading ? 'rgba(0,229,255,0.3)' : 'rgba(0,229,255,0.15)',
-                            border: '1px solid rgba(0,229,255,0.4)',
-                            borderRadius: '8px',
-                            color: 'var(--color-secondary)',
-                            fontSize: '11px',
-                            fontWeight: '700',
-                            cursor: topupLoading ? 'not-allowed' : 'pointer',
-                            whiteSpace: 'nowrap',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}
-                        >
-                          {topupLoading ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : null}
-                          Add to Wallet
-                        </button>
-                      </div>
-                      {topupMessage && (
-                        <div style={{
-                          marginTop: '8px',
-                          fontSize: '11px',
-                          padding: '6px 10px',
-                          borderRadius: '6px',
-                          background: topupMessage.ok ? 'rgba(0,230,118,0.1)' : 'rgba(255,82,82,0.1)',
-                          color: topupMessage.ok ? '#00e676' : '#ff5252',
-                          border: `1px solid ${topupMessage.ok ? 'rgba(0,230,118,0.2)' : 'rgba(255,82,82,0.2)'}`
-                        }}>
-                          {topupMessage.text}
-                        </div>
-                      )}
-                    </div>
-
                   </>
                 )}
               </div>
@@ -3182,7 +3314,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
                 setShowPaymentModal(false);
                 setIsExporting(false);
               }}
-              style={{ width: '100%', marginTop: '12px', padding: '10px' }}
+              style={{ width: '100%', marginTop: '14px', padding: '9px', borderRadius: '8px', fontSize: '12px' }}
             >
               Cancel Transaction
             </button>

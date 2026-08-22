@@ -15,6 +15,7 @@ import { ShortcutsModal } from './coreldraw/ShortcutsModal';
 export interface TextConfig {
   enabled: boolean;
   yPos: number; // percentage from top (0-100)
+  xPos?: number; // percentage from left (0-100) - default 50 for center
   fontSize: number; // size in inches relative (often 2-3 inches for names, 8-10 inches for numbers)
   color: string;
   strokeColor: string;
@@ -101,13 +102,13 @@ interface DesignerProps {
 
 export const defaultDesignConfig: ArtDesignConfig = {
   front: {
-    backgroundType: 'generate',
-    generatedStyle: 'neon-gradient',
-    generatedColor1: '#9b4dff',
-    generatedColor2: '#ff8c00',
+    backgroundType: 'upload',
+    generatedStyle: 'blank',
+    generatedColor1: '#ffffff',
+    generatedColor2: '#ffffff',
     uploadedFileUrl: null,
-    nameConfig: { enabled: false, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    numberConfig: { enabled: false, yPos: 44, fontSize: 3.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1.75, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 3, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.08 },
+    nameConfig: { enabled: false, xPos: 50, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    numberConfig: { enabled: false, xPos: 50, yPos: 44, fontSize: 3.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1.75, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 3, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.08 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [2.0, 8.5, 11.0, 13.5, 20.0], horizontal: [7.0, 10.0, 12.0, 27.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 15.0, yPos: 8.5, lockAspectRatio: true },
@@ -115,10 +116,10 @@ export const defaultDesignConfig: ArtDesignConfig = {
     torsoLogo: { enabled: false, uploadedUrl: null, width: 8.5, height: 2.6, xPos: 11.0, yPos: 13.3, text: '', lockAspectRatio: true }
   },
   back: {
-    backgroundType: 'generate',
-    generatedStyle: 'neon-gradient',
-    generatedColor1: '#9b4dff',
-    generatedColor2: '#ff8c00',
+    backgroundType: 'upload',
+    generatedStyle: 'blank',
+    generatedColor1: '#ffffff',
+    generatedColor2: '#ffffff',
     uploadedFileUrl: null,
     nameConfig: { enabled: true, yPos: 24, fontSize: 2.5, color: '#000000', strokeColor: '#ffffff', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 11, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.18 },
     numberConfig: { enabled: true, yPos: 47, fontSize: 9.0, color: '#000000', strokeColor: '#ffffff', strokeWidth: 1.75, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8.5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.2 },
@@ -129,10 +130,10 @@ export const defaultDesignConfig: ArtDesignConfig = {
     torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '', lockAspectRatio: true }
   },
   sleeveLeft: {
-    backgroundType: 'generate',
-    generatedStyle: 'classic-stripes',
-    generatedColor1: '#9b4dff',
-    generatedColor2: '#0a0a0f',
+    backgroundType: 'upload',
+    generatedStyle: 'blank',
+    generatedColor1: '#ffffff',
+    generatedColor2: '#ffffff',
     uploadedFileUrl: null,
     nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1.75, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
@@ -143,10 +144,10 @@ export const defaultDesignConfig: ArtDesignConfig = {
     torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '', lockAspectRatio: true }
   },
   sleeveRight: {
-    backgroundType: 'generate',
-    generatedStyle: 'classic-stripes',
-    generatedColor1: '#9b4dff',
-    generatedColor2: '#0a0a0f',
+    backgroundType: 'upload',
+    generatedStyle: 'blank',
+    generatedColor1: '#ffffff',
+    generatedColor2: '#ffffff',
     uploadedFileUrl: null,
     nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1.75, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
@@ -157,7 +158,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '', lockAspectRatio: true }
   },
   a4Print: {
-    backgroundType: 'generate',
+    backgroundType: 'upload',
     generatedStyle: 'blank',
     generatedColor1: '#ffffff',
     generatedColor2: '#ffffff',
@@ -501,6 +502,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   }>({});
   const isDraggingTextRef = useRef<boolean>(false);
   const textDragOffsetYRef = useRef<number>(0); // grab offset in canvas-pixels so text doesn't jump
+  const textDragOffsetXRef = useRef<number>(0); // horizontal grab offset for front panel 2D drag
   const dragStartConfigRef = useRef<ArtDesignConfig | null>(null); // snapshot config at drag start for clean undo
   const touchStartRef = useRef<{
     x: number;
@@ -1107,7 +1109,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         // Store bounding box for canvas clicking & drag selection
         const textMetrics = ctx.measureText(displayName);
         const boundsW = Math.min(textMetrics.width, maxLimitPx);
-        const boundsH = fontSizePx * 1.2;
+        const boundsH = fontSizePx * 1.15;
 
         let boxX = adjustedX;
         if (align === 'center') {
@@ -1115,9 +1117,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         } else if (align === 'right') {
           boxX = adjustedX - boundsW;
         }
-        const boxY = textY - fontSizePx * 0.6;
+        const boxY = textY - fontSizePx * 0.55;
 
         if (layerKey) {
+          const panelSpecificKey = `${panelKey}-${layerKey}`;
+          textBoundingBoxesRef.current[panelSpecificKey] = {
+            x: boxX,
+            y: boxY,
+            w: boundsW,
+            h: boundsH
+          };
           textBoundingBoxesRef.current[layerKey] = {
             x: boxX,
             y: boxY,
@@ -1235,23 +1244,26 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
       const hideOverlays = metadata?.blankKit ?? false;
       if (!hideOverlays && panel.nameConfig.enabled) {
-        drawSingleText(previewName, panel.nameConfig, width / 2, (panel.nameConfig.yPos / 100) * height, (panel.nameConfig.maxW / 20) * width, 'name');
+        const textX = panel.nameConfig.xPos !== undefined ? (panel.nameConfig.xPos / 100) * width : width / 2;
+        drawSingleText(previewName, panel.nameConfig, textX, (panel.nameConfig.yPos / 100) * height, (panel.nameConfig.maxW / 20) * width, 'name');
       }
       if (!hideOverlays && panel.numberConfig.enabled) {
-        drawSingleText(previewNumber, panel.numberConfig, width / 2, (panel.numberConfig.yPos / 100) * height, (panel.numberConfig.maxW / 20) * width, 'number');
+        const textX = panel.numberConfig.xPos !== undefined ? (panel.numberConfig.xPos / 100) * width : width / 2;
+        drawSingleText(previewNumber, panel.numberConfig, textX, (panel.numberConfig.yPos / 100) * height, (panel.numberConfig.maxW / 20) * width, 'number');
       }
 
-      // Draw interactive Cyan Selection Box with 8 Control Handles around Active Selected Text Layer ONLY if text is selected
-      // Skip selection box on sleeve panels (no name/number placement there)
-      if (!is3DPreview && activeTextLayer && panelKey !== 'sleeveLeft' && panelKey !== 'sleeveRight') {
-        const selectedBox = textBoundingBoxesRef.current[activeTextLayer];
+      // Draw interactive Cyan Selection Box with 8 Control Handles around Active Selected Text Layer ONLY on target panel
+      const targetPanelFocus = activeTab === 'dual' ? dualActivePanel : activeTab;
+      if (!is3DPreview && activeTextLayer && panelKey === targetPanelFocus && panelKey !== 'sleeveLeft' && panelKey !== 'sleeveRight') {
+        const specificKey = `${panelKey}-${activeTextLayer}`;
+        const selectedBox = textBoundingBoxesRef.current[specificKey] || textBoundingBoxesRef.current[activeTextLayer];
         if (selectedBox) {
           ctx.save();
-          ctx.strokeStyle = '#00f0ff';
+          ctx.strokeStyle = '#00e5ff';
           ctx.lineWidth = 1.5;
           ctx.setLineDash([5, 3]);
 
-          const pad = 4;
+          const pad = 6;
           const bx = selectedBox.x - pad;
           const by = selectedBox.y - pad;
           const bw = selectedBox.w + pad * 2;
@@ -1275,20 +1287,23 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
           handles.forEach(h => {
             ctx.fillStyle = '#ffffff';
-            ctx.strokeStyle = '#00f0ff';
+            ctx.strokeStyle = '#00e5ff';
             ctx.lineWidth = 1.5;
             ctx.fillRect(h.x - 4, h.y - 4, 8, 8);
             ctx.strokeRect(h.x - 4, h.y - 4, 8, 8);
           });
 
-          // Active Layer Name Badge
-          const badgeText = activeTextLayer === 'name' ? 'PLAYER NAME (SELECTED)' : 'PLAYER NUMBER (SELECTED)';
+          // Active Layer Name Badge with drag direction hint
+          const labelName = activeTextLayer === 'name' ? 'PLAYER NAME' : 'PLAYER NUMBER';
+          const badgeText = panelKey === 'front' ? `✥ ${labelName} (DRAG 2D)` : `↕ ${labelName} (DRAG VERTICAL)`;
           ctx.font = 'bold 10px sans-serif';
-          const badgeW = ctx.measureText(badgeText).width + 14;
-          ctx.fillStyle = '#00f0ff';
-          ctx.fillRect(bx, Math.max(2, by - 20), badgeW, 18);
+          const badgeW = ctx.measureText(badgeText).width + 16;
+          ctx.fillStyle = '#00e5ff';
+          ctx.fillRect(bx, Math.max(2, by - 22), badgeW, 18);
           ctx.fillStyle = '#000000';
-          ctx.fillText(badgeText, bx + 7, Math.max(14, by - 6));
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(badgeText, bx + 8, Math.max(11, by - 13));
 
           ctx.restore();
         }
@@ -1592,30 +1607,61 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           : (panel.uploadedFileHalfUrl || panel.uploadedFileUrl);
       }
 
-      if (panel.backgroundType === 'upload' && bgUrl) {
-        const cachedImg = logoImagesRef.current[bgUrl];
-        if (cachedImg && cachedImg.complete) {
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, width, height);
+      if (panel.backgroundType === 'upload') {
+        if (bgUrl) {
+          const cachedImg = logoImagesRef.current[bgUrl];
+          if (cachedImg && cachedImg.complete) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
 
-          const bgW = (panel.bgWidth !== undefined ? panel.bgWidth : physicalW) * scale;
-          const bgH = (panel.bgHeight !== undefined ? panel.bgHeight : physicalH) * scale;
-          const bgX = (panel.bgX !== undefined ? panel.bgX : 0) * scale;
-          const bgY = (panel.bgY !== undefined ? panel.bgY : 0) * scale;
+            const bgW = (panel.bgWidth !== undefined ? panel.bgWidth : physicalW) * scale;
+            const bgH = (panel.bgHeight !== undefined ? panel.bgHeight : physicalH) * scale;
+            const bgX = (panel.bgX !== undefined ? panel.bgX : 0) * scale;
+            const bgY = (panel.bgY !== undefined ? panel.bgY : 0) * scale;
 
-          ctx.drawImage(cachedImg, bgX, bgY, bgW, bgH);
-          drawLogos(ctx);
-          drawTexts(ctx);
-          drawTechnicalMarks(ctx);
+            ctx.drawImage(cachedImg, bgX, bgY, bgW, bgH);
+            drawLogos(ctx);
+            drawTexts(ctx);
+            drawTechnicalMarks(ctx);
+          } else {
+            const img = new Image();
+            img.onload = () => {
+              logoImagesRef.current[bgUrl] = img;
+              setPrefTrigger(prev => prev + 1);
+            };
+            img.src = bgUrl;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+            drawLogos(ctx);
+            drawTexts(ctx);
+            drawTechnicalMarks(ctx);
+          }
         } else {
-          const img = new Image();
-          img.onload = () => {
-            logoImagesRef.current[bgUrl] = img;
-            setPrefTrigger(prev => prev + 1);
-          };
-          img.src = bgUrl;
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, width, height);
+          // Standard Photoshop / CorelDraw Transparency Checks Print for Empty Panels
+          const checkSize = Math.max(12, Math.round(14 * (scale / 20)));
+          for (let cy = 0; cy < height; cy += checkSize) {
+            for (let cx = 0; cx < width; cx += checkSize) {
+              const isEven = (Math.floor(cx / checkSize) + Math.floor(cy / checkSize)) % 2 === 0;
+              ctx.fillStyle = isEven ? '#1e222d' : '#141720';
+              ctx.fillRect(cx, cy, checkSize, checkSize);
+            }
+          }
+
+          // Subtle watermark in the center indicating empty panel
+          ctx.save();
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+          ctx.font = `600 ${Math.max(11, Math.round(12 * (scale / 20)))}px system-ui, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`— Empty (No Graphic Uploaded) —`, width / 2, height / 2);
+          ctx.restore();
+
+          if (!is3DPreview) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(0, 0, width, height);
+          }
+
           drawLogos(ctx);
           drawTexts(ctx);
           drawTechnicalMarks(ctx);
@@ -2051,7 +2097,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     });
   };
 
-  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>, specificPanel?: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print') => {
     if (spaceKeyPressed || activeTool === 'pan' || e.button === 1) {
       e.preventDefault();
       setIsPanning(true);
@@ -2063,17 +2109,29 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       };
       return;
     }
-    if (!canvasRef.current || activeTab === 'threeD') return;
-    const rect = canvasRef.current.getBoundingClientRect();
+    if (activeTab === 'threeD') return;
+
+    const targetCanvas = e.currentTarget;
+    if (!targetCanvas) return;
+
+    const targetPanelKey = specificPanel || (activeTab === 'dual' ? dualActivePanel : activeTab);
+    const panelConfig = designConfig[targetPanelKey as keyof ArtDesignConfig] || activePanel;
+
+    if (activeTab === 'dual' && specificPanel && dualActivePanel !== specificPanel) {
+      setDualActivePanel(specificPanel);
+    }
+
+    const rect = targetCanvas.getBoundingClientRect();
     const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
     const canvasX = (e.clientX - rect.left) / zoom - currentRulerOffset;
     const canvasY = (e.clientY - rect.top) / zoom - currentRulerOffset;
 
-    const pad = 16;
+    const pad = 14;
 
-    // Check hit test for Player Name
-    const nameBox = textBoundingBoxesRef.current['name'];
-    if (nameBox && activePanel.nameConfig?.enabled) {
+    // Check hit test for Player Name on this panel
+    const nameKey = `${targetPanelKey}-name`;
+    const nameBox = textBoundingBoxesRef.current[nameKey] || textBoundingBoxesRef.current['name'];
+    if (nameBox && panelConfig.nameConfig?.enabled) {
       if (
         canvasX >= nameBox.x - pad &&
         canvasX <= nameBox.x + nameBox.w + pad &&
@@ -2084,15 +2142,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         setActiveTool('text');
         isDraggingTextRef.current = true;
         dragStartConfigRef.current = JSON.parse(JSON.stringify(designConfig)); // snapshot for undo
+        textDragOffsetXRef.current = canvasX - nameBox.x;
         textDragOffsetYRef.current = canvasY - nameBox.y;
         setPrefTrigger(prev => prev + 1);
         return;
       }
     }
 
-    // Check hit test for Player Number
-    const numBox = textBoundingBoxesRef.current['number'];
-    if (numBox && activePanel.numberConfig?.enabled) {
+    // Check hit test for Player Number on this panel
+    const numKey = `${targetPanelKey}-number`;
+    const numBox = textBoundingBoxesRef.current[numKey] || textBoundingBoxesRef.current['number'];
+    if (numBox && panelConfig.numberConfig?.enabled) {
       if (
         canvasX >= numBox.x - pad &&
         canvasX <= numBox.x + numBox.w + pad &&
@@ -2103,6 +2163,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         setActiveTool('text');
         isDraggingTextRef.current = true;
         dragStartConfigRef.current = JSON.parse(JSON.stringify(designConfig)); // snapshot for undo
+        textDragOffsetXRef.current = canvasX - numBox.x;
         textDragOffsetYRef.current = canvasY - numBox.y;
         setPrefTrigger(prev => prev + 1);
         return;
@@ -2123,30 +2184,58 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     isDraggingTextRef.current = false;
   };
 
-  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current) return;
-    const rect = canvasRef.current.getBoundingClientRect();
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>, specificPanel?: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print') => {
+    const targetCanvas = e.currentTarget;
+    if (!targetCanvas) return;
+    const rect = targetCanvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
+    const targetPanelKey = specificPanel || (activeTab === 'dual' ? dualActivePanel : activeTab);
+    const panelConfig = designConfig[targetPanelKey as keyof ArtDesignConfig] || activePanel;
+
     if (isDraggingTextRef.current && activeTextLayer) {
       const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
-      // Subtract grab offset so the text follows the cursor without jumping
+      // Subtract grab offset so the text follows the cursor smoothly without jumping
       const canvasY = (mouseY / zoom) - currentRulerOffset - textDragOffsetYRef.current;
-      const newYPercent = Math.min(100, Math.max(0, Math.round((canvasY / height) * 100)));
-      // During drag: update directly without pushing to undo stack (snapshot pushed on mouseUp)
+      const targetCanvasHeight = height; // panel height in canvas coords
+      const newYPercent = Math.min(95, Math.max(5, Math.round((canvasY / targetCanvasHeight) * 100)));
+      
       const configKey = activeTextLayer === 'name' ? 'nameConfig' : 'numberConfig';
-      const targetTab = activeTab === 'threeD' ? 'front' : activeTab === 'dual' ? dualActivePanel : activeTab;
-      onDesignConfigChange({
-        ...designConfig,
-        [targetTab]: {
-          ...activePanel,
-          [configKey]: {
-            ...activePanel[configKey],
-            yPos: newYPercent
+      
+      if (targetPanelKey === 'front') {
+        // Front panel: Free 2D Movement (Both Horizontal X% and Vertical Y%)
+        const canvasX = (mouseX / zoom) - currentRulerOffset - textDragOffsetXRef.current;
+        const targetCanvasWidth = width;
+        const boxKey = `front-${activeTextLayer}`;
+        const currentBox = textBoundingBoxesRef.current[boxKey] || textBoundingBoxesRef.current[activeTextLayer];
+        const halfW = currentBox ? currentBox.w / 2 : 0;
+        const newXPercent = Math.min(95, Math.max(5, Math.round(((canvasX + halfW) / targetCanvasWidth) * 100)));
+
+        onDesignConfigChange({
+          ...designConfig,
+          front: {
+            ...panelConfig,
+            [configKey]: {
+              ...panelConfig[configKey],
+              xPos: newXPercent,
+              yPos: newYPercent
+            }
           }
-        }
-      });
+        });
+      } else {
+        // Back panel: Strictly Vertical Movement (Y% only, Horizontal remains centered)
+        onDesignConfigChange({
+          ...designConfig,
+          [targetPanelKey]: {
+            ...panelConfig,
+            [configKey]: {
+              ...panelConfig[configKey],
+              yPos: newYPercent
+            }
+          }
+        });
+      }
     }
 
     const currentScale = scale * zoom;
@@ -2207,7 +2296,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           onToggleGuidelines={() => setShowGuidelines(prev => !prev)}
         />
 
-        <div className="cd-canvas-area">
+        <div className="cd-canvas-area" style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(0, 229, 255, 0.09) 0%, rgba(124, 58, 237, 0.06) 45%, transparent 70%), repeating-linear-gradient(0deg, transparent, transparent 23px, rgba(255, 255, 255, 0.025) 23px, rgba(255, 255, 255, 0.025) 24px), repeating-linear-gradient(90deg, transparent, transparent 23px, rgba(255, 255, 255, 0.025) 23px, rgba(255, 255, 255, 0.025) 24px), #060813' }}>
 
 
           {/* 2D Canvas Mock Renderer */}
@@ -2295,8 +2384,22 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         
         {/* Sleeve Style moved to PropertyBar — clean center canvas */}
         
-        {/* Controls Bar: 2D Zoom Bar OR 3D Viewport Bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', marginBottom: '4px' }}>
+        {/* Controls Bar: 2D Zoom Bar OR 3D Viewport Bar (Glassmorphism Capsule) */}
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '8px', 
+          marginTop: '6px', 
+          marginBottom: '6px', 
+          background: 'rgba(12, 17, 34, 0.75)', 
+          backdropFilter: 'blur(20px) saturate(180%)', 
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          border: '1px solid rgba(255, 255, 255, 0.1)', 
+          borderRadius: '9999px', 
+          padding: '4px 10px', 
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12)',
+          zIndex: 20
+        }}>
           {activeTab === 'threeD' ? (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(15, 23, 42, 0.85)', padding: '4px 12px', borderRadius: '20px', border: '1px solid rgba(0, 240, 255, 0.3)' }}>
@@ -2307,7 +2410,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               </div>
               <button 
                 className="btn btn-primary"
-                style={{ padding: '6px 14px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', fontWeight: 'bold' }}
+                style={{ padding: '5px 14px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '9999px', fontWeight: 'bold' }}
                 onClick={() => setActiveTab('dual')}
                 title="Exit 3D View and Return to 2D Spread Layout"
               >
@@ -2318,26 +2421,26 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             <>
               <button 
                 className="btn btn-secondary" 
-                style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{ padding: '5px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '9999px', background: 'rgba(255,255,255,0.05)' }}
                 onClick={() => handleZoomChange(zoom - 0.25)}
                 title="Zoom Out"
               >
-                <ZoomOut size={14} />
+                <ZoomOut size={13} />
               </button>
-              <span style={{ fontSize: '13px', fontWeight: '600', minWidth: '50px', textAlign: 'center', color: 'var(--text-primary)' }}>
+              <span style={{ fontSize: '12px', fontWeight: '800', minWidth: '45px', textAlign: 'center', color: '#ffffff' }}>
                 {Math.round(zoom * 100)}%
               </span>
               <button 
                 className="btn btn-secondary" 
-                style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{ padding: '5px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '9999px', background: 'rgba(255,255,255,0.05)' }}
                 onClick={() => handleZoomChange(zoom + 0.25)}
                 title="Zoom In"
               >
-                <ZoomIn size={14} />
+                <ZoomIn size={13} />
               </button>
               <button 
                 className="btn btn-secondary" 
-                style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: '#00f0ff' }}
+                style={{ padding: '5px 12px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--accent-cyan)', borderRadius: '9999px', background: 'rgba(0, 229, 255, 0.08)', borderColor: 'rgba(0, 229, 255, 0.3)', fontWeight: '700' }}
                 onClick={handleFitToScreen}
                 title="Fit Full View to Screen (Ctrl+0)"
               >
@@ -2345,7 +2448,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               </button>
               <button 
                 className="btn btn-secondary"
-                style={{ padding: '6px 12px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px' }}
+                style={{ padding: '5px 12px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '9999px', background: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.35)', color: '#4ade80', fontWeight: '700' }}
                 onClick={() => setActiveTab('threeD')}
                 title="Enter 3D Jersey Preview"
               >
@@ -2355,7 +2458,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               {zoom !== 1 && (
                 <button 
                   className="btn btn-secondary" 
-                  style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)' }}
+                  style={{ padding: '5px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', borderRadius: '9999px' }}
                   onClick={() => handleZoomChange(1)}
                   title="Reset Zoom to 100%"
                 >
@@ -2533,24 +2636,19 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     <div style={{ position: 'relative', display: 'inline-block' }}>
                       <canvas 
                         ref={frontCanvasRef} 
-                        onMouseDown={(e) => {
-                          if (spaceKeyPressed || activeTool === 'pan' || e.button === 1) {
-                            e.preventDefault();
-                            setIsPanning(true);
-                            panStartRef.current = {
-                              startX: e.clientX,
-                              startY: e.clientY,
-                              initialPanX: panOffset.x,
-                              initialPanY: panOffset.y
-                            };
-                          }
+                        onMouseDown={(e) => handleCanvasMouseDown(e, 'front')}
+                        onMouseMove={(e) => handleCanvasMouseMove(e, 'front')}
+                        onMouseUp={handleCanvasMouseUp}
+                        onMouseLeave={() => {
+                          setCursorPos(null);
+                          isDraggingTextRef.current = false;
                         }}
                         onDoubleClick={(e) => {
                           e.stopPropagation();
                           setDualActivePanel('front');
                           fileInputRef.current?.click();
                         }}
-                        title="Front Panel - Double-click to upload artwork image"
+                        title="Front Panel - Double-click to upload artwork, click & drag player name/number"
                         style={{ 
                           borderRadius: '8px', 
                           border: dualActivePanel === 'front' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
@@ -2586,8 +2684,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     <div style={{ position: 'relative', display: 'inline-block' }}>
                       <canvas 
                         ref={backCanvasRef} 
-                        onMouseDown={handleCanvasMouseDown}
-                        onMouseMove={handleCanvasMouseMove}
+                        onMouseDown={(e) => handleCanvasMouseDown(e, 'back')}
+                        onMouseMove={(e) => handleCanvasMouseMove(e, 'back')}
                         onMouseUp={handleCanvasMouseUp}
                         onMouseLeave={() => {
                           setCursorPos(null);
@@ -2712,10 +2810,24 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           </div>
         )}
         
-        {/* Mock inputs for testing positions (visible in 2D layout) */}
+        {/* Mock inputs for testing positions (visible in 2D layout - Glassmorphism) */}
         {activeTab !== 'threeD' && (
-        <div style={{ display: 'flex', gap: '12px', width: '100%', maxWidth: '360px' }}>
-          <div style={{ flex: 1 }}>
+        <div style={{ 
+          display: 'flex', 
+          gap: '10px', 
+          width: '100%', 
+          maxWidth: '380px', 
+          marginTop: '8px',
+          marginBottom: '4px',
+          background: 'rgba(12, 17, 34, 0.7)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: '12px',
+          padding: '6px 10px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)'
+        }}>
+          <div style={{ flex: 1, position: 'relative' }}>
             <input 
               type="text" 
               className="form-input" 
@@ -2723,9 +2835,18 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               value={previewName} 
               onChange={(e) => setPreviewName(e.target.value)} 
               title="Change the preview player name overlay" 
+              style={{
+                background: 'rgba(0, 0, 0, 0.45) !important',
+                border: '1px solid rgba(255, 255, 255, 0.1) !important',
+                borderRadius: '8px !important',
+                padding: '6px 10px !important',
+                fontSize: '12px !important',
+                fontWeight: '700 !important',
+                color: '#ffffff !important'
+              }}
             />
           </div>
-          <div style={{ width: '80px' }}>
+          <div style={{ width: '80px', position: 'relative' }}>
             <input 
               type="text" 
               className="form-input" 
@@ -2733,6 +2854,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               value={previewNumber} 
               onChange={(e) => setPreviewNumber(e.target.value)} 
               title="Change the preview player number overlay"
+              style={{
+                background: 'rgba(0, 0, 0, 0.45) !important',
+                border: '1px solid rgba(255, 255, 255, 0.1) !important',
+                borderRadius: '8px !important',
+                padding: '6px 10px !important',
+                fontSize: '12px !important',
+                fontWeight: '700 !important',
+                color: 'var(--accent-cyan) !important',
+                textAlign: 'center'
+              }}
             />
           </div>
         </div>
@@ -2747,6 +2878,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           display: 'flex', 
           flexDirection: 'column', 
           width: '360px', 
+          background: 'rgba(5, 7, 18, 0.62)',
+          backdropFilter: 'blur(40px) saturate(190%)',
+          WebkitBackdropFilter: 'blur(40px) saturate(190%)',
+          borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
+          boxShadow: '-4px 0 30px rgba(0,0,0,0.5)',
           minWidth: '360px', 
           maxWidth: '360px', 
           flexShrink: 0, 
@@ -2814,6 +2950,65 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
           {!collapsed.overlays && (
             <div>
+              {/* Panel Switcher for Text Overlays */}
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', background: 'rgba(0,0,0,0.35)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    if (activeTab === 'dual') setDualActivePanel('front');
+                    else setActiveTab('front');
+                    setPrefTrigger(prev => prev + 1);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '7px 4px',
+                    fontSize: '11px',
+                    fontWeight: '800',
+                    borderRadius: '6px',
+                    border: (activeTab === 'dual' ? dualActivePanel === 'front' : activeTab === 'front') ? '1px solid rgba(0, 229, 255, 0.6)' : '1px solid transparent',
+                    background: (activeTab === 'dual' ? dualActivePanel === 'front' : activeTab === 'front') ? 'rgba(0, 229, 255, 0.2)' : 'transparent',
+                    color: (activeTab === 'dual' ? dualActivePanel === 'front' : activeTab === 'front') ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span>👕 FRONT</span>
+                  {(activeTab === 'dual' ? dualActivePanel === 'front' : activeTab === 'front') && <span style={{ fontSize: '9px', background: '#00e5ff', color: '#000', padding: '1px 5px', borderRadius: '3px' }}>EDITING</span>}
+                </button>
+
+                <button 
+                  type="button"
+                  onClick={() => {
+                    if (activeTab === 'dual') setDualActivePanel('back');
+                    else setActiveTab('back');
+                    setPrefTrigger(prev => prev + 1);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '7px 4px',
+                    fontSize: '11px',
+                    fontWeight: '800',
+                    borderRadius: '6px',
+                    border: (activeTab === 'dual' ? dualActivePanel === 'back' : activeTab === 'back') ? '1px solid rgba(0, 229, 255, 0.6)' : '1px solid transparent',
+                    background: (activeTab === 'dual' ? dualActivePanel === 'back' : activeTab === 'back') ? 'rgba(0, 229, 255, 0.2)' : 'transparent',
+                    color: (activeTab === 'dual' ? dualActivePanel === 'back' : activeTab === 'back') ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span>👕 BACK</span>
+                  {(activeTab === 'dual' ? dualActivePanel === 'back' : activeTab === 'back') && <span style={{ fontSize: '9px', background: '#00e5ff', color: '#000', padding: '1px 5px', borderRadius: '3px' }}>EDITING</span>}
+                </button>
+              </div>
+
               {/* Sub-Tab Navigation Bar */}
               <div style={{ display: 'flex', gap: '4px', marginBottom: '14px', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
                 {/* Hide Name sub-tab for sleeve panels */}
@@ -2825,8 +3020,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   onClick={() => {
                     setOverlaySubTab('name');
                     setActiveTextLayer('name');
-                    if (activeTab === 'dual') setDualActivePanel('back');
-                    if (!designConfig.back.nameConfig.enabled) updateTextConfig('name', { enabled: true });
                   }}
                 >
                   👤 Name
@@ -2839,8 +3032,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   onClick={() => {
                     setOverlaySubTab('number');
                     setActiveTextLayer('number');
-                    if (activeTab === 'dual') setDualActivePanel('back');
-                    if (!designConfig.back.numberConfig.enabled) updateTextConfig('number', { enabled: true });
                   }}
                 >
                   🔢 Number
@@ -2885,7 +3076,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
               <div style={{ display: overlaySubTab === "name" ? "block" : "none", paddingBottom: "8px" }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Name Layer</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Name</span>
+                    <span style={{ fontSize: '10px', color: '#00e5ff', fontWeight: '800', background: 'rgba(0,229,255,0.15)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(0,229,255,0.3)' }}>
+                      {(activeTab === 'dual' ? dualActivePanel === 'front' : activeTab === 'front') ? 'FRONT PANEL' : 'BACK PANEL'}
+                    </span>
+                  </div>
                   <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
                     <input 
                       type="checkbox" 
@@ -2898,9 +3094,31 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
                 {true && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {/* Horizontal Position (X%) - ONLY on Front Panel */}
+                    {(activeTab === 'dual' ? dualActivePanel === 'front' : activeTab === 'front') && (
+                      <div style={{ background: 'rgba(0, 229, 255, 0.05)', border: '1px solid rgba(0, 229, 255, 0.25)', padding: '8px', borderRadius: '6px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#00e5ff', fontWeight: '700', marginBottom: '4px' }}>
+                          <span>Horizontal Position (X%):</span>
+                          <span>{activePanel.nameConfig.xPos ?? 50}%</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="0" 
+                          max="100" 
+                          value={activePanel.nameConfig.xPos ?? 50}
+                          onChange={(e) => updateTextConfig('name', { xPos: parseInt(e.target.value) })}
+                        />
+                        <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
+                          <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '10px' }} onClick={() => updateTextConfig('name', { xPos: 25, align: 'center' })}>Left (25%)</button>
+                          <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '10px' }} onClick={() => updateTextConfig('name', { xPos: 50, align: 'center' })}>Center (50%)</button>
+                          <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '10px' }} onClick={() => updateTextConfig('name', { xPos: 75, align: 'center' })}>Right (75%)</button>
+                        </div>
+                      </div>
+                    )}
+
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                        <span>Vertical Position (Y):</span>
+                        <span>Vertical Position (Y%):</span>
                         <span>{activePanel.nameConfig.yPos}%</span>
                       </div>
                       <input 
@@ -3241,7 +3459,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
               <div style={{ display: overlaySubTab === "number" ? "block" : "none", paddingBottom: "8px" }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Number Layer</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Number</span>
+                    <span style={{ fontSize: '10px', color: '#00e5ff', fontWeight: '800', background: 'rgba(0,229,255,0.15)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(0,229,255,0.3)' }}>
+                      {(activeTab === 'dual' ? dualActivePanel === 'front' : activeTab === 'front') ? 'FRONT PANEL' : 'BACK PANEL'}
+                    </span>
+                  </div>
                   <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
                     <input 
                       type="checkbox" 
@@ -3254,9 +3477,31 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
                 {true && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {/* Horizontal Position (X%) - ONLY on Front Panel */}
+                    {(activeTab === 'dual' ? dualActivePanel === 'front' : activeTab === 'front') && (
+                      <div style={{ background: 'rgba(0, 229, 255, 0.05)', border: '1px solid rgba(0, 229, 255, 0.25)', padding: '8px', borderRadius: '6px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#00e5ff', fontWeight: '700', marginBottom: '4px' }}>
+                          <span>Horizontal Position (X%):</span>
+                          <span>{activePanel.numberConfig.xPos ?? 50}%</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="0" 
+                          max="100" 
+                          value={activePanel.numberConfig.xPos ?? 50}
+                          onChange={(e) => updateTextConfig('number', { xPos: parseInt(e.target.value) })}
+                        />
+                        <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
+                          <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '10px' }} onClick={() => updateTextConfig('number', { xPos: 25, align: 'center' })}>Left (25%)</button>
+                          <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '10px' }} onClick={() => updateTextConfig('number', { xPos: 50, align: 'center' })}>Center (50%)</button>
+                          <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '10px' }} onClick={() => updateTextConfig('number', { xPos: 75, align: 'center' })}>Right (75%)</button>
+                        </div>
+                      </div>
+                    )}
+
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                        <span>Vertical Position (Y):</span>
+                        <span>Vertical Position (Y%):</span>
                         <span>{activePanel.numberConfig.yPos}%</span>
                       </div>
                       <input 
@@ -4379,12 +4624,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           {!collapsed.fonts && (
             <div>
               <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                Upload custom TrueType (.ttf) or Web (.woff/.woff2) fonts to use for player names and numbers. Font styles will load into the canvas and export automatically.
+                Upload custom OpenType (.otf), TrueType (.ttf) or Web (.woff/.woff2) fonts to use for player names and numbers. Font styles will load into the canvas and export automatically.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <input 
                   type="file" 
-                  accept=".ttf,.woff,.woff2" 
+                  accept=".otf,.ttf,.woff,.woff2,font/otf,font/ttf,font/woff,font/woff2,application/x-font-opentype,application/x-font-truetype,application/font-woff,application/font-woff2" 
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
@@ -4401,9 +4646,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           const updated = [...customFonts, newFont];
                           setCustomFonts(updated);
                           localStorage.setItem('teedex_custom_fonts', JSON.stringify(updated));
+                          setPrefTrigger(prev => prev + 1);
                         } catch (err) {
                           console.error("Failed to register font:", err);
-                          alert("Could not load font file. Please verify it is a valid TTF or WOFF file.");
+                          alert("Could not load font file. Please verify it is a valid OTF, TTF, or WOFF file.");
                         }
                       };
                       reader.readAsDataURL(file);
@@ -4413,7 +4659,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   id="font-uploader-input"
                 />
                 <label htmlFor="font-uploader-input" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '8px' }}>
-                  <Upload size={14} /> Upload Font File
+                  <Upload size={14} /> Upload Font File (.otf, .ttf, .woff)
                 </label>
                 
                 {customFonts.length > 0 && (

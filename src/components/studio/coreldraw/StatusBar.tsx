@@ -28,7 +28,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   };
 
   return (
-    <div className="cd-statusbar">
+    <div className="cd-statusbar" style={{ background: 'rgba(4, 5, 14, 0.85)', backdropFilter: 'blur(32px) saturate(180%)', WebkitBackdropFilter: 'blur(32px) saturate(180%)', borderTop: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 -4px 16px rgba(0,0,0,0.5)' }}>
       {/* Tool hint */}
       <div className="cd-statusbar-item" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         <span style={{ color: '#0284c7', fontWeight: '700' }}>[Tool]</span>

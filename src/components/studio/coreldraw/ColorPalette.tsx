@@ -95,7 +95,7 @@ export const ColorPalette: React.FC<ColorPaletteProps> = ({
   };
 
   return (
-    <div className="cd-palette-bar" style={{ position: 'relative' }}>
+    <div className="cd-palette-bar" style={{ position: 'relative', background: 'rgba(5, 7, 18, 0.75)', backdropFilter: 'blur(40px) saturate(190%)', WebkitBackdropFilter: 'blur(40px) saturate(190%)', borderTop: '1px solid rgba(0, 229, 255, 0.2)', boxShadow: '0 -8px 32px rgba(0,0,0,0.5)' }}>
       <div style={{ fontSize: '9px', fontWeight: '700', color: '#64748b', marginRight: '4px', textTransform: 'uppercase', flexShrink: 0 }}>
         Palette
       </div>

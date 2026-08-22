@@ -26,7 +26,7 @@ export const ToolBox: React.FC<ToolBoxProps> = ({
   ];
 
   return (
-    <div className="cd-toolbox">
+    <div className="cd-toolbox" style={{ background: 'rgba(5, 7, 18, 0.7)', backdropFilter: 'blur(40px) saturate(190%)', WebkitBackdropFilter: 'blur(40px) saturate(190%)', borderRight: '1px solid rgba(255, 255, 255, 0.07)', boxShadow: '4px 0 24px rgba(0,0,0,0.5)' }}>
       {tools.map((t) => {
         const Icon = t.icon;
         const isActive = activeTool === t.id;
