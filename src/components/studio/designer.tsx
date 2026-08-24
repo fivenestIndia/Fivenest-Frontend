@@ -2831,22 +2831,26 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             <input 
               type="text" 
               className="form-input" 
-              placeholder="Test Name" 
+              placeholder="Test Player Name" 
               value={previewName} 
               onChange={(e) => setPreviewName(e.target.value)} 
               title="Change the preview player name overlay" 
               style={{
-                background: 'rgba(0, 0, 0, 0.45) !important',
-                border: '1px solid rgba(255, 255, 255, 0.1) !important',
-                borderRadius: '8px !important',
-                padding: '6px 10px !important',
-                fontSize: '12px !important',
-                fontWeight: '700 !important',
-                color: '#ffffff !important'
+                width: '100%',
+                background: 'rgba(10, 16, 32, 0.85)',
+                border: '1px solid rgba(0, 229, 255, 0.35)',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                fontSize: '13px',
+                fontWeight: '700',
+                color: '#ffffff',
+                outline: 'none',
+                boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.5), 0 0 10px rgba(0,229,255,0.08)',
+                boxSizing: 'border-box'
               }}
             />
           </div>
-          <div style={{ width: '80px', position: 'relative' }}>
+          <div style={{ width: '95px', position: 'relative' }}>
             <input 
               type="text" 
               className="form-input" 
@@ -2855,14 +2859,18 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               onChange={(e) => setPreviewNumber(e.target.value)} 
               title="Change the preview player number overlay"
               style={{
-                background: 'rgba(0, 0, 0, 0.45) !important',
-                border: '1px solid rgba(255, 255, 255, 0.1) !important',
-                borderRadius: '8px !important',
-                padding: '6px 10px !important',
-                fontSize: '12px !important',
-                fontWeight: '700 !important',
-                color: 'var(--accent-cyan) !important',
-                textAlign: 'center'
+                width: '100%',
+                background: 'rgba(10, 16, 32, 0.85)',
+                border: '1px solid rgba(0, 229, 255, 0.35)',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                fontSize: '13px',
+                fontWeight: '800',
+                color: '#00e5ff',
+                textAlign: 'center',
+                outline: 'none',
+                boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.5), 0 0 10px rgba(0,229,255,0.08)',
+                boxSizing: 'border-box'
               }}
             />
           </div>

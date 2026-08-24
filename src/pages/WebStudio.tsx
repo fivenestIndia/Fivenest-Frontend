@@ -150,8 +150,16 @@ export default function WebStudio() {
   ];
 
   return (
-    <div className={`app-layout ${themeMode}`} style={{ background: 'radial-gradient(ellipse at 10% 20%, rgba(0, 229, 255, 0.15) 0%, transparent 40%), radial-gradient(ellipse at 85% 75%, rgba(124, 58, 237, 0.18) 0%, transparent 40%), radial-gradient(ellipse at 50% 50%, rgba(16, 185, 129, 0.06) 0%, transparent 60%), #060813' }}>
-      {/* Mobile Top Header */}
+    <div className={`app-layout ${themeMode}`} style={{ background: '#060813', position: 'relative' }}>
+      {/* Fixed full-screen ambient gradient background — gives glassmorphism panels something to blur through */}
+      <div style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 0,
+        pointerEvents: 'none',
+        background: 'radial-gradient(ellipse 60% 50% at 8% 15%, rgba(0, 229, 255, 0.22) 0%, transparent 55%), radial-gradient(ellipse 55% 50% at 92% 85%, rgba(124, 58, 237, 0.28) 0%, transparent 55%), radial-gradient(ellipse 40% 35% at 50% 50%, rgba(16, 185, 129, 0.08) 0%, transparent 60%), radial-gradient(ellipse 30% 25% at 20% 80%, rgba(99, 102, 241, 0.15) 0%, transparent 55%)',
+      }} />
+
       <div className="md:hidden flex items-center justify-between p-3 bg-black/80 border-b border-white/10 sticky top-0 z-40 backdrop-blur-md">
         <Link to="/" className="flex items-center gap-2">
           <img src="/logo.svg" alt="FiveNest Logo" className="w-6 h-6 object-contain" />
@@ -194,11 +202,13 @@ export default function WebStudio() {
       <aside 
         className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}
         style={{
-          background: 'rgba(6, 9, 20, 0.55)',
-          backdropFilter: 'blur(40px) saturate(200%)',
-          WebkitBackdropFilter: 'blur(40px) saturate(200%)',
-          borderRight: '1px solid rgba(255, 255, 255, 0.1)',
-          boxShadow: '4px 0 40px rgba(0, 0, 0, 0.5), inset -1px 0 0 rgba(0, 229, 255, 0.12)'
+          position: 'relative',
+          zIndex: 10,
+          background: 'rgba(6, 9, 20, 0.45)',
+          backdropFilter: 'blur(40px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+          borderRight: '1px solid rgba(0, 229, 255, 0.15)',
+          boxShadow: '4px 0 40px rgba(0, 0, 0, 0.6), inset -1px 0 0 rgba(0, 229, 255, 0.15)'
         }}
       >
         <div>
@@ -322,15 +332,15 @@ export default function WebStudio() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="main-content">
+      <main className="main-content" style={{ position: 'relative', zIndex: 10, background: 'transparent' }}>
         <header 
           className="top-navbar"
           style={{
-            background: 'rgba(6, 9, 20, 0.55)',
+            background: 'rgba(6, 9, 20, 0.45)',
             backdropFilter: 'blur(40px) saturate(180%)',
             WebkitBackdropFilter: 'blur(40px) saturate(180%)',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 -1px 0 rgba(0, 229, 255, 0.1)'
+            borderBottom: '1px solid rgba(0, 229, 255, 0.18)',
+            boxShadow: '0 1px 0 rgba(0, 229, 255, 0.12), 0 4px 24px rgba(0,0,0,0.5)'
           }}
         >
           <h1 className="navbar-title text-sm md:text-base font-black">
