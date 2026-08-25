@@ -1347,6 +1347,31 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
         const displayName = textConf.caseType === 'uppercase' ? text.toUpperCase() : text;
 
+        const getTextFillStyle = (measuredTextW: number, textH: number): string | CanvasGradient => {
+          if (textConf.fillType === 'gradient') {
+            const stops = (textConf.gradientStops && textConf.gradientStops.length >= 2)
+              ? textConf.gradientStops
+              : [textConf.gradientColor1 || textConf.color || '#00e5ff', textConf.gradientColor2 || '#ff0055'];
+            const dir = textConf.gradientDirection || 'vertical';
+            let grad: CanvasGradient;
+            if (dir === 'horizontal') {
+              grad = ctx.createLinearGradient(-measuredTextW / 2, 0, measuredTextW / 2, 0);
+            } else if (dir === 'radial') {
+              grad = ctx.createRadialGradient(0, 0, 2, 0, 0, textH);
+            } else if (dir === 'diagonal') {
+              grad = ctx.createLinearGradient(-measuredTextW / 2, -textH / 2, measuredTextW / 2, textH / 2);
+            } else {
+              grad = ctx.createLinearGradient(0, -textH / 2, 0, textH / 2);
+            }
+            stops.forEach((color, idx) => {
+              const offset = idx / Math.max(1, stops.length - 1);
+              grad.addColorStop(offset, color);
+            });
+            return grad;
+          }
+          return textConf.color;
+        };
+
         if (textConf.effect === 'arch') {
           // Circular arched text bending concave (ends down)
           const radius = heightPx * 0.45;
@@ -1354,6 +1379,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
           const totalAngle = Math.min(Math.PI / 2.5, (displayName.length * fontSizePx * 0.55) / radius);
           const startAngle = -totalAngle / 2;
           const angleStep = totalAngle / (displayName.length - 1 || 1);
+          const archFill = getTextFillStyle(radius * 2, fontSizePx);
 
           for (let i = 0; i < displayName.length; i++) {
             const char = displayName[i];
@@ -1365,7 +1391,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
               ctx.lineWidth = strokePx * 2;
               ctx.strokeText(char, 0, -radius);
             }
-            ctx.fillStyle = textConf.color;
+            ctx.fillStyle = archFill;
             ctx.fillText(char, 0, -radius);
             ctx.restore();
           }
@@ -1381,7 +1407,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
             ctx.lineWidth = strokePx * 2;
             ctx.strokeText(displayName, 0, 0);
           }
-          ctx.fillStyle = textConf.color;
+          ctx.fillStyle = getTextFillStyle(measuredW, fontSizePx);
           ctx.fillText(displayName, 0, 0);
         }
         ctx.restore();

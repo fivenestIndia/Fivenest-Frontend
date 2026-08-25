@@ -11,6 +11,7 @@ import { PropertyBar } from './coreldraw/PropertyBar';
 import { ColorPalette } from './coreldraw/ColorPalette';
 import { StatusBar } from './coreldraw/StatusBar';
 import { ShortcutsModal } from './coreldraw/ShortcutsModal';
+import { GradientEditorModal } from './coreldraw/GradientEditorModal';
 
 export interface TextConfig {
   enabled: boolean;
@@ -204,8 +205,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [spaceKeyPressed, setSpaceKeyPressed] = useState<boolean>(false);
   const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState<boolean>(false);
-  const panStartRef = useRef<{ startX: number; startY: number; initialPanX: number; initialPanY: number } | null>(null);
   const [activeTextLayer, setActiveTextLayer] = useState<'name' | 'number' | null>(null);
+  const [isGradientModalOpen, setIsGradientModalOpen] = useState<boolean>(false);
+  const [gradientModalTarget, setGradientModalTarget] = useState<'name' | 'number' | 'palette'>('name');
 
   // Undo/Redo history stacks
   const [undoStack, setUndoStack] = useState<ArtDesignConfig[]>([]);
@@ -3315,19 +3317,54 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       ? `radial-gradient(circle, ${stops.join(', ')})`
                       : `linear-gradient(${gradAngle}, ${stops.join(', ')})`;
                     return (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {/* Open Full Photoshop Gradient Editor Button */}
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={() => {
+                            setGradientModalTarget('name');
+                            setIsGradientModalOpen(true);
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '6px 10px',
+                            fontSize: '11px',
+                            fontWeight: '800',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            background: 'linear-gradient(135deg, rgba(0,229,255,0.15) 0%, rgba(124,58,237,0.15) 100%)',
+                            borderColor: 'rgba(0,229,255,0.4)',
+                            color: '#00f0ff',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          🎨 Open Photoshop Gradient Editor
+                        </button>
+
                         {/* Gradient Preview Bar */}
-                        <div style={{
-                          height: '20px', borderRadius: '6px', border: '1px solid var(--border-default)',
-                          background: previewBg, cursor: 'pointer'
-                        }} title="Gradient Preview" />
+                        <div
+                          style={{
+                            height: '24px', borderRadius: '6px', border: '1px solid rgba(0, 229, 255, 0.4)',
+                            background: previewBg, cursor: 'pointer',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
+                          }}
+                          onClick={() => {
+                            setGradientModalTarget('name');
+                            setIsGradientModalOpen(true);
+                          }}
+                          title="Click to open Photoshop Gradient Editor"
+                        />
 
                         {/* Direction Selector */}
                         <div style={{ display: 'flex', gap: '3px' }}>
                           {(['vertical', 'horizontal', 'diagonal', 'radial'] as const).map(d => (
                             <button key={d} type="button"
                               className={`btn ${dir === d ? 'btn-primary' : 'btn-secondary'}`}
-                              style={{ flex: 1, padding: '2px 0', fontSize: '8px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.03em' }}
+                              style={{ flex: 1, padding: '3px 0', fontSize: '9px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.03em' }}
                               onClick={() => updateTextConfig('name', { gradientDirection: d })}
                             >{d === 'vertical' ? '↕' : d === 'horizontal' ? '↔' : d === 'diagonal' ? '⤡' : '◎'} {d.slice(0, 4)}</button>
                           ))}
@@ -3335,13 +3372,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
                         {/* Color Stops Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <label className="form-label" style={{ fontSize: '10px', margin: 0, fontWeight: 'bold' }}>
+                          <label className="form-label" style={{ fontSize: '10px', margin: 0, fontWeight: 'bold', color: '#94a3b8' }}>
                             Color Stops ({stops.length}):
                           </label>
                           <button type="button" className="btn btn-secondary"
                             style={{ padding: '2px 6px', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '3px', color: '#00f0ff' }}
                             onClick={() => updateTextConfig('name', { gradientStops: [...stops, '#eab308'], fillType: 'gradient' })}
-                          ><Plus size={9} /> Add</button>
+                          ><Plus size={9} /> Add Stop</button>
                         </div>
 
                         {/* Individual Color Stop Pickers */}
@@ -3353,7 +3390,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                               </span>
                               <input
                                 type="color"
-                                value={color}
+                                value={color.startsWith('#') && color.length >= 4 ? color : '#00e5ff'}
                                 onChange={(e) => {
                                   const updated = [...stops];
                                   updated[idx] = e.target.value;
@@ -3365,19 +3402,33 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                                 type="text"
                                 value={color}
                                 onChange={(e) => {
+                                  let val = e.target.value.trim();
                                   const updated = [...stops];
-                                  updated[idx] = e.target.value;
+                                  updated[idx] = val;
                                   updateTextConfig('name', { gradientStops: updated, gradientColor1: updated[0], gradientColor2: updated[updated.length - 1] });
                                 }}
-                                style={{ flex: 1, fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontFamily: 'monospace' }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    let val = (e.target as HTMLInputElement).value.trim();
+                                    if (val && !val.startsWith('#')) val = '#' + val;
+                                    const updated = [...stops];
+                                    updated[idx] = val;
+                                    updateTextConfig('name', { gradientStops: updated, gradientColor1: updated[0], gradientColor2: updated[updated.length - 1] });
+                                    (e.target as HTMLInputElement).blur();
+                                  }
+                                }}
+                                style={{ flex: 1, fontSize: '11px', padding: '3px 8px', borderRadius: '4px', background: 'rgba(10, 16, 32, 0.9)', border: '1px solid rgba(0, 229, 255, 0.35)', color: '#ffffff', fontFamily: 'monospace', fontWeight: '700' }}
                               />
                               {stops.length > 2 && (
                                 <button type="button"
-                                  style={{ background: 'rgba(255,50,50,0.15)', border: 'none', borderRadius: '4px', padding: '2px 4px', cursor: 'pointer', color: '#ff4444', fontSize: '10px', fontWeight: '900' }}
+                                  style={{ background: 'rgba(255,50,50,0.15)', border: 'none', borderRadius: '4px', padding: '3px 6px', cursor: 'pointer', color: '#ff4444', fontSize: '10px', fontWeight: '900' }}
                                   onClick={() => {
                                     const updated = stops.filter((_, i) => i !== idx);
                                     updateTextConfig('name', { gradientStops: updated, gradientColor1: updated[0], gradientColor2: updated[updated.length - 1] });
                                   }}
+                                  title="Remove stop"
                                 >✕</button>
                               )}
                             </div>
@@ -3670,19 +3721,54 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       ? `radial-gradient(circle, ${stops.join(', ')})`
                       : `linear-gradient(${gradAngle}, ${stops.join(', ')})`;
                     return (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {/* Open Full Photoshop Gradient Editor Button */}
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={() => {
+                            setGradientModalTarget('number');
+                            setIsGradientModalOpen(true);
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '6px 10px',
+                            fontSize: '11px',
+                            fontWeight: '800',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            background: 'linear-gradient(135deg, rgba(0,229,255,0.15) 0%, rgba(124,58,237,0.15) 100%)',
+                            borderColor: 'rgba(0,229,255,0.4)',
+                            color: '#00f0ff',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          🎨 Open Photoshop Gradient Editor
+                        </button>
+
                         {/* Gradient Preview Bar */}
-                        <div style={{
-                          height: '20px', borderRadius: '6px', border: '1px solid var(--border-default)',
-                          background: previewBg, cursor: 'pointer'
-                        }} title="Gradient Preview" />
+                        <div
+                          style={{
+                            height: '24px', borderRadius: '6px', border: '1px solid rgba(0, 229, 255, 0.4)',
+                            background: previewBg, cursor: 'pointer',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
+                          }}
+                          onClick={() => {
+                            setGradientModalTarget('number');
+                            setIsGradientModalOpen(true);
+                          }}
+                          title="Click to open Photoshop Gradient Editor"
+                        />
 
                         {/* Direction Selector */}
                         <div style={{ display: 'flex', gap: '3px' }}>
                           {(['vertical', 'horizontal', 'diagonal', 'radial'] as const).map(d => (
                             <button key={d} type="button"
                               className={`btn ${dir === d ? 'btn-primary' : 'btn-secondary'}`}
-                              style={{ flex: 1, padding: '2px 0', fontSize: '8px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.03em' }}
+                              style={{ flex: 1, padding: '3px 0', fontSize: '9px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.03em' }}
                               onClick={() => updateTextConfig('number', { gradientDirection: d })}
                             >{d === 'vertical' ? '↕' : d === 'horizontal' ? '↔' : d === 'diagonal' ? '⤡' : '◎'} {d.slice(0, 4)}</button>
                           ))}
@@ -3690,13 +3776,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
                         {/* Color Stops Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <label className="form-label" style={{ fontSize: '10px', margin: 0, fontWeight: 'bold' }}>
+                          <label className="form-label" style={{ fontSize: '10px', margin: 0, fontWeight: 'bold', color: '#94a3b8' }}>
                             Color Stops ({stops.length}):
                           </label>
                           <button type="button" className="btn btn-secondary"
                             style={{ padding: '2px 6px', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '3px', color: '#00f0ff' }}
                             onClick={() => updateTextConfig('number', { gradientStops: [...stops, '#eab308'], fillType: 'gradient' })}
-                          ><Plus size={9} /> Add</button>
+                          ><Plus size={9} /> Add Stop</button>
                         </div>
 
                         {/* Individual Color Stop Pickers */}
@@ -3708,7 +3794,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                               </span>
                               <input
                                 type="color"
-                                value={color}
+                                value={color.startsWith('#') && color.length >= 4 ? color : '#00e5ff'}
                                 onChange={(e) => {
                                   const updated = [...stops];
                                   updated[idx] = e.target.value;
@@ -3720,19 +3806,33 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                                 type="text"
                                 value={color}
                                 onChange={(e) => {
+                                  let val = e.target.value.trim();
                                   const updated = [...stops];
-                                  updated[idx] = e.target.value;
+                                  updated[idx] = val;
                                   updateTextConfig('number', { gradientStops: updated, gradientColor1: updated[0], gradientColor2: updated[updated.length - 1] });
                                 }}
-                                style={{ flex: 1, fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontFamily: 'monospace' }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    let val = (e.target as HTMLInputElement).value.trim();
+                                    if (val && !val.startsWith('#')) val = '#' + val;
+                                    const updated = [...stops];
+                                    updated[idx] = val;
+                                    updateTextConfig('number', { gradientStops: updated, gradientColor1: updated[0], gradientColor2: updated[updated.length - 1] });
+                                    (e.target as HTMLInputElement).blur();
+                                  }
+                                }}
+                                style={{ flex: 1, fontSize: '11px', padding: '3px 8px', borderRadius: '4px', background: 'rgba(10, 16, 32, 0.9)', border: '1px solid rgba(0, 229, 255, 0.35)', color: '#ffffff', fontFamily: 'monospace', fontWeight: '700' }}
                               />
                               {stops.length > 2 && (
                                 <button type="button"
-                                  style={{ background: 'rgba(255,50,50,0.15)', border: 'none', borderRadius: '4px', padding: '2px 4px', cursor: 'pointer', color: '#ff4444', fontSize: '10px', fontWeight: '900' }}
+                                  style={{ background: 'rgba(255,50,50,0.15)', border: 'none', borderRadius: '4px', padding: '3px 6px', cursor: 'pointer', color: '#ff4444', fontSize: '10px', fontWeight: '900' }}
                                   onClick={() => {
                                     const updated = stops.filter((_, i) => i !== idx);
                                     updateTextConfig('number', { gradientStops: updated, gradientColor1: updated[0], gradientColor2: updated[updated.length - 1] });
                                   }}
+                                  title="Remove stop"
                                 >✕</button>
                               )}
                             </div>
@@ -4705,6 +4805,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         onSelectFillColor={handlePaletteFill}
         onSelectStrokeColor={handlePaletteStroke}
         onSelectGradientColor={handlePaletteGradient}
+        onOpenGradientEditor={() => {
+          setGradientModalTarget('palette');
+          setIsGradientModalOpen(true);
+        }}
       />
 
       {/* 5. COREL STATUS BAR */}
@@ -4721,6 +4825,58 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       {showShortcutsModal && (
         <ShortcutsModal onClose={() => setShowShortcutsModal(false)} />
       )}
+
+      {/* 7. PHOTOSHOP-STYLE GRADIENT EDITOR MODAL */}
+      <GradientEditorModal
+        isOpen={isGradientModalOpen}
+        onClose={() => setIsGradientModalOpen(false)}
+        initialStops={
+          (() => {
+            const currentConfig = gradientModalTarget === 'name' ? activePanel.nameConfig : activePanel.numberConfig;
+            return currentConfig?.gradientStops && currentConfig.gradientStops.length >= 2
+              ? currentConfig.gradientStops
+              : [currentConfig?.gradientColor1 || '#00e5ff', currentConfig?.gradientColor2 || '#7c3aed'];
+          })()
+        }
+        initialDirection={
+          (gradientModalTarget === 'name' ? activePanel.nameConfig?.gradientDirection : activePanel.numberConfig?.gradientDirection) || 'vertical'
+        }
+        title={`Photoshop Gradient Editor (${gradientModalTarget === 'name' ? 'Player Name' : gradientModalTarget === 'number' ? 'Player Number' : 'Color Palette'})`}
+        onApply={(stops, dir) => {
+          if (gradientModalTarget === 'name') {
+            updateTextConfig('name', {
+              fillType: 'gradient',
+              gradientStops: stops,
+              gradientColor1: stops[0],
+              gradientColor2: stops[stops.length - 1],
+              gradientDirection: dir
+            });
+            toast.success('Applied gradient to Player Name');
+          } else if (gradientModalTarget === 'number') {
+            updateTextConfig('number', {
+              fillType: 'gradient',
+              gradientStops: stops,
+              gradientColor1: stops[0],
+              gradientColor2: stops[stops.length - 1],
+              gradientDirection: dir
+            });
+            toast.success('Applied gradient to Player Number');
+          } else {
+            const targetLayer: 'name' | 'number' = activeTextLayer || (activePanel.nameConfig?.enabled ? 'name' : 'number');
+            updateTextConfig(targetLayer, {
+              fillType: 'gradient',
+              gradientStops: stops,
+              gradientColor1: stops[0],
+              gradientColor2: stops[stops.length - 1],
+              gradientDirection: dir
+            });
+            toast.success(`Applied gradient to ${targetLayer === 'name' ? 'Player Name' : 'Player Number'}`);
+          }
+        }}
+        onSaveToPalette={(stops, name) => {
+          toast.success(`Saved "${name}" to Palette`);
+        }}
+      />
     </div>
   );
 };

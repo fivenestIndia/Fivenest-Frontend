@@ -1,10 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, RotateCcw } from 'lucide-react';
+import { Plus, Trash2, RotateCcw, Sparkles } from 'lucide-react';
+
+export interface CustomPaletteGradient {
+  name: string;
+  stops: string[];
+  css: string;
+}
 
 interface ColorPaletteProps {
   onSelectFillColor: (color: string) => void;
   onSelectStrokeColor: (color: string) => void;
   onSelectGradientColor?: (stops: string[]) => void;
+  onOpenGradientEditor?: () => void;
 }
 
 export const PRESET_GRADIENTS = [
@@ -12,6 +19,16 @@ export const PRESET_GRADIENTS = [
     name: 'Metallic Gold',
     stops: ['#BF953F', '#FCF6BA', '#B38728', '#FBF5B7', '#AA771C'],
     css: 'linear-gradient(135deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%)'
+  },
+  {
+    name: 'Silver Chrome',
+    stops: ['#E0E0E0', '#F5F5F5', '#9E9E9E', '#757575'],
+    css: 'linear-gradient(135deg, #E0E0E0 0%, #F5F5F5 35%, #9E9E9E 70%, #757575 100%)'
+  },
+  {
+    name: 'Copper Bronze',
+    stops: ['#804A00', '#F7BA70', '#A06000', '#FCD9A5', '#603000'],
+    css: 'linear-gradient(135deg, #804A00 0%, #F7BA70 25%, #A06000 50%, #FCD9A5 75%, #603000 100%)'
   },
   {
     name: 'Sunset Fire',
@@ -27,11 +44,6 @@ export const PRESET_GRADIENTS = [
     name: 'Neon Purple',
     stops: ['#B5179E', '#7209B7', '#480CA8'],
     css: 'linear-gradient(135deg, #B5179E 0%, #7209B7 50%, #480CA8 100%)'
-  },
-  {
-    name: 'Silver Chrome',
-    stops: ['#E0E0E0', '#F5F5F5', '#9E9E9E', '#757575'],
-    css: 'linear-gradient(135deg, #E0E0E0 0%, #F5F5F5 35%, #9E9E9E 70%, #757575 100%)'
   }
 ];
 
@@ -46,25 +58,36 @@ const DEFAULT_SWATCHES = [
 export const ColorPalette: React.FC<ColorPaletteProps> = ({
   onSelectFillColor,
   onSelectStrokeColor,
-  onSelectGradientColor
+  onSelectGradientColor,
+  onOpenGradientEditor
 }) => {
   const [swatches, setSwatches] = useState<string[]>(DEFAULT_SWATCHES);
+  const [customGradients, setCustomGradients] = useState<CustomPaletteGradient[]>([]);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [hoveredGradIdx, setHoveredGradIdx] = useState<number | null>(null);
   const colorInputRef = useRef<HTMLInputElement>(null);
 
-  // Load custom swatches from localStorage
+  // Load custom swatches & custom gradients from localStorage
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('fivenest_custom_palette');
-      if (saved) {
-        const custom: string[] = JSON.parse(saved);
+      const savedSwatches = localStorage.getItem('fivenest_custom_palette');
+      if (savedSwatches) {
+        const custom: string[] = JSON.parse(savedSwatches);
         if (Array.isArray(custom) && custom.length > 0) {
           const merged = Array.from(new Set([...DEFAULT_SWATCHES, ...custom]));
           setSwatches(merged);
         }
       }
+
+      const savedGradients = localStorage.getItem('fivenest_custom_gradient_presets');
+      if (savedGradients) {
+        const customGrads: CustomPaletteGradient[] = JSON.parse(savedGradients);
+        if (Array.isArray(customGrads)) {
+          setCustomGradients(customGrads);
+        }
+      }
     } catch (e) {
-      console.error('Failed to load custom palette', e);
+      console.error('Failed to load custom palette items', e);
     }
   }, []);
 
@@ -89,28 +112,40 @@ export const ColorPalette: React.FC<ColorPaletteProps> = ({
     saveCustomPalette(updated);
   };
 
+  const handleDeleteCustomGradient = (indexToDelete: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const updated = customGradients.filter((_, idx) => idx !== indexToDelete);
+    setCustomGradients(updated);
+    localStorage.setItem('fivenest_custom_gradient_presets', JSON.stringify(updated));
+  };
+
   const handleResetPalette = () => {
     setSwatches(DEFAULT_SWATCHES);
     localStorage.removeItem('fivenest_custom_palette');
   };
 
   return (
-    <div className="cd-palette-bar" style={{ position: 'relative', background: 'rgba(5, 7, 18, 0.75)', backdropFilter: 'blur(40px) saturate(190%)', WebkitBackdropFilter: 'blur(40px) saturate(190%)', borderTop: '1px solid rgba(0, 229, 255, 0.2)', boxShadow: '0 -8px 32px rgba(0,0,0,0.5)' }}>
-      <div style={{ fontSize: '9px', fontWeight: '700', color: '#64748b', marginRight: '4px', textTransform: 'uppercase', flexShrink: 0 }}>
+    <div className="cd-palette-bar" style={{ position: 'relative', background: 'rgba(5, 7, 18, 0.85)', backdropFilter: 'blur(40px) saturate(190%)', WebkitBackdropFilter: 'blur(40px) saturate(190%)', borderTop: '1px solid rgba(0, 229, 255, 0.25)', boxShadow: '0 -8px 32px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', gap: '6px', padding: '0 10px', overflowX: 'auto', minHeight: '40px' }}>
+      <div style={{ fontSize: '9px', fontWeight: '800', color: '#64748b', marginRight: '2px', textTransform: 'uppercase', flexShrink: 0 }}>
         Palette
       </div>
 
-      {/* Preset Gradients (Gold Metallic, Sunset Fire, Electric Cyan, Neon Purple, Silver Chrome) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', paddingRight: '8px', borderRight: '1px solid rgba(255,255,255,0.15)', marginRight: '4px', flexShrink: 0 }}>
-        <span style={{ fontSize: '8px', fontWeight: '800', color: '#eab308', textTransform: 'uppercase' }}>Gradients:</span>
+      {/* Gradients Section (Built-in + Custom Gradients + Add Button) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', paddingRight: '10px', borderRight: '1px solid rgba(255,255,255,0.15)', marginRight: '4px', flexShrink: 0 }}>
+        <span style={{ fontSize: '9px', fontWeight: '800', color: '#eab308', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          Gradients:
+        </span>
+
+        {/* Built-in Preset Gradients */}
         {PRESET_GRADIENTS.map((g, idx) => (
           <div
-            key={idx}
+            key={`preset-${idx}`}
             className="cd-swatch"
             style={{
               background: g.css,
-              border: g.name === 'Metallic Gold' ? '1.5px solid #FFDF00' : '1px solid rgba(255,255,255,0.3)',
-              boxShadow: g.name === 'Metallic Gold' ? '0 0 6px rgba(255, 223, 0, 0.6)' : undefined,
+              border: g.name.includes('Gold') ? '1.5px solid #FFDF00' : '1px solid rgba(255,255,255,0.3)',
+              boxShadow: g.name.includes('Gold') ? '0 0 6px rgba(255, 223, 0, 0.6)' : undefined,
               cursor: 'pointer'
             }}
             onClick={() => {
@@ -118,11 +153,91 @@ export const ColorPalette: React.FC<ColorPaletteProps> = ({
                 onSelectGradientColor(g.stops);
               }
             }}
-            title={`Apply ${g.name} Gradient to Text`}
+            title={`Apply ${g.name} Gradient`}
           />
         ))}
+
+        {/* User Added Custom Gradients */}
+        {customGradients.map((g, idx) => (
+          <div
+            key={`custom-grad-${idx}`}
+            className="cd-swatch"
+            style={{
+              position: 'relative',
+              background: g.css,
+              border: '2px solid #00e5ff',
+              boxShadow: '0 0 8px rgba(0, 229, 255, 0.4)',
+              cursor: 'pointer'
+            }}
+            onMouseEnter={() => setHoveredGradIdx(idx)}
+            onMouseLeave={() => setHoveredGradIdx(null)}
+            onClick={() => {
+              if (onSelectGradientColor) {
+                onSelectGradientColor(g.stops);
+              }
+            }}
+            title={`Custom Gradient: ${g.name} (Click to Apply)`}
+          >
+            {/* Delete custom gradient */}
+            {hoveredGradIdx === idx && (
+              <button
+                type="button"
+                style={{
+                  position: 'absolute',
+                  top: '-5px',
+                  right: '-5px',
+                  width: '13px',
+                  height: '13px',
+                  borderRadius: '50%',
+                  background: '#ef4444',
+                  color: '#ffffff',
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '8px',
+                  fontWeight: 'bold',
+                  zIndex: 20
+                }}
+                onClick={(e) => handleDeleteCustomGradient(idx, e)}
+                title="Delete Custom Gradient"
+              >
+                ×
+              </button>
+            )}
+          </div>
+        ))}
+
+        {/* Add Custom Gradient Button */}
+        {onOpenGradientEditor && (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{
+              padding: '2px 8px',
+              height: '22px',
+              fontSize: '10px',
+              borderRadius: '5px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              flexShrink: 0,
+              background: 'rgba(234, 179, 8, 0.15)',
+              borderColor: 'rgba(234, 179, 8, 0.5)',
+              color: '#facc15',
+              cursor: 'pointer',
+              fontWeight: '700'
+            }}
+            onClick={onOpenGradientEditor}
+            title="Open Photoshop Gradient Editor to create & add custom gradient"
+          >
+            <Sparkles size={11} /> + Custom Gradient
+          </button>
+        )}
       </div>
 
+      {/* Solid Color Swatches */}
       {swatches.map((color, idx) => {
         const isCustom = !DEFAULT_SWATCHES.includes(color);
         return (
@@ -201,7 +316,7 @@ export const ColorPalette: React.FC<ColorPaletteProps> = ({
           flexShrink: 0,
           background: 'rgba(0, 240, 255, 0.1)',
           borderColor: 'rgba(0, 240, 255, 0.4)',
-          color: '#00f0ff',
+          color: '#00e5ff',
           cursor: 'pointer'
         }}
         onClick={() => colorInputRef.current?.click()}
