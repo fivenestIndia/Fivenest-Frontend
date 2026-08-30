@@ -150,26 +150,18 @@ export default function WebStudio() {
   ];
 
   return (
-    <div className={`app-layout ${themeMode}`} style={{ background: '#060813', position: 'relative' }}>
-      {/* Fixed full-screen ambient gradient background — gives glassmorphism panels something to blur through */}
-      <div style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 0,
-        pointerEvents: 'none',
-        background: 'radial-gradient(ellipse 60% 50% at 8% 15%, rgba(0, 229, 255, 0.22) 0%, transparent 55%), radial-gradient(ellipse 55% 50% at 92% 85%, rgba(124, 58, 237, 0.28) 0%, transparent 55%), radial-gradient(ellipse 40% 35% at 50% 50%, rgba(16, 185, 129, 0.08) 0%, transparent 60%), radial-gradient(ellipse 30% 25% at 20% 80%, rgba(99, 102, 241, 0.15) 0%, transparent 55%)',
-      }} />
+    <div className={`app-layout ${themeMode}`}>
 
-      <div className="md:hidden flex items-center justify-between p-3 bg-black/80 border-b border-white/10 sticky top-0 z-40 backdrop-blur-md">
+      <div className="md:hidden flex items-center justify-between p-3 bg-white border-b border-[#E2DED7] sticky top-0 z-40 backdrop-blur-md">
         <Link to="/" className="flex items-center gap-2">
           <img src="/logo.svg" alt="FiveNest Logo" className="w-6 h-6 object-contain" />
-          <span className="font-extrabold text-white text-base">FiveNest Production</span>
+          <span className="font-extrabold text-[#171717] text-base">FiveNest Production</span>
         </Link>
         
         <div className="flex items-center gap-2">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-xl bg-white/5 border border-white/10 text-white"
+            className="p-2 rounded-xl bg-white/5 border border-[#E2DED7] text-[#171717]"
           >
             {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
@@ -177,7 +169,7 @@ export default function WebStudio() {
       </div>
 
       {/* Mobile Horizontal Scrollable Tab Bar */}
-      <div className="md:hidden flex items-center gap-2 p-2 bg-slate-950 border-b border-slate-800 overflow-x-auto no-scrollbar scroll-smooth sticky top-[53px] z-30">
+      <div className="md:hidden flex items-center gap-2 p-2 bg-white border-b border-[#E2DED7] overflow-x-auto no-scrollbar scroll-smooth sticky top-[53px] z-30">
         {productionTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -187,8 +179,8 @@ export default function WebStudio() {
               onClick={() => setActiveTab(tab.id as any)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                 isActive
-                  ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20'
-                  : 'bg-white/5 text-slate-300 border border-white/5'
+                  ? 'bg-[#E4572E] text-white'
+                  : 'bg-[#F5F3EF] text-[#686661] border border-[#D8D5CF]'
               }`}
             >
               <Icon size={14} />
@@ -201,31 +193,23 @@ export default function WebStudio() {
       {/* Sidebar Navigation Panel (Responsive Drawer) */}
       <aside 
         className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}
-        style={{
-          position: 'relative',
-          zIndex: 10,
-          background: 'rgba(6, 9, 20, 0.45)',
-          backdropFilter: 'blur(40px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(40px) saturate(180%)',
-          borderRight: '1px solid rgba(0, 229, 255, 0.15)',
-          boxShadow: '4px 0 40px rgba(0, 0, 0, 0.6), inset -1px 0 0 rgba(0, 229, 255, 0.15)'
-        }}
+        style={{ background: '#FFFFFF', borderRight: '1px solid #E2DED7', position: 'relative', zIndex: 10 }}
       >
         <div>
-          <div className="flex items-center justify-between p-4 border-b border-white/10">
+          <div className="flex items-center justify-between p-4 border-b border-[#E8E4DE]">
             <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
               <div className="sidebar-brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px', cursor: 'pointer', padding: 0 }}>
                 <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <img src="/logo.svg" alt="FiveNest" style={{ width: '26px', height: '26px', objectFit: 'contain' }} />
-                  <span style={{ fontSize: '18px', fontWeight: '800' }}>FiveNest Studio</span>
+                  <span style={{ fontSize: '16px', fontWeight: '700', color: '#171717' }}>FiveNest Studio</span>
                 </div>
-                <span className="sidebar-version text-cyan-400 font-bold" style={{ fontSize: '10px' }}>Production Engine</span>
+                <span className="sidebar-version" style={{ color: '#E4572E', fontSize: '10px', fontWeight: '600' }}>Production Engine</span>
               </div>
             </Link>
 
             <button
               onClick={() => setMobileMenuOpen(false)}
-              className="md:hidden p-1.5 rounded-lg bg-white/5 text-white"
+              className="md:hidden p-1.5 rounded-lg bg-black/5 text-[#171717]"
             >
               <X size={18} />
             </button>
@@ -247,19 +231,14 @@ export default function WebStudio() {
                     position: 'relative',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px',
-                    padding: '11px 16px',
-                    borderRadius: '12px',
+                    gap: '10px',
+                    padding: '9px 12px',
+                    borderRadius: '10px',
                     fontSize: '13px',
-                    fontWeight: isActive ? '800' : '600',
-                    color: isActive ? '#ffffff' : '#94a3b8',
-                    background: isActive 
-                      ? 'linear-gradient(135deg, rgba(0, 229, 255, 0.22) 0%, rgba(124, 58, 237, 0.18) 100%)'
-                      : 'rgba(255, 255, 255, 0.03)',
-                    backdropFilter: 'blur(20px)',
-                    WebkitBackdropFilter: 'blur(20px)',
-                    border: isActive ? '1px solid rgba(0, 229, 255, 0.6)' : '1px solid rgba(255, 255, 255, 0.06)',
-                    boxShadow: isActive ? '0 6px 24px rgba(0, 229, 255, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.25)' : 'none',
+                    fontWeight: isActive ? 600 : 'normal',
+                    color: isActive ? '#171717' : '#686661',
+                    background: isActive ? '#F1EFEB' : 'transparent',
+                    border: 'none',
                     cursor: 'pointer',
                     transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
                     userSelect: 'none'
@@ -274,16 +253,14 @@ export default function WebStudio() {
                         bottom: '15%',
                         width: '4px',
                         borderRadius: '0 4px 4px 0',
-                        background: 'linear-gradient(180deg, #00e5ff 0%, #7c3aed 100%)',
-                        boxShadow: '0 0 12px #00e5ff, 0 0 20px rgba(0, 229, 255, 0.6)'
+                        background: '#E4572E'
                       }}
                     />
                   )}
                   <Icon 
                     size={18} 
                     style={{ 
-                      color: isActive ? '#00e5ff' : '#64748b',
-                      filter: isActive ? 'drop-shadow(0 0 8px rgba(0, 229, 255, 0.8))' : 'none',
+                      color: isActive ? '#E4572E' : '#92908A',
                       transition: 'all 0.2s ease'
                     }} 
                   />
@@ -298,22 +275,21 @@ export default function WebStudio() {
               className="menu-item"
               style={{ 
                 marginTop: '12px', 
-                padding: '11px 16px',
-                borderRadius: '12px',
+                padding: '9px 12px',
+                borderRadius: '10px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
-                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(234, 88, 12, 0.08) 100%)',
-                border: '1px solid rgba(245, 158, 11, 0.35)',
-                color: '#facc15',
-                fontWeight: '700',
+                gap: '10px',
+                background: '#FFF3EF',
+                border: '1px solid #F5C4B2',
+                color: '#C94725',
+                fontWeight: '600',
                 fontSize: '13px',
                 textDecoration: 'none',
-                boxShadow: '0 4px 16px rgba(245, 158, 11, 0.15)',
                 transition: 'all 0.2s ease'
               }}
             >
-              <Package size={18} style={{ color: '#facc15', filter: 'drop-shadow(0 0 6px rgba(245, 158, 11, 0.6))' }} />
+              <Package size={18} style={{ color: '#C94725' }} />
               Order & Billing Portal
             </Link>
 
@@ -321,14 +297,14 @@ export default function WebStudio() {
               to="/" 
               className="menu-item"
               style={{ 
-                padding: '10px 16px',
-                borderRadius: '12px',
+                padding: '9px 12px',
+                borderRadius: '10px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
-                background: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid rgba(255, 255, 255, 0.05)',
-                color: '#64748b',
+                gap: '10px',
+                background: 'transparent',
+                border: '1px solid rgba(23,23,23,0.08)',
+                color: '#92908A',
                 fontWeight: '600',
                 fontSize: '12px',
                 textDecoration: 'none',
@@ -343,45 +319,10 @@ export default function WebStudio() {
 
         {/* Sidebar Footer info */}
         <div className="sidebar-footer">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', padding: '0 4px' }}>
-            <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-muted)' }}>Theme:</span>
-            <button 
-              onClick={() => setThemeMode(themeMode === 'dark' ? 'light' : 'dark')}
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid var(--border-light)',
-                borderRadius: '20px',
-                padding: '4px 10px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                cursor: 'pointer',
-                color: 'var(--text-primary)',
-                fontSize: '11px',
-                fontWeight: '600',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              {themeMode === 'dark' ? (
-                <>
-                  <Moon size={12} style={{ color: 'var(--color-primary)' }} />
-                  Dark
-                </>
-              ) : (
-                <>
-                  <Sun size={12} style={{ color: 'var(--color-secondary)' }} />
-                  Light
-                </>
-              )}
-            </button>
-          </div>
-
-
-
-          <div className="glass-card" style={{ padding: '12px', background: 'rgba(155, 77, 255, 0.04)', borderColor: 'var(--border-active)', textAlign: 'left', marginTop: '8px' }}>
+          <div style={{ padding: '12px', background: '#F5F3EF', border: '1px solid #E8E4DE', borderRadius: '10px', textAlign: 'left', marginTop: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <Award size={14} style={{ color: 'var(--color-secondary)' }} />
-              <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--color-secondary)' }}>PRODUCTION STUDIO</span>
+              <Award size={14} style={{ color: '#E4572E' }} />
+              <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#E4572E' }}>PRODUCTION STUDIO</span>
             </div>
             <p style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Sublimation Plotter RIP Active.</p>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', fontSize: '10px', color: 'var(--text-primary)' }}>
@@ -396,20 +337,14 @@ export default function WebStudio() {
       <main className="main-content" style={{ position: 'relative', zIndex: 10, background: 'transparent' }}>
         <header 
           className="top-navbar"
-          style={{
-            background: 'rgba(6, 9, 20, 0.45)',
-            backdropFilter: 'blur(40px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
-            borderBottom: '1px solid rgba(0, 229, 255, 0.18)',
-            boxShadow: '0 1px 0 rgba(0, 229, 255, 0.12), 0 4px 24px rgba(0,0,0,0.5)'
-          }}
+          style={{ background: '#FFFFFF', borderBottom: '1px solid #E2DED7' }}
         >
           <h1 className="navbar-title text-sm md:text-base font-black">
-            {activeTab === 'designer' && "🎨 Artwork & Overlays"}
-            {activeTab === 'order' && "📋 Job Details"}
-            {activeTab === 'sizes' && "📐 Size Grading"}
-            {activeTab === 'nesting' && "⚙️ Nesting & Export"}
-            {activeTab === 'help' && "✨ AI Data Refiner"}
+            {activeTab === 'designer' && "Artwork & Overlays"}
+            {activeTab === 'order' && "Job Details"}
+            {activeTab === 'sizes' && "Size Grading"}
+            {activeTab === 'nesting' && "Nesting & Export"}
+            {activeTab === 'help' && "AI Data Refiner"}
           </h1>
           
           <div className="navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -417,44 +352,21 @@ export default function WebStudio() {
             <Link to="/orders" style={{ textDecoration: 'none' }}>
               <button 
                 className="btn btn-secondary"
-                style={{ 
-                  padding: '5px 12px', 
-                  borderRadius: '9999px', 
-                  fontSize: '11px', 
-                  fontWeight: '700', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '5px',
-                  background: 'rgba(255,255,255,0.04)',
-                  borderColor: 'rgba(0, 229, 255, 0.25)',
-                  color: 'var(--accent-cyan)'
-                }}
+                style={{ padding: '5px 12px', borderRadius: '7px', fontSize: '12px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '5px', background: '#FFFFFF', border: '1px solid #D0CCC5', color: '#242321' }}
               >
                 <Package size={13} /> Orders
               </button>
             </Link>
 
             {/* Test Mode Toggle */}
-            <label className="test-mode-toggle" style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '5px', 
-              cursor: 'pointer', 
-              fontSize: '11px', 
-              background: testMode ? 'rgba(245, 158, 11, 0.12)' : 'rgba(255,255,255,0.04)', 
-              padding: '5px 12px', 
-              borderRadius: '9999px', 
-              border: testMode ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(255,255,255,0.08)',
-              userSelect: 'none',
-              transition: 'all 0.2s ease'
-            }}>
+            <label className="test-mode-toggle" style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px', background: testMode ? '#FBF2DC' : '#F5F3EF', padding: '5px 11px', borderRadius: '7px', border: testMode ? '1px solid #D4B76A' : '1px solid #D8D5CF', userSelect: 'none', transition: 'all 0.15s ease' }}>
               <input 
                 type="checkbox" 
                 checked={testMode} 
                 onChange={(e) => handleTestModeChange(e.target.checked)} 
                 style={{ display: 'none' }} 
               />
-              <span style={{ color: testMode ? '#f59e0b' : 'var(--text-muted)', fontWeight: '800' }}>
+              <span style={{ color: testMode ? '#A87519' : '#686661', fontWeight: '800' }}>
                 {testMode ? "🧪 Test" : "⚡ Live"}
               </span>
             </label>
@@ -464,29 +376,16 @@ export default function WebStudio() {
               <div 
                 className="user-wallet-pill"
                 onClick={() => setLoginModalOpen(true)}
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '8px', 
-                  background: 'rgba(15, 23, 42, 0.65)', 
-                  backdropFilter: 'blur(16px)',
-                  border: '1px solid rgba(0, 229, 255, 0.3)', 
-                  padding: '5px 14px', 
-                  borderRadius: '9999px', 
-                  cursor: 'pointer',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
-                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#FFFFFF', border: '1px solid #D0CCC5', padding: '5px 12px', borderRadius: '7px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}
               >
-                <span style={{ color: '#ffffff' }}>{currentUser.name.split(' ')[0]}</span>
-                <span style={{ color: '#4ade80', fontWeight: '800' }}>₹{currentUser.balance.toFixed(2)}</span>
+                <span style={{ color: '#171717' }}>{currentUser.name.split(' ')[0]}</span>
+                <span style={{ color: '#2F7D5C', fontWeight: '800' }}>₹{currentUser.balance.toFixed(2)}</span>
               </div>
             ) : (
               <button 
                 className="btn btn-primary" 
                 onClick={() => setLoginModalOpen(true)}
-                style={{ padding: '5px 14px', borderRadius: '9999px', fontSize: '11px', fontWeight: '800' }}
+                style={{ padding: '5px 14px', borderRadius: '7px', fontSize: '12px', fontWeight: '700', background: '#E4572E', color: '#FFFFFF', border: '1px solid #E4572E', cursor: 'pointer' }}
               >
                 Sign In
               </button>
@@ -539,13 +438,13 @@ export default function WebStudio() {
       {/* Size Editor Popup Modal */}
       {sizeEditorOpen && (
         <div
-          style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+          style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(23,23,23,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
           onClick={(e) => { if (e.target === e.currentTarget) setSizeEditorOpen(false); }}
         >
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-active)', borderRadius: '12px', width: '100%', maxWidth: '920px', maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid var(--border-light)', background: 'rgba(0,229,255,0.04)' }}>
-              <span style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)' }}>📐 Size Grading Editor</span>
-              <button onClick={() => setSizeEditorOpen(false)} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid var(--border-light)', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '14px', fontWeight: '700' }}>✕</button>
+          <div style={{ background: '#FFFFFF', border: '1px solid #DDD9D2', borderRadius: '12px', width: '100%', maxWidth: '920px', maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid #E8E4DE', background: '#F5F3EF' }}>
+              <span style={{ fontSize: '14px', fontWeight: '800', color: '#171717' }}>Size Grading Editor</span>
+              <button onClick={() => setSizeEditorOpen(false)} style={{ background: '#FFFFFF', border: '1px solid #D0CCC5', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', color: '#242321', fontSize: '14px', fontWeight: '700' }}>✕</button>
             </div>
             <div style={{ overflow: 'auto', flex: 1 }}>
               <SizesDb onDatabaseChange={handleSizeDatabaseChange} />

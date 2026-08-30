@@ -63,10 +63,10 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   ];
 
   return (
-    <div className="cd-menubar" ref={containerRef} style={{ background: 'rgba(5, 7, 18, 0.7)', backdropFilter: 'blur(40px) saturate(200%)', WebkitBackdropFilter: 'blur(40px) saturate(200%)', borderBottom: '1px solid rgba(255, 255, 255, 0.07)', boxShadow: '0 2px 16px rgba(0,0,0,0.5)' }}>
+    <div className="cd-menubar" ref={containerRef}>
       {/* Brand Badge */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '10px', color: '#00e5ff', fontWeight: '900', letterSpacing: '-0.02em' }}>
-        <span style={{ fontSize: '13px', color: '#ffffff' }}>Studio</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '10px' }}>
+        <span style={{ fontSize: '13px', fontWeight: '700', color: '#171717', letterSpacing: '-0.01em' }}>Studio</span>
       </div>
 
       {/* FILE MENU */}
@@ -89,8 +89,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             <div className="cd-dropdown-action" onClick={() => { exportAllLocalData(); close(); }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><HardDrive size={13} /> Export Local Backup</span>
             </div>
-            <div style={{ height: '1px', background: '#2d2d38', margin: '4px 0' }} />
-            <div className="cd-dropdown-action" onClick={() => { onClearPanel(); close(); }} style={{ color: '#ef4444' }}>
+            <div style={{ height: '1px', background: '#E8E4DE', margin: '4px 0' }} />
+            <div className="cd-dropdown-action" onClick={() => { onClearPanel(); close(); }} style={{ color: '#C84535' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Trash2 size={13} /> Clear Active Panel</span>
               <span style={{ opacity: 0.5 }}>Del</span>
             </div>
@@ -117,14 +117,14 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><RotateCcw size={13} /> Reset Zoom (100%)</span>
               <span style={{ opacity: 0.5 }}>Ctrl+0</span>
             </div>
-            <div style={{ height: '1px', background: '#2d2d38', margin: '4px 0' }} />
+            <div style={{ height: '1px', background: '#E8E4DE', margin: '4px 0' }} />
             <div className="cd-dropdown-action" onClick={() => { onToggleGuidelines(); close(); }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Grid size={13} /> Toggle Guidelines</span>
-              {showGuidelines ? <Check size={13} style={{ color: '#38bdf8' }} /> : <span style={{ opacity: 0.5 }}>G</span>}
+              {showGuidelines ? <Check size={13} style={{ color: '#E4572E' }} /> : <span style={{ opacity: 0.5 }}>G</span>}
             </div>
             <div className="cd-dropdown-action" onClick={() => { onToggleRulers(); close(); }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Eye size={13} /> Toggle Rulers</span>
-              {rulersEnabled ? <Check size={13} style={{ color: '#38bdf8' }} /> : <span style={{ opacity: 0.5 }}>R</span>}
+              {rulersEnabled ? <Check size={13} style={{ color: '#E4572E' }} /> : <span style={{ opacity: 0.5 }}>R</span>}
             </div>
           </div>
         )}
@@ -144,7 +144,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                 onClick={() => { onSelectTab(p.id); close(); }}
               >
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Layers size={13} /> {p.label}</span>
-                {activeTab === p.id && <Check size={13} style={{ color: '#38bdf8' }} />}
+                {activeTab === p.id && <Check size={13} style={{ color: '#E4572E' }} />}
               </div>
             ))}
           </div>
@@ -167,9 +167,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({
       </div>
 
       {/* Active Panel Badge on Right */}
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: 'var(--accent-cyan)', background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(16px)', padding: '3px 10px', borderRadius: '9999px', border: '1px solid rgba(0, 229, 255, 0.3)', boxShadow: '0 2px 10px rgba(0,0,0,0.3)' }}>
-        <span style={{ fontWeight: '700', letterSpacing: '0.05em' }}>ACTIVE:</span>
-        <strong style={{ color: '#ffffff', textTransform: 'uppercase', fontWeight: '800' }}>{activeTab}</strong>
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', background: '#FFF3EF', border: '1px solid #F5C4B2', color: '#C94725', borderRadius: '6px', padding: '3px 10px', fontSize: '11px', fontWeight: '600' }}>
+        <span style={{ fontWeight: '700', color: '#92908A' }}>ACTIVE:</span>
+        <strong style={{ color: '#E4572E', fontWeight: '700', textTransform: 'uppercase' }}>{activeTab}</strong>
       </div>
     </div>
   );

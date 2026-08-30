@@ -28,17 +28,17 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   };
 
   return (
-    <div className="cd-statusbar" style={{ background: 'rgba(4, 5, 14, 0.85)', backdropFilter: 'blur(32px) saturate(180%)', WebkitBackdropFilter: 'blur(32px) saturate(180%)', borderTop: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 -4px 16px rgba(0,0,0,0.5)' }}>
+    <div className="cd-statusbar">
       {/* Tool hint */}
       <div className="cd-statusbar-item" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        <span style={{ color: '#0284c7', fontWeight: '700' }}>[Tool]</span>
+        <span style={{ color: '#E4572E', fontWeight: '600' }}>[Tool]</span>
         <span>{toolDescriptions[activeTool]}</span>
       </div>
 
       {/* Cursor coordinates */}
       <div className="cd-statusbar-item" style={{ width: '150px', justifyContent: 'center', fontFamily: 'monospace' }}>
         {cursorPos ? (
-          <span>X: <strong style={{ color: '#00f0ff' }}>{cursorPos.x.toFixed(2)}"</strong> Y: <strong style={{ color: '#00f0ff' }}>{cursorPos.y.toFixed(2)}"</strong></span>
+          <span>X: <strong style={{ color: '#171717' }}>{cursorPos.x.toFixed(2)}"</strong> Y: <strong style={{ color: '#171717' }}>{cursorPos.y.toFixed(2)}"</strong></span>
         ) : (
           <span style={{ opacity: 0.4 }}>X: --.--" Y: --.--"</span>
         )}
@@ -47,7 +47,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
       {/* Panel Info */}
       <div className="cd-statusbar-item" style={{ width: '180px', justifyContent: 'flex-end', gap: '12px' }}>
         <span>{activeTab.toUpperCase()} ({physicalWidth}" × {physicalHeight}")</span>
-        <span style={{ color: '#38bdf8', fontWeight: '700' }}>{Math.round(zoom * 100)}%</span>
+        <span style={{ color: '#E4572E', fontWeight: '600' }}>{Math.round(zoom * 100)}%</span>
       </div>
     </div>
   );
