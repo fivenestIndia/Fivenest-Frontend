@@ -66,7 +66,6 @@ export const MenuBar: React.FC<MenuBarProps> = ({
     <div className="cd-menubar" ref={containerRef} style={{ background: 'rgba(5, 7, 18, 0.7)', backdropFilter: 'blur(40px) saturate(200%)', WebkitBackdropFilter: 'blur(40px) saturate(200%)', borderBottom: '1px solid rgba(255, 255, 255, 0.07)', boxShadow: '0 2px 16px rgba(0,0,0,0.5)' }}>
       {/* Brand Badge */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '10px', color: '#00e5ff', fontWeight: '900', letterSpacing: '-0.02em' }}>
-        <span style={{ background: 'linear-gradient(135deg, rgba(0,229,255,0.25) 0%, rgba(124,58,237,0.25) 100%)', border: '1px solid rgba(0,229,255,0.4)', color: '#00e5ff', padding: '2px 7px', borderRadius: '5px', fontSize: '10px', fontWeight: '800', boxShadow: '0 0 10px rgba(0,229,255,0.2)' }}>Corel</span>
         <span style={{ fontSize: '13px', color: '#ffffff' }}>Studio</span>
       </div>
 
