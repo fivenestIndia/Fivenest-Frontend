@@ -1,14 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 
-/* Original home page anchor links */
-const homeLinks = [
-  { href: "/#features",     label: "Features" },
-  { href: "/#how-it-works", label: "How it Works" },
-  { href: "/#pricing",      label: "Pricing" },
-  { href: "/#faq",          label: "FAQ" },
-];
-
 /* Sequential 5-page workflow links */
 const workflowLinks = [
   { href: "/",           label: "Home",       step: "01" },
@@ -56,19 +48,6 @@ const Navbar = () => {
 
         {/* ── Desktop Nav ──────────────────────────────── */}
         <div className="hidden lg:flex items-center gap-1">
-          {/* Main website anchor links (only on home) */}
-          {isHome && homeLinks.map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              className="px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface/60 transition-all"
-            >
-              {l.label}
-            </a>
-          ))}
-
-          {isHome && <div className="w-px h-4 bg-border/60 mx-2" />}
-
           {/* Workflow sequential tool links */}
           {workflowLinks.map((l) => (
             <Link

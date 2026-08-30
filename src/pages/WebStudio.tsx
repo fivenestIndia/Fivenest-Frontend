@@ -231,7 +231,7 @@ export default function WebStudio() {
             </button>
           </div>
 
-          <nav className="sidebar-menu">
+          <nav className="sidebar-menu" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '16px 12px' }}>
             {productionTabs.map((t) => {
               const Icon = t.icon;
               const isActive = activeTab === t.id;
@@ -243,9 +243,51 @@ export default function WebStudio() {
                     setActiveTab(t.id as any);
                     setMobileMenuOpen(false);
                   }}
+                  style={{
+                    position: 'relative',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '11px 16px',
+                    borderRadius: '12px',
+                    fontSize: '13px',
+                    fontWeight: isActive ? '800' : '600',
+                    color: isActive ? '#ffffff' : '#94a3b8',
+                    background: isActive 
+                      ? 'linear-gradient(135deg, rgba(0, 229, 255, 0.22) 0%, rgba(124, 58, 237, 0.18) 100%)'
+                      : 'rgba(255, 255, 255, 0.03)',
+                    backdropFilter: 'blur(20px)',
+                    WebkitBackdropFilter: 'blur(20px)',
+                    border: isActive ? '1px solid rgba(0, 229, 255, 0.6)' : '1px solid rgba(255, 255, 255, 0.06)',
+                    boxShadow: isActive ? '0 6px 24px rgba(0, 229, 255, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.25)' : 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                    userSelect: 'none'
+                  }}
                 >
-                  <Icon size={18} />
-                  {t.label}
+                  {isActive && (
+                    <div 
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: '15%',
+                        bottom: '15%',
+                        width: '4px',
+                        borderRadius: '0 4px 4px 0',
+                        background: 'linear-gradient(180deg, #00e5ff 0%, #7c3aed 100%)',
+                        boxShadow: '0 0 12px #00e5ff, 0 0 20px rgba(0, 229, 255, 0.6)'
+                      }}
+                    />
+                  )}
+                  <Icon 
+                    size={18} 
+                    style={{ 
+                      color: isActive ? '#00e5ff' : '#64748b',
+                      filter: isActive ? 'drop-shadow(0 0 8px rgba(0, 229, 255, 0.8))' : 'none',
+                      transition: 'all 0.2s ease'
+                    }} 
+                  />
+                  <span>{t.label}</span>
                 </div>
               );
             })}
@@ -255,14 +297,23 @@ export default function WebStudio() {
               to="/orders" 
               className="menu-item"
               style={{ 
-                marginTop: '16px', 
-                borderTop: '1px solid var(--border-light)', 
-                paddingTop: '16px',
-                color: 'var(--color-secondary)',
-                fontWeight: '700'
+                marginTop: '12px', 
+                padding: '11px 16px',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(234, 88, 12, 0.08) 100%)',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                color: '#facc15',
+                fontWeight: '700',
+                fontSize: '13px',
+                textDecoration: 'none',
+                boxShadow: '0 4px 16px rgba(245, 158, 11, 0.15)',
+                transition: 'all 0.2s ease'
               }}
             >
-              <Package size={18} />
+              <Package size={18} style={{ color: '#facc15', filter: 'drop-shadow(0 0 6px rgba(245, 158, 11, 0.6))' }} />
               Order & Billing Portal
             </Link>
 
@@ -270,11 +321,21 @@ export default function WebStudio() {
               to="/" 
               className="menu-item"
               style={{ 
-                color: 'var(--text-muted)',
-                fontWeight: '500'
+                padding: '10px 16px',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
+                color: '#64748b',
+                fontWeight: '600',
+                fontSize: '12px',
+                textDecoration: 'none',
+                transition: 'all 0.2s ease'
               }}
             >
-              <ArrowLeft size={18} />
+              <ArrowLeft size={16} />
               Return to Website
             </Link>
           </nav>
