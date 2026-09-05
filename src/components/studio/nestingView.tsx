@@ -1,3 +1,4 @@
+// BUILD v20260906-r5 — FiveNest Studio Export Processing Modal
 import React, { useState, useEffect, useRef } from 'react';
 import { jsPDF } from 'jspdf';
 import confetti from 'canvas-confetti';
