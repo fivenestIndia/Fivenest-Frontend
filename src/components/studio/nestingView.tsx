@@ -2980,10 +2980,40 @@ export const NestingView: React.FC<NestingViewProps> = ({
             })()}
           </div>
 
-          {/* Row 3: Hero Download Action Button */}
+          {/* Row 3: Export progress bar (visible when rendering) */}
           {isExporting ? (
-            <div style={{ textAlign: 'center', padding: '12px 16px' }}>
-              <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Rendering… see the processing window</span>
+            <div style={{ padding: '4px 0 8px' }}>
+              {/* Pct label + step text */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: '700', color: '#E4572E' }}>
+                  ⚙ Rendering production panels…
+                </span>
+                <span style={{ fontSize: '12px', fontWeight: '800', color: '#E4572E', fontVariantNumeric: 'tabular-nums' }}>
+                  {exportProgressPct}%
+                </span>
+              </div>
+              {/* Track */}
+              <div style={{ height: '8px', borderRadius: '4px', background: '#2A1A10', overflow: 'hidden', position: 'relative' }}>
+                <div style={{
+                  height: '100%',
+                  borderRadius: '4px',
+                  background: 'linear-gradient(90deg, #E4572E, #F5A67D)',
+                  width: `${exportProgressPct}%`,
+                  transition: 'width 0.3s ease',
+                  minWidth: exportProgressPct > 0 ? '8px' : '0',
+                }}/>
+                {/* Shimmer sweep */}
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.18) 50%, transparent 100%)',
+                  animation: 'shimmerSweep 1.6s ease-in-out infinite',
+                  backgroundSize: '200% 100%',
+                }}/>
+              </div>
+              {/* Step detail text */}
+              <div style={{ fontSize: '10px', color: '#686661', marginTop: '6px', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {exportProgress || 'Initialising…'}
+              </div>
             </div>
           ) : (
             <button 
