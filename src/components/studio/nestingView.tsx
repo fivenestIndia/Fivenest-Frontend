@@ -5,6 +5,7 @@ import { Play, Download, Sliders, Coins, QrCode, CheckCircle, AlertTriangle, Loa
 import JSZip from 'jszip';
 import { supabase, fetchUserWallet } from '../../lib/supabaseClient';
 import { fivenestLabelTagDataUrl } from '../../assets/labelTagBase64';
+import { ExportProcessingModal } from './ExportProcessingModal';
 
 // ---- Export format utilities ----
 type ExportFormat = 'jpg' | 'png' | 'tiff';
@@ -588,6 +589,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
   };
   const [activeSheetIndex, setActiveSheetIndex] = useState<number>(0);
   const [exportProgress, setExportProgress] = useState<string>("");
+  const [exportProgressPct, setExportProgressPct] = useState<number>(0);
   const [isExporting, setIsExporting] = useState<boolean>(false);
 
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -1815,6 +1817,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
     const executeExport = async () => {
       setIsExporting(true);
+      setExportProgressPct(0);
       setExportProgress("Initializing high-resolution rendering...");
 
       try {
@@ -1831,6 +1834,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
         // TEST MODE: EXPORT SINGLE 72 DPI PDF ONLY (NO ZIP / NO FOLDERS)
         if (testMode) {
+          setExportProgressPct(8);
           setExportProgress("Generating Test Mode 72 DPI PDF document...");
 
           const frontOverlaysChecked = (designConfig.front.nameConfig.enabled || designConfig.front.numberConfig.enabled) && !metadata.blankKit;
@@ -1970,6 +1974,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
             for (let i = 0; i < testPdfPages.length; i++) {
               const page = testPdfPages[i];
               const item = page.item;
+              setExportProgressPct(Math.round(10 + ((i / testPdfPages.length) * 85)));
               setExportProgress(`Rendering 72 DPI Test PDF Page (${i + 1}/${testPdfPages.length}): ${page.label}...`);
 
               // Page margins & top header layout
@@ -2045,8 +2050,12 @@ export const NestingView: React.FC<NestingViewProps> = ({
             testPdf.save(`${cleanCust}_${cleanOrder}_72DPI_Test.pdf`);
           }
 
+          setExportProgressPct(100);
+          setExportProgress("Export complete!");
+          await new Promise(r => setTimeout(r, 1800));
           setIsExporting(false);
           setExportProgress("");
+          setExportProgressPct(0);
 
           confetti({
             particleCount: 150,
@@ -2214,6 +2223,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
             const action = renderActions[i];
             // Replace .jpg extension in fileName with selected format extension
             const outFileName = action.fileName.replace(/\.jpe?g$/i, fileExt);
+            setExportProgressPct(Math.round(15 + ((i / renderActions.length) * 65)));
             setExportProgress(`Rendering ${action.folder || 'other'} panel: ${outFileName} (${i + 1}/${renderActions.length}) at ${activeDpi} DPI...`);
 
             // Yield control to main thread so browser repaints progress text
@@ -2238,6 +2248,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
             itemCanvas.height = 0;
           }
 
+          setExportProgressPct(82);
           setExportProgress("Compiling ZIP package...");
           const content = await zip.generateAsync({ type: "blob" });
           
@@ -2253,6 +2264,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
           // Now, generate and download a 72 DPI preview PDF alongside if activeDpi > 72 and not in testMode
           const needPreviewPdf = !testMode && activeDpi > 72;
           if (needPreviewPdf && renderActions.length > 0) {
+            setExportProgressPct(90);
             setExportProgress("Generating preview PDF at 72 DPI...");
             
             interface PreviewPage {
@@ -2366,8 +2378,12 @@ export const NestingView: React.FC<NestingViewProps> = ({
           // Auto-log Print Production Export Billing Entry (Test Mode)
           logPrintProductionExportBillingEntry(billedJerseyCount);
 
+          setExportProgressPct(100);
+          setExportProgress("Export complete!");
+          await new Promise(r => setTimeout(r, 1800));
           setIsExporting(false);
           setExportProgress("");
+          setExportProgressPct(0);
 
           confetti({
             particleCount: 150,
@@ -2418,6 +2434,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
           // Directly draw each nested panel onto the PDF document
           for (let i = 0; i < sheet.items.length; i++) {
             const item = sheet.items[i];
+            const totalItems = nestingSheets.reduce((acc, sh) => acc + sh.items.length, 0);
+            const globalIdx = nestingSheets.slice(0, s).reduce((acc, sh) => acc + sh.items.length, 0) + i;
+            setExportProgressPct(Math.round(15 + ((globalIdx / Math.max(totalItems, 1)) * 68)));
             setExportProgress(`Rendering panel ${i + 1}/${sheet.items.length} on Sheet ${s + 1} at ${activeDpi} DPI...`);
 
             // Compute original unrotated dimensions to prevent template stretching
@@ -2480,6 +2499,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
           }
         }
 
+        setExportProgressPct(97);
         setExportProgress("Saving PDF document...");
         pdf.save(`${cleanCust}_${cleanOrder}_Print_Roll.pdf`);
 
@@ -2490,8 +2510,12 @@ export const NestingView: React.FC<NestingViewProps> = ({
         // Auto-log Print Production Export Billing Entry in Invoices & Billing
         logPrintProductionExportBillingEntry(billedJerseyCount);
 
+        setExportProgressPct(100);
+        setExportProgress("Export complete!");
+        await new Promise(r => setTimeout(r, 1800));
         setIsExporting(false);
         setExportProgress("");
+        setExportProgressPct(0);
 
         confetti({
           particleCount: 150,
@@ -2503,6 +2527,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
         alert(`Export failed: ${(err as Error).message}\n\nPlease check the developer console for detailed logs.`);
         setIsExporting(false);
         setExportProgress("");
+        setExportProgressPct(0);
       }
     };
 
@@ -2957,9 +2982,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
           {/* Row 3: Hero Download Action Button */}
           {isExporting ? (
-            <div style={{ textAlign: 'center', background: 'rgba(0, 229, 255, 0.12)', border: '1px solid var(--accent-cyan)', padding: '12px 16px', borderRadius: '10px', boxShadow: '0 0 25px rgba(0,229,255,0.2)' }}>
-              <div style={{ display: 'inline-block', width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.2)', borderTopColor: 'var(--color-primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', verticalAlign: 'middle', marginRight: '8px' }}></div>
-              <span style={{ fontSize: '13px', fontWeight: '800', color: '#ffffff' }}>Rendering Production Panels... {exportProgress}</span>
+            <div style={{ textAlign: 'center', padding: '12px 16px' }}>
+              <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Rendering… see the processing window</span>
             </div>
           ) : (
             <button 
@@ -3115,6 +3139,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
               onClick={() => {
                 setShowPaymentModal(false);
                 setIsExporting(false);
+                setExportProgressPct(0);
               }}
               style={{
                 position: 'absolute',
@@ -3347,6 +3372,15 @@ export const NestingView: React.FC<NestingViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* ── Animated Export Processing Modal ── */}
+      <ExportProcessingModal
+        isOpen={isExporting}
+        progress={exportProgressPct}
+        statusText={exportProgress}
+        totalPanels={getItemsToExport().length}
+        orderName={metadata.customerName ? `${metadata.customerName} — Order ${metadata.orderNum || '#'}` : undefined}
+      />
     </div>
   );
 };
