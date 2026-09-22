@@ -1,229 +1,125 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Package, FileText, Users, BarChart3, Wallet, Shield, CheckCircle,
-  ArrowRight, Clock, ChevronDown, ChevronRight, 
-  Download, Filter, Search, TrendingUp, Sparkles
+  Plus, Search, Bell, Filter, Download, Settings, Factory, Palette, Printer,
+  LayoutDashboard, Users, ShoppingBag, FileText, CreditCard, AlertTriangle,
+  BookOpen, BarChart3, X, CheckCircle, ChevronDown
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const cn = (...classes: (string | undefined | boolean)[]) => classes.filter(Boolean).join(' ');
+import { useOrderStore, BusinessType, fmt, STATUS_COLORS, STATUS_LABELS } from '../hooks/useOrderStore';
+import KPICards from '../components/orders/KPICards';
+import CustomerPanel from '../components/orders/CustomerPanel';
+import TransactionTable, { Column } from '../components/orders/TransactionTable';
+import OrderForm from '../components/orders/OrderForm';
+import DesignerBillForm from '../components/orders/DesignerBillForm';
+import PrintingModule from '../components/orders/PrintingModule';
+import PaymentDrawer from '../components/orders/PaymentDrawer';
+import LedgerView from '../components/orders/LedgerView';
+import OutstandingView from '../components/orders/OutstandingView';
+import ReportsView from '../components/orders/ReportsView';
+import { ManufacturerOrder, DesignerBill } from '../hooks/useOrderStore';
 
-// ─── Feature Detail ──────────────────────────────────────────────────────────
-interface FeatureDetail {
-  id: string;
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  points: string[];
-  visual: React.ReactNode;
+const cn = (...c: (string|undefined|boolean)[]) => c.filter(Boolean).join(' ');
+
+// ─── Business Mode ────────────────────────────────────────────────────────────
+type BusinessMode = 'all' | BusinessType;
+
+// ─── Sub-navigation items per mode ───────────────────────────────────────────
+type SubView = 'overview' | 'orders' | 'customers' | 'payments' | 'outstanding' | 'ledger' | 'reports' | 'quotations';
+
+interface NavItem { key: SubView; label: string; icon: React.FC<{size?: number; className?: string}> }
+
+const NAV_ALL: NavItem[] = [
+  { key: 'overview',     label: 'Overview',     icon: LayoutDashboard },
+  { key: 'customers',    label: 'Customers',    icon: Users           },
+  { key: 'outstanding',  label: 'Outstanding',  icon: AlertTriangle   },
+  { key: 'ledger',       label: 'Ledger',       icon: BookOpen        },
+  { key: 'reports',      label: 'Reports',      icon: BarChart3       },
+];
+const NAV_MFG: NavItem[] = [
+  { key: 'overview',    label: 'Overview',     icon: LayoutDashboard },
+  { key: 'orders',      label: 'Orders',       icon: ShoppingBag     },
+  { key: 'payments',    label: 'Payments',     icon: CreditCard      },
+  { key: 'outstanding', label: 'Outstanding',  icon: AlertTriangle   },
+  { key: 'ledger',      label: 'Ledger',       icon: BookOpen        },
+  { key: 'reports',     label: 'Reports',      icon: BarChart3       },
+];
+const NAV_DSG: NavItem[] = [
+  { key: 'overview',    label: 'Overview',     icon: LayoutDashboard },
+  { key: 'orders',      label: 'Bills',        icon: FileText        },
+  { key: 'payments',    label: 'Payments',     icon: CreditCard      },
+  { key: 'outstanding', label: 'Outstanding',  icon: AlertTriangle   },
+  { key: 'ledger',      label: 'Ledger',       icon: BookOpen        },
+  { key: 'reports',     label: 'Reports',      icon: BarChart3       },
+];
+const NAV_PRT: NavItem[] = [
+  { key: 'overview',    label: 'Overview',     icon: LayoutDashboard },
+  { key: 'orders',      label: 'Orders',       icon: ShoppingBag     },
+  { key: 'payments',    label: 'Payments',     icon: CreditCard      },
+  { key: 'outstanding', label: 'Outstanding',  icon: AlertTriangle   },
+  { key: 'ledger',      label: 'Ledger',       icon: BookOpen        },
+  { key: 'reports',     label: 'Reports',      icon: BarChart3       },
+];
+
+function getNav(mode: BusinessMode): NavItem[] {
+  if (mode === 'all') return NAV_ALL;
+  if (mode === 'manufacturer') return NAV_MFG;
+  if (mode === 'designer') return NAV_DSG;
+  return NAV_PRT;
 }
 
-// ─── Mini Dashboard Visual (Light Clean SaaS) ─────────────────────────────────
-function OrderDashboardVisual() {
+// ─── Toast notification ───────────────────────────────────────────────────────
+function Toast({ message, onClose }: { message: string; onClose: () => void }) {
+  React.useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
   return (
-    <div className="rounded-2xl overflow-hidden border border-[#E2DED7] bg-white shadow-soft-lg">
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E8E4DE] bg-[#FAF8F5]">
-        <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
-          <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-          <span className="ml-2 text-[#71717A] text-xs font-semibold">Orders Control Center</span>
-        </div>
-        <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-          Auto Sync
-        </span>
-      </div>
-      <div className="p-5 space-y-3.5">
-        <div className="flex items-center gap-3">
-          <div className="flex-1 relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8C8984]" />
-            <input
-              readOnly
-              value="Mumbai Royals"
-              className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#F5F3EF] border border-[#E2DED7] text-xs font-medium text-[#171717]"
-            />
-          </div>
-          <button className="p-2 rounded-xl bg-[#F5F3EF] border border-[#E2DED7] text-[#52525B]">
-            <Filter size={14} />
-          </button>
-        </div>
-
-        {[
-          { id: '#FN-001', team: 'Mumbai Royals FC', qty: 22, amount: '₹14,300', status: 'Paid in Full', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-          { id: '#FN-002', team: 'Delhi Stars CC', qty: 16, amount: '₹10,400', status: 'Invoice Sent', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-          { id: '#FN-003', team: 'Chennai Kings Hockey', qty: 30, amount: '₹19,500', status: 'In Production', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-        ].map((o) => (
-          <div key={o.id} className="flex items-center justify-between p-3.5 rounded-xl bg-[#FAF8F5] border border-[#E8E4DE] hover:border-[#E4572E]/40 transition-colors">
-            <div>
-              <p className="text-[#171717] text-xs font-bold">{o.team}</p>
-              <p className="text-[#71717A] text-[11px] font-medium mt-0.5">{o.id} · {o.qty} jerseys</p>
-            </div>
-            <div className="text-right">
-              <p className="text-[#171717] text-xs font-black">{o.amount}</p>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border inline-block mt-0.5 ${o.color}`}>
-                {o.status}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+    <motion.div
+      initial={{ opacity: 0, y: 50, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 50 }}
+      className="fixed bottom-6 right-6 z-[100] flex items-center gap-3 bg-[#171717] text-white px-5 py-3 rounded-2xl shadow-2xl"
+    >
+      <CheckCircle size={18} className="text-emerald-400 shrink-0" />
+      <span className="text-sm font-semibold">{message}</span>
+      <button onClick={onClose} className="ml-2 opacity-60 hover:opacity-100"><X size={14}/></button>
+    </motion.div>
   );
 }
 
-function InvoiceVisual() {
-  return (
-    <div className="rounded-2xl overflow-hidden border border-[#E2DED7] bg-white p-6 shadow-soft-lg">
-      <div className="flex justify-between items-start mb-5 pb-4 border-b border-[#E8E4DE]">
-        <div>
-          <div className="flex items-center gap-1">
-            <span className="text-[#171717] font-black text-sm">Fivenest</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#E4572E]" />
-          </div>
-          <p className="text-[#71717A] text-[11px] font-semibold mt-0.5">GST Tax Invoice (Compliant)</p>
-        </div>
-        <div className="text-right">
-          <p className="text-[#171717] font-bold text-xs">#INV-2024-089</p>
-          <p className="text-[#71717A] text-[11px]">Due on receipt</p>
-        </div>
-      </div>
-
-      <div className="space-y-2.5 mb-5">
-        {[
-          { item: 'Sublimation Jersey Printing (22 units)', qty: 22, price: '₹650', total: '₹14,300' },
-          { item: 'Name/Number Vector Generation', qty: 22, price: '₹4', total: '₹88' },
-          { item: 'GST (12% Textile SGST + CGST)', qty: 1, price: '—', total: '₹1,726' },
-        ].map((r) => (
-          <div key={r.item} className="flex justify-between text-xs py-1 border-b border-[#F0ECE6]">
-            <span className="text-[#52525B] font-medium flex-1">{r.item}</span>
-            <span className="text-[#71717A] w-8 text-center">{r.qty}</span>
-            <span className="text-[#171717] w-16 text-right font-bold">{r.total}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="pt-2 flex justify-between items-center mb-5">
-        <span className="text-[#171717] font-bold text-sm">Grand Total</span>
-        <span className="text-[#E4572E] font-black text-lg">₹16,114</span>
-      </div>
-
-      <div className="flex gap-2.5">
-        <button className="flex-1 py-2.5 rounded-xl bg-[#E4572E] text-white text-xs font-bold hover:bg-[#D4431B] transition-colors flex items-center justify-center gap-1.5">
-          <Download size={13} /> Download PDF
-        </button>
-        <button className="flex-1 py-2.5 rounded-xl bg-[#F5F3EF] border border-[#E2DED7] text-[#171717] text-xs font-bold hover:bg-[#EFECE6] transition-colors">
-          Share to Client Portal
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ClientPortalVisual() {
-  return (
-    <div className="rounded-2xl overflow-hidden border border-[#E2DED7] bg-white shadow-soft-lg">
-      <div className="bg-[#FAF8F5] border-b border-[#E8E4DE] p-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-[#E4572E] uppercase tracking-wider">Client View</p>
-            <p className="text-base font-extrabold text-[#171717]">Apex Sports Academy</p>
-          </div>
-          <span className="text-xs font-bold bg-white px-3 py-1 rounded-full border border-[#E2DED7] text-[#171717]">
-            Active Client
-          </span>
-        </div>
-      </div>
-
-      <div className="p-5 space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="p-3 rounded-xl bg-[#F5F3EF] border border-[#E8E4DE] text-center">
-            <p className="text-2xl font-black text-[#E4572E]">8</p>
-            <p className="text-[11px] font-bold text-[#71717A] uppercase mt-0.5">Active Batches</p>
-          </div>
-          <div className="p-3 rounded-xl bg-[#F5F3EF] border border-[#E8E4DE] text-center">
-            <p className="text-2xl font-black text-[#171717]">₹74K</p>
-            <p className="text-[11px] font-bold text-[#71717A] uppercase mt-0.5">Billed Total</p>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-xs font-bold text-amber-800">Production Token Wallet</p>
-              <p className="text-lg font-black text-amber-900">₹1,850 Balance</p>
-            </div>
-            <Wallet size={24} className="text-amber-700" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function WalletVisual() {
-  return (
-    <div className="rounded-2xl overflow-hidden border border-[#E2DED7] bg-white p-6 shadow-soft-lg">
-      <div className="flex justify-between items-center mb-5 pb-4 border-b border-[#E8E4DE]">
-        <div>
-          <p className="text-xs font-bold text-[#71717A] uppercase tracking-wider">Token Balance</p>
-          <p className="text-3xl font-black text-[#171717]">₹2,450</p>
-          <p className="text-xs font-bold text-emerald-700 mt-0.5">+₹500 added this billing cycle</p>
-        </div>
-        <div className="w-12 h-12 rounded-xl bg-[#E4572E]/10 border border-[#E4572E]/20 flex items-center justify-center text-[#E4572E]">
-          <Wallet size={24} />
-        </div>
-      </div>
-
-      <div className="space-y-2.5">
-        <p className="text-xs font-bold text-[#71717A] uppercase tracking-wider mb-2">Recent File Deductions</p>
-        {[
-          { action: 'Batch: Mumbai Royals (22 jerseys)', cost: '-₹88', time: '2 hours ago' },
-          { action: 'Monthly Subscription Credit', cost: '+₹500', time: '3 days ago' },
-          { action: 'Batch: Delhi Stars (16 jerseys)', cost: '-₹64', time: '4 days ago' },
-        ].map((t) => (
-          <div key={t.action} className="flex justify-between items-center p-2.5 rounded-xl bg-[#F5F3EF] border border-[#E8E4DE] text-xs">
-            <div>
-              <p className="font-bold text-[#171717]">{t.action}</p>
-              <p className="text-[10px] text-[#71717A]">{t.time}</p>
-            </div>
-            <span className={`font-extrabold ${t.cost.startsWith('+') ? 'text-emerald-700' : 'text-[#E4572E]'}`}>
-              {t.cost}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── Accordion FAQ ───────────────────────────────────────────────────────────
-function FAQ({ question, answer }: { question: string; answer: string }) {
+// ─── Quick New Menu ───────────────────────────────────────────────────────────
+function QuickNewMenu({ onMfgOrder, onDesignerBill, onPrintingOrder, onPayment, onCustomer }: {
+  onMfgOrder: () => void; onDesignerBill: () => void; onPrintingOrder: () => void;
+  onPayment: () => void; onCustomer: () => void;
+}) {
   const [open, setOpen] = useState(false);
+  const items = [
+    { label: 'Manufacturing Order', icon: Factory, color: 'text-[#E4572E]', action: onMfgOrder },
+    { label: 'Designer Bill', icon: Palette, color: 'text-purple-600', action: onDesignerBill },
+    { label: 'Printing Order', icon: Printer, color: 'text-blue-600', action: onPrintingOrder },
+    { label: 'Receive Payment', icon: CreditCard, color: 'text-emerald-600', action: onPayment },
+    { label: 'New Customer', icon: Users, color: 'text-zinc-600', action: onCustomer },
+  ];
+
   return (
-    <div className="border border-[#E8E4DE] rounded-xl overflow-hidden bg-white shadow-soft transition-colors">
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-[#FAF8F5] transition-colors"
-      >
-        <span className="text-[#171717] font-bold text-base">{question}</span>
-        <ChevronDown
-          size={18}
-          className={`text-[#71717A] transition-transform duration-300 flex-shrink-0 ml-4 ${open ? 'rotate-180' : ''}`}
-        />
+    <div className="relative">
+      <button onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#E4572E] text-white text-sm font-bold hover:bg-[#D4431B] shadow-sm">
+        <Plus size={16}/>New<ChevronDown size={14} className={cn('transition-transform', open && 'rotate-180')}/>
       </button>
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="overflow-hidden"
+            initial={{ opacity: 0, scale: 0.95, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -4 }}
+            className="absolute right-0 top-full mt-2 w-56 bg-white border border-[#E8E4DE] rounded-2xl shadow-2xl z-30 overflow-hidden"
+            onMouseLeave={() => setOpen(false)}
           >
-            <p className="px-6 pb-5 text-[#52525B] text-sm leading-relaxed border-t border-[#E8E4DE] pt-4">
-              {answer}
-            </p>
+            {items.map(item => {
+              const Icon = item.icon;
+              return (
+                <button key={item.label} onClick={() => { item.action(); setOpen(false); }}
+                  className="flex items-center gap-3 w-full px-4 py-3 hover:bg-[#FAF8F5] text-sm text-[#171717] border-b border-[#F5F3EF] last:border-0">
+                  <Icon size={16} className={item.color}/>{item.label}
+                </button>
+              );
+            })}
           </motion.div>
         )}
       </AnimatePresence>
@@ -231,305 +127,515 @@ function FAQ({ question, answer }: { question: string; answer: string }) {
   );
 }
 
-// ─── Features Configuration ──────────────────────────────────────────────────
-const features: FeatureDetail[] = [
-  {
-    id: 'orders',
-    icon: <Package size={22} />,
-    title: 'Smart Order Creation & Tracking',
-    description: 'Create and track manufacturing orders with complete player details, sizes, quantities, and design artwork.',
-    points: ['Bulk roster upload via CSV or direct entry', 'Per-player name, number, and size specs', 'Real-time order stage workflow automation', 'Design proofing and version control'],
-    visual: <OrderDashboardVisual />,
-  },
-  {
-    id: 'billing',
-    icon: <FileText size={22} />,
-    title: 'Automated GST Billing & Invoicing',
-    description: 'Generate GST-compliant tax invoices automatically for every order without manual spreadsheet calculations.',
-    points: ['GST-ready PDF invoices generated instantly', 'Automated SGST/CGST tax calculations', 'Payment status tracking & invoice history', 'Direct client portal dispatch'],
-    visual: <InvoiceVisual />,
-  },
-  {
-    id: 'portal',
-    icon: <Users size={22} />,
-    title: 'Dedicated Client Portal',
-    description: 'Each client gets their own branded portal to place orders, verify rosters, and download invoices.',
-    points: ['Subscription-gated secure login', 'Live order status updates to reduce calls', 'Self-service invoice download center', 'Eliminates WhatsApp message confusion'],
-    visual: <ClientPortalVisual />,
-  },
-  {
-    id: 'wallet',
-    icon: <Wallet size={22} />,
-    title: 'Token Wallet Integration',
-    description: 'Subscription includes wallet tokens that power automated Production Studio file generations.',
-    points: ['Monthly automatic token balance allocation', 'Pay-per-use file generation rate (~₹4/jersey)', 'Top-up wallet balance anytime in seconds', 'Complete transparency with deduction logs'],
-    visual: <WalletVisual />,
-  },
-];
+// ─── Business Mode Switcher ───────────────────────────────────────────────────
+const MODE_CONFIG: Record<BusinessMode, { label: string; icon?: React.FC<{size?: number; className?: string}>; color: string; iconColor: string }> = {
+  all:          { label: 'All Business',    color: 'bg-[#171717] text-white border-[#171717]', iconColor: '' },
+  manufacturer: { label: 'Manufacturer',   icon: Factory, color: 'bg-orange-50 text-orange-800 border-orange-200', iconColor: 'text-[#E4572E]' },
+  designer:     { label: 'Designer',       icon: Palette, color: 'bg-purple-50 text-purple-800 border-purple-200', iconColor: 'text-purple-600' },
+  printing:     { label: 'Printing Owner', icon: Printer, color: 'bg-blue-50 text-blue-800 border-blue-200', iconColor: 'text-blue-600' },
+};
 
-export default function OrderManagement() {
-  const [activeFeature, setActiveFeature] = useState(0);
+// ─── Manufacturer Orders Section ──────────────────────────────────────────────
+function MfgOrdersView({ store, onEdit, onReceivePayment }: {
+  store: ReturnType<typeof useOrderStore>;
+  onEdit: (order: ManufacturerOrder) => void;
+  onReceivePayment: (customerId: string) => void;
+}) {
+  const columns: Column<ManufacturerOrder>[] = [
+    { key: 'orderNumber', label: 'Order #', sortable: true },
+    { key: 'customerId', label: 'Customer', render: row => {
+      const c = store.state.customers.find(x => x.id === row.customerId);
+      return <div><p className="font-semibold text-sm">{c?.businessName||'—'}</p><p className="text-xs text-[#71717A]">{row.teamName}</p></div>;
+    }},
+    { key: 'orderDate', label: 'Order Date', sortable: true, render: row => (
+      <span className="text-xs">{new Date(row.orderDate).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'})}</span>
+    )},
+    { key: 'deliveryDate', label: 'Delivery', hideOnMobile: true, render: row => (
+      <span className="text-xs">{row.deliveryDate ? new Date(row.deliveryDate).toLocaleDateString('en-IN',{day:'2-digit',month:'short'}) : '—'}</span>
+    )},
+    { key: 'grandTotal', label: 'Order Value', sortable: true, render: row => <span className="font-semibold">{fmt(row.grandTotal)}</span> },
+    { key: 'totalPaid', label: 'Paid', render: row => <span className="text-emerald-600 font-semibold">{fmt(row.totalPaid)}</span> },
+    { key: 'outstanding', label: 'Outstanding', sortable: true, render: row => (
+      <span className={cn('font-bold', row.outstanding > 0 ? 'text-red-600' : 'text-emerald-600')}>{fmt(row.outstanding)}</span>
+    )},
+    { key: 'status', label: 'Status', render: row => (
+      <span className={cn('inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border', STATUS_COLORS[row.status])}>{STATUS_LABELS[row.status]}</span>
+    )},
+    { key: 'paymentStatus', label: 'Payment', render: row => (
+      <span className={cn('inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border', STATUS_COLORS[row.paymentStatus])}>{STATUS_LABELS[row.paymentStatus]}</span>
+    )},
+  ];
 
   return (
-    <div className="relative bg-[#F5F3EF]">
-      {/* ── HERO ─────────────────────────────────────────────────── */}
-      <section className="relative pt-32 pb-20 md:pt-40 md:pb-28 overflow-hidden">
-        <div className="absolute inset-0 grid-pattern opacity-60 pointer-events-none" />
-        <div className="absolute inset-0 hero-radial pointer-events-none" />
+    <TransactionTable<ManufacturerOrder>
+      columns={columns}
+      rows={store.state.manufacturerOrders}
+      actions={['view','edit','payment','delete']}
+      onAction={(action, row) => {
+        if (action === 'edit') onEdit(row);
+        if (action === 'payment') onReceivePayment(row.customerId);
+        if (action === 'delete') { if(confirm(`Delete ${row.orderNumber}?`)) store.dispatch({ type: 'DELETE_MFG_ORDER', payload: row.id }); }
+      }}
+      emptyTitle="No Manufacturing Orders"
+      emptyDesc="Start creating orders for your jersey manufacturing business."
+    />
+  );
+}
 
-        <div className="relative z-10 max-w-7xl mx-auto px-6">
-          <div className="max-w-3xl">
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}>
-              <span className="badge-pill mb-6 inline-flex items-center gap-2">
-                <Package size={13} />
-                Order Management System
-              </span>
-            </motion.div>
+// ─── Designer Bills Section ───────────────────────────────────────────────────
+function DesignerBillsView({ store, onReceivePayment }: {
+  store: ReturnType<typeof useOrderStore>;
+  onReceivePayment: (customerId: string) => void;
+}) {
+  const columns: Column<DesignerBill>[] = [
+    { key: 'billNumber', label: 'Bill #', sortable: true },
+    { key: 'customerId', label: 'Customer', render: row => {
+      const c = store.state.customers.find(x => x.id === row.customerId);
+      return <span className="font-semibold">{c?.businessName||'—'}</span>;
+    }},
+    { key: 'productionJobId', label: 'Job #', hideOnMobile: true, render: row => (
+      <span className="text-xs font-mono text-[#52525B]">{row.productionJobId || '—'}</span>
+    )},
+    { key: 'date', label: 'Date', sortable: true, render: row => (
+      <span className="text-xs">{new Date(row.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'})}</span>
+    )},
+    { key: 'grandTotal', label: 'Amount', sortable: true, render: row => <span className="font-semibold">{fmt(row.grandTotal)}</span> },
+    { key: 'totalPaid', label: 'Paid', render: row => <span className="text-emerald-600 font-semibold">{fmt(row.totalPaid)}</span> },
+    { key: 'outstanding', label: 'Outstanding', sortable: true, render: row => (
+      <span className={cn('font-bold', row.outstanding > 0 ? 'text-red-600' : 'text-emerald-600')}>{fmt(row.outstanding)}</span>
+    )},
+    { key: 'paymentStatus', label: 'Status', render: row => (
+      <span className={cn('inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border', STATUS_COLORS[row.paymentStatus])}>{STATUS_LABELS[row.paymentStatus]}</span>
+    )},
+  ];
 
-            <motion.h1
-              initial={{ opacity: 0, y: 25 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="text-hero mb-6"
-            >
-              Manufacturing billing &amp;<br />
-              <span className="text-[#E4572E]">order chaos — eliminated</span>
-            </motion.h1>
+  return (
+    <TransactionTable<DesignerBill>
+      columns={columns}
+      rows={store.state.designerBills}
+      actions={['view','payment','delete']}
+      onAction={(action, row) => {
+        if (action === 'payment') onReceivePayment(row.customerId);
+        if (action === 'delete') { if(confirm(`Delete ${row.billNumber}?`)) store.dispatch({ type: 'DELETE_DESIGNER_BILL', payload: row.id }); }
+      }}
+      emptyTitle="No Designer Bills"
+      emptyDesc="Designer bills generated from production jobs will appear here."
+    />
+  );
+}
 
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="text-section-subtitle mb-8"
-            >
-              From squad roster submission to automated GST invoices. Your clients get a dedicated self-service portal, while you get an organized production queue.
-            </motion.p>
+// ─── Payments History View ────────────────────────────────────────────────────
+function PaymentsView({ store }: { store: ReturnType<typeof useOrderStore> }) {
+  return (
+    <div className="bg-white border border-[#E8E4DE] rounded-2xl overflow-hidden">
+      <div className="px-6 py-4 border-b border-[#E8E4DE] bg-[#FAF8F5]">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-[#71717A]">Payment History ({store.state.payments.length})</h3>
+      </div>
+      {store.state.payments.length === 0 ? (
+        <div className="text-center py-16">
+          <CreditCard size={36} className="mx-auto text-[#D8D5CF] mb-3"/>
+          <p className="text-[#52525B] font-semibold">No payments recorded yet</p>
+        </div>
+      ) : (
+        <table className="w-full">
+          <thead>
+            <tr className="bg-[#FAF8F5] border-b border-[#E8E4DE]">
+              {['Receipt #','Customer','Date','Amount','Mode','Reference','Allocated To'].map(h => (
+                <th key={h} className="text-left px-4 py-3 text-xs uppercase tracking-wider font-semibold text-[#71717A]">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {[...store.state.payments].reverse().map(p => {
+              const cust = store.state.customers.find(c => c.id === p.customerId);
+              return (
+                <tr key={p.id} className="border-t border-[#E8E4DE] hover:bg-[#FAF8F5]">
+                  <td className="px-4 py-3 text-xs font-mono font-bold text-emerald-700">{p.paymentNumber}</td>
+                  <td className="px-4 py-3 font-semibold text-sm">{cust?.businessName || '—'}</td>
+                  <td className="px-4 py-3 text-xs text-[#71717A]">{new Date(p.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'})}</td>
+                  <td className="px-4 py-3 font-black text-emerald-600">{fmt(p.amount)}</td>
+                  <td className="px-4 py-3">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FAF8F5] border border-[#E8E4DE] uppercase">{p.mode}</span>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-[#71717A] font-mono">{p.referenceNumber || '—'}</td>
+                  <td className="px-4 py-3 text-xs text-[#52525B]">
+                    {p.allocations.length > 0 ? p.allocations.map(a => a.orderType[0].toUpperCase() + ' ' + a.amount.toLocaleString('en-IN')).join(', ') : '—'}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="flex flex-wrap gap-4"
-            >
-              <Link
-                to="/contact"
-                className="btn-primary"
-              >
-                Start Free Trial <ArrowRight size={16} />
-              </Link>
-              <Link
-                to="/production"
-                className="btn-secondary"
-              >
-                Explore Production Studio <ChevronRight size={16} />
-              </Link>
-            </motion.div>
+// ─── MAIN PAGE ────────────────────────────────────────────────────────────────
+export default function OrderManagement() {
+  const store = useOrderStore();
+  const [businessMode, setBusinessMode] = useState<BusinessMode>('all');
+  const [subView, setSubView] = useState<SubView>('overview');
+  const [globalSearch, setGlobalSearch] = useState('');
+
+  // Modal states
+  const [showMfgForm, setShowMfgForm] = useState(false);
+  const [editOrder, setEditOrder] = useState<ManufacturerOrder | null>(null);
+  const [mfgPrefillCustomerId, setMfgPrefillCustomerId] = useState<string | undefined>();
+  const [showDesignerForm, setShowDesignerForm] = useState(false);
+  const [dsgPrefillCustomerId, setDsgPrefillCustomerId] = useState<string | undefined>();
+  const [showPaymentDrawer, setShowPaymentDrawer] = useState(false);
+  const [paymentCustomerId, setPaymentCustomerId] = useState<string | undefined>();
+  const [toast, setToast] = useState<string | null>(null);
+
+  const nav = getNav(businessMode);
+  const stats = store.getKPIStats(businessMode);
+
+  const showToast = (msg: string) => { setToast(msg); };
+
+  const openMfgOrder = (customerId?: string) => {
+    setMfgPrefillCustomerId(customerId);
+    setEditOrder(null);
+    setShowMfgForm(true);
+    if (businessMode !== 'manufacturer') { setBusinessMode('manufacturer'); setSubView('orders'); }
+  };
+
+  const openDesignerBill = (customerId?: string) => {
+    setDsgPrefillCustomerId(customerId);
+    setShowDesignerForm(true);
+    if (businessMode !== 'designer') { setBusinessMode('designer'); setSubView('orders'); }
+  };
+
+  const openPayment = (customerId?: string) => {
+    setPaymentCustomerId(customerId);
+    setShowPaymentDrawer(true);
+  };
+
+  const openPrintingOrder = () => {
+    setBusinessMode('printing');
+    setSubView('orders');
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F5F3EF] flex flex-col">
+      {/* ── Top Header ──────────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-30 bg-white border-b border-[#E8E4DE] shadow-sm">
+        <div className="max-w-[1600px] mx-auto px-6 py-3 flex items-center gap-4">
+          {/* Back to home */}
+          <Link to="/" className="flex items-center gap-2 mr-2 shrink-0">
+            <span className="w-8 h-8 rounded-xl bg-[#E4572E] flex items-center justify-center text-white font-black text-sm">F</span>
+            <span className="text-sm font-bold text-[#171717] hidden sm:block">FiveNest</span>
+          </Link>
+          <div className="h-6 w-px bg-[#E8E4DE]"/>
+          <h1 className="text-sm font-black text-[#171717] hidden md:block whitespace-nowrap">Orders & Bills</h1>
+
+          {/* Global search */}
+          <div className="relative flex-1 max-w-md">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#71717A]"/>
+            <input
+              value={globalSearch} onChange={e => setGlobalSearch(e.target.value)}
+              placeholder="Search customer, order, invoice..."
+              className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#E8E4DE] text-sm focus:outline-none focus:border-[#E4572E] focus:ring-1 focus:ring-[#E4572E]/20 bg-[#FAF8F5]"
+            />
           </div>
 
-          {/* Stats Row */}
-          <motion.div
-            initial={{ opacity: 0, y: 25 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.45 }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-16 pt-10 border-t border-[#E8E4DE]"
-          >
-            {[
-              { icon: <Clock size={18} />, value: '< 2 min', label: 'Invoice Generation Time' },
-              { icon: <TrendingUp size={18} />, value: '100%', label: 'GST Compliant' },
-              { icon: <Users size={18} />, value: 'Unlimited', label: 'Client Portals Included' },
-              { icon: <CheckCircle size={18} />, value: '0', label: 'Manual Order Errors' },
-            ].map((s) => (
-              <div key={s.label} className="card-clean p-5">
-                <div className="text-[#E4572E] mb-2">{s.icon}</div>
-                <p className="text-2xl font-black text-[#171717]">{s.value}</p>
-                <p className="text-[#71717A] text-xs font-semibold uppercase tracking-wider mt-1">{s.label}</p>
-              </div>
-            ))}
-          </motion.div>
+          <div className="flex items-center gap-2 ml-auto">
+            <QuickNewMenu
+              onMfgOrder={() => openMfgOrder()}
+              onDesignerBill={() => openDesignerBill()}
+              onPrintingOrder={openPrintingOrder}
+              onPayment={() => openPayment()}
+              onCustomer={() => { setSubView('customers'); }}
+            />
+            <button onClick={() => openPayment()}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E8E4DE] text-sm font-semibold hover:bg-[#FAF8F5] whitespace-nowrap">
+              <CreditCard size={14} className="text-emerald-600"/> Receive Payment
+            </button>
+            <button className="p-2 rounded-xl border border-[#E8E4DE] hover:bg-[#FAF8F5] relative">
+              <Bell size={16} className="text-[#52525B]"/>
+            </button>
+          </div>
         </div>
-      </section>
+      </header>
 
-      {/* ── INTERACTIVE FEATURES ──────────────────────────────────── */}
-      <section className="py-24 relative bg-[#EFECE6]/40 border-y border-[#E8E4DE]">
-        <div className="max-w-7xl mx-auto px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <span className="badge-pill mb-4 inline-block">Core Capabilities</span>
-            <h2 className="text-section-title mb-4">
-              Everything built for high-volume <span className="text-[#E4572E]">apparel printers</span>
-            </h2>
-          </motion.div>
+      {/* ── Business Mode Switcher ───────────────────────────────────────────── */}
+      <div className="bg-white border-b border-[#E8E4DE]">
+        <div className="max-w-[1600px] mx-auto px-6 py-3 flex items-center gap-2 overflow-x-auto">
+          {(['all','manufacturer','designer','printing'] as BusinessMode[]).map(mode => {
+            const cfg = MODE_CONFIG[mode];
+            const Icon = cfg.icon;
+            const isActive = businessMode === mode;
+            return (
+              <button
+                key={mode}
+                onClick={() => { setBusinessMode(mode); setSubView('overview'); }}
+                className={cn(
+                  'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border transition-all whitespace-nowrap',
+                  isActive ? cfg.color : 'bg-white text-[#52525B] border-[#E8E4DE] hover:border-[#E4572E]/30 hover:text-[#171717]'
+                )}
+              >
+                {Icon && <Icon size={15} className={isActive ? '' : cfg.iconColor}/>}
+                {cfg.label}
+              </button>
+            );
+          })}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-            {/* Left: Feature Selector */}
-            <div className="space-y-3">
-              {features.map((f, i) => (
-                <button
-                  key={f.id}
-                  onClick={() => setActiveFeature(i)}
-                  className={cn(
-                    'w-full text-left p-5 rounded-2xl border transition-all duration-200 text-left',
-                    activeFeature === i
-                      ? 'border-[#E4572E] bg-white shadow-soft ring-2 ring-[#E4572E]/10'
-                      : 'border-[#E8E4DE] bg-white/60 hover:bg-white hover:border-[#D8D5CF]'
-                  )}
-                >
-                  <div className="flex items-start gap-4">
-                    <div className={cn(
-                      'w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors',
-                      activeFeature === i ? 'bg-[#E4572E] text-white' : 'bg-[#F5F3EF] text-[#71717A]'
-                    )}>
-                      {f.icon}
+          {/* Consolidated stats in switcher bar */}
+          <div className="ml-auto flex items-center gap-4 text-sm">
+            <span className="text-[#71717A]">
+              Outstanding: <span className="font-black text-red-600">{fmt(stats.outstanding)}</span>
+            </span>
+            <span className="text-[#71717A]">
+              This Month: <span className="font-black text-[#E4572E]">{fmt(stats.thisMonth)}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Main content ─────────────────────────────────────────────────────── */}
+      <div className="flex-1 flex max-w-[1600px] mx-auto w-full">
+        {/* Left sidebar nav */}
+        <nav className="w-48 shrink-0 bg-white border-r border-[#E8E4DE] py-4 px-3 hidden lg:block">
+          <div className="space-y-0.5">
+            {nav.map(item => {
+              const Icon = item.icon;
+              const active = subView === item.key;
+              return (
+                <button key={item.key} onClick={() => setSubView(item.key)}
+                  className={cn('flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition-all', active ? 'bg-[#E4572E]/10 text-[#E4572E]' : 'text-[#52525B] hover:bg-[#FAF8F5] hover:text-[#171717]')}>
+                  <Icon size={15} className={active ? 'text-[#E4572E]' : ''}/>
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+
+        {/* Content area */}
+        <main className="flex-1 p-6 overflow-y-auto min-w-0">
+          <AnimatePresence mode="wait">
+            <motion.div key={`${businessMode}-${subView}`}
+              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              {/* Overview / Dashboard */}
+              {subView === 'overview' && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-xl font-black text-[#171717]">
+                      {businessMode === 'all' ? 'Business Overview' :
+                       businessMode === 'manufacturer' ? 'Manufacturer Overview' :
+                       businessMode === 'designer' ? 'Designer Overview' : 'Printing Overview'}
+                    </h2>
+                    <p className="text-sm text-[#71717A] mt-0.5">Real-time summary of your business activity</p>
+                  </div>
+                  <KPICards stats={stats} mode={businessMode} />
+
+                  {/* Activity feed */}
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    {/* Recent transactions */}
+                    <div className="bg-white border border-[#E8E4DE] rounded-2xl overflow-hidden">
+                      <div className="px-5 py-4 border-b border-[#E8E4DE] flex items-center justify-between">
+                        <h3 className="text-sm font-bold text-[#171717]">Recent Activity</h3>
+                        <button onClick={() => setSubView('orders')} className="text-xs text-[#E4572E] font-semibold hover:underline">View All</button>
+                      </div>
+                      <div className="divide-y divide-[#F0EDE8]">
+                        {[
+                          ...store.state.manufacturerOrders.slice(-3).map(o => ({ type: 'manufacturer' as const, number: o.orderNumber, desc: store.state.customers.find(c=>c.id===o.customerId)?.businessName||'—', amount: o.grandTotal, date: o.orderDate, status: o.paymentStatus })),
+                          ...store.state.designerBills.slice(-2).map(b => ({ type: 'designer' as const, number: b.billNumber, desc: store.state.customers.find(c=>c.id===b.customerId)?.businessName||'—', amount: b.grandTotal, date: b.date, status: b.paymentStatus })),
+                          ...store.state.printingOrders.slice(-2).map(o => ({ type: 'printing' as const, number: o.orderNumber, desc: store.state.customers.find(c=>c.id===o.customerId)?.businessName||'—', amount: o.grandTotal, date: o.date, status: o.paymentStatus })),
+                        ].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8).map((item, i) => {
+                          const TYPE_INFO = { manufacturer: { label: 'MFG', cls: 'bg-orange-100 text-orange-700' }, designer: { label: 'DSG', cls: 'bg-purple-100 text-purple-700' }, printing: { label: 'PRT', cls: 'bg-blue-100 text-blue-700' } };
+                          const info = TYPE_INFO[item.type];
+                          return (
+                            <div key={i} className="flex items-center gap-3 px-5 py-3 hover:bg-[#FAF8F5]">
+                              <span className={cn('w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0', info.cls)}>{info.label}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-mono text-[#71717A]">{item.number}</p>
+                                <p className="text-sm font-semibold text-[#171717] truncate">{item.desc}</p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="text-sm font-black text-[#171717]">{fmt(item.amount)}</p>
+                                <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full', STATUS_COLORS[item.status])}>{STATUS_LABELS[item.status]}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {store.state.manufacturerOrders.length + store.state.designerBills.length + store.state.printingOrders.length === 0 && (
+                          <div className="text-center py-10 text-[#71717A] text-sm">No transactions yet. Start by creating an order.</div>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-bold text-base text-[#171717] mb-1">
-                        {f.title}
-                      </h3>
-                      <p className="text-[#52525B] text-sm leading-relaxed">{f.description}</p>
+
+                    {/* Outstanding summary */}
+                    <div className="bg-white border border-[#E8E4DE] rounded-2xl overflow-hidden">
+                      <div className="px-5 py-4 border-b border-[#E8E4DE] flex items-center justify-between">
+                        <h3 className="text-sm font-bold text-[#171717]">Outstanding Summary</h3>
+                        <button onClick={() => setSubView('outstanding')} className="text-xs text-[#E4572E] font-semibold hover:underline">View All</button>
+                      </div>
+                      <div className="p-5 space-y-4">
+                        {[
+                          { label: 'Manufacturer Outstanding', val: store.state.manufacturerOrders.reduce((s,o) => s+o.outstanding, 0), color: 'bg-orange-500' },
+                          { label: 'Designer Outstanding', val: store.state.designerBills.reduce((s,b) => s+b.outstanding, 0), color: 'bg-purple-500' },
+                          { label: 'Printing Outstanding', val: store.state.printingOrders.reduce((s,o) => s+o.outstanding, 0), color: 'bg-blue-500' },
+                        ].map(item => {
+                          const total = stats.outstanding || 1;
+                          const pct = Math.round((item.val / total) * 100);
+                          return (
+                            <div key={item.label}>
+                              <div className="flex justify-between text-xs font-semibold mb-1.5">
+                                <span className="text-[#52525B]">{item.label}</span>
+                                <span className="text-[#171717]">{fmt(item.val)}</span>
+                              </div>
+                              <div className="h-2 bg-[#F0EDE8] rounded-full overflow-hidden">
+                                <div className={`h-full ${item.color} rounded-full transition-all duration-500`} style={{width:`${Math.min(pct,100)}%`}}/>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div className="pt-2 border-t border-[#E8E4DE] flex justify-between">
+                          <span className="text-sm font-bold text-[#171717]">Total Outstanding</span>
+                          <span className="text-lg font-black text-red-600">{fmt(stats.outstanding)}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
+                </div>
+              )}
 
-                  {activeFeature === i && (
-                    <motion.ul
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      className="mt-4 ml-15 pl-15 space-y-2 border-t border-[#E8E4DE] pt-3.5"
-                    >
-                      {f.points.map((p) => (
-                        <li key={p} className="flex items-center gap-2.5 text-xs font-medium text-[#52525B]">
-                          <CheckCircle size={14} className="text-[#E4572E] flex-shrink-0" />
-                          {p}
-                        </li>
-                      ))}
-                    </motion.ul>
+              {/* Orders sub-view */}
+              {subView === 'orders' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-black text-[#171717]">
+                      {businessMode === 'manufacturer' ? 'Manufacturing Orders' :
+                       businessMode === 'designer' ? 'Designer Bills' :
+                       businessMode === 'printing' ? 'Printing Orders' : 'All Orders'}
+                    </h2>
+                    {businessMode === 'manufacturer' && (
+                      <button onClick={() => openMfgOrder()}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#E4572E] text-white text-sm font-bold hover:bg-[#D4431B] shadow-sm">
+                        <Plus size={16}/> New Order
+                      </button>
+                    )}
+                    {businessMode === 'designer' && (
+                      <button onClick={() => openDesignerBill()}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 text-white text-sm font-bold hover:bg-purple-700 shadow-sm">
+                        <Plus size={16}/> New Bill
+                      </button>
+                    )}
+                  </div>
+                  {(businessMode === 'manufacturer' || businessMode === 'all') && (
+                    <MfgOrdersView store={store} onEdit={order => { setEditOrder(order); setShowMfgForm(true); }} onReceivePayment={openPayment}/>
                   )}
-                </button>
-              ))}
-            </div>
+                  {(businessMode === 'designer' || businessMode === 'all') && (
+                    <DesignerBillsView store={store} onReceivePayment={openPayment}/>
+                  )}
+                  {businessMode === 'printing' && (
+                    <PrintingModule store={store} onReceivePayment={openPayment}/>
+                  )}
+                </div>
+              )}
 
-            {/* Right: Live Interactive Visual Mockup */}
-            <div className="lg:sticky lg:top-28">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeFeature}
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -15 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  {features[activeFeature].visual}
-                </motion.div>
-              </AnimatePresence>
-            </div>
-          </div>
-        </div>
-      </section>
+              {/* Customers sub-view */}
+              {subView === 'customers' && (
+                <div className="space-y-4">
+                  <h2 className="text-xl font-black text-[#171717]">Customers</h2>
+                  <CustomerPanel
+                    store={store}
+                    onNewMfgOrder={openMfgOrder}
+                    onNewDesignerBill={openDesignerBill}
+                    onNewPrintingOrder={openPrintingOrder}
+                    onReceivePayment={openPayment}
+                  />
+                </div>
+              )}
 
-      {/* ── BEFORE VS AFTER ────────────────────────────────────────── */}
-      <section className="py-24 relative">
-        <div className="max-w-7xl mx-auto px-6">
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-14">
-            <span className="badge-pill mb-4 inline-block">Workflow Comparison</span>
-            <h2 className="text-section-title">Before vs. After Fivenest</h2>
-          </motion.div>
+              {/* Payments sub-view */}
+              {subView === 'payments' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-black text-[#171717]">Payment History</h2>
+                    <button onClick={() => openPayment()}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 shadow-sm">
+                      <CreditCard size={15}/> Receive Payment
+                    </button>
+                  </div>
+                  <PaymentsView store={store}/>
+                </div>
+              )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* Without Fivenest */}
-            <div className="p-8 rounded-2xl border border-rose-200 bg-rose-50/50 shadow-soft">
-              <h3 className="text-rose-700 font-extrabold text-lg mb-4 flex items-center gap-2">
-                <span>❌</span> Without Fivenest (Manual)
-              </h3>
-              <ul className="space-y-3">
-                {[
-                  'Orders scattered across WhatsApp chats & voice notes',
-                  'Manual invoice creation in Excel taking 30+ minutes',
-                  'Constant customer calls demanding order status updates',
-                  'Incorrect player sizes resulting in wasted print fabric',
-                  'No clear visibility on the shop production queue',
-                  'Designers spending hours on administration instead of printing',
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-3 text-sm text-zinc-700">
-                    <span className="text-rose-500 font-bold text-base leading-none">×</span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+              {/* Outstanding sub-view */}
+              {subView === 'outstanding' && (
+                <div className="space-y-4">
+                  <h2 className="text-xl font-black text-[#171717]">Outstanding Receivables</h2>
+                  <OutstandingView store={store} mode={businessMode} onReceivePayment={openPayment} onViewInvoice={() => {}}/>
+                </div>
+              )}
 
-            {/* With Fivenest */}
-            <div className="p-8 rounded-2xl border-2 border-[#E4572E] bg-white shadow-soft-lg">
-              <h3 className="text-[#E4572E] font-extrabold text-lg mb-4 flex items-center gap-2">
-                <span>✅</span> With Fivenest (Automated)
-              </h3>
-              <ul className="space-y-3">
-                {[
-                  'All squad orders structured inside one clean dashboard',
-                  'GST-ready invoices generated and sent in seconds',
-                  'Self-service client portal handles all status tracking',
-                  'Rosters validated with zero typo or sizing mistakes',
-                  'Live real-time visibility on production progress',
-                  '100% focus on quality printing and fast dispatch',
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-3 text-sm text-[#171717] font-medium">
-                    <CheckCircle size={16} className="text-[#E4572E] flex-shrink-0 mt-0.5" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
+              {/* Ledger sub-view */}
+              {subView === 'ledger' && (
+                <div className="space-y-4">
+                  <h2 className="text-xl font-black text-[#171717]">Customer Ledger</h2>
+                  <LedgerView store={store}/>
+                </div>
+              )}
 
-      {/* ── FAQ ──────────────────────────────────────────────────── */}
-      <section className="py-24 relative bg-[#EFECE6]/40 border-t border-[#E8E4DE]">
-        <div className="max-w-3xl mx-auto px-6">
-          <div className="text-center mb-14">
-            <span className="badge-pill mb-4 inline-block">Questions Answered</span>
-            <h2 className="text-section-title mb-4">Frequently Asked Questions</h2>
-          </div>
-          <div className="space-y-3">
-            <FAQ
-              question="How does client portal access work?"
-              answer="Each of your clients receives a secure portal link. They can submit team sizes and numbers, check live production status, and download tax invoices without messaging you on WhatsApp."
-            />
-            <FAQ
-              question="Is the billing system fully GST compliant?"
-              answer="Yes, all invoices generated by Fivenest are formatted for GST compliance in India with proper GSTIN fields, HSN codes, and automatic tax breakdowns."
-            />
-            <FAQ
-              question="Can I manage multiple clients under one subscription?"
-              answer="Yes! All plans support unlimited customer portals. You can onboard dozens of sports academies, corporate clients, or tournament organizers at no extra fee."
-            />
-            <FAQ
-              question="How are tokens deducted for order processing?"
-              answer="Creating orders and generating invoices is completely free and unlimited. Tokens are only deducted when you use Production Studio to generate the high-resolution vector print files."
-            />
-          </div>
-        </div>
-      </section>
+              {/* Reports sub-view */}
+              {subView === 'reports' && (
+                <div className="space-y-4">
+                  <h2 className="text-xl font-black text-[#171717]">Reports & Analytics</h2>
+                  <ReportsView store={store}/>
+                </div>
+              )}
 
-      {/* ── CTA ──────────────────────────────────────────────────── */}
-      <section className="py-20 relative bg-[#171717] text-white text-center">
-        <div className="max-w-4xl mx-auto px-6">
-          <h2 className="text-3xl sm:text-4xl font-extrabold mb-4 text-white">
-            Ready to organize your <span className="text-[#E4572E]">order pipeline?</span>
-          </h2>
-          <p className="text-zinc-400 mb-8 max-w-lg mx-auto">
-            Say goodbye to spreadsheets and WhatsApp confusion. Start with our automated order management system today.
-          </p>
-          <Link
-            to="/contact"
-            className="btn-primary py-4 px-8 text-base shadow-brand-lg"
-          >
-            Start Free Trial <ArrowRight size={18} />
-          </Link>
-        </div>
-      </section>
+              {/* Mobile nav (bottom) */}
+              <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#E8E4DE] flex overflow-x-auto z-20 px-2 py-1">
+                {nav.map(item => {
+                  const Icon = item.icon;
+                  const active = subView === item.key;
+                  return (
+                    <button key={item.key} onClick={() => setSubView(item.key)}
+                      className={cn('flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl text-[10px] font-semibold transition-all whitespace-nowrap', active ? 'text-[#E4572E]' : 'text-[#71717A]')}>
+                      <Icon size={18}/>{item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </main>
+      </div>
+
+      {/* ── Global drawers / modals ──────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showMfgForm && (
+          <OrderForm
+            store={store}
+            editOrder={editOrder}
+            prefillCustomerId={mfgPrefillCustomerId}
+            onClose={() => { setShowMfgForm(false); setEditOrder(null); setMfgPrefillCustomerId(undefined); }}
+            onSaved={() => { setShowMfgForm(false); setEditOrder(null); setMfgPrefillCustomerId(undefined); showToast('Manufacturing order saved!'); }}
+          />
+        )}
+        {showDesignerForm && (
+          <DesignerBillForm
+            store={store}
+            prefillCustomerId={dsgPrefillCustomerId}
+            onClose={() => { setShowDesignerForm(false); setDsgPrefillCustomerId(undefined); }}
+            onSaved={() => { setShowDesignerForm(false); setDsgPrefillCustomerId(undefined); showToast('Designer bill created!'); }}
+          />
+        )}
+        {showPaymentDrawer && (
+          <PaymentDrawer
+            store={store}
+            customerId={paymentCustomerId}
+            onClose={() => { setShowPaymentDrawer(false); setPaymentCustomerId(undefined); }}
+            onSaved={() => { setShowPaymentDrawer(false); setPaymentCustomerId(undefined); showToast('Payment recorded!'); }}
+          />
+        )}
+        {toast && <Toast message={toast} onClose={() => setToast(null)}/>}
+      </AnimatePresence>
     </div>
   );
 }
