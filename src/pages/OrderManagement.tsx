@@ -18,6 +18,7 @@ import PaymentDrawer from '../components/orders/PaymentDrawer';
 import LedgerView from '../components/orders/LedgerView';
 import OutstandingView from '../components/orders/OutstandingView';
 import ReportsView from '../components/orders/ReportsView';
+import JobSheetModal from '../components/orders/JobSheetModal';
 import { ManufacturerOrder, DesignerBill } from '../hooks/useOrderStore';
 
 const cn = (...c: (string|undefined|boolean)[]) => c.filter(Boolean).join(' ');
@@ -136,34 +137,67 @@ const MODE_CONFIG: Record<BusinessMode, { label: string; icon?: React.FC<{size?:
 };
 
 // ─── Manufacturer Orders Section ──────────────────────────────────────────────
-function MfgOrdersView({ store, onEdit, onReceivePayment }: {
+function MfgOrdersView({ store, onEdit, onView, onReceivePayment }: {
   store: ReturnType<typeof useOrderStore>;
   onEdit: (order: ManufacturerOrder) => void;
+  onView: (order: ManufacturerOrder) => void;
   onReceivePayment: (customerId: string) => void;
 }) {
   const columns: Column<ManufacturerOrder>[] = [
-    { key: 'orderNumber', label: 'Order #', sortable: true },
+    { key: 'orderNumber', label: 'Order #', sortable: true, render: row => (
+      <button onClick={() => onView(row)} className="font-bold font-mono text-sm text-[#E4572E] hover:underline text-left">
+        {row.orderNumber}
+      </button>
+    )},
     { key: 'customerId', label: 'Customer', render: row => {
       const c = store.state.customers.find(x => x.id === row.customerId);
-      return <div><p className="font-semibold text-sm">{c?.businessName||'—'}</p><p className="text-xs text-[#71717A]">{row.teamName}</p></div>;
+      return <div><p className="font-bold text-sm text-[#171717]">{c?.businessName||'—'}</p><p className="text-xs text-[#71717A]">{row.teamName || c?.name}</p></div>;
     }},
-    { key: 'orderDate', label: 'Order Date', sortable: true, render: row => (
-      <span className="text-xs">{new Date(row.orderDate).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'})}</span>
+    { key: 'fabric', label: 'Fabric & Print', render: row => (
+      <div>
+        <span className="font-bold text-xs text-[#171717]">{row.fabric || '—'}</span>
+        {row.printDetails && <p className="text-[10px] text-[#71717A]">{row.printDetails}</p>}
+      </div>
     )},
-    { key: 'deliveryDate', label: 'Delivery', hideOnMobile: true, render: row => (
-      <span className="text-xs">{row.deliveryDate ? new Date(row.deliveryDate).toLocaleDateString('en-IN',{day:'2-digit',month:'short'}) : '—'}</span>
-    )},
-    { key: 'grandTotal', label: 'Order Value', sortable: true, render: row => <span className="font-semibold">{fmt(row.grandTotal)}</span> },
-    { key: 'totalPaid', label: 'Paid', render: row => <span className="text-emerald-600 font-semibold">{fmt(row.totalPaid)}</span> },
-    { key: 'outstanding', label: 'Outstanding', sortable: true, render: row => (
-      <span className={cn('font-bold', row.outstanding > 0 ? 'text-red-600' : 'text-emerald-600')}>{fmt(row.outstanding)}</span>
-    )},
-    { key: 'status', label: 'Status', render: row => (
-      <span className={cn('inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border', STATUS_COLORS[row.status])}>{STATUS_LABELS[row.status]}</span>
-    )},
-    { key: 'paymentStatus', label: 'Payment', render: row => (
-      <span className={cn('inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border', STATUS_COLORS[row.paymentStatus])}>{STATUS_LABELS[row.paymentStatus]}</span>
-    )},
+    { key: 'totalQty', label: 'Qty', sortable: true, render: row => {
+      const total = row.totalQty || row.items?.reduce((s, i) => s + (i.totalQty || 0), 0) || 0;
+      return (
+        <div>
+          <span className="font-black text-sm text-[#171717]">{total} pcs</span>
+          {(row.totalHalfQty !== undefined || row.totalFullQty !== undefined) && (
+            <p className="text-[10px] text-[#71717A]">H: {row.totalHalfQty || 0} · F: {row.totalFullQty || 0}</p>
+          )}
+        </div>
+      );
+    }},
+    { key: 'grandTotal', label: 'Order Total', sortable: true, render: row => <span className="font-bold text-sm text-[#171717]">{fmt(row.grandTotal)}</span> },
+    { key: 'totalPaid', label: 'Advance Paid', render: row => <span className="text-emerald-600 font-bold text-sm">{fmt(row.totalPaid)}</span> },
+    { key: 'outstanding', label: 'Balance Due', sortable: true, render: row => {
+      const bal = row.balanceAmount !== undefined ? row.balanceAmount : row.outstanding;
+      return (
+        <span className={cn('font-black text-sm', bal > 0 ? 'text-red-600' : 'text-emerald-700')}>
+          {fmt(bal)}
+        </span>
+      );
+    }},
+    { key: 'status', label: 'Stages & Status', render: row => {
+      const st = row.stageStatus;
+      return (
+        <div className="space-y-1">
+          <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border', STATUS_COLORS[row.status])}>
+            {STATUS_LABELS[row.status]}
+          </span>
+          {st && (
+            <div className="flex gap-1 text-[9px] font-mono">
+              <span title={`Design: ${st.design}`} className={cn('px-1 rounded', st.design==='done'?'bg-emerald-100 text-emerald-800':st.design==='in_progress'?'bg-blue-100 text-blue-800':'bg-gray-100 text-gray-500')}>D</span>
+              <span title={`Fabric: ${st.fabric}`} className={cn('px-1 rounded', st.fabric==='done'?'bg-emerald-100 text-emerald-800':st.fabric==='in_progress'?'bg-blue-100 text-blue-800':'bg-gray-100 text-gray-500')}>F</span>
+              <span title={`Print: ${st.print}`} className={cn('px-1 rounded', st.print==='done'?'bg-emerald-100 text-emerald-800':st.print==='in_progress'?'bg-blue-100 text-blue-800':'bg-gray-100 text-gray-500')}>P</span>
+              <span title={`Stitch: ${st.stitch}`} className={cn('px-1 rounded', st.stitch==='done'?'bg-emerald-100 text-emerald-800':st.stitch==='in_progress'?'bg-blue-100 text-blue-800':'bg-gray-100 text-gray-500')}>S</span>
+            </div>
+          )}
+        </div>
+      );
+    }},
   ];
 
   return (
@@ -172,6 +206,7 @@ function MfgOrdersView({ store, onEdit, onReceivePayment }: {
       rows={store.state.manufacturerOrders}
       actions={['view','edit','payment','delete']}
       onAction={(action, row) => {
+        if (action === 'view') onView(row);
         if (action === 'edit') onEdit(row);
         if (action === 'payment') onReceivePayment(row.customerId);
         if (action === 'delete') { if(confirm(`Delete ${row.orderNumber}?`)) store.dispatch({ type: 'DELETE_MFG_ORDER', payload: row.id }); }
@@ -281,6 +316,7 @@ export default function OrderManagement() {
   // Modal states
   const [showMfgForm, setShowMfgForm] = useState(false);
   const [editOrder, setEditOrder] = useState<ManufacturerOrder | null>(null);
+  const [jobSheetOrder, setJobSheetOrder] = useState<ManufacturerOrder | null>(null);
   const [mfgPrefillCustomerId, setMfgPrefillCustomerId] = useState<string | undefined>();
   const [showDesignerForm, setShowDesignerForm] = useState(false);
   const [dsgPrefillCustomerId, setDsgPrefillCustomerId] = useState<string | undefined>();
@@ -526,7 +562,12 @@ export default function OrderManagement() {
                     )}
                   </div>
                   {(businessMode === 'manufacturer' || businessMode === 'all') && (
-                    <MfgOrdersView store={store} onEdit={order => { setEditOrder(order); setShowMfgForm(true); }} onReceivePayment={openPayment}/>
+                    <MfgOrdersView
+                      store={store}
+                      onEdit={order => { setEditOrder(order); setShowMfgForm(true); }}
+                      onView={order => setJobSheetOrder(order)}
+                      onReceivePayment={openPayment}
+                    />
                   )}
                   {(businessMode === 'designer' || businessMode === 'all') && (
                     <DesignerBillsView store={store} onReceivePayment={openPayment}/>
@@ -632,6 +673,19 @@ export default function OrderManagement() {
             customerId={paymentCustomerId}
             onClose={() => { setShowPaymentDrawer(false); setPaymentCustomerId(undefined); }}
             onSaved={() => { setShowPaymentDrawer(false); setPaymentCustomerId(undefined); showToast('Payment recorded!'); }}
+          />
+        )}
+        {jobSheetOrder && (
+          <JobSheetModal
+            order={jobSheetOrder}
+            customer={store.state.customers.find(c => c.id === jobSheetOrder.customerId)}
+            onClose={() => setJobSheetOrder(null)}
+            onEdit={() => {
+              const ord = jobSheetOrder;
+              setJobSheetOrder(null);
+              setEditOrder(ord);
+              setShowMfgForm(true);
+            }}
           />
         )}
         {toast && <Toast message={toast} onClose={() => setToast(null)}/>}

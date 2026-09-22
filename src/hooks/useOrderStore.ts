@@ -44,6 +44,27 @@ export interface OrderItem {
   amount: number;
 }
 
+// ── Stage Status for 4 Manufacturing Steps ────────────────────────────────────
+export interface StageStatus {
+  design: 'done' | 'pending' | 'in_progress';
+  fabric: 'done' | 'pending' | 'in_progress';
+  print: 'done' | 'pending' | 'in_progress';
+  stitch: 'done' | 'pending' | 'in_progress';
+}
+
+export interface SizeQuantity {
+  half: number;
+  full: number;
+}
+
+export interface AdvancePaymentEntry {
+  id?: string;
+  amount: number;
+  date?: string;
+  mode?: PaymentMode;
+  notes?: string;
+}
+
 // ── Manufacturer Order ────────────────────────────────────────────────────────
 export type MfgOrderStatus = 'draft' | 'confirmed' | 'production' | 'ready' | 'dispatched' | 'completed' | 'cancelled';
 
@@ -57,24 +78,49 @@ export interface ManufacturerOrder {
   priority: 'normal' | 'urgent' | 'express';
   status: MfgOrderStatus;
   paymentStatus: PaymentStatus;
-  items: OrderItem[];
+  items?: OrderItem[];
+
+  // ── Factory Job Sheet Fields ──
+  halfRate?: number;
+  fullRate?: number;
+  fabric: string; // e.g. "N. Net"
+  printDetails?: string; // e.g. "Full Sublimation"
+  collarType: string; // e.g. "Ready made"
+  collarColor?: string; // e.g. "Black"
+  handColor?: string; // e.g. "Printed" (Sleeve color)
+  handStripeOrPiping?: string; // e.g. "Black"
+
+  // Stage statuses
+  stageStatus?: StageStatus;
+
+  // Sizing details (Sizes 20 to 50 in steps of 2)
+  sizeQuantities?: Record<string, SizeQuantity>;
+  totalHalfQty?: number;
+  totalFullQty?: number;
+  totalQty?: number;
+
+  // Advance payments & balance
+  advancePayments?: AdvancePaymentEntry[];
+  advance1?: number;
+  advance2?: number;
+  advance3?: number;
+  balanceAmount?: number;
+
   // Custom jersey fields
-  teamName: string;
-  tournamentName: string;
-  playerNames: string;
-  playerNumbers: string;
-  sponsor: string;
-  collarType: string;
-  sleeveType: string;
-  fabric: string;
-  jerseyType: string;
-  shortsRequired: boolean;
-  sublimation: boolean;
-  embroidery: boolean;
-  printing: boolean;
-  packaging: boolean;
-  specialInstructions: string;
-  referenceDesign: string;
+  teamName?: string;
+  tournamentName?: string;
+  playerNames?: string;
+  playerNumbers?: string;
+  sponsor?: string;
+  sleeveType?: string;
+  jerseyType?: string;
+  shortsRequired?: boolean;
+  sublimation?: boolean;
+  embroidery?: boolean;
+  printing?: boolean;
+  packaging?: boolean;
+  specialInstructions?: string;
+  referenceDesign?: string;
   // Pricing
   itemsTotal: number;
   printingCharges: number;
@@ -474,19 +520,53 @@ function reducer(state: OrderStore, action: Action): OrderStore {
     // ── Manufacturer Orders ────────────────────────────────────────────────
     case 'ADD_MFG_ORDER': {
       const n = state.counters.mfg + 1;
+      const initialPaid = action.payload.totalPaid || (
+        (action.payload.advance1 || 0) + (action.payload.advance2 || 0) + (action.payload.advance3 || 0)
+      );
+      const outstanding = Math.max(0, action.payload.grandTotal - initialPaid);
+      const paymentStatus: PaymentStatus = initialPaid >= action.payload.grandTotal && action.payload.grandTotal > 0
+        ? 'paid'
+        : initialPaid > 0
+        ? 'partial'
+        : 'unpaid';
+
       const order: ManufacturerOrder = {
         ...action.payload,
         id: `mfg-${uid()}`,
         orderNumber: `MFG-${year()}-${pad(n)}`,
-        totalPaid: 0, outstanding: action.payload.grandTotal,
-        paymentStatus: 'unpaid',
+        totalPaid: initialPaid,
+        outstanding,
+        balanceAmount: outstanding,
+        paymentStatus,
         createdAt: now(), updatedAt: now(),
       };
       next = { ...state, manufacturerOrders: [...state.manufacturerOrders, order], counters: { ...state.counters, mfg: n } };
       break;
     }
     case 'UPDATE_MFG_ORDER': {
-      next = { ...state, manufacturerOrders: state.manufacturerOrders.map(o => o.id === action.payload.id ? { ...action.payload, updatedAt: now() } : o) };
+      next = {
+        ...state,
+        manufacturerOrders: state.manufacturerOrders.map(o => {
+          if (o.id !== action.payload.id) return o;
+          const initialPaid = action.payload.totalPaid ?? (
+            (action.payload.advance1 || 0) + (action.payload.advance2 || 0) + (action.payload.advance3 || 0)
+          );
+          const outstanding = Math.max(0, action.payload.grandTotal - initialPaid);
+          const paymentStatus: PaymentStatus = initialPaid >= action.payload.grandTotal && action.payload.grandTotal > 0
+            ? 'paid'
+            : initialPaid > 0
+            ? 'partial'
+            : 'unpaid';
+          return {
+            ...action.payload,
+            totalPaid: initialPaid,
+            outstanding,
+            balanceAmount: outstanding,
+            paymentStatus,
+            updatedAt: now(),
+          };
+        }),
+      };
       break;
     }
     case 'DELETE_MFG_ORDER': {
@@ -803,5 +883,6 @@ export const STATUS_LABELS: Record<string, string> = {
 };
 
 export const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
+export const CHEST_SIZES = ['20', '22', '24', '26', '28', '30', '32', '34', '36', '38', '40', '42', '44', '46', '48', '50'];
 export const PAYMENT_MODES: PaymentMode[] = ['cash', 'upi', 'bank', 'card', 'cheque', 'other'];
 export const PAYMENT_MODE_LABELS: Record<PaymentMode, string> = { cash: 'Cash', upi: 'UPI', bank: 'Bank Transfer', card: 'Card', cheque: 'Cheque', other: 'Other' };
