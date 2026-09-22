@@ -3,6 +3,7 @@ import { Mail, Lock, User, X, Coins, LogOut, Eye, EyeOff, Loader2, ArrowLeft } f
 import { supabase, fetchUserWallet, supabaseUrl, supabaseAnonKey } from '../../lib/supabaseClient';
 
 const SUPABASE_CONFIGURED = !!supabaseUrl && !!supabaseAnonKey;
+const MAX_RECHARGE_LIMIT = 50000;
 
 interface LoginModalProps {
   onClose: () => void;
@@ -360,6 +361,16 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
   const handleRazorpayRecharge = async () => {
     if (!currentUser) return;
     clearMessages();
+
+    if (!rechargeAmount || rechargeAmount <= 0 || isNaN(rechargeAmount)) {
+      setErrorMessage('Please enter a valid recharge amount (min. ₹1).');
+      return;
+    }
+    if (rechargeAmount > MAX_RECHARGE_LIMIT) {
+      setErrorMessage(`Recharge amount exceeds the maximum limit of ₹${MAX_RECHARGE_LIMIT.toLocaleString('en-IN')}/-. Please enter an amount up to ₹50,000.`);
+      return;
+    }
+
     setIsPaying(true);
     try {
       let targetUserId = (currentUser as any).id;
@@ -900,24 +911,34 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
               </div>
 
               {/* Custom amount entry */}
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
-                <div style={{ position: 'relative', flex: 1 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '12px' }}>
+                <div style={{ position: 'relative', width: '100%' }}>
                   <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#E4572E', fontWeight: '700', fontSize: '13px' }}>₹</span>
                   <input
                     type="number"
                     min="1"
-                    placeholder="Custom amount"
+                    max={MAX_RECHARGE_LIMIT}
+                    placeholder="Custom amount (max ₹50,000)"
                     value={customInputVal}
                     onChange={(e) => {
-                      setCustomInputVal(e.target.value);
-                      const v = parseFloat(e.target.value);
-                      if (!isNaN(v) && v > 0) setRechargeAmount(v);
+                      const val = e.target.value;
+                      setCustomInputVal(val);
+                      const v = parseFloat(val);
+                      if (!isNaN(v)) {
+                        if (v > MAX_RECHARGE_LIMIT) {
+                          setRechargeAmount(MAX_RECHARGE_LIMIT);
+                          setErrorMessage(`Maximum wallet recharge limit is ₹${MAX_RECHARGE_LIMIT.toLocaleString('en-IN')}/-`);
+                        } else {
+                          clearMessages();
+                          if (v > 0) setRechargeAmount(v);
+                        }
+                      }
                     }}
                     style={{
                       width: '100%',
                       padding: '9px 10px 9px 26px',
                       background: 'rgba(255,255,255,0.04)',
-                      border: '1px solid rgba(228,87,46,0.3)',
+                      border: rechargeAmount > MAX_RECHARGE_LIMIT ? '1px solid #EF4444' : '1px solid rgba(228,87,46,0.3)',
                       borderRadius: '8px',
                       color: 'white',
                       fontSize: '13px',
@@ -925,6 +946,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
                       boxSizing: 'border-box'
                     }}
                   />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 2px' }}>
+                  <span style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.4)' }}>Min: ₹1</span>
+                  <span style={{ fontSize: '10.5px', color: '#E4572E', fontWeight: '700' }}>Max Limit: ₹50,000/-</span>
                 </div>
               </div>
               <button type="button" onClick={handleRazorpayRecharge} disabled={isPaying}

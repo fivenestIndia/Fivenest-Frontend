@@ -302,15 +302,20 @@ router.post("/webhook", async (req, res) => {
  */
 router.post("/create-studio-order", async (req, res) => {
   const { amount, userId, email } = req.body;
+  const numAmount = Number(amount);
 
-  if (!amount || !userId) {
-    return res.status(400).json({ error: "Missing required checkout parameters (amount, userId)." });
+  if (!amount || !userId || isNaN(numAmount) || numAmount <= 0) {
+    return res.status(400).json({ error: "Missing or invalid checkout parameters (amount, userId)." });
+  }
+
+  if (numAmount > 50000) {
+    return res.status(400).json({ error: "Recharge amount cannot exceed ₹50,000/- INR." });
   }
 
   try {
     const razorpay = getRazorpayInstance();
     const options = {
-      amount: Math.round(amount * 100), // convert INR to paisa
+      amount: Math.round(numAmount * 100), // convert INR to paisa
       currency: "INR",
       receipt: `studio_topup_${Date.now()}`,
       notes: {
@@ -340,9 +345,14 @@ router.post("/create-studio-order", async (req, res) => {
  */
 router.post("/verify-studio-payment", async (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature, userId, amount } = req.body;
+  const numAmount = Number(amount);
 
-  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !userId || !amount) {
+  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !userId || !amount || isNaN(numAmount) || numAmount <= 0) {
     return res.status(400).json({ error: "Missing required verification parameters." });
+  }
+
+  if (numAmount > 50000) {
+    return res.status(400).json({ error: "Recharge amount cannot exceed ₹50,000/- INR." });
   }
 
   try {
