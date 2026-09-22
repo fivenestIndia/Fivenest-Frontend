@@ -224,25 +224,59 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   useEffect(() => { designConfigRef.current = designConfig; }, [designConfig]);
 
   const undoableConfigChange = (newConfig: ArtDesignConfig) => {
-    setUndoStack(prev => [...prev.slice(-29), designConfigRef.current]);
-    setRedoStack([]);
+    try {
+      const clone = JSON.parse(JSON.stringify(designConfigRef.current));
+      const nextStack = [...undoStackRef.current.slice(-29), clone];
+      undoStackRef.current = nextStack;
+      setUndoStack(nextStack);
+      redoStackRef.current = [];
+      setRedoStack([]);
+    } catch (e) {
+      console.error('Error saving undo snapshot', e);
+    }
     onDesignConfigChange(newConfig);
   };
   const handleUndo = () => {
-    const stack = undoStackRef.current;
-    if (stack.length === 0) return;
-    const prev = stack[stack.length - 1];
-    setRedoStack(r => [...r, designConfigRef.current]);
-    setUndoStack(s => s.slice(0, -1));
+    if (undoStackRef.current.length === 0) {
+      toast.info('Nothing to undo');
+      return;
+    }
+    const prev = undoStackRef.current[undoStackRef.current.length - 1];
+    const nextStack = undoStackRef.current.slice(0, -1);
+    undoStackRef.current = nextStack;
+    setUndoStack(nextStack);
+
+    try {
+      const currentClone = JSON.parse(JSON.stringify(designConfigRef.current));
+      const nextRedo = [...redoStackRef.current, currentClone];
+      redoStackRef.current = nextRedo;
+      setRedoStack(nextRedo);
+    } catch (e) {
+      console.error('Error recording redo snapshot', e);
+    }
+
     onDesignConfigChange(prev);
     toast.success('Undo');
   };
   const handleRedo = () => {
-    const stack = redoStackRef.current;
-    if (stack.length === 0) return;
-    const next = stack[stack.length - 1];
-    setUndoStack(s => [...s, designConfigRef.current]);
-    setRedoStack(r => r.slice(0, -1));
+    if (redoStackRef.current.length === 0) {
+      toast.info('Nothing to redo');
+      return;
+    }
+    const next = redoStackRef.current[redoStackRef.current.length - 1];
+    const nextRedo = redoStackRef.current.slice(0, -1);
+    redoStackRef.current = nextRedo;
+    setRedoStack(nextRedo);
+
+    try {
+      const currentClone = JSON.parse(JSON.stringify(designConfigRef.current));
+      const nextStack = [...undoStackRef.current, currentClone];
+      undoStackRef.current = nextStack;
+      setUndoStack(nextStack);
+    } catch (e) {
+      console.error('Error recording undo snapshot', e);
+    }
+
     onDesignConfigChange(next);
     toast.success('Redo');
   };
@@ -344,119 +378,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     }
   }, []);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const activeEl = document.activeElement;
-      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
-        return;
-      }
-      if (e.key === ' ') {
-        e.preventDefault();
-        setSpaceKeyPressed(true);
-      }
-      if (e.key.toLowerCase() === 'z' && !e.ctrlKey && !e.metaKey) {
-        setActiveTool('zoom');
-        setZKeyPressed(true);
-      }
-      if (e.key.toLowerCase() === 'v') {
-        setActiveTool('pick');
-      }
-      if (e.key.toLowerCase() === 'h') {
-        setActiveTool('pan');
-      }
-      if (e.key.toLowerCase() === 't') {
-        setActiveTool('text');
-      }
-      if (e.key.toLowerCase() === 'l') {
-        setActiveTool('logo');
-      }
-      if (e.key.toLowerCase() === 'i' && !e.ctrlKey && !e.metaKey) {
-        setActiveTool('eyedrop');
-      }
-      // Guidelines toggle: Ctrl + G, Cmd + G, or G
-      if (
-        ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'g' || e.key === '.')) ||
-        (!e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'g')
-      ) {
-        e.preventDefault();
-        setShowGuidelines(prev => {
-          const next = !prev;
-          toast.success(next ? 'Guidelines Shown (Ctrl+G)' : 'Guidelines Hidden (Ctrl+G)');
-          return next;
-        });
-        return;
-      }
-      // Rulers toggle: Ctrl + R, Cmd + R, or R
-      if (
-        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r') ||
-        (!e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'r')
-      ) {
-        e.preventDefault();
-        setRulersEnabled(prev => {
-          const next = !prev;
-          localStorage.setItem('fivenest_pref_rulers', JSON.stringify(next));
-          toast.success(next ? 'Rulers Shown (Ctrl+R)' : 'Rulers Hidden (Ctrl+R)');
-          return next;
-        });
-        return;
-      }
-      if (e.key === 'F1') {
-        e.preventDefault();
-        setShowShortcutsModal(true);
-        return;
-      }
-      // Import image: Ctrl + I or Cmd + I
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
-        e.preventDefault();
-        fileInputRef.current?.click();
-        return;
-      }
-      // Clear panel background: Delete or Backspace
-      if (e.key === 'Delete') {
-        updateActivePanel({ uploadedFileUrl: null });
-        return;
-      }
-      // Zoom fit: Ctrl + 0 or Cmd + 0
-      if ((e.ctrlKey || e.metaKey) && e.key === '0') {
-        e.preventDefault();
-        handleFitToScreen();
-        return;
-      }
-      // Undo: Ctrl + Z or Cmd + Z
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        handleUndoRef.current();
-        return;
-      }
-      // Redo: Ctrl + Shift + Z, Cmd + Shift + Z, or Ctrl + Y
-      if (
-        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && e.shiftKey) ||
-        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y')
-      ) {
-        e.preventDefault();
-        handleRedoRef.current();
-        return;
-      }
-    };
 
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === ' ') {
-        setSpaceKeyPressed(false);
-        panStartRef.current = null;
-      }
-      if (e.key.toLowerCase() === 'z') {
-        setZKeyPressed(false);
-        setDragStart(null);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, []);
 
   const handleSavePreset = () => {
     if (!newPresetName.trim()) {
@@ -1769,73 +1691,19 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement;
-      if (
+      const isInputActive = !!(
         activeEl && (
           activeEl.tagName === 'INPUT' ||
           activeEl.tagName === 'TEXTAREA' ||
-          activeEl.tagName === 'SELECT' ||
           (activeEl as HTMLElement).isContentEditable
         )
-      ) {
-        return;
-      }
+      );
 
       const isCtrl = e.ctrlKey || e.metaKey;
       const key = e.key.toUpperCase();
 
-      // Bulk ZIP Import shortcut: Ctrl + Shift + I  OR  Ctrl + B
-      if ((isCtrl && e.shiftKey && key === 'I') || (isCtrl && key === 'B')) {
-        e.preventDefault();
-        zipInputRef.current?.click();
-        return;
-      }
-
-      // Import Graphic Image shortcut: Ctrl + I
-      if (isCtrl && key === 'I') {
-        e.preventDefault();
-        fileInputRef.current?.click();
-        return;
-      }
-
-      // Zoom reset: Ctrl + 0
-      if (isCtrl && key === '0') {
-        e.preventDefault();
-        handleFitToScreen();
-        return;
-      }
-
-      // Zoom in: Ctrl + '=' or Ctrl + '+'
-      if (isCtrl && (e.key === '=' || e.key === '+')) {
-        e.preventDefault();
-        setZoom(z => Math.min(3, Math.round((z + 0.25) * 100) / 100));
-        return;
-      }
-
-      // Zoom out: Ctrl + '-'
-      if (isCtrl && e.key === '-') {
-        e.preventDefault();
-        setZoom(z => Math.max(0.5, Math.round((z - 0.25) * 100) / 100));
-        return;
-      }
-
-      // Undo: Ctrl + Z
-      if (isCtrl && key === 'Z' && !e.shiftKey) {
-        e.preventDefault();
-        e.stopPropagation();
-        handleUndoRef.current();
-        return;
-      }
-
-      // Redo: Ctrl + Shift + Z or Ctrl + Y
-      if ((isCtrl && key === 'Z' && e.shiftKey) || (isCtrl && key === 'Y')) {
-        e.preventDefault();
-        e.stopPropagation();
-        handleRedoRef.current();
-        return;
-      }
-
-      // Rulers toggle shortcut: Ctrl + R
-      if (isCtrl && key === 'R') {
+      // 1. HARD BROWSER RELOAD PROTECTION & RULER SHORTCUT: Ctrl+R (Cmd+R), Shift+R, or R
+      if ((isCtrl && key === 'R') || (e.shiftKey && key === 'R')) {
         e.preventDefault();
         e.stopPropagation();
         setRulersEnabled(prev => {
@@ -1847,8 +1715,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         return;
       }
 
-      // Guidelines toggle shortcut: Ctrl + G, G, or Ctrl + '.'
-      if ((isCtrl && (key === 'G' || e.key === '.')) || (!isCtrl && key === 'G')) {
+      // 2. GUIDELINES SHORTCUT: Ctrl+G, Shift+G, Ctrl+., or G (when not typing in an input)
+      if ((isCtrl && (key === 'G' || e.key === '.')) || (e.shiftKey && key === 'G') || (!isCtrl && !isInputActive && key === 'G')) {
         e.preventDefault();
         e.stopPropagation();
         setShowGuidelines(prev => {
@@ -1859,87 +1727,192 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         return;
       }
 
-      // Tool Switching Shortcuts (V, H, Z, T, L, I, R) - only without Ctrl/Cmd
-      if (!isCtrl && (key === 'V' || e.key === 'F1')) {
-        setActiveTool('pick');
-      } else if (!isCtrl && key === 'H') {
-        setActiveTool('pan');
-      } else if (!isCtrl && key === 'Z') {
-        setActiveTool('zoom');
-      } else if (!isCtrl && key === 'T') {
-        setActiveTool('text');
-      } else if (!isCtrl && key === 'L') {
-        setActiveTool('logo');
-      } else if (!isCtrl && key === 'I') {
-        setActiveTool('eyedrop');
-      } else if (!isCtrl && key === 'R') {
-        setRulersEnabled(prev => {
-          const next = !prev;
-          localStorage.setItem('fivenest_pref_rulers', JSON.stringify(next));
-          return next;
-        });
-      } else if (e.key === 'Delete') {
-        updateActivePanel({ uploadedFileUrl: null });
+      // 3. UNDO: Ctrl+Z / Cmd+Z (only if not typing in an input)
+      if (isCtrl && key === 'Z' && !e.shiftKey) {
+        if (!isInputActive) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleUndoRef.current();
+          return;
+        }
       }
 
-      // Text Manipulation & CorelDRAW Alignment shortcuts (Arrow Keys, C, E, P, T, B, L, R)
+      // 4. REDO: Ctrl+Shift+Z, Cmd+Shift+Z, or Ctrl+Y
+      if ((isCtrl && key === 'Z' && e.shiftKey) || (isCtrl && key === 'Y')) {
+        if (!isInputActive) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleRedoRef.current();
+          return;
+        }
+      }
+
+      // If user is actively typing in an input or textarea, let normal text entry happen for other keys
+      if (isInputActive) {
+        return;
+      }
+
+      // 5. BULK ZIP IMPORT: Ctrl + Shift + I  OR  Ctrl + B
+      if ((isCtrl && e.shiftKey && key === 'I') || (isCtrl && key === 'B')) {
+        e.preventDefault();
+        zipInputRef.current?.click();
+        return;
+      }
+
+      // 6. IMPORT GRAPHIC: Ctrl + I
+      if (isCtrl && key === 'I') {
+        e.preventDefault();
+        fileInputRef.current?.click();
+        return;
+      }
+
+      // 7. ZOOM RESET / FIT: Ctrl + 0
+      if (isCtrl && key === '0') {
+        e.preventDefault();
+        handleFitToScreen();
+        return;
+      }
+
+      // 8. ZOOM IN: Ctrl + '=' or Ctrl + '+'
+      if (isCtrl && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        setZoom(z => Math.min(3, Math.round((z + 0.25) * 100) / 100));
+        return;
+      }
+
+      // 9. ZOOM OUT: Ctrl + '-'
+      if (isCtrl && e.key === '-') {
+        e.preventDefault();
+        setZoom(z => Math.max(0.5, Math.round((z - 0.25) * 100) / 100));
+        return;
+      }
+
+      // 10. SPACEBAR PAN
+      if (e.key === ' ') {
+        e.preventDefault();
+        setSpaceKeyPressed(true);
+        return;
+      }
+
+      // 11. TOOL SHORTCUTS (without Ctrl)
+      if (!isCtrl) {
+        if (key === 'V' || e.key === 'F1') {
+          setActiveTool('pick');
+          if (e.key === 'F1') {
+            e.preventDefault();
+            setShowShortcutsModal(true);
+          }
+          return;
+        }
+        if (key === 'H') {
+          setActiveTool('pan');
+          return;
+        }
+        if (key === 'Z') {
+          setActiveTool('zoom');
+          setZKeyPressed(true);
+          return;
+        }
+        if (key === 'T') {
+          setActiveTool('text');
+          return;
+        }
+        if (key === 'L') {
+          setActiveTool('logo');
+          return;
+        }
+        if (key === 'I') {
+          setActiveTool('eyedrop');
+          return;
+        }
+        if (e.key === 'Delete') {
+          updateActivePanel({ uploadedFileUrl: null });
+          return;
+        }
+      }
+
+      // 12. TEXT MANIPULATION & ALIGNMENT (Arrow keys, C, E, P, T, B, L, R)
       const targetLayer: 'name' | 'number' = activeTextLayer || (activePanel.nameConfig?.enabled ? 'name' : 'number');
       const conf = activePanel[targetLayer === 'name' ? 'nameConfig' : 'numberConfig'];
 
-      if (e.key === 'ArrowUp') {
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
         e.preventDefault();
         const step = e.shiftKey ? 5 : 1;
-        updateTextConfig(targetLayer, { yPos: Math.max(0, conf.yPos - step) });
-        return;
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        const step = e.shiftKey ? 5 : 1;
-        updateTextConfig(targetLayer, { yPos: Math.min(100, conf.yPos + step) });
+        const newY = e.key === 'ArrowUp' ? Math.max(0, conf.yPos - step) : Math.min(100, conf.yPos + step);
+        const targetTab = (activeTab === 'threeD' ? 'front' : activeTab === 'dual' ? dualActivePanel : activeTab) as 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print';
+        undoableConfigChange({
+          ...designConfig,
+          [targetTab]: {
+            ...activePanel,
+            [targetLayer === 'name' ? 'nameConfig' : 'numberConfig']: {
+              ...conf,
+              yPos: newY
+            }
+          }
+        });
         return;
       }
 
       if (['C', 'E', 'P', 'T', 'B', 'L', 'R'].includes(key) && !isCtrl) {
+        const targetTab = (activeTab === 'threeD' ? 'front' : activeTab === 'dual' ? dualActivePanel : activeTab) as 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print';
+        let updatedTextConfig = { ...conf };
         if (key === 'C') {
-          // Center Horizontally
-          updateTextConfig(targetLayer, { align: 'center' });
+          updatedTextConfig.align = 'center';
         } else if (key === 'E') {
-          // Center Vertically (50%)
-          updateTextConfig(targetLayer, { yPos: 50 });
+          updatedTextConfig.yPos = 50;
         } else if (key === 'P') {
-          // Center to Page (Both Horizontally & Vertically)
-          updateTextConfig(targetLayer, { align: 'center', yPos: 50 });
+          updatedTextConfig.align = 'center';
+          updatedTextConfig.yPos = 50;
         } else if (key === 'T') {
-          // Align Extreme Top (5%)
-          updateTextConfig(targetLayer, { yPos: 5 });
+          updatedTextConfig.yPos = 5;
         } else if (key === 'B') {
-          // Align Extreme Bottom (92%)
-          updateTextConfig(targetLayer, { yPos: 92 });
+          updatedTextConfig.yPos = 92;
         } else if (key === 'L') {
-          // Align Left
-          updateTextConfig(targetLayer, { align: 'left' });
+          updatedTextConfig.align = 'left';
         } else if (key === 'R') {
-          // Align Right
-          updateTextConfig(targetLayer, { align: 'right' });
+          if (activeTextLayer) {
+            updatedTextConfig.align = 'right';
+          } else {
+            setRulersEnabled(prev => {
+              const next = !prev;
+              localStorage.setItem('fivenest_pref_rulers', JSON.stringify(next));
+              toast.success(next ? 'Rulers Shown (R)' : 'Rulers Hidden (R)');
+              return next;
+            });
+            return;
+          }
         }
+
+        undoableConfigChange({
+          ...designConfig,
+          [targetTab]: {
+            ...activePanel,
+            [targetLayer === 'name' ? 'nameConfig' : 'numberConfig']: updatedTextConfig
+          }
+        });
       }
     };
 
-    const handleGlobalMouseUp = () => {
-      if (isDraggingTextRef.current && dragStartConfigRef.current) {
-        setUndoStack(prev => [...prev.slice(-29), dragStartConfigRef.current!]);
-        setRedoStack([]);
-        dragStartConfigRef.current = null;
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === ' ') {
+        setSpaceKeyPressed(false);
+        panStartRef.current = null;
       }
-      isDraggingTextRef.current = false;
+      if (e.key.toLowerCase() === 'z') {
+        setZKeyPressed(false);
+        setDragStart(null);
+      }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('mouseup', handleGlobalMouseUp);
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    window.addEventListener('keyup', handleKeyUp, { capture: true });
+    window.addEventListener('mouseup', handleCanvasMouseUp);
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('mouseup', handleGlobalMouseUp);
+      window.removeEventListener('keydown', handleKeyDown, { capture: true });
+      window.removeEventListener('keyup', handleKeyUp, { capture: true });
+      window.removeEventListener('mouseup', handleCanvasMouseUp);
     };
-  }, [activePanel, activeTextLayer]);
+  }, [activePanel, activeTextLayer, activeTab, dualActivePanel, designConfig]);
 
   // Draw preview canvas (Single or Dual Front & Back)
   useEffect(() => {
@@ -2207,6 +2180,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const targetCanvas = e.currentTarget;
     if (!targetCanvas) return;
 
+    // Blur any active input or select so keyboard shortcuts (like Ctrl+Z, Ctrl+R, G) are immediately available
+    if (document.activeElement && (document.activeElement as HTMLElement).blur) {
+      const tag = document.activeElement.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+        (document.activeElement as HTMLElement).blur();
+      }
+    }
+
     const targetPanelKey = specificPanel || (activeTab === 'dual' ? dualActivePanel : activeTab);
     const panelConfig = (designConfig[targetPanelKey as keyof ArtDesignConfig] || activePanel) as PanelConfig;
 
@@ -2270,13 +2251,21 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   };
 
   const handleCanvasMouseUp = () => {
-    // Push ONE undo snapshot for the entire drag operation
+    // Push ONE undo snapshot for the entire drag operation, ONLY if position actually changed
     if (isDraggingTextRef.current && dragStartConfigRef.current) {
-      setUndoStack(prev => [...prev.slice(-29), dragStartConfigRef.current!]);
-      setRedoStack([]);
+      const snapshot = dragStartConfigRef.current;
       dragStartConfigRef.current = null;
+      isDraggingTextRef.current = false;
+      if (JSON.stringify(snapshot) !== JSON.stringify(designConfigRef.current)) {
+        const nextStack = [...undoStackRef.current.slice(-29), snapshot];
+        undoStackRef.current = nextStack;
+        setUndoStack(nextStack);
+        redoStackRef.current = [];
+        setRedoStack([]);
+      }
+    } else {
+      isDraggingTextRef.current = false;
     }
-    isDraggingTextRef.current = false;
   };
 
   const handleCanvasDoubleClick = (
