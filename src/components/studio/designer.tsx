@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, RotateCcw, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus, Maximize2 } from 'lucide-react';
 import type { OrderMetadata } from './orderEntry';
 import { ThreeDPreview } from './ThreeDPreview';
-import { defaultSizes, SizesModal } from './sizesDb';
+import { defaultSizes } from './sizesDb';
 import { toast } from 'sonner';
 
 import { ToolBox, CorelTool } from './coreldraw/ToolBox';
@@ -11,10 +11,13 @@ import { PropertyBar } from './coreldraw/PropertyBar';
 import { ColorPalette } from './coreldraw/ColorPalette';
 import { StatusBar } from './coreldraw/StatusBar';
 import { ShortcutsModal } from './coreldraw/ShortcutsModal';
+import { GradientEditorModal } from './coreldraw/GradientEditorModal';
+import { TextSpecificationModal } from './coreldraw/TextSpecificationModal';
 
 export interface TextConfig {
   enabled: boolean;
   yPos: number; // percentage from top (0-100)
+  xPos?: number; // percentage from left (0-100) - default 50 for center
   fontSize: number; // size in inches relative (often 2-3 inches for names, 8-10 inches for numbers)
   color: string;
   strokeColor: string;
@@ -32,6 +35,9 @@ export interface TextConfig {
   gradientStops?: string[];
   gradientDirection?: 'vertical' | 'horizontal' | 'radial' | 'diagonal';
   textureUrl?: string | null;
+  textureOffsetX?: number;
+  textureOffsetY?: number;
+  textureScale?: number;
 }
 
 export interface LogoConfig {
@@ -68,6 +74,8 @@ export interface PanelConfig {
   bgX?: number;
   bgY?: number;
   bgLockAspectRatio?: boolean;
+  customWidth?: number;
+  customHeight?: number;
 }
 
 export interface TrimPartConfig {
@@ -98,63 +106,63 @@ interface DesignerProps {
 
 export const defaultDesignConfig: ArtDesignConfig = {
   front: {
-    backgroundType: 'generate',
-    generatedStyle: 'neon-gradient',
-    generatedColor1: '#9b4dff',
-    generatedColor2: '#ff8c00',
+    backgroundType: 'upload',
+    generatedStyle: 'blank',
+    generatedColor1: '#ffffff',
+    generatedColor2: '#ffffff',
     uploadedFileUrl: null,
-    nameConfig: { enabled: false, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    numberConfig: { enabled: false, yPos: 44, fontSize: 3.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 3, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.08 },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    nameConfig: { enabled: false, xPos: 50, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    numberConfig: { enabled: false, xPos: 50, yPos: 44, fontSize: 3.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1.75, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 3, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.08 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [2.0, 8.5, 11.0, 13.5, 20.0], horizontal: [7.0, 10.0, 12.0, 27.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 15.0, yPos: 8.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 7.0, yPos: 8.5, lockAspectRatio: true },
     torsoLogo: { enabled: false, uploadedUrl: null, width: 8.5, height: 2.6, xPos: 11.0, yPos: 13.3, text: '', lockAspectRatio: true }
   },
   back: {
-    backgroundType: 'generate',
-    generatedStyle: 'neon-gradient',
-    generatedColor1: '#9b4dff',
-    generatedColor2: '#ff8c00',
+    backgroundType: 'upload',
+    generatedStyle: 'blank',
+    generatedColor1: '#ffffff',
+    generatedColor2: '#ffffff',
     uploadedFileUrl: null,
     nameConfig: { enabled: true, yPos: 24, fontSize: 2.5, color: '#000000', strokeColor: '#ffffff', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 11, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.18 },
-    numberConfig: { enabled: true, yPos: 47, fontSize: 9.0, color: '#000000', strokeColor: '#ffffff', strokeWidth: 5, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8.5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.2 },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 30, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0.06 },
+    numberConfig: { enabled: true, yPos: 47, fontSize: 9.0, color: '#000000', strokeColor: '#ffffff', strokeWidth: 1.75, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8.5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.2 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0.06 },
     guidelines: { vertical: [2.0, 11.0, 20.0], horizontal: [2.5, 6.0, 8.0, 9.5, 16.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
     torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '', lockAspectRatio: true }
   },
   sleeveLeft: {
-    backgroundType: 'generate',
-    generatedStyle: 'classic-stripes',
-    generatedColor1: '#9b4dff',
-    generatedColor2: '#0a0a0f',
+    backgroundType: 'upload',
+    generatedStyle: 'blank',
+    generatedColor1: '#ffffff',
+    generatedColor2: '#ffffff',
     uploadedFileUrl: null,
-    nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1.75, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [9.5], horizontal: [8.0] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
     torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '', lockAspectRatio: true }
   },
   sleeveRight: {
-    backgroundType: 'generate',
-    generatedStyle: 'classic-stripes',
-    generatedColor1: '#9b4dff',
-    generatedColor2: '#0a0a0f',
+    backgroundType: 'upload',
+    generatedStyle: 'blank',
+    generatedColor1: '#ffffff',
+    generatedColor2: '#ffffff',
     uploadedFileUrl: null,
-    nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1.75, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [9.5], horizontal: [8.0] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
     torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '', lockAspectRatio: true }
   },
   a4Print: {
-    backgroundType: 'generate',
+    backgroundType: 'upload',
     generatedStyle: 'blank',
     generatedColor1: '#ffffff',
     generatedColor2: '#ffffff',
@@ -164,9 +172,9 @@ export const defaultDesignConfig: ArtDesignConfig = {
     bgX: 0,
     bgY: 0,
     bgLockAspectRatio: true,
-    nameConfig: { enabled: false, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    numberConfig: { enabled: true, yPos: 55, fontSize: 6.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    nameConfig: { enabled: false, yPos: 24, fontSize: 2.5, color: '#000000', strokeColor: '#ffffff', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 11, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.18 },
+    numberConfig: { enabled: true, yPos: 47, fontSize: 9.0, color: '#000000', strokeColor: '#ffffff', strokeWidth: 1.75, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8.5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.2 },
+    sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [5.0], horizontal: [5.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
@@ -185,7 +193,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [previewName, setPreviewName] = useState<string>("FIVENEST");
   const [previewNumber, setPreviewNumber] = useState<string>("23");
   const [overlaySubTab, setOverlaySubTab] = useState<'name' | 'number' | 'logos' | 'sizeTag'>('name');
-  const [showPanelEditorModal, setShowPanelEditorModal] = useState<boolean>(false);
   const [customFonts, setCustomFonts] = useState<{name: string, url: string}[]>([]);
   const [previewSleeveType, setPreviewSleeveType] = useState<'half' | 'full'>('half');
   const [prefTrigger, setPrefTrigger] = useState<number>(0);
@@ -199,13 +206,65 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [zKeyPressed, setZKeyPressed] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number; zoom: number } | null>(null);
   const [spaceKeyPressed, setSpaceKeyPressed] = useState<boolean>(false);
-  const [panStart, setPanStart] = useState<{ scrollLeft: number; scrollTop: number; x: number; y: number } | null>(null);
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState<boolean>(false);
   const [activeTextLayer, setActiveTextLayer] = useState<'name' | 'number' | null>(null);
+  const [isGradientModalOpen, setIsGradientModalOpen] = useState<boolean>(false);
+  const [gradientModalTarget, setGradientModalTarget] = useState<'name' | 'number' | 'palette'>('name');
+
+  // Undo/Redo history stacks
+  const [undoStack, setUndoStack] = useState<ArtDesignConfig[]>([]);
+  const [redoStack, setRedoStack] = useState<ArtDesignConfig[]>([]);
+  // Use refs so keyboard handler always calls latest version (no stale closure)
+  const undoStackRef = useRef<ArtDesignConfig[]>([]);
+  const redoStackRef = useRef<ArtDesignConfig[]>([]);
+  const designConfigRef = useRef<ArtDesignConfig>(designConfig);
+  useEffect(() => { undoStackRef.current = undoStack; }, [undoStack]);
+  useEffect(() => { redoStackRef.current = redoStack; }, [redoStack]);
+  useEffect(() => { designConfigRef.current = designConfig; }, [designConfig]);
+
+  const undoableConfigChange = (newConfig: ArtDesignConfig) => {
+    setUndoStack(prev => [...prev.slice(-29), designConfigRef.current]);
+    setRedoStack([]);
+    onDesignConfigChange(newConfig);
+  };
+  const handleUndo = () => {
+    const stack = undoStackRef.current;
+    if (stack.length === 0) return;
+    const prev = stack[stack.length - 1];
+    setRedoStack(r => [...r, designConfigRef.current]);
+    setUndoStack(s => s.slice(0, -1));
+    onDesignConfigChange(prev);
+    toast.success('Undo');
+  };
+  const handleRedo = () => {
+    const stack = redoStackRef.current;
+    if (stack.length === 0) return;
+    const next = stack[stack.length - 1];
+    setUndoStack(s => [...s, designConfigRef.current]);
+    setRedoStack(r => r.slice(0, -1));
+    onDesignConfigChange(next);
+    toast.success('Redo');
+  };
+  // Keep refs up to date so keyboard handler always has fresh callbacks
+  const handleUndoRef = useRef(handleUndo);
+  const handleRedoRef = useRef(handleRedo);
+  useEffect(() => { handleUndoRef.current = handleUndo; });
+  useEffect(() => { handleRedoRef.current = handleRedo; });
 
   const [showGuidelines, setShowGuidelines] = useState<boolean>(true);
   const [activeTool, setActiveTool] = useState<CorelTool>('pick');
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
   const [showShortcutsModal, setShowShortcutsModal] = useState<boolean>(false);
+  const [textEditorModal, setTextEditorModal] = useState<{
+    isOpen: boolean;
+    targetLayer: 'name' | 'number';
+    panelKey: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print';
+  }>({
+    isOpen: false,
+    targetLayer: 'name',
+    panelKey: 'front'
+  });
   const [rulersEnabled, setRulersEnabled] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('fivenest_pref_rulers');
@@ -314,46 +373,76 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       if (e.key.toLowerCase() === 'i' && !e.ctrlKey && !e.metaKey) {
         setActiveTool('eyedrop');
       }
-      if (e.key.toLowerCase() === 'g' && !e.ctrlKey && !e.metaKey) {
-        setShowGuidelines(prev => !prev);
+      // Guidelines toggle: Ctrl + G, Cmd + G, or G
+      if (
+        ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'g' || e.key === '.')) ||
+        (!e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'g')
+      ) {
+        e.preventDefault();
+        setShowGuidelines(prev => {
+          const next = !prev;
+          toast.success(next ? 'Guidelines Shown (Ctrl+G)' : 'Guidelines Hidden (Ctrl+G)');
+          return next;
+        });
+        return;
       }
-      if (e.key.toLowerCase() === 'r' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r')) {
+      // Rulers toggle: Ctrl + R, Cmd + R, or R
+      if (
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r') ||
+        (!e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'r')
+      ) {
         e.preventDefault();
         setRulersEnabled(prev => {
           const next = !prev;
           localStorage.setItem('fivenest_pref_rulers', JSON.stringify(next));
+          toast.success(next ? 'Rulers Shown (Ctrl+R)' : 'Rulers Hidden (Ctrl+R)');
           return next;
         });
+        return;
       }
       if (e.key === 'F1') {
         e.preventDefault();
         setShowShortcutsModal(true);
+        return;
       }
       // Import image: Ctrl + I or Cmd + I
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
         e.preventDefault();
         fileInputRef.current?.click();
+        return;
       }
       // Clear panel background: Delete or Backspace
       if (e.key === 'Delete') {
         updateActivePanel({ uploadedFileUrl: null });
+        return;
       }
       // Zoom fit: Ctrl + 0 or Cmd + 0
       if ((e.ctrlKey || e.metaKey) && e.key === '0') {
         e.preventDefault();
         handleFitToScreen();
+        return;
       }
-      // Toggle guidelines: Ctrl + . or Cmd + .
-      if ((e.ctrlKey || e.metaKey) && e.key === '.') {
+      // Undo: Ctrl + Z or Cmd + Z
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
         e.preventDefault();
-        setShowGuidelines(prev => !prev);
+        handleUndoRef.current();
+        return;
+      }
+      // Redo: Ctrl + Shift + Z, Cmd + Shift + Z, or Ctrl + Y
+      if (
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && e.shiftKey) ||
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y')
+      ) {
+        e.preventDefault();
+        handleRedoRef.current();
+        return;
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === ' ') {
         setSpaceKeyPressed(false);
-        setPanStart(null);
+        panStartRef.current = null;
       }
       if (e.key.toLowerCase() === 'z') {
         setZKeyPressed(false);
@@ -446,6 +535,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     [key: string]: { x: number; y: number; w: number; h: number };
   }>({});
   const isDraggingTextRef = useRef<boolean>(false);
+  const textDragOffsetYRef = useRef<number>(0); // grab offset in canvas-pixels so text doesn't jump
+  const textDragOffsetXRef = useRef<number>(0); // horizontal grab offset for front panel 2D drag
+  const dragStartConfigRef = useRef<ArtDesignConfig | null>(null); // snapshot config at drag start for clean undo
   const touchStartRef = useRef<{
     x: number;
     y: number;
@@ -454,27 +546,37 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     distance: number;
     zoom: number;
   } | null>(null);
+  const panStartRef = useRef<{
+    startX: number;
+    startY: number;
+    initialPanX: number;
+    initialPanY: number;
+  } | null>(null);
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (e.touches.length === 1) {
       const touch = e.touches[0];
-      if (scrollWrapperRef.current) {
-        touchStartRef.current = {
-          x: touch.clientX,
-          y: touch.clientY,
-          scrollLeft: scrollWrapperRef.current.scrollLeft,
-          scrollTop: scrollWrapperRef.current.scrollTop,
-          distance: 0,
-          zoom: zoom
-        };
-      }
+      setIsPanning(true);
+      panStartRef.current = {
+        startX: touch.clientX,
+        startY: touch.clientY,
+        initialPanX: panOffset.x,
+        initialPanY: panOffset.y
+      };
+      touchStartRef.current = null;
     } else if (e.touches.length === 2) {
+      setIsPanning(false);
+      panStartRef.current = null;
       const t1 = e.touches[0];
       const t2 = e.touches[1];
       const distance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const wrapper = scrollWrapperRef.current;
+      const rect = wrapper ? wrapper.getBoundingClientRect() : { left: 0, top: 0 };
+      const centerX = (t1.clientX + t2.clientX) / 2 - rect.left;
+      const centerY = (t1.clientY + t2.clientY) / 2 - rect.top;
       touchStartRef.current = {
-        x: 0,
-        y: 0,
+        x: centerX,
+        y: centerY,
         scrollLeft: 0,
         scrollTop: 0,
         distance,
@@ -484,55 +586,150 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (!touchStartRef.current) return;
-
-    if (e.touches.length === 1 && touchStartRef.current.distance === 0) {
-      // Touch drag pan
+    if (e.touches.length === 1 && panStartRef.current) {
+      if (e.cancelable) e.preventDefault();
       const touch = e.touches[0];
-      const deltaX = touch.clientX - touchStartRef.current.x;
-      const deltaY = touch.clientY - touchStartRef.current.y;
-      if (scrollWrapperRef.current) {
-        if (zoom > 1) {
-          if (e.cancelable) e.preventDefault();
-          scrollWrapperRef.current.scrollLeft = touchStartRef.current.scrollLeft - deltaX;
-          scrollWrapperRef.current.scrollTop = touchStartRef.current.scrollTop - deltaY;
-        }
-      }
-    } else if (e.touches.length === 2 && touchStartRef.current.distance > 0) {
-      // Touch pinch zoom
+      const deltaX = touch.clientX - panStartRef.current.startX;
+      const deltaY = touch.clientY - panStartRef.current.startY;
+      setPanOffset({
+        x: panStartRef.current.initialPanX + deltaX,
+        y: panStartRef.current.initialPanY + deltaY
+      });
+    } else if (e.touches.length === 2 && touchStartRef.current && touchStartRef.current.distance > 0) {
       if (e.cancelable) e.preventDefault();
       const t1 = e.touches[0];
       const t2 = e.touches[1];
       const currentDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
       const ratio = currentDistance / touchStartRef.current.distance;
-      const newZoom = Math.min(3, Math.max(0.5, touchStartRef.current.zoom * ratio));
-      setZoom(newZoom);
+      const newZoom = Math.min(4.0, Math.max(0.15, Math.round(touchStartRef.current.zoom * ratio * 100) / 100));
+      if (newZoom !== zoom) {
+        const mouseX = touchStartRef.current.x;
+        const mouseY = touchStartRef.current.y;
+        const worldX = (mouseX - panOffset.x) / zoom;
+        const worldY = (mouseY - panOffset.y) / zoom;
+        const newPanX = Math.round(mouseX - worldX * newZoom);
+        const newPanY = Math.round(mouseY - worldY * newZoom);
+        setZoom(newZoom);
+        setPanOffset({ x: newPanX, y: newPanY });
+      }
     }
   };
 
   const handleTouchEnd = () => {
+    panStartRef.current = null;
     touchStartRef.current = null;
+    setIsPanning(false);
+  };
+
+  const handleZoomChange = (newZoom: number) => {
+    const wrapper = scrollWrapperRef.current;
+    const clampedZoom = Math.min(4.0, Math.max(0.15, Math.round(newZoom * 100) / 100));
+    if (clampedZoom === zoom) return;
+
+    if (!wrapper) {
+      setZoom(clampedZoom);
+      return;
+    }
+    const rect = wrapper.getBoundingClientRect();
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    const worldX = (centerX - panOffset.x) / zoom;
+    const worldY = (centerY - panOffset.y) / zoom;
+
+    const newPanX = Math.round(centerX - worldX * clampedZoom);
+    const newPanY = Math.round(centerY - worldY * clampedZoom);
+
+    setZoom(clampedZoom);
+    setPanOffset({ x: newPanX, y: newPanY });
   };
 
   const handleFitToScreen = () => {
-    if (!scrollWrapperRef.current) {
+    const wrapper = scrollWrapperRef.current;
+    if (!wrapper) {
       setZoom(1);
+      setPanOffset({ x: 0, y: 0 });
       return;
     }
-    const containerW = scrollWrapperRef.current.clientWidth - 48;
-    const containerH = scrollWrapperRef.current.clientHeight - 48;
-    const currentRulerOffset = rulersEnabled ? Math.round(0.35 * scale) : 0;
-    const targetW = width + currentRulerOffset;
-    const targetH = height + currentRulerOffset;
+    const containerW = wrapper.clientWidth;
+    const containerH = wrapper.clientHeight;
+    if (containerW <= 0 || containerH <= 0) return;
 
-    if (containerW > 0 && containerH > 0) {
-      const fitRatio = Math.min(containerW / targetW, containerH / targetH);
-      const optimalZoom = Math.min(1.0, Math.max(0.4, parseFloat(fitRatio.toFixed(2))));
-      setZoom(optimalZoom);
+    const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
+    
+    let contentW = 0;
+    let contentH = 0;
+
+    if (activeTab === 'dual') {
+      const leftW = sleeveSpreadWidth + currentRulerOffset;
+      const frontW = width + currentRulerOffset;
+      const backW = width + currentRulerOffset;
+      const rightW = sleeveSpreadWidth + currentRulerOffset;
+      const gap = 24;
+      contentW = leftW + frontW + backW + rightW + (gap * 3) + 24;
+      contentH = Math.max(height + currentRulerOffset, sleeveSpreadHeight + currentRulerOffset) + 40;
     } else {
-      setZoom(1);
+      contentW = width + currentRulerOffset + 24;
+      contentH = height + currentRulerOffset + 40;
     }
+
+    const padX = 40;
+    const padY = 40;
+    const availW = Math.max(100, containerW - padX);
+    const availH = Math.max(100, containerH - padY);
+
+    const fitRatio = Math.min(availW / contentW, availH / contentH);
+    const optimalZoom = Math.min(2.0, Math.max(0.2, parseFloat(fitRatio.toFixed(2))));
+
+    const newPanX = Math.round((containerW - contentW * optimalZoom) / 2);
+    const newPanY = Math.round((containerH - contentH * optimalZoom) / 2);
+
+    setZoom(optimalZoom);
+    setPanOffset({ x: newPanX, y: newPanY });
   };
+
+  // Global window listeners for pan dragging
+  useEffect(() => {
+    const handleWindowMouseMove = (e: MouseEvent) => {
+      if (panStartRef.current) {
+        const deltaX = e.clientX - panStartRef.current.startX;
+        const deltaY = e.clientY - panStartRef.current.startY;
+        setPanOffset({
+          x: panStartRef.current.initialPanX + deltaX,
+          y: panStartRef.current.initialPanY + deltaY
+        });
+      }
+    };
+
+    const handleWindowMouseUp = () => {
+      if (panStartRef.current) {
+        panStartRef.current = null;
+        setIsPanning(false);
+      }
+    };
+
+    const handleWindowBlur = () => {
+      setSpaceKeyPressed(false);
+      setIsPanning(false);
+      panStartRef.current = null;
+    };
+
+    window.addEventListener('mousemove', handleWindowMouseMove);
+    window.addEventListener('mouseup', handleWindowMouseUp);
+    window.addEventListener('blur', handleWindowBlur);
+    return () => {
+      window.removeEventListener('mousemove', handleWindowMouseMove);
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
+  }, []);
+
+  // Auto-fit panels to screen on first mount
+  useEffect(() => {
+    const timer = setTimeout(() => handleFitToScreen(), 350);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   // Physical dimensions based on active tab and metadata
   let physicalHeight = 30;
@@ -585,7 +782,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ...updatedFields
       }
     };
-    onDesignConfigChange(updated);
+    undoableConfigChange(updated);
   };
 
   const updateTrimConfig = (partKey: 'collar' | 'placket' | 'sleeveStripe', updatedFields: Partial<TrimPartConfig>) => {
@@ -619,11 +816,46 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     }
   };
 
+  const handleTextTextureUpload = (textType: 'name' | 'number', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const url = event.target?.result as string;
+      // Pre-load into texture cache for instant canvas rendering
+      const img = new Image();
+      img.onload = () => {
+        textureCache.current.set(url, img);
+        setPrefTrigger(prev => prev + 1);
+      };
+      img.src = url;
+      // Update config with texture URL and default offsets
+      const configKey = textType === 'name' ? 'nameConfig' : 'numberConfig';
+      const targetTab = (activeTab === 'threeD' ? 'front' : activeTab === 'dual' ? dualActivePanel : activeTab) as 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print';
+      undoableConfigChange({
+        ...designConfig,
+        [targetTab]: {
+          ...activePanel,
+          [configKey]: {
+            ...activePanel[configKey],
+            fillType: 'texture' as const,
+            textureUrl: url,
+            textureOffsetX: 50,
+            textureOffsetY: 50,
+            textureScale: 1.0
+          }
+        }
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   const updateTextConfig = (textType: 'name' | 'number' | 'sizeTag', fields: Partial<TextConfig>) => {
     const configKey = textType === 'name' ? 'nameConfig' : textType === 'number' ? 'numberConfig' : 'sizeTagConfig';
     updateActivePanel({
       [configKey]: {
-        ...(activePanel[configKey] || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none' }),
+        ...(activePanel[configKey] || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none' }),
         ...fields
       }
     });
@@ -844,6 +1076,24 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           ctx.fillStyle = '#ff1744';
           ctx.fillText(typeStr, width - offset, offset);
         }
+
+        // Sleeve Direction label on top-right of Sleeve panels
+        if (panelKey === 'sleeveLeft' || panelKey === 'sleeveRight') {
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'top';
+          const dirStr = panelKey === 'sleeveLeft' ? 'LEFT' : 'RIGHT';
+
+          // White 3pt outside stroke
+          ctx.lineJoin = 'round';
+          ctx.lineCap = 'round';
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = stroke3ptPx * 2;
+          ctx.strokeText(dirStr, width - offset, offset);
+
+          // Red Fill
+          ctx.fillStyle = '#ff1744';
+          ctx.fillText(dirStr, width - offset, offset);
+        }
         ctx.restore();
       }
     };
@@ -859,9 +1109,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.textBaseline = 'middle';
 
         // Proportional outside stroke calculation (scaled directly with font size / panel height)
-        const strokePx = conf.strokeWidth > 1 
-          ? Math.max(1, Math.round((conf.strokeWidth / 100) * fontSizePx)) 
-          : Math.max(1, Math.round(conf.strokeWidth * scale));
+        const strokePx = Math.max(1, Math.round((conf.strokeWidth / 50) * fontSizePx));
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
 
@@ -901,7 +1149,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         // Store bounding box for canvas clicking & drag selection
         const textMetrics = ctx.measureText(displayName);
         const boundsW = Math.min(textMetrics.width, maxLimitPx);
-        const boundsH = fontSizePx * 1.2;
+        const boundsH = fontSizePx * 1.15;
 
         let boxX = adjustedX;
         if (align === 'center') {
@@ -909,9 +1157,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         } else if (align === 'right') {
           boxX = adjustedX - boundsW;
         }
-        const boxY = textY - fontSizePx * 0.6;
+        const boxY = textY - fontSizePx * 0.55;
 
         if (layerKey) {
+          const panelSpecificKey = `${panelKey}-${layerKey}`;
+          textBoundingBoxesRef.current[panelSpecificKey] = {
+            x: boxX,
+            y: boxY,
+            w: boundsW,
+            h: boundsH
+          };
           textBoundingBoxesRef.current[layerKey] = {
             x: boxX,
             y: boxY,
@@ -951,8 +1206,24 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             const cached = textureCache.current.get(conf.textureUrl);
             if (cached && cached.complete && cached.naturalWidth > 0) {
               try {
-                const pattern = ctx.createPattern(cached, 'repeat');
-                if (pattern) return pattern;
+                const scale = conf.textureScale || 1.0;
+                const patternCanvas = document.createElement('canvas');
+                const scaledW = Math.max(1, Math.round(cached.naturalWidth * scale));
+                const scaledH = Math.max(1, Math.round(cached.naturalHeight * scale));
+                patternCanvas.width = scaledW;
+                patternCanvas.height = scaledH;
+                const patCtx = patternCanvas.getContext('2d')!;
+                patCtx.drawImage(cached, 0, 0, scaledW, scaledH);
+                const pattern = ctx.createPattern(patternCanvas, 'repeat');
+                if (pattern) {
+                  const offsetX = ((conf.textureOffsetX ?? 50) / 100) * scaledW;
+                  const offsetY = ((conf.textureOffsetY ?? 50) / 100) * scaledH;
+                  const matrix = new DOMMatrix();
+                  matrix.e = -offsetX;
+                  matrix.f = -offsetY;
+                  pattern.setTransform(matrix);
+                  return pattern;
+                }
               } catch (err) {}
             } else if (!cached) {
               const img = new Image();
@@ -1013,22 +1284,26 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
       const hideOverlays = metadata?.blankKit ?? false;
       if (!hideOverlays && panel.nameConfig.enabled) {
-        drawSingleText(previewName, panel.nameConfig, width / 2, (panel.nameConfig.yPos / 100) * height, (panel.nameConfig.maxW / 20) * width, 'name');
+        const textX = panel.nameConfig.xPos !== undefined ? (panel.nameConfig.xPos / 100) * width : width / 2;
+        drawSingleText(previewName, panel.nameConfig, textX, (panel.nameConfig.yPos / 100) * height, (panel.nameConfig.maxW / 20) * width, 'name');
       }
       if (!hideOverlays && panel.numberConfig.enabled) {
-        drawSingleText(previewNumber, panel.numberConfig, width / 2, (panel.numberConfig.yPos / 100) * height, (panel.numberConfig.maxW / 20) * width, 'number');
+        const textX = panel.numberConfig.xPos !== undefined ? (panel.numberConfig.xPos / 100) * width : width / 2;
+        drawSingleText(previewNumber, panel.numberConfig, textX, (panel.numberConfig.yPos / 100) * height, (panel.numberConfig.maxW / 20) * width, 'number');
       }
 
-      // Draw interactive Cyan Selection Box with 8 Control Handles around Active Selected Text Layer ONLY if text is selected
-      if (!is3DPreview && activeTextLayer) {
-        const selectedBox = textBoundingBoxesRef.current[activeTextLayer];
+      // Draw interactive Cyan Selection Box with 8 Control Handles around Active Selected Text Layer ONLY on target panel
+      const targetPanelFocus = activeTab === 'dual' ? dualActivePanel : activeTab;
+      if (!is3DPreview && activeTextLayer && panelKey === targetPanelFocus && panelKey !== 'sleeveLeft' && panelKey !== 'sleeveRight') {
+        const specificKey = `${panelKey}-${activeTextLayer}`;
+        const selectedBox = textBoundingBoxesRef.current[specificKey] || textBoundingBoxesRef.current[activeTextLayer];
         if (selectedBox) {
           ctx.save();
-          ctx.strokeStyle = '#00f0ff';
-          ctx.lineWidth = 2;
-          ctx.setLineDash([6, 4]);
+          ctx.strokeStyle = '#00e5ff';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([5, 3]);
 
-          const pad = 10;
+          const pad = 6;
           const bx = selectedBox.x - pad;
           const by = selectedBox.y - pad;
           const bw = selectedBox.w + pad * 2;
@@ -1052,27 +1327,30 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
           handles.forEach(h => {
             ctx.fillStyle = '#ffffff';
-            ctx.strokeStyle = '#00f0ff';
+            ctx.strokeStyle = '#00e5ff';
             ctx.lineWidth = 1.5;
             ctx.fillRect(h.x - 4, h.y - 4, 8, 8);
             ctx.strokeRect(h.x - 4, h.y - 4, 8, 8);
           });
 
-          // Active Layer Name Badge
-          const badgeText = activeTextLayer === 'name' ? 'PLAYER NAME (SELECTED)' : 'PLAYER NUMBER (SELECTED)';
+          // Active Layer Name Badge with drag direction hint
+          const labelName = activeTextLayer === 'name' ? 'PLAYER NAME' : 'PLAYER NUMBER';
+          const badgeText = panelKey === 'front' ? `✥ ${labelName} (DRAG 2D)` : `↕ ${labelName} (DRAG VERTICAL)`;
           ctx.font = 'bold 10px sans-serif';
-          const badgeW = ctx.measureText(badgeText).width + 14;
-          ctx.fillStyle = '#00f0ff';
-          ctx.fillRect(bx, Math.max(2, by - 20), badgeW, 18);
+          const badgeW = ctx.measureText(badgeText).width + 16;
+          ctx.fillStyle = '#00e5ff';
+          ctx.fillRect(bx, Math.max(2, by - 22), badgeW, 18);
           ctx.fillStyle = '#000000';
-          ctx.fillText(badgeText, bx + 7, Math.max(14, by - 6));
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(badgeText, bx + 8, Math.max(11, by - 13));
 
           ctx.restore();
         }
       }
 
       // Draw customizable Size Tag (Top Left) - skip for A4 and skip if 3D preview
-      const sizeTagConf = panel.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
+      const sizeTagConf = panel.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
       if (!is3DPreview && sizeTagConf.enabled && panelKey !== 'a4Print') {
         ctx.save();
         // Use pxPerInch (physicalW-based) so size tag is SAME physical size on all panels
@@ -1085,7 +1363,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.textBaseline = 'top';
         ctx.lineJoin = 'round';
 
-        const offsetPx = Math.round(0.15 * pxPerInch);
+        const offsetPx = Math.round(0.06 * pxPerInch);
         
         let targetX = offsetPx;
         if (align === 'center') {
@@ -1117,7 +1395,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         const templateText = sizeTagConf.text || '{size}';
         const displayText = templateText.replace('{size}', "40");
 
-        const sw = sizeTagConf.strokeWidth > 0 ? sizeTagConf.strokeWidth : 7;
+        const sw = sizeTagConf.strokeWidth > 0 ? sizeTagConf.strokeWidth : 3;
         const swPx = Math.max(1, Math.round((sw / 72) * pxPerInch));
 
         ctx.strokeStyle = sizeTagConf.strokeColor || '#ffffff';
@@ -1136,7 +1414,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       if (savedR !== null) rulersPref = JSON.parse(savedR);
     } catch (e) {}
     const rulersEnabled = !is3DPreview && rulersPref;
-    const rulerOffset = rulersEnabled ? Math.round(0.35 * scale) : 0;
+    const rulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
 
     const drawRulersAndGrid = (ctx: CanvasRenderingContext2D) => {
       if (is3DPreview || !rulersEnabled) return;
@@ -1171,9 +1449,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
       ctx.setLineDash([]);
 
-      // 2. Illustrator Ruler Background tracks & ticks (OUTSIDE panel image area)
-      const rulerBg = '#333333';
-      const tickColor = '#ffffff';
+      // 2. Photoshop-style Ruler Background tracks & ticks
+      const rulerBg = '#2a2a2a';
+      const tickColor = '#e0e0e0';
       const borderLineColor = '#1a1a1a';
 
       // Top Ruler track (0 .. rulerOffset y)
@@ -1213,10 +1491,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       ctx.strokeStyle = tickColor;
       ctx.fillStyle = tickColor;
 
-      for (let x = 0; x <= physicalW; x += 0.5) {
+      for (let x = 0; x <= physicalW; x += 0.25) {
         const xPx = rulerOffset + Math.round(x * scale);
         const isWhole = x % 1 === 0;
-        const tickLen = isWhole ? Math.round(0.10 * scale) : Math.round(0.05 * scale);
+        const isHalf = x % 0.5 === 0 && !isWhole;
+        const tickLen = isWhole ? Math.round(0.12 * scale) : isHalf ? Math.round(0.07 * scale) : Math.round(0.04 * scale);
+        ctx.lineWidth = isWhole ? 1 : 0.5;
         ctx.beginPath();
         ctx.moveTo(xPx, rulerOffset - tickLen);
         ctx.lineTo(xPx, rulerOffset);
@@ -1367,30 +1647,61 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           : (panel.uploadedFileHalfUrl || panel.uploadedFileUrl);
       }
 
-      if (panel.backgroundType === 'upload' && bgUrl) {
-        const cachedImg = logoImagesRef.current[bgUrl];
-        if (cachedImg && cachedImg.complete) {
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, width, height);
+      if (panel.backgroundType === 'upload') {
+        if (bgUrl) {
+          const cachedImg = logoImagesRef.current[bgUrl];
+          if (cachedImg && cachedImg.complete) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
 
-          const bgW = (panel.bgWidth !== undefined ? panel.bgWidth : physicalW) * scale;
-          const bgH = (panel.bgHeight !== undefined ? panel.bgHeight : physicalH) * scale;
-          const bgX = (panel.bgX !== undefined ? panel.bgX : 0) * scale;
-          const bgY = (panel.bgY !== undefined ? panel.bgY : 0) * scale;
+            const bgW = (panel.bgWidth !== undefined ? panel.bgWidth : physicalW) * scale;
+            const bgH = (panel.bgHeight !== undefined ? panel.bgHeight : physicalH) * scale;
+            const bgX = (panel.bgX !== undefined ? panel.bgX : 0) * scale;
+            const bgY = (panel.bgY !== undefined ? panel.bgY : 0) * scale;
 
-          ctx.drawImage(cachedImg, bgX, bgY, bgW, bgH);
-          drawLogos(ctx);
-          drawTexts(ctx);
-          drawTechnicalMarks(ctx);
+            ctx.drawImage(cachedImg, bgX, bgY, bgW, bgH);
+            drawLogos(ctx);
+            drawTexts(ctx);
+            drawTechnicalMarks(ctx);
+          } else {
+            const img = new Image();
+            img.onload = () => {
+              logoImagesRef.current[bgUrl] = img;
+              setPrefTrigger(prev => prev + 1);
+            };
+            img.src = bgUrl;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+            drawLogos(ctx);
+            drawTexts(ctx);
+            drawTechnicalMarks(ctx);
+          }
         } else {
-          const img = new Image();
-          img.onload = () => {
-            logoImagesRef.current[bgUrl] = img;
-            setPrefTrigger(prev => prev + 1);
-          };
-          img.src = bgUrl;
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, width, height);
+          // Standard Photoshop / CorelDraw Transparency Checks Print for Empty Panels
+          const checkSize = Math.max(12, Math.round(14 * (scale / 20)));
+          for (let cy = 0; cy < height; cy += checkSize) {
+            for (let cx = 0; cx < width; cx += checkSize) {
+              const isEven = (Math.floor(cx / checkSize) + Math.floor(cy / checkSize)) % 2 === 0;
+              ctx.fillStyle = isEven ? '#1e222d' : '#141720';
+              ctx.fillRect(cx, cy, checkSize, checkSize);
+            }
+          }
+
+          // Subtle watermark in the center indicating empty panel
+          ctx.save();
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+          ctx.font = `600 ${Math.max(11, Math.round(12 * (scale / 20)))}px system-ui, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`— Empty (No Graphic Uploaded) —`, width / 2, height / 2);
+          ctx.restore();
+
+          if (!is3DPreview) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(0, 0, width, height);
+          }
+
           drawLogos(ctx);
           drawTexts(ctx);
           drawTechnicalMarks(ctx);
@@ -1507,27 +1818,61 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         return;
       }
 
-      // Guidelines toggle shortcut: G  or  Ctrl + '.'
-      if (key === 'G' || (isCtrl && e.key === '.')) {
+      // Undo: Ctrl + Z
+      if (isCtrl && key === 'Z' && !e.shiftKey) {
         e.preventDefault();
-        setShowGuidelines(prev => !prev);
+        e.stopPropagation();
+        handleUndoRef.current();
         return;
       }
 
-      // Tool Switching Shortcuts (V, H, Z, T, L, I, R)
-      if (key === 'V' || e.key === 'F1') {
+      // Redo: Ctrl + Shift + Z or Ctrl + Y
+      if ((isCtrl && key === 'Z' && e.shiftKey) || (isCtrl && key === 'Y')) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleRedoRef.current();
+        return;
+      }
+
+      // Rulers toggle shortcut: Ctrl + R
+      if (isCtrl && key === 'R') {
+        e.preventDefault();
+        e.stopPropagation();
+        setRulersEnabled(prev => {
+          const next = !prev;
+          localStorage.setItem('fivenest_pref_rulers', JSON.stringify(next));
+          toast.success(next ? 'Rulers Shown (Ctrl+R)' : 'Rulers Hidden (Ctrl+R)');
+          return next;
+        });
+        return;
+      }
+
+      // Guidelines toggle shortcut: Ctrl + G, G, or Ctrl + '.'
+      if ((isCtrl && (key === 'G' || e.key === '.')) || (!isCtrl && key === 'G')) {
+        e.preventDefault();
+        e.stopPropagation();
+        setShowGuidelines(prev => {
+          const next = !prev;
+          toast.success(next ? 'Guidelines Shown (Ctrl+G)' : 'Guidelines Hidden (Ctrl+G)');
+          return next;
+        });
+        return;
+      }
+
+      // Tool Switching Shortcuts (V, H, Z, T, L, I, R) - only without Ctrl/Cmd
+      if (!isCtrl && (key === 'V' || e.key === 'F1')) {
         setActiveTool('pick');
-      } else if (key === 'H') {
+      } else if (!isCtrl && key === 'H') {
         setActiveTool('pan');
-      } else if (key === 'Z') {
+      } else if (!isCtrl && key === 'Z') {
         setActiveTool('zoom');
-      } else if (key === 'T' && !isCtrl) {
+      } else if (!isCtrl && key === 'T') {
         setActiveTool('text');
-      } else if (key === 'L' && !isCtrl) {
+      } else if (!isCtrl && key === 'L') {
         setActiveTool('logo');
-      } else if (key === 'I' && !isCtrl) {
+      } else if (!isCtrl && key === 'I') {
         setActiveTool('eyedrop');
-      } else if (key === 'R' && !isCtrl) {
+      } else if (!isCtrl && key === 'R') {
         setRulersEnabled(prev => {
           const next = !prev;
           localStorage.setItem('fivenest_pref_rulers', JSON.stringify(next));
@@ -1580,6 +1925,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     };
 
     const handleGlobalMouseUp = () => {
+      if (isDraggingTextRef.current && dragStartConfigRef.current) {
+        setUndoStack(prev => [...prev.slice(-29), dragStartConfigRef.current!]);
+        setRedoStack([]);
+        dragStartConfigRef.current = null;
+      }
       isDraggingTextRef.current = false;
     };
 
@@ -1600,7 +1950,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const savedR = localStorage.getItem('fivenest_pref_rulers');
       if (savedR !== null) rulersPref = JSON.parse(savedR);
     } catch (e) {}
-    const rulerOffset = rulersPref ? Math.round(0.35 * scale) : 0;
+    const rulerOffset = rulersPref ? Math.round(0.55 * scale) : 0;
 
     if (activeTab === 'dual') {
       // 1. Left Sleeve
@@ -1702,6 +2052,20 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       };
       reader.readAsDataURL(file);
     }
+  };
+
+
+  const handleLogoFileUpload = (position: 'leftChest' | 'rightChest' | 'torso', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const url = ev.target?.result as string;
+      const logoKey = position === 'leftChest' ? 'leftChestLogo' : position === 'rightChest' ? 'rightChestLogo' : 'torsoLogo';
+      updateActivePanel({ [logoKey]: { ...((activePanel as any)[logoKey] || {}), uploadedUrl: url, enabled: true } });
+      setPrefTrigger((prev: number) => prev + 1);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleZipImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1826,18 +2190,43 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     });
   };
 
-  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current || activeTab === 'threeD') return;
-    const rect = canvasRef.current.getBoundingClientRect();
-    const currentRulerOffset = rulersEnabled ? Math.round(0.35 * scale) : 0;
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>, specificPanel?: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print') => {
+    if (spaceKeyPressed || activeTool === 'pan' || e.button === 1) {
+      e.preventDefault();
+      setIsPanning(true);
+      panStartRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        initialPanX: panOffset.x,
+        initialPanY: panOffset.y
+      };
+      return;
+    }
+    if (activeTab === 'threeD') return;
+
+    const targetCanvas = e.currentTarget;
+    if (!targetCanvas) return;
+
+    const targetPanelKey = specificPanel || (activeTab === 'dual' ? dualActivePanel : activeTab);
+    const panelConfig = (designConfig[targetPanelKey as keyof ArtDesignConfig] || activePanel) as PanelConfig;
+
+    if (activeTab === 'dual' && specificPanel && dualActivePanel !== specificPanel) {
+      if (specificPanel !== 'a4Print') {
+        setDualActivePanel(specificPanel as 'front' | 'back' | 'sleeveLeft' | 'sleeveRight');
+      }
+    }
+
+    const rect = targetCanvas.getBoundingClientRect();
+    const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
     const canvasX = (e.clientX - rect.left) / zoom - currentRulerOffset;
     const canvasY = (e.clientY - rect.top) / zoom - currentRulerOffset;
 
-    const pad = 16;
+    const pad = 14;
 
-    // Check hit test for Player Name
-    const nameBox = textBoundingBoxesRef.current['name'];
-    if (nameBox && activePanel.nameConfig?.enabled) {
+    // Check hit test for Player Name on this panel
+    const nameKey = `${targetPanelKey}-name`;
+    const nameBox = textBoundingBoxesRef.current[nameKey] || textBoundingBoxesRef.current['name'];
+    if (nameBox && panelConfig.nameConfig?.enabled) {
       if (
         canvasX >= nameBox.x - pad &&
         canvasX <= nameBox.x + nameBox.w + pad &&
@@ -1847,14 +2236,18 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         setActiveTextLayer('name');
         setActiveTool('text');
         isDraggingTextRef.current = true;
+        dragStartConfigRef.current = JSON.parse(JSON.stringify(designConfig)); // snapshot for undo
+        textDragOffsetXRef.current = canvasX - nameBox.x;
+        textDragOffsetYRef.current = canvasY - nameBox.y;
         setPrefTrigger(prev => prev + 1);
         return;
       }
     }
 
-    // Check hit test for Player Number
-    const numBox = textBoundingBoxesRef.current['number'];
-    if (numBox && activePanel.numberConfig?.enabled) {
+    // Check hit test for Player Number on this panel
+    const numKey = `${targetPanelKey}-number`;
+    const numBox = textBoundingBoxesRef.current[numKey] || textBoundingBoxesRef.current['number'];
+    if (numBox && panelConfig.numberConfig?.enabled) {
       if (
         canvasX >= numBox.x - pad &&
         canvasX <= numBox.x + numBox.w + pad &&
@@ -1864,6 +2257,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         setActiveTextLayer('number');
         setActiveTool('text');
         isDraggingTextRef.current = true;
+        dragStartConfigRef.current = JSON.parse(JSON.stringify(designConfig)); // snapshot for undo
+        textDragOffsetXRef.current = canvasX - numBox.x;
+        textDragOffsetYRef.current = canvasY - numBox.y;
         setPrefTrigger(prev => prev + 1);
         return;
       }
@@ -1874,20 +2270,133 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   };
 
   const handleCanvasMouseUp = () => {
+    // Push ONE undo snapshot for the entire drag operation
+    if (isDraggingTextRef.current && dragStartConfigRef.current) {
+      setUndoStack(prev => [...prev.slice(-29), dragStartConfigRef.current!]);
+      setRedoStack([]);
+      dragStartConfigRef.current = null;
+    }
     isDraggingTextRef.current = false;
   };
 
-  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current) return;
-    const rect = canvasRef.current.getBoundingClientRect();
+  const handleCanvasDoubleClick = (
+    e: React.MouseEvent<HTMLCanvasElement>, 
+    specificPanel?: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print'
+  ) => {
+    e.stopPropagation();
+    const targetCanvas = e.currentTarget;
+    if (!targetCanvas) return;
+
+    const targetPanelKey = specificPanel || (activeTab === 'dual' ? dualActivePanel : activeTab);
+    if (specificPanel && activeTab === 'dual' && dualActivePanel !== specificPanel) {
+      if (specificPanel !== 'a4Print') {
+        setDualActivePanel(specificPanel as 'front' | 'back' | 'sleeveLeft' | 'sleeveRight');
+      }
+    }
+
+    const panelConfig = (designConfig[targetPanelKey as keyof ArtDesignConfig] || activePanel) as PanelConfig;
+    const rect = targetCanvas.getBoundingClientRect();
+    const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
+    const canvasX = (e.clientX - rect.left) / zoom - currentRulerOffset;
+    const canvasY = (e.clientY - rect.top) / zoom - currentRulerOffset;
+    const pad = 16;
+
+    // 1. Check hit test for Player Name
+    const nameKey = `${targetPanelKey}-name`;
+    const nameBox = textBoundingBoxesRef.current[nameKey] || textBoundingBoxesRef.current['name'];
+    if (nameBox && panelConfig.nameConfig?.enabled) {
+      if (
+        canvasX >= nameBox.x - pad &&
+        canvasX <= nameBox.x + nameBox.w + pad &&
+        canvasY >= nameBox.y - pad &&
+        canvasY <= nameBox.y + nameBox.h + pad
+      ) {
+        setActiveTextLayer('name');
+        setTextEditorModal({
+          isOpen: true,
+          targetLayer: 'name',
+          panelKey: targetPanelKey as any
+        });
+        return;
+      }
+    }
+
+    // 2. Check hit test for Player Number
+    const numKey = `${targetPanelKey}-number`;
+    const numBox = textBoundingBoxesRef.current[numKey] || textBoundingBoxesRef.current['number'];
+    if (numBox && panelConfig.numberConfig?.enabled) {
+      if (
+        canvasX >= numBox.x - pad &&
+        canvasX <= numBox.x + numBox.w + pad &&
+        canvasY >= numBox.y - pad &&
+        canvasY <= numBox.y + numBox.h + pad
+      ) {
+        setActiveTextLayer('number');
+        setTextEditorModal({
+          isOpen: true,
+          targetLayer: 'number',
+          panelKey: targetPanelKey as any
+        });
+        return;
+      }
+    }
+
+    // 3. Fallback: double clicking on background opens graphic upload
+    fileInputRef.current?.click();
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>, specificPanel?: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print') => {
+    const targetCanvas = e.currentTarget;
+    if (!targetCanvas) return;
+    const rect = targetCanvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
+    const targetPanelKey = specificPanel || (activeTab === 'dual' ? dualActivePanel : activeTab);
+    const panelConfig = (designConfig[targetPanelKey as keyof ArtDesignConfig] || activePanel) as PanelConfig;
+
     if (isDraggingTextRef.current && activeTextLayer) {
-      const currentRulerOffset = rulersEnabled ? Math.round(0.35 * scale) : 0;
-      const canvasY = (mouseY / zoom) - currentRulerOffset;
-      const newYPercent = Math.min(100, Math.max(0, Math.round((canvasY / height) * 100)));
-      updateTextConfig(activeTextLayer, { yPos: newYPercent });
+      const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
+      // Subtract grab offset so the text follows the cursor smoothly without jumping
+      const canvasY = (mouseY / zoom) - currentRulerOffset - textDragOffsetYRef.current;
+      const targetCanvasHeight = height; // panel height in canvas coords
+      const newYPercent = Math.min(95, Math.max(5, Math.round((canvasY / targetCanvasHeight) * 100)));
+      
+      const configKey = activeTextLayer === 'name' ? 'nameConfig' : 'numberConfig';
+      
+      if (targetPanelKey === 'front') {
+        // Front panel: Free 2D Movement (Both Horizontal X% and Vertical Y%)
+        const canvasX = (mouseX / zoom) - currentRulerOffset - textDragOffsetXRef.current;
+        const targetCanvasWidth = width;
+        const boxKey = `front-${activeTextLayer}`;
+        const currentBox = textBoundingBoxesRef.current[boxKey] || textBoundingBoxesRef.current[activeTextLayer];
+        const halfW = currentBox ? currentBox.w / 2 : 0;
+        const newXPercent = Math.min(95, Math.max(5, Math.round(((canvasX + halfW) / targetCanvasWidth) * 100)));
+
+        onDesignConfigChange({
+          ...designConfig,
+          front: {
+            ...(panelConfig as PanelConfig),
+            [configKey]: {
+              ...(panelConfig as PanelConfig)[configKey as keyof PanelConfig] as object,
+              xPos: newXPercent,
+              yPos: newYPercent
+            }
+          } as PanelConfig
+        });
+      } else {
+        // Back panel: Strictly Vertical Movement (Y% only, Horizontal remains centered)
+        onDesignConfigChange({
+          ...designConfig,
+          [targetPanelKey]: {
+            ...panelConfig,
+            [configKey]: {
+              ...panelConfig[configKey],
+              yPos: newYPercent
+            }
+          }
+        });
+      }
     }
 
     const currentScale = scale * zoom;
@@ -1921,7 +2430,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         onOpenBulkImport={() => zipInputRef.current?.click()}
         onClearPanel={() => updateActivePanel({ uploadedFileUrl: null })}
         onOpenShortcutsModal={() => setShowShortcutsModal(true)}
-        onOpenPanelEditor={() => setShowPanelEditorModal(true)}
       />
 
       {/* 2. COREL CONTEXT PROPERTY BAR */}
@@ -1940,16 +2448,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         onSleeveTypeChange={handleSleeveTypeChange}
       />
 
-      {/* 3. MAIN WORKSPACE: LEFT TOOLBOX + CANVAS + RIGHT DOCKERS */}
+      {/* 3. MAIN WORKSPACE: CANVAS + RIGHT DOCKERS */}
       <div className="cd-workspace-main">
-        <ToolBox
-          activeTool={activeTool}
-          onSelectTool={setActiveTool}
-          showGuidelines={showGuidelines}
-          onToggleGuidelines={() => setShowGuidelines(prev => !prev)}
-        />
-
-        <div className="cd-canvas-area">
+        <div className="cd-canvas-area" style={{ background: 'radial-gradient(ellipse at 50% 20%, rgba(228, 87, 46, 0.04) 0%, transparent 65%), repeating-linear-gradient(0deg, transparent, transparent 23px, rgba(0, 0, 0, 0.035) 23px, rgba(0, 0, 0, 0.035) 24px), repeating-linear-gradient(90deg, transparent, transparent 23px, rgba(0, 0, 0, 0.035) 23px, rgba(0, 0, 0, 0.035) 24px), #EDE9E3' }}>
 
 
           {/* 2D Canvas Mock Renderer */}
@@ -2035,45 +2536,90 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
 
         
-        {(activeTab === 'dual' || activeTab === 'sleeveLeft' || activeTab === 'sleeveRight') && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', marginBottom: '4px', background: 'rgba(15, 23, 42, 0.85)', padding: '4px 12px', borderRadius: '30px', border: '1px solid rgba(0, 240, 255, 0.3)', backdropFilter: 'blur(8px)' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700', color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Sleeve Style:
-            </span>
-            <div style={{ display: 'flex', gap: '4px', background: 'rgba(0, 0, 0, 0.4)', padding: '2px', borderRadius: '20px' }}>
-              <button 
-                className={`btn ${previewSleeveType === 'half' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ padding: '4px 14px', fontSize: '11px', borderRadius: '16px', border: 'none', fontWeight: '600' }}
-                onClick={() => handleSleeveTypeChange('half')}
-                title="Switch to Half Sleeve (19x11 in)"
-              >
-                👕 Half Sleeve (19" × 11")
-              </button>
-              <button 
-                className={`btn ${previewSleeveType === 'full' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ padding: '4px 14px', fontSize: '11px', borderRadius: '16px', border: 'none', fontWeight: '600' }}
-                onClick={() => handleSleeveTypeChange('full')}
-                title="Switch to Full Sleeve (19x25 in)"
-              >
-                🧤 Full Sleeve (19" × 25")
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Sleeve Style moved to PropertyBar — clean center canvas */}
         
-        {/* Controls Bar: 2D Zoom Bar OR 3D Viewport Bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', marginBottom: '4px' }}>
+        {/* Controls Bar: 2D Zoom Bar OR 3D Viewport Bar (Glassmorphism Capsule) */}
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '8px', 
+          marginTop: '6px', 
+          marginBottom: '6px', 
+          background: 'rgba(255, 255, 255, 0.94)', 
+          backdropFilter: 'blur(16px)', 
+          WebkitBackdropFilter: 'blur(16px)',
+          border: '1px solid #E2DED7', 
+          borderRadius: '9999px', 
+          padding: '4px 12px', 
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04)',
+          zIndex: 20
+        }}>
           {activeTab === 'threeD' ? (
             <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(15, 23, 42, 0.85)', padding: '4px 12px', borderRadius: '20px', border: '1px solid rgba(0, 240, 255, 0.3)' }}>
-                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                <span style={{ fontSize: '11px', fontWeight: '700', color: '#38bdf8', letterSpacing: '0.5px' }}>
-                  3D REAL-TIME VIEWPORT ACTIVE (BLENDER CONTROLS)
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#ECFDF5', padding: '4px 12px', borderRadius: '20px', border: '1px solid #A7F3D0' }}>
+                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                <span style={{ fontSize: '11px', fontWeight: '700', color: '#047857', letterSpacing: '0.3px' }}>
+                  3D REAL-TIME VIEWPORT ACTIVE
                 </span>
               </div>
+              <div style={{ width: '1px', height: '18px', background: '#E2DED7', margin: '0 2px' }} />
+
+              {/* Sleeve Style Toggle (3D Mode) */}
+              <div style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '2px', 
+                background: '#FAF8F5', 
+                border: '1px solid #E2DED7', 
+                borderRadius: '9999px', 
+                padding: '2px 4px' 
+              }}>
+                <span style={{ fontSize: '10px', fontWeight: '800', color: '#92908A', padding: '0 6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Sleeve:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleSleeveTypeChange('half')}
+                  style={{
+                    padding: '3px 10px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    borderRadius: '9999px',
+                    border: previewSleeveType === 'half' ? '1px solid #E4572E' : '1px solid transparent',
+                    cursor: 'pointer',
+                    background: previewSleeveType === 'half' ? '#E4572E' : 'transparent',
+                    color: previewSleeveType === 'half' ? '#FFFFFF' : '#4B5563',
+                    boxShadow: previewSleeveType === 'half' ? '0 1px 3px rgba(228, 87, 46, 0.25)' : 'none',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="Switch to Half Sleeve"
+                >
+                  Half Sleeve
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSleeveTypeChange('full')}
+                  style={{
+                    padding: '3px 10px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    borderRadius: '9999px',
+                    border: previewSleeveType === 'full' ? '1px solid #E4572E' : '1px solid transparent',
+                    cursor: 'pointer',
+                    background: previewSleeveType === 'full' ? '#E4572E' : 'transparent',
+                    color: previewSleeveType === 'full' ? '#FFFFFF' : '#4B5563',
+                    boxShadow: previewSleeveType === 'full' ? '0 1px 3px rgba(228, 87, 46, 0.25)' : 'none',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="Switch to Full Sleeve"
+                >
+                  Full Sleeve
+                </button>
+              </div>
+
               <button 
                 className="btn btn-primary"
-                style={{ padding: '6px 14px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', fontWeight: 'bold' }}
+                style={{ padding: '5px 14px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '9999px', fontWeight: 'bold' }}
                 onClick={() => setActiveTab('dual')}
                 title="Exit 3D View and Return to 2D Spread Layout"
               >
@@ -2084,26 +2630,26 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             <>
               <button 
                 className="btn btn-secondary" 
-                style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
+                style={{ padding: '5px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '9999px', background: '#FAF8F5', border: '1px solid #E2DED7', color: '#374151' }}
+                onClick={() => handleZoomChange(zoom - 0.25)}
                 title="Zoom Out"
               >
-                <ZoomOut size={14} />
+                <ZoomOut size={13} />
               </button>
-              <span style={{ fontSize: '13px', fontWeight: '600', minWidth: '50px', textAlign: 'center', color: 'var(--text-primary)' }}>
+              <span style={{ fontSize: '12px', fontWeight: '800', minWidth: '45px', textAlign: 'center', color: '#171717' }}>
                 {Math.round(zoom * 100)}%
               </span>
               <button 
                 className="btn btn-secondary" 
-                style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                onClick={() => setZoom(Math.min(3, zoom + 0.25))}
+                style={{ padding: '5px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '9999px', background: '#FAF8F5', border: '1px solid #E2DED7', color: '#374151' }}
+                onClick={() => handleZoomChange(zoom + 0.25)}
                 title="Zoom In"
               >
-                <ZoomIn size={14} />
+                <ZoomIn size={13} />
               </button>
               <button 
                 className="btn btn-secondary" 
-                style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: '#00f0ff' }}
+                style={{ padding: '5px 12px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '5px', color: '#E4572E', borderRadius: '9999px', background: '#FFF4F0', borderColor: '#F5C4B2', fontWeight: '700' }}
                 onClick={handleFitToScreen}
                 title="Fit Full View to Screen (Ctrl+0)"
               >
@@ -2111,26 +2657,83 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               </button>
               <button 
                 className="btn btn-secondary"
-                style={{ padding: '6px 12px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px' }}
+                style={{ padding: '5px 12px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '9999px', background: '#ECFDF5', borderColor: '#A7F3D0', color: '#047857', fontWeight: '700' }}
                 onClick={() => setActiveTab('threeD')}
                 title="Enter 3D Jersey Preview"
               >
-                <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                 3D View
               </button>
               {zoom !== 1 && (
                 <button 
                   className="btn btn-secondary" 
-                  style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)' }}
-                  onClick={() => setZoom(1)}
+                  style={{ padding: '5px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: '#6B7280', borderRadius: '9999px', background: '#FAF8F5', border: '1px solid #E2DED7' }}
+                  onClick={() => handleZoomChange(1)}
                   title="Reset Zoom to 100%"
                 >
                   <RotateCcw size={12} /> 100%
                 </button>
               )}
+
+              {/* Divider */}
+              <div style={{ width: '1px', height: '18px', background: '#E2DED7', margin: '0 2px' }} />
+
+              {/* Sleeve Style Toggle (Half / Full) */}
+              <div style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '2px', 
+                background: '#FAF8F5', 
+                border: '1px solid #E2DED7', 
+                borderRadius: '9999px', 
+                padding: '2px 4px' 
+              }}>
+                <span style={{ fontSize: '10px', fontWeight: '800', color: '#92908A', padding: '0 6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Sleeve:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleSleeveTypeChange('half')}
+                  style={{
+                    padding: '3px 10px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    borderRadius: '9999px',
+                    border: previewSleeveType === 'half' ? '1px solid #E4572E' : '1px solid transparent',
+                    cursor: 'pointer',
+                    background: previewSleeveType === 'half' ? '#E4572E' : 'transparent',
+                    color: previewSleeveType === 'half' ? '#FFFFFF' : '#4B5563',
+                    boxShadow: previewSleeveType === 'half' ? '0 1px 3px rgba(228, 87, 46, 0.25)' : 'none',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="Switch to Half Sleeve"
+                >
+                  Half Sleeve
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSleeveTypeChange('full')}
+                  style={{
+                    padding: '3px 10px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    borderRadius: '9999px',
+                    border: previewSleeveType === 'full' ? '1px solid #E4572E' : '1px solid transparent',
+                    cursor: 'pointer',
+                    background: previewSleeveType === 'full' ? '#E4572E' : 'transparent',
+                    color: previewSleeveType === 'full' ? '#FFFFFF' : '#4B5563',
+                    boxShadow: previewSleeveType === 'full' ? '0 1px 3px rgba(228, 87, 46, 0.25)' : 'none',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="Switch to Full Sleeve"
+                >
+                  Full Sleeve
+                </button>
+              </div>
             </>
           )}
         </div>
+
 
         {/* Global Invisible Image File Input for Double Click / Button Upload */}
         <input 
@@ -2154,110 +2757,75 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             />
           </div>
         ) : (
-          /* 2D CANVAS WORKSPACE: Scrollable Wrapper with Cursor-Centered Zoom */
           <div 
             ref={scrollWrapperRef}
             style={{ 
               flexGrow: 1, 
               width: '100%', 
               height: '100%',
-              overflow: 'auto', 
+              overflow: 'hidden', 
               minHeight: 0,
               boxSizing: 'border-box',
-              cursor: ((spaceKeyPressed || activeTool === 'pan') ? (panStart ? 'grabbing' : 'grab') : ((zKeyPressed || activeTool === 'zoom') ? (dragStart ? 'grabbing' : 'zoom-in') : 'default')),
-              userSelect: (spaceKeyPressed || activeTool === 'pan' || zKeyPressed || activeTool === 'zoom') ? 'none' : 'auto',
-              position: 'relative'
+              cursor: (spaceKeyPressed || activeTool === 'pan' || isPanning) 
+                ? (isPanning ? 'grabbing' : 'grab') 
+                : (activeTool === 'zoom' ? 'zoom-in' : 'default'),
+              userSelect: 'none',
+              position: 'relative',
+              touchAction: 'none'
             }}
             onWheel={(e) => {
               e.preventDefault();
               const wrapper = scrollWrapperRef.current;
               if (!wrapper) return;
 
-              const sensitivity = 0.0015;
-              const newZoom = Math.min(3, Math.max(0.5, zoom - e.deltaY * sensitivity));
-              if (newZoom === zoom) return;
-
               const rect = wrapper.getBoundingClientRect();
               const mouseX = e.clientX - rect.left;
               const mouseY = e.clientY - rect.top;
 
-              const scrollX = wrapper.scrollLeft;
-              const scrollY = wrapper.scrollTop;
+              const zoomDelta = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+              const newZoom = Math.min(4.0, Math.max(0.15, Math.round(zoom * zoomDelta * 100) / 100));
+              if (newZoom === zoom) return;
 
-              const contentX = (scrollX + mouseX) / zoom;
-              const contentY = (scrollY + mouseY) / zoom;
+              const worldX = (mouseX - panOffset.x) / zoom;
+              const worldY = (mouseY - panOffset.y) / zoom;
+
+              const newPanX = Math.round(mouseX - worldX * newZoom);
+              const newPanY = Math.round(mouseY - worldY * newZoom);
 
               setZoom(newZoom);
-
-              requestAnimationFrame(() => {
-                if (wrapper) {
-                  wrapper.scrollLeft = contentX * newZoom - mouseX;
-                  wrapper.scrollTop = contentY * newZoom - mouseY;
-                }
-              });
+              setPanOffset({ x: newPanX, y: newPanY });
             }}
             onMouseDown={(e) => {
-              if ((spaceKeyPressed || activeTool === 'pan') && e.button === 0) {
+              if (spaceKeyPressed || activeTool === 'pan' || e.button === 1 || (e.button === 0 && e.target === scrollWrapperRef.current)) {
                 e.preventDefault();
-                if (scrollWrapperRef.current) {
-                  setPanStart({
-                    scrollLeft: scrollWrapperRef.current.scrollLeft,
-                    scrollTop: scrollWrapperRef.current.scrollTop,
-                    x: e.clientX,
-                    y: e.clientY
-                  });
-                }
-              } else if ((zKeyPressed || activeTool === 'zoom') && e.button === 0) {
-                e.preventDefault();
-                setDragStart({ x: e.clientX, y: e.clientY, zoom: zoom });
+                setIsPanning(true);
+                panStartRef.current = {
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  initialPanX: panOffset.x,
+                  initialPanY: panOffset.y
+                };
               }
-            }}
-            onMouseMove={(e) => {
-              if (panStart) {
-                e.preventDefault();
-                const deltaX = e.clientX - panStart.x;
-                const deltaY = e.clientY - panStart.y;
-                if (scrollWrapperRef.current) {
-                  scrollWrapperRef.current.scrollLeft = panStart.scrollLeft - deltaX;
-                  scrollWrapperRef.current.scrollTop = panStart.scrollTop - deltaY;
-                }
-              } else if (dragStart) {
-                e.preventDefault();
-                const deltaX = e.clientX - dragStart.x;
-                const deltaY = dragStart.y - e.clientY;
-                const dragDistance = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
-                const sensitivity = 0.008;
-                const newZoom = Math.min(3, Math.max(0.5, dragStart.zoom + dragDistance * sensitivity));
-                setZoom(newZoom);
-              }
-            }}
-            onMouseUp={() => {
-              setDragStart(null);
-              setPanStart(null);
-            }}
-            onMouseLeave={() => {
-              setDragStart(null);
-              setPanStart(null);
             }}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
-            {/* Centering inner container with full 360-degree corner pan space */}
+            {/* Transform Layer for Locked Panels */}
             <div 
-              onDoubleClick={() => fileInputRef.current?.click()}
+              onDoubleClick={() => {
+                if (!spaceKeyPressed) fileInputRef.current?.click();
+              }}
               title="Double-click canvas to upload artwork background image"
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                minWidth: '100%',
-                minHeight: '100%',
-                width: zoom > 1 ? `${Math.max(width * zoom + 400, 1200)}px` : '100%',
-                height: zoom > 1 ? `${Math.max(height * zoom + 400, 900)}px` : '100%',
-                padding: zoom > 1 ? `${Math.max(160, 260 * zoom)}px` : '24px',
-                boxSizing: 'border-box',
-                position: 'relative'
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0)`,
+                willChange: 'transform',
+                display: 'inline-flex',
+                alignItems: 'flex-start',
+                justifyContent: 'flex-start'
               }}
             >
               {activeTab === 'dual' ? (
@@ -2268,32 +2836,40 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     onClick={() => setDualActivePanel('sleeveLeft')}
                   >
                     <div 
-                      className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
+                      className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 ${
                         dualActivePanel === 'sleeveLeft' 
-                          ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/30' 
-                          : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
+                          ? 'bg-[#E4572E] text-white shadow-md shadow-orange-500/30 ring-2 ring-orange-400/40' 
+                          : 'bg-white border border-[#D8D5CF] text-[#4B5563] shadow-sm hover:border-[#E4572E] hover:text-[#E4572E]'
                       }`}
                     >
                       <span>🧤 LEFT SLEEVE ({sleeveSpreadPhysicalW}" × {sleeveSpreadPhysicalH}")</span>
-                      {dualActivePanel === 'sleeveLeft' && <span className="text-[10px] text-cyan-400 font-semibold">• Active</span>}
+                      {dualActivePanel === 'sleeveLeft' && <span className="text-[10px] text-orange-200 font-semibold">• Active</span>}
                     </div>
 
                     <div style={{ position: 'relative', display: 'inline-block' }}>
                       <canvas 
                         ref={leftSleeveCanvasRef} 
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          setDualActivePanel('sleeveLeft');
-                          fileInputRef.current?.click();
+                        onMouseDown={(e) => {
+                          if (spaceKeyPressed || activeTool === 'pan' || e.button === 1) {
+                            e.preventDefault();
+                            setIsPanning(true);
+                            panStartRef.current = {
+                              startX: e.clientX,
+                              startY: e.clientY,
+                              initialPanX: panOffset.x,
+                              initialPanY: panOffset.y
+                            };
+                          }
                         }}
-                        title="Left Sleeve - Double-click to upload artwork image"
+                        onDoubleClick={(e) => handleCanvasDoubleClick(e, 'sleeveLeft')}
+                        title="Left Sleeve - Double-click text to edit specifications, or double-click to upload artwork"
                         style={{ 
                           borderRadius: '8px', 
-                          border: dualActivePanel === 'sleeveLeft' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
-                          boxShadow: dualActivePanel === 'sleeveLeft' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
-                          cursor: 'pointer',
-                          width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                          height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          border: dualActivePanel === 'sleeveLeft' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
+                          boxShadow: dualActivePanel === 'sleeveLeft' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
+                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer',
+                          width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
                           objectFit: 'contain',
@@ -2305,36 +2881,39 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
                   {/* 2. FRONT PANEL CANVAS */}
                   <div 
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                    onClick={() => setDualActivePanel('front')}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer' }}
+                    onClick={() => { if (!spaceKeyPressed) setDualActivePanel('front'); }}
                   >
                     <div 
-                      className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
+                      className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 ${
                         dualActivePanel === 'front' 
-                          ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/30' 
-                          : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
+                          ? 'bg-[#E4572E] text-white shadow-md shadow-orange-500/30 ring-2 ring-orange-400/40' 
+                          : 'bg-white border border-[#D8D5CF] text-[#4B5563] shadow-sm hover:border-[#E4572E] hover:text-[#E4572E]'
                       }`}
                     >
                       <span>👕 FRONT PANEL ({designConfig.front.customWidth || 22}" × {designConfig.front.customHeight || 30}")</span>
-                      {dualActivePanel === 'front' && <span className="text-[10px] text-cyan-400 font-semibold">• Active</span>}
+                      {dualActivePanel === 'front' && <span className="text-[10px] text-orange-200 font-semibold">• Active</span>}
                     </div>
 
                     <div style={{ position: 'relative', display: 'inline-block' }}>
                       <canvas 
                         ref={frontCanvasRef} 
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          setDualActivePanel('front');
-                          fileInputRef.current?.click();
+                        onMouseDown={(e) => handleCanvasMouseDown(e, 'front')}
+                        onMouseMove={(e) => handleCanvasMouseMove(e, 'front')}
+                        onMouseUp={handleCanvasMouseUp}
+                        onMouseLeave={() => {
+                          setCursorPos(null);
+                          isDraggingTextRef.current = false;
                         }}
-                        title="Front Panel - Double-click to upload artwork image"
+                        onDoubleClick={(e) => handleCanvasDoubleClick(e, 'front')}
+                        title="Front Panel - Double-click Player Name or Number to edit specifications, or double-click to upload artwork"
                         style={{ 
                           borderRadius: '8px', 
-                          border: dualActivePanel === 'front' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
-                          boxShadow: dualActivePanel === 'front' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
-                          cursor: 'pointer',
-                          width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                          height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          border: dualActivePanel === 'front' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
+                          boxShadow: dualActivePanel === 'front' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
+                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer',
+                          width: `${Math.round((width + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((height + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
                           objectFit: 'contain',
@@ -2346,43 +2925,39 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
                   {/* 3. BACK PANEL CANVAS */}
                   <div 
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                    onClick={() => setDualActivePanel('back')}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer' }}
+                    onClick={() => { if (!spaceKeyPressed) setDualActivePanel('back'); }}
                   >
                     <div 
-                      className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
+                      className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 ${
                         dualActivePanel === 'back' 
-                          ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/30' 
-                          : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
+                          ? 'bg-[#E4572E] text-white shadow-md shadow-orange-500/30 ring-2 ring-orange-400/40' 
+                          : 'bg-white border border-[#D8D5CF] text-[#4B5563] shadow-sm hover:border-[#E4572E] hover:text-[#E4572E]'
                       }`}
                     >
                       <span>👕 BACK PANEL ({designConfig.back.customWidth || 22}" × {designConfig.back.customHeight || 30}")</span>
-                      {dualActivePanel === 'back' && <span className="text-[10px] text-cyan-400 font-semibold">• Active</span>}
+                      {dualActivePanel === 'back' && <span className="text-[10px] text-orange-200 font-semibold">• Active</span>}
                     </div>
 
                     <div style={{ position: 'relative', display: 'inline-block' }}>
                       <canvas 
                         ref={backCanvasRef} 
-                        onMouseDown={handleCanvasMouseDown}
-                        onMouseMove={handleCanvasMouseMove}
+                        onMouseDown={(e) => handleCanvasMouseDown(e, 'back')}
+                        onMouseMove={(e) => handleCanvasMouseMove(e, 'back')}
                         onMouseUp={handleCanvasMouseUp}
                         onMouseLeave={() => {
                           setCursorPos(null);
                           isDraggingTextRef.current = false;
                         }}
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          setDualActivePanel('back');
-                          fileInputRef.current?.click();
-                        }}
-                        title="Back Panel - Double-click to upload artwork, click & drag player name/number"
+                        onDoubleClick={(e) => handleCanvasDoubleClick(e, 'back')}
+                        title="Back Panel - Double-click Player Name or Number to edit specifications, or double-click to upload artwork"
                         style={{ 
                           borderRadius: '8px', 
-                          border: dualActivePanel === 'back' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
-                          boxShadow: dualActivePanel === 'back' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
-                          cursor: 'pointer',
-                          width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                          height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          border: dualActivePanel === 'back' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
+                          boxShadow: dualActivePanel === 'back' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
+                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer',
+                          width: `${Math.round((width + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((height + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
                           objectFit: 'contain',
@@ -2394,36 +2969,44 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
                   {/* 4. RIGHT SLEEVE CANVAS */}
                   <div 
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                    onClick={() => setDualActivePanel('sleeveRight')}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer' }}
+                    onClick={() => { if (!spaceKeyPressed) setDualActivePanel('sleeveRight'); }}
                   >
                     <div 
-                      className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 ${
+                      className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 ${
                         dualActivePanel === 'sleeveRight' 
-                          ? 'bg-cyan-950/90 border border-cyan-400 text-cyan-300 ring-2 ring-cyan-500/30' 
-                          : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
+                          ? 'bg-[#E4572E] text-white shadow-md shadow-orange-500/30 ring-2 ring-orange-400/40' 
+                          : 'bg-white border border-[#D8D5CF] text-[#4B5563] shadow-sm hover:border-[#E4572E] hover:text-[#E4572E]'
                       }`}
                     >
                       <span>🧤 RIGHT SLEEVE ({sleeveSpreadPhysicalW}" × {sleeveSpreadPhysicalH}")</span>
-                      {dualActivePanel === 'sleeveRight' && <span className="text-[10px] text-cyan-400 font-semibold">• Active</span>}
+                      {dualActivePanel === 'sleeveRight' && <span className="text-[10px] text-orange-200 font-semibold">• Active</span>}
                     </div>
 
                     <div style={{ position: 'relative', display: 'inline-block' }}>
                       <canvas 
                         ref={rightSleeveCanvasRef} 
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          setDualActivePanel('sleeveRight');
-                          fileInputRef.current?.click();
-                        }}
-                        title="Right Sleeve - Double-click to upload artwork image"
+                        onMouseDown={(e) => {
+                          if (spaceKeyPressed || activeTool === 'pan' || e.button === 1) {
+                            e.preventDefault();
+                            setIsPanning(true);
+                            panStartRef.current = {
+                              startX: e.clientX,
+                              startY: e.clientY,
+                              initialPanX: panOffset.x,
+                              initialPanY: panOffset.y
+                            };
+                          }
+                        }} 
+                        onDoubleClick={(e) => handleCanvasDoubleClick(e, 'sleeveRight')}
+                        title="Right Sleeve - Double-click text to edit specifications, or double-click to upload artwork"
                         style={{ 
                           borderRadius: '8px', 
-                          border: dualActivePanel === 'sleeveRight' ? '2px solid rgba(0, 240, 255, 0.9)' : '2px solid rgba(255, 255, 255, 0.15)', 
-                          boxShadow: dualActivePanel === 'sleeveRight' ? '0 0 35px rgba(0, 240, 255, 0.35)' : '0 0 30px rgba(0,0,0,0.85)',
+                          border: dualActivePanel === 'sleeveRight' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
+                          boxShadow: dualActivePanel === 'sleeveRight' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
                           cursor: 'pointer',
-                          width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                          height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                          width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
                           objectFit: 'contain',
@@ -2432,16 +3015,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       />
                     </div>
                   </div>
+
                 </div>
               ) : (
                 <div style={{ position: 'relative', display: 'inline-block' }}>
                   {/* Double click helper badge */}
                   <div 
-                    className="absolute -top-9 left-1/2 -translate-x-1/2 z-20 pointer-events-none px-3 py-1 rounded-full bg-slate-950/90 border border-cyan-400/40 text-cyan-300 text-[11px] font-bold shadow-xl backdrop-blur-md flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                    className="absolute -top-9 left-1/2 -translate-x-1/2 z-20 pointer-events-none px-3.5 py-1 rounded-full bg-white/95 border border-[#E8E4DE] text-[#E4572E] text-[11px] font-bold shadow-md backdrop-blur-md flex items-center gap-1.5 whitespace-nowrap cursor-pointer hover:border-[#E4572E]"
                     style={{ pointerEvents: 'auto' }}
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    <span>💡 Double-click canvas to upload artwork image</span>
+                    <span>💡 Double-click text to edit specification • Double-click canvas to upload image</span>
                   </div>
 
                   <canvas 
@@ -2453,18 +3037,15 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       setCursorPos(null);
                       isDraggingTextRef.current = false;
                     }}
-                    onDoubleClick={(e) => {
-                      e.stopPropagation();
-                      fileInputRef.current?.click();
-                    }}
-                    title="Double-click to upload artwork background image"
+                    onDoubleClick={(e) => handleCanvasDoubleClick(e)}
+                    title="Double-click Player Name or Number to edit specifications, or double-click canvas to upload artwork"
                     style={{ 
                       borderRadius: '8px', 
                       border: '2px solid rgba(0, 240, 255, 0.5)', 
                       boxShadow: '0 0 50px rgba(0,0,0,0.95)',
                       cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : 'pointer',
-                      width: `${Math.round((width + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
-                      height: `${Math.round((height + (rulersEnabled ? Math.round(0.35 * scale) : 0)) * zoom)}px`,
+                      width: `${Math.round((width + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                      height: `${Math.round((height + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                       maxWidth: 'none',
                       maxHeight: 'none',
                       objectFit: 'contain',
@@ -2477,27 +3058,70 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           </div>
         )}
         
-        {/* Mock inputs for testing positions (visible in 2D layout) */}
+        {/* Mock inputs for testing positions (visible in 2D layout - Matched to main theme) */}
         {activeTab !== 'threeD' && (
-        <div style={{ display: 'flex', gap: '12px', width: '100%', maxWidth: '360px' }}>
-          <div style={{ flex: 1 }}>
+        <div style={{ 
+          display: 'flex', 
+          gap: '8px', 
+          width: '100%', 
+          maxWidth: '360px', 
+          marginTop: '6px',
+          marginBottom: '4px',
+          background: 'rgba(255, 255, 255, 0.94)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          border: '1px solid #E2DED7',
+          borderRadius: '9999px',
+          padding: '4px 8px',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.03)',
+          alignItems: 'center'
+        }}>
+          <div style={{ flex: 1, position: 'relative' }}>
             <input 
               type="text" 
               className="form-input" 
-              placeholder="Test Name" 
+              placeholder="Preview Name" 
               value={previewName} 
               onChange={(e) => setPreviewName(e.target.value)} 
               title="Change the preview player name overlay" 
+              style={{
+                width: '100%',
+                background: '#FAF8F5',
+                border: '1px solid #E2DED7',
+                borderRadius: '9999px',
+                padding: '5px 12px',
+                fontSize: '12px',
+                fontWeight: '700',
+                color: '#1F2937',
+                outline: 'none',
+                boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.04)',
+                boxSizing: 'border-box',
+                letterSpacing: '0.02em'
+              }}
             />
           </div>
-          <div style={{ width: '80px' }}>
+          <div style={{ width: '75px', position: 'relative' }}>
             <input 
               type="text" 
               className="form-input" 
-              placeholder="Test #" 
+              placeholder="#" 
               value={previewNumber} 
               onChange={(e) => setPreviewNumber(e.target.value)} 
               title="Change the preview player number overlay"
+              style={{
+                width: '100%',
+                background: '#FFF4F0',
+                border: '1px solid #F5C4B2',
+                borderRadius: '9999px',
+                padding: '5px 8px',
+                fontSize: '12px',
+                fontWeight: '800',
+                color: '#E4572E',
+                textAlign: 'center',
+                outline: 'none',
+                boxShadow: 'inset 0 1px 2px rgba(228,87,46,0.06)',
+                boxSizing: 'border-box'
+              }}
             />
           </div>
         </div>
@@ -2512,24 +3136,28 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           display: 'flex', 
           flexDirection: 'column', 
           width: '360px', 
+          background: '#FAF8F5',
+          borderLeft: '1px solid #E2DED7',
+          boxShadow: '-2px 0 16px rgba(0, 0, 0, 0.03)',
           minWidth: '360px', 
           maxWidth: '360px', 
           flexShrink: 0, 
           height: '100%', 
           overflowY: 'auto', 
           padding: '12px', 
+          paddingBottom: '120px',
           gap: '12px',
           boxSizing: 'border-box'
         }}
       >
         {/* Step 1: Bulk ZIP Importer Card */}
-        <div className="glass-card" style={{ padding: '20px' }}>
+        <div className="glass-card" style={{ padding: '16px', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
           <h3 
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-secondary)' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: '#1F2937' }}
             onClick={() => toggleCollapse('zip')}
           >
             <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <FolderArchive size={18} /> Bulk ZIP Importer
+              <FolderArchive size={18} style={{ color: '#E4572E' }} /> <span style={{ fontSize: '13px', fontWeight: '700' }}>Bulk ZIP Importer</span>
             </span>
             {collapsed.zip ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
           </h3>
@@ -2553,33 +3181,97 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           )}
         </div>
 
-        {/* Step 2: Print Layer Overlays (Names, Numbers & Logos - HIGHLY HIGHLIGHTED STEP 2) */}
+        {/* Step 2: Text Layer Editor Card (Highlighted) */}
         <div 
-          className="glass-card" 
+          className="glass-card text-layer-editor-highlighted" 
           style={{ 
-            padding: '20px', 
-            background: 'linear-gradient(180deg, rgba(0, 240, 255, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%)',
-            border: '2px solid rgba(0, 240, 255, 0.8)',
-            boxShadow: '0 0 30px rgba(0, 240, 255, 0.3)',
-            borderRadius: '12px'
+            padding: '18px', 
+            background: 'linear-gradient(180deg, #FFF6F2 0%, #FFFFFF 100%)',
+            border: '2px solid #E4572E',
+            boxShadow: '0 6px 24px rgba(228, 87, 46, 0.16), 0 2px 6px rgba(228, 87, 46, 0.08)',
+            borderRadius: '12px',
+            position: 'relative'
           }}
         >
           <h3 
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: '#00f0ff', marginBottom: collapsed.overlays ? 0 : '16px' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: '#E4572E', marginBottom: collapsed.overlays ? 0 : '16px' }}
             onClick={() => toggleCollapse('overlays')}
           >
             <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
-              <Layers size={20} style={{ color: '#00f0ff' }} /> 
-              <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#00f0ff' }}>Print Layer Overlays</span>
-              <span style={{ fontSize: '9px', background: 'linear-gradient(90deg, #00f0ff, #8b5cf6)', color: '#000', fontWeight: '900', padding: '2px 8px', borderRadius: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>⭐ STEP 2</span>
+              <Layers size={19} style={{ color: '#E4572E' }} /> 
+              <span style={{ fontSize: '14px', fontWeight: '800', color: '#E4572E', letterSpacing: '-0.01em' }}>Text Layer Editor</span>
+              <span style={{ fontSize: '9px', background: '#E4572E', color: '#FFFFFF', fontWeight: '900', padding: '3px 8px', borderRadius: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', boxShadow: '0 2px 6px rgba(228, 87, 46, 0.3)' }}>⭐ HIGHLIGHTED</span>
             </span>
-            {collapsed.overlays ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+            {collapsed.overlays ? <ChevronDown size={18} style={{ color: '#E4572E' }} /> : <ChevronUp size={18} style={{ color: '#E4572E' }} />}
           </h3>
 
+
           {!collapsed.overlays && (
-            <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 320px)', paddingRight: '4px' }}>
+            <div>
+              {/* Panel Switcher for Text Overlays */}
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', background: '#FAF8F5', padding: '4px', borderRadius: '8px', border: '1px solid #E8E4DE' }}>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    if (activeTab === 'dual') setDualActivePanel('front');
+                    else setActiveTab('front');
+                    setPrefTrigger(prev => prev + 1);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '7px 4px',
+                    fontSize: '11px',
+                    fontWeight: '800',
+                    borderRadius: '6px',
+                    border: (activeTab === 'dual' ? dualActivePanel === 'front' : activeTab === 'front') ? '1px solid #E4572E' : '1px solid transparent',
+                    background: (activeTab === 'dual' ? dualActivePanel === 'front' : activeTab === 'front') ? '#E4572E' : 'transparent',
+                    color: (activeTab === 'dual' ? dualActivePanel === 'front' : activeTab === 'front') ? '#FFFFFF' : '#6B7280',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span>👕 FRONT</span>
+                  {(activeTab === 'dual' ? dualActivePanel === 'front' : activeTab === 'front') && <span style={{ fontSize: '9px', background: 'rgba(255,255,255,0.25)', color: '#fff', padding: '1px 5px', borderRadius: '3px' }}>EDITING</span>}
+                </button>
+
+                <button 
+                  type="button"
+                  onClick={() => {
+                    if (activeTab === 'dual') setDualActivePanel('back');
+                    else setActiveTab('back');
+                    setPrefTrigger(prev => prev + 1);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '7px 4px',
+                    fontSize: '11px',
+                    fontWeight: '800',
+                    borderRadius: '6px',
+                    border: (activeTab === 'dual' ? dualActivePanel === 'back' : activeTab === 'back') ? '1px solid #E4572E' : '1px solid transparent',
+                    background: (activeTab === 'dual' ? dualActivePanel === 'back' : activeTab === 'back') ? '#E4572E' : 'transparent',
+                    color: (activeTab === 'dual' ? dualActivePanel === 'back' : activeTab === 'back') ? '#FFFFFF' : '#6B7280',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span>👕 BACK</span>
+                  {(activeTab === 'dual' ? dualActivePanel === 'back' : activeTab === 'back') && <span style={{ fontSize: '9px', background: 'rgba(255,255,255,0.25)', color: '#fff', padding: '1px 5px', borderRadius: '3px' }}>EDITING</span>}
+                </button>
+
+              </div>
+
               {/* Sub-Tab Navigation Bar */}
               <div style={{ display: 'flex', gap: '4px', marginBottom: '14px', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                {/* Hide Name sub-tab for sleeve panels */}
+                {!(activeTab === 'sleeveLeft' || activeTab === 'sleeveRight' || (activeTab === 'dual' && (dualActivePanel === 'sleeveLeft' || dualActivePanel === 'sleeveRight'))) && (
                 <button 
                   type="button"
                   className={`btn ${overlaySubTab === 'name' ? 'btn-primary' : 'btn-secondary'}`}
@@ -2587,13 +3279,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   onClick={() => {
                     setOverlaySubTab('name');
                     setActiveTextLayer('name');
-                    setActiveTool('text');
-                    if (activeTab === 'dual') setDualActivePanel('back');
-                    if (!designConfig.back.nameConfig.enabled) updateTextConfig('name', { enabled: true });
                   }}
                 >
                   👤 Name
                 </button>
+                )}
                 <button 
                   type="button"
                   className={`btn ${overlaySubTab === 'number' ? 'btn-primary' : 'btn-secondary'}`}
@@ -2601,9 +3291,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   onClick={() => {
                     setOverlaySubTab('number');
                     setActiveTextLayer('number');
-                    setActiveTool('text');
-                    if (activeTab === 'dual') setDualActivePanel('back');
-                    if (!designConfig.back.numberConfig.enabled) updateTextConfig('number', { enabled: true });
                   }}
                 >
                   🔢 Number
@@ -2620,11 +3307,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   type="button"
                   className={`btn ${overlaySubTab === 'sizeTag' ? 'btn-primary' : 'btn-secondary'}`}
                   style={{ flex: 1, padding: '6px 2px', fontSize: '11px', fontWeight: 'bold', borderRadius: '6px' }}
-                  onClick={() => {
-                    setOverlaySubTab('sizeTag');
-                    setActiveTextLayer('sizeTag');
-                    setActiveTool('text');
-                  }}
+                  onClick={() => setOverlaySubTab('sizeTag')}
                 >
                   🏷️ Size Tag
                 </button>
@@ -2649,10 +3332,15 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               </div>
 
               {/* 1. Name Config Sub-Tab */}
-              {overlaySubTab === 'name' && (
-              <div style={{ paddingBottom: '8px' }}>
+
+              <div style={{ display: overlaySubTab === "name" ? "block" : "none", paddingBottom: "8px" }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Name Layer</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Name</span>
+                    <span style={{ fontSize: '10px', color: '#00e5ff', fontWeight: '800', background: 'rgba(0,229,255,0.15)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(0,229,255,0.3)' }}>
+                      {(activeTab === 'dual' ? dualActivePanel === 'front' : activeTab === 'front') ? 'FRONT PANEL' : 'BACK PANEL'}
+                    </span>
+                  </div>
                   <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
                     <input 
                       type="checkbox" 
@@ -2665,9 +3353,31 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
                 {true && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {/* Horizontal Position (X%) - ONLY on Front Panel */}
+                    {(activeTab === 'dual' ? dualActivePanel === 'front' : activeTab === 'front') && (
+                      <div style={{ background: '#FFF4F0', border: '1px solid #F5C4B2', padding: '8px', borderRadius: '6px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#E4572E', fontWeight: '700', marginBottom: '4px' }}>
+                          <span>Horizontal Position (X%):</span>
+                          <span>{activePanel.nameConfig.xPos ?? 50}%</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="0" 
+                          max="100" 
+                          value={activePanel.nameConfig.xPos ?? 50}
+                          onChange={(e) => updateTextConfig('name', { xPos: parseInt(e.target.value) })}
+                        />
+                        <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
+                          <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '10px' }} onClick={() => updateTextConfig('name', { xPos: 25, align: 'center' })}>Left (25%)</button>
+                          <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '10px' }} onClick={() => updateTextConfig('name', { xPos: 50, align: 'center' })}>Center (50%)</button>
+                          <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '10px' }} onClick={() => updateTextConfig('name', { xPos: 75, align: 'center' })}>Right (75%)</button>
+                        </div>
+                      </div>
+                    )}
+
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                        <span>Vertical Position (Y):</span>
+                        <span>Vertical Position (Y%):</span>
                         <span>{activePanel.nameConfig.yPos}%</span>
                       </div>
                       <input 
@@ -2848,41 +3558,170 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     </div>
                   )}
 
-                  {activePanel.nameConfig.fillType === 'gradient' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <label className="form-label" style={{ fontSize: '10px', margin: 0, fontWeight: 'bold' }}>
-                          Color Stops ({(activePanel.nameConfig.gradientStops || [activePanel.nameConfig.gradientColor1 || '#00f0ff', activePanel.nameConfig.gradientColor2 || '#ff0055']).length}):
-                        </label>
+                  {activePanel.nameConfig.fillType === 'gradient' && (() => {
+                    const stops = activePanel.nameConfig.gradientStops || [activePanel.nameConfig.gradientColor1 || '#00f0ff', activePanel.nameConfig.gradientColor2 || '#ff0055'];
+                    const dir = activePanel.nameConfig.gradientDirection || 'vertical';
+                    const gradAngle = dir === 'horizontal' ? '90deg' : dir === 'diagonal' ? '135deg' : dir === 'radial' ? '90deg' : '180deg';
+                    const previewBg = dir === 'radial'
+                      ? `radial-gradient(circle, ${stops.join(', ')})`
+                      : `linear-gradient(${gradAngle}, ${stops.join(', ')})`;
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {/* Open Full Photoshop Gradient Editor Button */}
                         <button
                           type="button"
                           className="btn btn-secondary"
-                          style={{ padding: '2px 6px', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '3px', color: '#00f0ff' }}
                           onClick={() => {
-                            const current = activePanel.nameConfig.gradientStops || [activePanel.nameConfig.gradientColor1 || '#00f0ff', activePanel.nameConfig.gradientColor2 || '#ff0055'];
-                            updateTextConfig('name', { gradientStops: [...current, '#eab308'] });
+                            setGradientModalTarget('name');
+                            setIsGradientModalOpen(true);
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '6px 10px',
+                            fontSize: '11px',
+                            fontWeight: '800',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            background: '#FFF4F0',
+                            borderColor: '#F5C4B2',
+                            color: '#E4572E',
+                            cursor: 'pointer'
                           }}
                         >
-                          <Plus size={9} /> Add Stop
+                          🎨 Open Photoshop Gradient Editor
                         </button>
+
+                        {/* Gradient Preview Bar */}
+                        <div
+                          style={{
+                            height: '24px', borderRadius: '6px', border: '1px solid #E2DED7',
+                            background: previewBg, cursor: 'pointer',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.06)'
+                          }}
+                          onClick={() => {
+                            setGradientModalTarget('name');
+                            setIsGradientModalOpen(true);
+                          }}
+                          title="Click to open Photoshop Gradient Editor"
+                        />
+
+                        {/* Direction Selector */}
+                        <div style={{ display: 'flex', gap: '3px' }}>
+                          {(['vertical', 'horizontal', 'diagonal', 'radial'] as const).map(d => (
+                            <button key={d} type="button"
+                              className={`btn ${dir === d ? 'btn-primary' : 'btn-secondary'}`}
+                              style={{ flex: 1, padding: '3px 0', fontSize: '9px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.03em' }}
+                              onClick={() => updateTextConfig('name', { gradientDirection: d })}
+                            >{d === 'vertical' ? '↕' : d === 'horizontal' ? '↔' : d === 'diagonal' ? '⤡' : '◎'} {d.slice(0, 4)}</button>
+                          ))}
+                        </div>
+
+                        {/* Color Stops Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <label className="form-label" style={{ fontSize: '10px', margin: 0, fontWeight: 'bold', color: '#94a3b8' }}>
+                            Color Stops ({stops.length}):
+                          </label>
+                          <button type="button" className="btn btn-secondary"
+                            style={{ padding: '2px 6px', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '3px', color: '#E4572E', background: '#FFF4F0', borderColor: '#F5C4B2' }}
+                            onClick={() => updateTextConfig('name', { gradientStops: [...stops, '#eab308'], fillType: 'gradient' })}
+                          ><Plus size={9} /> Add Stop</button>
+                        </div>
+
+                        {/* Individual Color Stop Pickers */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {stops.map((color, idx) => (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: '700', minWidth: '14px' }}>
+                                {idx + 1}
+                              </span>
+                              <input
+                                type="color"
+                                value={color.startsWith('#') && color.length >= 4 ? color : '#00e5ff'}
+                                onChange={(e) => {
+                                  const updated = [...stops];
+                                  updated[idx] = e.target.value;
+                                  updateTextConfig('name', { gradientStops: updated, gradientColor1: updated[0], gradientColor2: updated[updated.length - 1] });
+                                }}
+                                style={{ width: '28px', height: '22px', border: 'none', borderRadius: '4px', cursor: 'pointer', background: 'transparent', padding: 0 }}
+                              />
+                              <input
+                                type="text"
+                                value={color}
+                                onChange={(e) => {
+                                  let val = e.target.value.trim();
+                                  const updated = [...stops];
+                                  updated[idx] = val;
+                                  updateTextConfig('name', { gradientStops: updated, gradientColor1: updated[0], gradientColor2: updated[updated.length - 1] });
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    let val = (e.target as HTMLInputElement).value.trim();
+                                    if (val && !val.startsWith('#')) val = '#' + val;
+                                    const updated = [...stops];
+                                    updated[idx] = val;
+                                    updateTextConfig('name', { gradientStops: updated, gradientColor1: updated[0], gradientColor2: updated[updated.length - 1] });
+                                    (e.target as HTMLInputElement).blur();
+                                  }
+                                }}
+                                style={{ flex: 1, fontSize: '11px', padding: '3px 8px', borderRadius: '4px', background: '#FAF8F5', border: '1px solid #E2DED7', color: '#1F2937', fontFamily: 'monospace', fontWeight: '700' }}
+                              />
+                              {stops.length > 2 && (
+                                <button type="button"
+                                  style={{ background: 'rgba(255,50,50,0.15)', border: 'none', borderRadius: '4px', padding: '3px 6px', cursor: 'pointer', color: '#ff4444', fontSize: '10px', fontWeight: '900' }}
+                                  onClick={() => {
+                                    const updated = stops.filter((_, i) => i !== idx);
+                                    updateTextConfig('name', { gradientStops: updated, gradientColor1: updated[0], gradientColor2: updated[updated.length - 1] });
+                                  }}
+                                  title="Remove stop"
+                                >✕</button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {activePanel.nameConfig.fillType === 'texture' && (
-                    <div style={{ marginTop: '8px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <label className="btn btn-secondary" style={{ padding: '6px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'block' }}>
-                        Upload Texture Image
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={(e) => handleTextTextureUpload('name', e)} 
-                          style={{ display: 'none' }} 
-                        />
+                        {activePanel.nameConfig.textureUrl ? '🔄 Change Texture' : '⬆️ Upload Texture'}
+                        <input type="file" accept="image/*" onChange={(e) => handleTextTextureUpload('name', e)} style={{ display: 'none' }} />
                       </label>
                       {activePanel.nameConfig.textureUrl && (
-                        <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px', textAlign: 'center' }}>
-                          ✓ Texture Loaded
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <img src={activePanel.nameConfig.textureUrl} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-default)', flexShrink: 0 }} alt="Texture" />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: '10px', color: '#10b981', fontWeight: 'bold' }}>✓ Texture Loaded</div>
+                              <button type="button" style={{ fontSize: '9px', color: '#ff4444', background: 'rgba(255,50,50,0.1)', border: 'none', borderRadius: '3px', padding: '1px 6px', cursor: 'pointer', marginTop: '2px' }} onClick={() => updateTextConfig('name', { textureUrl: null, fillType: 'solid' })}>✕ Remove</button>
+                            </div>
+                          </div>
+                          <div style={{ background: 'rgba(255,255,255,0.03)', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
+                            <div style={{ fontSize: '9px', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Position & Scale</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '12px', fontWeight: '700' }}>X</span>
+                                <input type="range" min={0} max={100} step={1} value={activePanel.nameConfig.textureOffsetX ?? 50} onChange={(e) => updateTextConfig('name', { textureOffsetX: Number(e.target.value) })} style={{ flex: 1 }} />
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '26px', textAlign: 'right' }}>{activePanel.nameConfig.textureOffsetX ?? 50}%</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '12px', fontWeight: '700' }}>Y</span>
+                                <input type="range" min={0} max={100} step={1} value={activePanel.nameConfig.textureOffsetY ?? 50} onChange={(e) => updateTextConfig('name', { textureOffsetY: Number(e.target.value) })} style={{ flex: 1 }} />
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '26px', textAlign: 'right' }}>{activePanel.nameConfig.textureOffsetY ?? 50}%</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '12px', fontWeight: '700' }}>S</span>
+                                <input type="range" min={25} max={300} step={5} value={Math.round((activePanel.nameConfig.textureScale ?? 1.0) * 100)} onChange={(e) => updateTextConfig('name', { textureScale: Number(e.target.value) / 100 })} style={{ flex: 1 }} />
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '26px', textAlign: 'right' }}>{Math.round((activePanel.nameConfig.textureScale ?? 1.0) * 100)}%</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -2904,31 +3743,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       />
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                        <span>Stroke Width:</span>
-                        <span>{activePanel.nameConfig.strokeWidth || 0} in</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max="0.5" 
-                          step="0.01"
-                          value={activePanel.nameConfig.strokeWidth || 0}
-                          onChange={(e) => updateTextConfig('name', { strokeWidth: parseFloat(e.target.value) || 0 })}
-                          style={{ flex: 1 }}
-                        />
-                        <input 
-                          type="number" 
-                          step="0.01" 
-                          min="0"
-                          max="0.5"
-                          className="form-input" 
-                          value={activePanel.nameConfig.strokeWidth || 0}
-                          onChange={(e) => updateTextConfig('name', { strokeWidth: parseFloat(e.target.value) || 0 })}
-                          style={{ padding: '2px 4px', fontSize: '10px', width: '40px', textAlign: 'center' }}
-                        />
-                      </div>
+                      <label className="form-label" style={{ fontSize: '10px' }}>Stroke Width:</label>
+                      <input 
+                        type="number" 
+                        step="0.5" 
+                        min="0"
+                        max="50"
+                        className="form-input" 
+                        value={activePanel.nameConfig.strokeWidth || 0}
+                        onChange={(e) => updateTextConfig('name', { strokeWidth: parseFloat(e.target.value) || 0 })}
+                        style={{ padding: '4px', fontSize: '11px' }}
+                      />
                     </div>
                   </div>
                 </div>
@@ -2936,13 +3761,18 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               </div>
               )}
               </div>
-              )}
+
 
               {/* 2. Number Config Sub-Tab */}
-              {overlaySubTab === 'number' && (
-              <div style={{ paddingBottom: '8px' }}>
+
+              <div style={{ display: overlaySubTab === "number" ? "block" : "none", paddingBottom: "8px" }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Number Layer</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Player Number</span>
+                    <span style={{ fontSize: '10px', color: '#00e5ff', fontWeight: '800', background: 'rgba(0,229,255,0.15)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(0,229,255,0.3)' }}>
+                      {(activeTab === 'dual' ? dualActivePanel === 'front' : activeTab === 'front') ? 'FRONT PANEL' : 'BACK PANEL'}
+                    </span>
+                  </div>
                   <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '12px' }}>
                     <input 
                       type="checkbox" 
@@ -2955,9 +3785,31 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
                 {true && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {/* Horizontal Position (X%) - ONLY on Front Panel */}
+                    {(activeTab === 'dual' ? dualActivePanel === 'front' : activeTab === 'front') && (
+                      <div style={{ background: '#FFF4F0', border: '1px solid #F5C4B2', padding: '8px', borderRadius: '6px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#E4572E', fontWeight: '700', marginBottom: '4px' }}>
+                          <span>Horizontal Position (X%):</span>
+                          <span>{activePanel.numberConfig.xPos ?? 50}%</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="0" 
+                          max="100" 
+                          value={activePanel.numberConfig.xPos ?? 50}
+                          onChange={(e) => updateTextConfig('number', { xPos: parseInt(e.target.value) })}
+                        />
+                        <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
+                          <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '10px' }} onClick={() => updateTextConfig('number', { xPos: 25, align: 'center' })}>Left (25%)</button>
+                          <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '10px' }} onClick={() => updateTextConfig('number', { xPos: 50, align: 'center' })}>Center (50%)</button>
+                          <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '10px' }} onClick={() => updateTextConfig('number', { xPos: 75, align: 'center' })}>Right (75%)</button>
+                        </div>
+                      </div>
+                    )}
+
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                        <span>Vertical Position (Y):</span>
+                        <span>Vertical Position (Y%):</span>
                         <span>{activePanel.numberConfig.yPos}%</span>
                       </div>
                       <input 
@@ -3110,41 +3962,170 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     </div>
                   )}
 
-                  {activePanel.numberConfig.fillType === 'gradient' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <label className="form-label" style={{ fontSize: '10px', margin: 0, fontWeight: 'bold' }}>
-                          Color Stops ({(activePanel.numberConfig.gradientStops || [activePanel.numberConfig.gradientColor1 || '#00f0ff', activePanel.numberConfig.gradientColor2 || '#ff0055']).length}):
-                        </label>
+                  {activePanel.numberConfig.fillType === 'gradient' && (() => {
+                    const stops = activePanel.numberConfig.gradientStops || [activePanel.numberConfig.gradientColor1 || '#00f0ff', activePanel.numberConfig.gradientColor2 || '#ff0055'];
+                    const dir = activePanel.numberConfig.gradientDirection || 'vertical';
+                    const gradAngle = dir === 'horizontal' ? '90deg' : dir === 'diagonal' ? '135deg' : dir === 'radial' ? '90deg' : '180deg';
+                    const previewBg = dir === 'radial'
+                      ? `radial-gradient(circle, ${stops.join(', ')})`
+                      : `linear-gradient(${gradAngle}, ${stops.join(', ')})`;
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {/* Open Full Photoshop Gradient Editor Button */}
                         <button
                           type="button"
                           className="btn btn-secondary"
-                          style={{ padding: '2px 6px', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '3px', color: '#00f0ff' }}
                           onClick={() => {
-                            const current = activePanel.numberConfig.gradientStops || [activePanel.numberConfig.gradientColor1 || '#00f0ff', activePanel.numberConfig.gradientColor2 || '#ff0055'];
-                            updateTextConfig('number', { gradientStops: [...current, '#eab308'] });
+                            setGradientModalTarget('number');
+                            setIsGradientModalOpen(true);
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '6px 10px',
+                            fontSize: '11px',
+                            fontWeight: '800',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            background: '#FFF4F0',
+                            borderColor: '#F5C4B2',
+                            color: '#E4572E',
+                            cursor: 'pointer'
                           }}
                         >
-                          <Plus size={9} /> Add Stop
+                          🎨 Open Photoshop Gradient Editor
                         </button>
+
+                        {/* Gradient Preview Bar */}
+                        <div
+                          style={{
+                            height: '24px', borderRadius: '6px', border: '1px solid #E2DED7',
+                            background: previewBg, cursor: 'pointer',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.06)'
+                          }}
+                          onClick={() => {
+                            setGradientModalTarget('number');
+                            setIsGradientModalOpen(true);
+                          }}
+                          title="Click to open Photoshop Gradient Editor"
+                        />
+
+                        {/* Direction Selector */}
+                        <div style={{ display: 'flex', gap: '3px' }}>
+                          {(['vertical', 'horizontal', 'diagonal', 'radial'] as const).map(d => (
+                            <button key={d} type="button"
+                              className={`btn ${dir === d ? 'btn-primary' : 'btn-secondary'}`}
+                              style={{ flex: 1, padding: '3px 0', fontSize: '9px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.03em' }}
+                              onClick={() => updateTextConfig('number', { gradientDirection: d })}
+                            >{d === 'vertical' ? '↕' : d === 'horizontal' ? '↔' : d === 'diagonal' ? '⤡' : '◎'} {d.slice(0, 4)}</button>
+                          ))}
+                        </div>
+
+                        {/* Color Stops Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <label className="form-label" style={{ fontSize: '10px', margin: 0, fontWeight: 'bold', color: '#94a3b8' }}>
+                            Color Stops ({stops.length}):
+                          </label>
+                          <button type="button" className="btn btn-secondary"
+                            style={{ padding: '2px 6px', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '3px', color: '#E4572E', background: '#FFF4F0', borderColor: '#F5C4B2' }}
+                            onClick={() => updateTextConfig('number', { gradientStops: [...stops, '#eab308'], fillType: 'gradient' })}
+                          ><Plus size={9} /> Add Stop</button>
+                        </div>
+
+                        {/* Individual Color Stop Pickers */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {stops.map((color, idx) => (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: '700', minWidth: '14px' }}>
+                                {idx + 1}
+                              </span>
+                              <input
+                                type="color"
+                                value={color.startsWith('#') && color.length >= 4 ? color : '#00e5ff'}
+                                onChange={(e) => {
+                                  const updated = [...stops];
+                                  updated[idx] = e.target.value;
+                                  updateTextConfig('number', { gradientStops: updated, gradientColor1: updated[0], gradientColor2: updated[updated.length - 1] });
+                                }}
+                                style={{ width: '28px', height: '22px', border: 'none', borderRadius: '4px', cursor: 'pointer', background: 'transparent', padding: 0 }}
+                              />
+                              <input
+                                type="text"
+                                value={color}
+                                onChange={(e) => {
+                                  let val = e.target.value.trim();
+                                  const updated = [...stops];
+                                  updated[idx] = val;
+                                  updateTextConfig('number', { gradientStops: updated, gradientColor1: updated[0], gradientColor2: updated[updated.length - 1] });
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    let val = (e.target as HTMLInputElement).value.trim();
+                                    if (val && !val.startsWith('#')) val = '#' + val;
+                                    const updated = [...stops];
+                                    updated[idx] = val;
+                                    updateTextConfig('number', { gradientStops: updated, gradientColor1: updated[0], gradientColor2: updated[updated.length - 1] });
+                                    (e.target as HTMLInputElement).blur();
+                                  }
+                                }}
+                                style={{ flex: 1, fontSize: '11px', padding: '3px 8px', borderRadius: '4px', background: '#FAF8F5', border: '1px solid #E2DED7', color: '#1F2937', fontFamily: 'monospace', fontWeight: '700' }}
+                              />
+                              {stops.length > 2 && (
+                                <button type="button"
+                                  style={{ background: 'rgba(255,50,50,0.15)', border: 'none', borderRadius: '4px', padding: '3px 6px', cursor: 'pointer', color: '#ff4444', fontSize: '10px', fontWeight: '900' }}
+                                  onClick={() => {
+                                    const updated = stops.filter((_, i) => i !== idx);
+                                    updateTextConfig('number', { gradientStops: updated, gradientColor1: updated[0], gradientColor2: updated[updated.length - 1] });
+                                  }}
+                                  title="Remove stop"
+                                >✕</button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {activePanel.numberConfig.fillType === 'texture' && (
-                    <div style={{ marginTop: '8px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <label className="btn btn-secondary" style={{ padding: '6px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'block' }}>
-                        Upload Texture Image
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={(e) => handleTextTextureUpload('number', e)} 
-                          style={{ display: 'none' }} 
-                        />
+                        {activePanel.numberConfig.textureUrl ? '🔄 Change Texture' : '⬆️ Upload Texture'}
+                        <input type="file" accept="image/*" onChange={(e) => handleTextTextureUpload('number', e)} style={{ display: 'none' }} />
                       </label>
                       {activePanel.numberConfig.textureUrl && (
-                        <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px', textAlign: 'center' }}>
-                          ✓ Texture Loaded
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <img src={activePanel.numberConfig.textureUrl} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-default)', flexShrink: 0 }} alt="Texture" />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: '10px', color: '#10b981', fontWeight: 'bold' }}>✓ Texture Loaded</div>
+                              <button type="button" style={{ fontSize: '9px', color: '#ff4444', background: 'rgba(255,50,50,0.1)', border: 'none', borderRadius: '3px', padding: '1px 6px', cursor: 'pointer', marginTop: '2px' }} onClick={() => updateTextConfig('number', { textureUrl: null, fillType: 'solid' })}>✕ Remove</button>
+                            </div>
+                          </div>
+                          <div style={{ background: 'rgba(255,255,255,0.03)', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
+                            <div style={{ fontSize: '9px', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Position & Scale</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '12px', fontWeight: '700' }}>X</span>
+                                <input type="range" min={0} max={100} step={1} value={activePanel.numberConfig.textureOffsetX ?? 50} onChange={(e) => updateTextConfig('number', { textureOffsetX: Number(e.target.value) })} style={{ flex: 1 }} />
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '26px', textAlign: 'right' }}>{activePanel.numberConfig.textureOffsetX ?? 50}%</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '12px', fontWeight: '700' }}>Y</span>
+                                <input type="range" min={0} max={100} step={1} value={activePanel.numberConfig.textureOffsetY ?? 50} onChange={(e) => updateTextConfig('number', { textureOffsetY: Number(e.target.value) })} style={{ flex: 1 }} />
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '26px', textAlign: 'right' }}>{activePanel.numberConfig.textureOffsetY ?? 50}%</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '12px', fontWeight: '700' }}>S</span>
+                                <input type="range" min={25} max={300} step={5} value={Math.round((activePanel.numberConfig.textureScale ?? 1.0) * 100)} onChange={(e) => updateTextConfig('number', { textureScale: Number(e.target.value) / 100 })} style={{ flex: 1 }} />
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', minWidth: '26px', textAlign: 'right' }}>{Math.round((activePanel.numberConfig.textureScale ?? 1.0) * 100)}%</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -3167,42 +4148,28 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       />
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                        <span>Stroke Width:</span>
-                        <span>{activePanel.numberConfig.strokeWidth || 0} in</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max="0.5" 
-                          step="0.01"
-                          value={activePanel.numberConfig.strokeWidth || 0}
-                          onChange={(e) => updateTextConfig('number', { strokeWidth: parseFloat(e.target.value) || 0 })}
-                          style={{ flex: 1 }}
-                        />
-                        <input 
-                          type="number" 
-                          step="0.01" 
-                          min="0"
-                          max="0.5"
-                          className="form-input" 
-                          value={activePanel.numberConfig.strokeWidth || 0}
-                          onChange={(e) => updateTextConfig('number', { strokeWidth: parseFloat(e.target.value) || 0 })}
-                          style={{ padding: '2px 4px', fontSize: '10px', width: '40px', textAlign: 'center' }}
-                        />
-                      </div>
+                      <label className="form-label" style={{ fontSize: '10px' }}>Stroke Width:</label>
+                      <input 
+                        type="number" 
+                        step="0.5" 
+                        min="0"
+                        max="50"
+                        className="form-input" 
+                        value={activePanel.numberConfig.strokeWidth || 0}
+                        onChange={(e) => updateTextConfig('number', { strokeWidth: parseFloat(e.target.value) || 0 })}
+                        style={{ padding: '4px', fontSize: '11px' }}
+                      />
                     </div>
                   </div>
                 </div>
               </div>
               )}
               </div>
-              )}
+
 
               {/* 3. Logos Sub-Tab */}
-              {overlaySubTab === 'logos' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '8px' }}>
+
+                <div style={{ display: overlaySubTab === "logos" ? "flex" : "none", flexDirection: "column", gap: "14px", paddingBottom: "8px" }}>
                   {/* Left Chest Logo */}
                   {(activeTab === 'front' || activeTab === 'dual') && (
                     <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
@@ -3537,11 +4504,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     )}
                   </div>
                 </div>
-              )}
+
 
               {/* 4. Size Tag Sub-Tab */}
-              {overlaySubTab === 'sizeTag' && (
-                <div style={{ paddingBottom: '8px' }}>
+
+                <div style={{ display: overlaySubTab === "sizeTag" ? "block" : "none", paddingBottom: "8px" }}>
                   <span style={{ fontWeight: 'bold', fontSize: '13px', display: 'block', marginBottom: '12px' }}>Size Tag Overlay (Top Left)</span>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3569,30 +4536,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                             />
                           </div>
                           <div className="form-group" style={{ margin: 0 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                              <span>Stroke Width:</span>
-                              <span>{activePanel.sizeTagConfig?.strokeWidth ?? 3} pt</span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <input 
-                                type="range" 
-                                min="0" 
-                                max="15" 
-                                step="1"
-                                value={activePanel.sizeTagConfig?.strokeWidth ?? 3}
-                                onChange={(e) => updateTextConfig('sizeTag', { strokeWidth: parseInt(e.target.value) || 0 })}
-                                style={{ flex: 1 }}
-                              />
-                              <input 
-                                type="number" 
-                                min="0"
-                                max="15"
-                                className="form-input" 
-                                value={activePanel.sizeTagConfig?.strokeWidth ?? 3}
-                                onChange={(e) => updateTextConfig('sizeTag', { strokeWidth: parseInt(e.target.value) || 0 })}
-                                style={{ padding: '2px 4px', fontSize: '10px', width: '40px', textAlign: 'center' }}
-                              />
-                            </div>
+                            <label className="form-label" style={{ fontSize: '11px' }}>Stroke Width:</label>
+                            <input 
+                              type="number" 
+                              className="form-input" 
+                              value={activePanel.sizeTagConfig?.strokeWidth ?? 3}
+                              onChange={(e) => updateTextConfig('sizeTag', { strokeWidth: parseInt(e.target.value) || 0 })}
+                              style={{ padding: '6px' }}
+                            />
                           </div>
                         </div>
 
@@ -3620,19 +4571,19 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               )}
               </div>
               </div>
-              )}
+
               </div>
               )}
         </div>
 
         {/* Step 3: Design Presets Manager Card */}
-        <div className="glass-card" style={{ padding: '20px' }}>
+        <div className="glass-card" style={{ padding: '16px', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
           <h3 
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-primary)' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: '#1F2937' }}
             onClick={() => toggleCollapse('presets')}
           >
             <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '18px' }}>💾</span> Design Presets Manager
+              <span style={{ fontSize: '16px' }}>💾</span> <span style={{ fontSize: '13px', fontWeight: '700' }}>Design Presets Manager</span>
             </span>
             {collapsed.presets ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
           </h3>
@@ -3664,9 +4615,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   <p style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '6px' }}>Select Preset to Load:</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
                     {presets.map((preset, idx) => (
-                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border-light)', fontSize: '11px' }}>
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: '#FAF8F5', borderRadius: '6px', border: '1px solid #E8E4DE', fontSize: '11px' }}>
                         <span 
-                          style={{ fontWeight: 'bold', cursor: 'pointer', color: 'var(--text-bright)' }}
+                          style={{ fontWeight: 'bold', cursor: 'pointer', color: '#171717' }}
                           onClick={() => handleLoadPreset(preset.name)}
                         >
                           {preset.name}
@@ -3681,7 +4632,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           </button>
                           <button 
                             className="btn" 
-                            style={{ padding: '3px 8px', fontSize: '9px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744' }}
+                            style={{ padding: '3px 8px', fontSize: '9px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#DC2626' }}
                             onClick={() => handleDeletePreset(preset.name)}
                           >
                             Delete
@@ -3699,16 +4650,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
 
         {/* Collar & Trim Customization */}
-        <div className="glass-card" style={{ padding: '20px' }}>
+        <div className="glass-card" style={{ padding: '16px', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
           <h3 
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-primary)' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: '#1F2937' }}
             onClick={() => toggleCollapse('trim')}
           >
             <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Shirt size={18} /> Collar & Trim Customization
+              <Shirt size={18} style={{ color: '#E4572E' }} /> <span style={{ fontSize: '13px', fontWeight: '700' }}>Collar & Trim Customization</span>
             </span>
             {collapsed.trim ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
           </h3>
+
 
           {!collapsed.trim && (
             <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -3863,13 +4815,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
 
         {/* Custom Guidelines Card */}
-        <div className="glass-card" style={{ padding: '20px' }}>
+        <div className="glass-card" style={{ padding: '16px', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
           <h3 
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: '#00f0ff', marginBottom: collapsed.guidelines ? 0 : '16px' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: '#1F2937', marginBottom: collapsed.guidelines ? 0 : '16px' }}
             onClick={() => toggleCollapse('guidelines')}
           >
             <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '18px' }}>📏</span> Custom Guidelines (Inches)
+              <span style={{ fontSize: '16px' }}>📏</span> <span style={{ fontSize: '13px', fontWeight: '700' }}>Custom Guidelines (Inches)</span>
             </span>
             {collapsed.guidelines ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
           </h3>
@@ -3946,16 +4898,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               {/* List of active guidelines */}
               {((activePanel.guidelines?.vertical?.length || 0) > 0 || (activePanel.guidelines?.horizontal?.length || 0) > 0) ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '10px' }}>
+                  <div style={{ borderTop: '1px solid #E8E4DE', paddingTop: '10px' }}>
                     <p style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '6px', color: 'var(--text-muted)' }}>Active Guides:</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
                       {/* Vertical Guides */}
                       {(activePanel.guidelines?.vertical || []).map((val, idx) => (
-                        <div key={`v-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(0, 240, 255, 0.03)', borderRadius: '6px', border: '1px solid rgba(0, 240, 255, 0.15)', fontSize: '11px' }}>
-                          <span style={{ color: '#00f0ff', fontWeight: '500' }}>Vertical: {val.toFixed(1)}"</span>
+                        <div key={`v-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: '#FAF8F5', borderRadius: '6px', border: '1px solid #E8E4DE', fontSize: '11px' }}>
+                          <span style={{ color: '#171717', fontWeight: '600' }}>Vertical: {val.toFixed(1)}"</span>
                           <button 
                             className="btn" 
-                            style={{ padding: '2px 6px', fontSize: '9px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744', cursor: 'pointer' }}
+                            style={{ padding: '2px 6px', fontSize: '9px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#DC2626', cursor: 'pointer' }}
                             onClick={() => {
                               const currentGuides = activePanel.guidelines || { vertical: [], horizontal: [] };
                               updateActivePanel({
@@ -3973,11 +4925,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
                       {/* Horizontal Guides */}
                       {(activePanel.guidelines?.horizontal || []).map((val, idx) => (
-                        <div key={`h-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(0, 240, 255, 0.03)', borderRadius: '6px', border: '1px solid rgba(0, 240, 255, 0.15)', fontSize: '11px' }}>
-                          <span style={{ color: '#00f0ff', fontWeight: '500' }}>Horizontal: {val.toFixed(1)}"</span>
+                        <div key={`h-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: '#FAF8F5', borderRadius: '6px', border: '1px solid #E8E4DE', fontSize: '11px' }}>
+                          <span style={{ color: '#171717', fontWeight: '600' }}>Horizontal: {val.toFixed(1)}"</span>
                           <button 
                             className="btn" 
-                            style={{ padding: '2px 6px', fontSize: '9px', background: 'rgba(255,23,68,0.15)', border: 'none', color: '#ff1744', cursor: 'pointer' }}
+                            style={{ padding: '2px 6px', fontSize: '9px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#DC2626', cursor: 'pointer' }}
                             onClick={() => {
                               const currentGuides = activePanel.guidelines || { vertical: [], horizontal: [] };
                               updateActivePanel({
@@ -4016,26 +4968,27 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         </div>
 
         {/* Custom Font Upload Card */}
-        <div className="glass-card" style={{ padding: '20px' }}>
+        <div className="glass-card" style={{ padding: '16px', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
           <h3 
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: 'var(--color-success)', marginBottom: collapsed.fonts ? 0 : '16px' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: '#1F2937', marginBottom: collapsed.fonts ? 0 : '16px' }}
             onClick={() => toggleCollapse('fonts')}
           >
             <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '18px' }}>🔤</span> Custom Font Registry
+              <span style={{ fontSize: '16px' }}>🔤</span> <span style={{ fontSize: '13px', fontWeight: '700' }}>Custom Font Registry</span>
             </span>
             {collapsed.fonts ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
           </h3>
 
+
           {!collapsed.fonts && (
             <div>
               <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                Upload custom TrueType (.ttf) or Web (.woff/.woff2) fonts to use for player names and numbers. Font styles will load into the canvas and export automatically.
+                Upload custom OpenType (.otf), TrueType (.ttf) or Web (.woff/.woff2) fonts to use for player names and numbers. Font styles will load into the canvas and export automatically.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <input 
                   type="file" 
-                  accept=".ttf,.woff,.woff2" 
+                  accept=".otf,.ttf,.woff,.woff2,font/otf,font/ttf,font/woff,font/woff2,application/x-font-opentype,application/x-font-truetype,application/font-woff,application/font-woff2" 
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
@@ -4052,9 +5005,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           const updated = [...customFonts, newFont];
                           setCustomFonts(updated);
                           localStorage.setItem('teedex_custom_fonts', JSON.stringify(updated));
+                          setPrefTrigger(prev => prev + 1);
                         } catch (err) {
                           console.error("Failed to register font:", err);
-                          alert("Could not load font file. Please verify it is a valid TTF or WOFF file.");
+                          alert("Could not load font file. Please verify it is a valid OTF, TTF, or WOFF file.");
                         }
                       };
                       reader.readAsDataURL(file);
@@ -4064,7 +5018,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   id="font-uploader-input"
                 />
                 <label htmlFor="font-uploader-input" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '8px' }}>
-                  <Upload size={14} /> Upload Font File
+                  <Upload size={14} /> Upload Font File (.otf, .ttf, .woff)
                 </label>
                 
                 {customFonts.length > 0 && (
@@ -4102,6 +5056,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         onSelectFillColor={handlePaletteFill}
         onSelectStrokeColor={handlePaletteStroke}
         onSelectGradientColor={handlePaletteGradient}
+        onOpenGradientEditor={() => {
+          setGradientModalTarget('palette');
+          setIsGradientModalOpen(true);
+        }}
       />
 
       {/* 5. COREL STATUS BAR */}
@@ -4119,11 +5077,91 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         <ShortcutsModal onClose={() => setShowShortcutsModal(false)} />
       )}
 
-      {/* 7. SUBLIMATION CORE PANEL & SIZE GRADING EDITOR MODAL */}
-      <SizesModal 
-        isOpen={showPanelEditorModal} 
-        onClose={() => setShowPanelEditorModal(false)} 
-        onDatabaseChange={() => setPrefTrigger(prev => prev + 1)}
+      {/* 7. PHOTOSHOP-STYLE GRADIENT EDITOR MODAL */}
+      <GradientEditorModal
+        isOpen={isGradientModalOpen}
+        onClose={() => setIsGradientModalOpen(false)}
+        initialStops={
+          (() => {
+            const currentConfig = gradientModalTarget === 'name' ? activePanel.nameConfig : activePanel.numberConfig;
+            return currentConfig?.gradientStops && currentConfig.gradientStops.length >= 2
+              ? currentConfig.gradientStops
+              : [currentConfig?.gradientColor1 || '#00e5ff', currentConfig?.gradientColor2 || '#7c3aed'];
+          })()
+        }
+        initialDirection={
+          (gradientModalTarget === 'name' ? activePanel.nameConfig?.gradientDirection : activePanel.numberConfig?.gradientDirection) || 'vertical'
+        }
+        title={`Photoshop Gradient Editor (${gradientModalTarget === 'name' ? 'Player Name' : gradientModalTarget === 'number' ? 'Player Number' : 'Color Palette'})`}
+        onApply={(stops, dir) => {
+          if (gradientModalTarget === 'name') {
+            updateTextConfig('name', {
+              fillType: 'gradient',
+              gradientStops: stops,
+              gradientColor1: stops[0],
+              gradientColor2: stops[stops.length - 1],
+              gradientDirection: dir
+            });
+            toast.success('Applied gradient to Player Name');
+          } else if (gradientModalTarget === 'number') {
+            updateTextConfig('number', {
+              fillType: 'gradient',
+              gradientStops: stops,
+              gradientColor1: stops[0],
+              gradientColor2: stops[stops.length - 1],
+              gradientDirection: dir
+            });
+            toast.success('Applied gradient to Player Number');
+          } else {
+            const targetLayer: 'name' | 'number' = activeTextLayer || (activePanel.nameConfig?.enabled ? 'name' : 'number');
+            updateTextConfig(targetLayer, {
+              fillType: 'gradient',
+              gradientStops: stops,
+              gradientColor1: stops[0],
+              gradientColor2: stops[stops.length - 1],
+              gradientDirection: dir
+            });
+            toast.success(`Applied gradient to ${targetLayer === 'name' ? 'Player Name' : 'Player Number'}`);
+          }
+        }}
+        onSaveToPalette={(stops, name) => {
+          toast.success(`Saved "${name}" to Palette`);
+        }}
+      />
+
+      {/* 8. DOUBLE-CLICK TEXT SPECIFICATION EDITOR MODAL */}
+      <TextSpecificationModal
+        isOpen={textEditorModal.isOpen}
+        onClose={() => setTextEditorModal(prev => ({ ...prev, isOpen: false }))}
+        targetLayer={textEditorModal.targetLayer}
+        panelKey={textEditorModal.panelKey}
+        config={
+          ((designConfig[textEditorModal.panelKey as keyof ArtDesignConfig] || activePanel) as PanelConfig)[
+            textEditorModal.targetLayer === 'name' ? 'nameConfig' : 'numberConfig'
+          ]
+        }
+        onUpdate={(fields) => {
+          const configKey = textEditorModal.targetLayer === 'name' ? 'nameConfig' : 'numberConfig';
+          const targetTab = textEditorModal.panelKey;
+          const currentPanel = (designConfig[targetTab as keyof ArtDesignConfig] || activePanel) as PanelConfig;
+          const currentTextConf = currentPanel[configKey];
+          undoableConfigChange({
+            ...designConfig,
+            [targetTab]: {
+              ...currentPanel,
+              [configKey]: {
+                ...currentTextConf,
+                ...fields
+              }
+            }
+          });
+        }}
+        onOpenGradientEditor={() => {
+          setGradientModalTarget(textEditorModal.targetLayer);
+          setIsGradientModalOpen(true);
+        }}
+        customFonts={customFonts}
+        onUndo={handleUndo}
       />
     </div>
   );

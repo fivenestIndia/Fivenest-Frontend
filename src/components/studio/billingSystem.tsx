@@ -1,64 +1,23 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Receipt, Plus, Download, Printer, Send, Trash2, Edit2, CheckCircle, 
-  Clock, DollarSign, Search, Sparkles, FileText, X, User, QrCode, Building2,
-  Package, Palette, Layers, CheckCircle2, ChevronRight, Phone, MapPin, Percent, CreditCard, ShieldCheck, Tag,
-  Mail, MessageSquare, Copy, Check, Upload, Image as ImageIcon, Settings, FileSpreadsheet, Loader2
+  Plus, Download, Printer, Send, Trash2, Edit2, CheckCircle, 
+  Clock, DollarSign, Search, Sparkles, FileText, X, User, QrCode, ArrowUpRight, RotateCcw
 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-
 import type { PlayerRecord, OrderMetadata } from './orderEntry';
 import type { OrderItem } from './factoryOrders';
-import { CustomerMemory } from './factoryCustomers';
-import { ProductItem, getStoredProducts, saveStoredProducts } from './productCatalogDb';
-
-export interface InvoiceLineItem {
-  id: string;
-  description: string;
-  hsnCode: string;
-  qty: number;
-  unit: string;
-  rate: number;
-  taxPercent: number; // e.g. 5, 12, 18
-  amount: number;
-}
 
 export interface BillingRecord {
   id: string;
   orderCode: string;
   date: string;
-  dueDate?: string;
   customerName: string;
-  customerPhone?: string;
-  customerGstin?: string;
-  customerAddress?: string;
-  customerLogoUrl?: string;
-  fileName: string; // Order description
+  fileName: string;
   whatsapp: string;
   qty: number;
   rate: number;
   designCharges: number;
-  status: 'Completed' | 'Pending' | 'Cancelled' | 'Overdue' | 'Draft';
+  status: 'Completed' | 'Pending' | 'Cancelled';
   advance?: number;
-  rolePanel?: 'printing' | 'factory' | 'designer';
-  lineItems?: InvoiceLineItem[];
-  discount?: number;
-  gstType?: 'CGST_SGST' | 'IGST';
-}
-
-export interface BusinessProfile {
-  name: string;
-  tagline: string;
-  logoUrl: string;
-  gstin: string;
-  phone: string;
-  email: string;
-  address: string;
-  bankName: string;
-  accountNo: string;
-  ifsc: string;
-  upiId: string;
 }
 
 interface BillingSystemProps {
@@ -68,718 +27,1003 @@ interface BillingSystemProps {
   orders?: OrderItem[];
 }
 
-export const BillingSystem: React.FC<BillingSystemProps> = ({ records = [], metadata, currentUser, orders = [] }) => {
-  // Active Panel Role Selection (Printing Owner | Factory Owner | Designer)
-  const [activeRolePanel, setActiveRolePanel] = useState<'printing' | 'factory' | 'designer'>('printing');
-
-  // Customer CRM Database loaded from localStorage
-  const customerStorageKey = currentUser?.email ? `fivenest_factory_customers_${currentUser.email}` : 'fivenest_factory_customers_default';
-  const [customerDb, setCustomerDb] = useState<CustomerMemory[]>([]);
-
-  // Product Database Catalog loaded from helper
-  const [productsDb, setProductsDb] = useState<ProductItem[]>(getStoredProducts());
-  const [showProductModal, setShowProductModal] = useState(false);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-
-  // Business Profile Persistence (Company Name, Logo, Details, UPI)
-  const profileStorageKey = currentUser?.email ? `fivenest_business_profile_${currentUser.email.toLowerCase().trim()}` : 'fivenest_business_profile_default';
-  const [businessProfile, setBusinessProfile] = useState<BusinessProfile>(() => {
-    const saved = localStorage.getItem(profileStorageKey);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    return {
-      name: 'Vakratunda Sublimation Apparel',
-      tagline: 'Sportswear Printing & Garment Manufacturing',
-      logoUrl: '',
-      gstin: '27ABCDE1234F1Z5',
-      phone: '+91 98765 43210',
-      email: 'billing@fivenest.in',
-      address: 'Sportswear Industrial Complex, Market Hub',
-      bankName: 'HDFC Bank Ltd',
-      accountNo: '50200012345678',
-      ifsc: 'HDFC0000123',
-      upiId: 'vilesh332-1@okhdfcbank'
-    };
-  });
-
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const [copiedToast, setCopiedToast] = useState(false);
-
-  // Save Business Profile
-  useEffect(() => {
-    localStorage.setItem(profileStorageKey, JSON.stringify(businessProfile));
-    if (businessProfile.upiId) {
-      localStorage.setItem('fivenest_upi_id', businessProfile.upiId);
-    }
-  }, [businessProfile, profileStorageKey]);
-
-  // Scoped key per user for Billing Records
-  const userStorageKey = currentUser?.email 
-    ? `fivenest_billing_records_${currentUser.email.toLowerCase().trim()}` 
-    : 'fivenest_billing_records_guest';
-
-  const [billingList, setBillingList] = useState<BillingRecord[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Completed' | 'Pending' | 'Draft'>('All');
-  
-  // Selected Invoice Modal State
-  const [selectedInvoice, setSelectedInvoice] = useState<BillingRecord | null>(null);
-
-  // Invoice Builder Modal State (Refrens / MyBillBook Customizer)
-  const [showBuilderModal, setShowBuilderModal] = useState(false);
-  const [builderData, setBuilderData] = useState<Partial<BillingRecord>>({
-    orderCode: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-    date: new Date().toISOString().split('T')[0],
-    dueDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
-    customerName: '',
-    whatsapp: '',
-    customerGstin: '',
-    customerAddress: '',
-    fileName: 'Sublimation Sportswear Printing',
-    status: 'Pending',
-    advance: 0,
-    discount: 0,
-    gstType: 'CGST_SGST',
-    rolePanel: 'printing',
-    lineItems: [
-      { id: '1', description: 'Sublimation Full Jersey Printing', hsnCode: '998898', qty: 50, unit: 'pcs', rate: 15, taxPercent: 12, amount: 750 }
-    ]
-  });
-
-  // Load Customer Database from CRM
-  useEffect(() => {
-    const savedCust = localStorage.getItem(customerStorageKey);
-    if (savedCust) {
-      try {
-        setCustomerDb(JSON.parse(savedCust));
-      } catch (e) {}
-    }
-  }, [customerStorageKey]);
-
-  // Load User-Scoped Billing Data
-  const loadBillingData = useCallback(() => {
-    const userEmail = currentUser?.email || 'guest';
-    const keysToCheck = [
-      `fivenest_studio_export_billing_${userEmail.toLowerCase().trim()}`,
-      `fivenest_billing_records_${userEmail.toLowerCase().trim()}`,
-      `fivenest_studio_export_billing_all`,
-      `fivenest_studio_export_billing_guest`
-    ];
-
-    let studioExportsMap = new Map<string, BillingRecord>();
-
-    const deletedKey = `fivenest_billing_deleted_ids_${userEmail.toLowerCase().trim()}`;
-    let deletedIds: Set<string> = new Set();
-    try {
-      const deletedStr = localStorage.getItem(deletedKey);
-      if (deletedStr) deletedIds = new Set(JSON.parse(deletedStr));
-    } catch (e) {}
-
-    keysToCheck.forEach(k => {
-      const str = localStorage.getItem(k);
-      if (str) {
-        try {
-          const list: BillingRecord[] = JSON.parse(str);
-          list.forEach(item => {
-            if (item && item.id && !studioExportsMap.has(item.id) && !deletedIds.has(item.id)) {
-              studioExportsMap.set(item.id, item);
-            }
-          });
-        } catch (e) {}
+/**
+ * Derives the unique localStorage key scoped to the individual logged-in user.
+ * Each user gets their own completely isolated billing ledger.
+ */
+export const getBillingStorageKey = (userEmail?: string | null): string => {
+  const email = (userEmail || '').trim().toLowerCase();
+  if (email) {
+    return `fivenest_invoice_bill_records_${email}`;
+  }
+  try {
+    const activeStr = localStorage.getItem('fivenest_active_user');
+    if (activeStr) {
+      const active = JSON.parse(activeStr);
+      if (active?.email) {
+        return `fivenest_invoice_bill_records_${active.email.trim().toLowerCase()}`;
       }
-    });
-
-    let studioExports = Array.from(studioExportsMap.values());
-
-    // Sync from Order Dockets if available
-    let syncedFromOrders: BillingRecord[] = [];
-    if (orders && orders.length > 0) {
-      syncedFromOrders = orders.map((o) => {
-        let totalQty = 0;
-        o.sizeGrid.forEach((row) => {
-          totalQty += Number(row.halfQty || 0) + Number(row.fullQty || 0);
-        });
-
-        const isPrintOnly = o.orderScope === 'printing-only';
-        const designCost = o.designCost !== undefined ? o.designCost : (isPrintOnly ? totalQty * 3 : 0);
-
-        return {
-          id: o.id,
-          orderCode: `ORD-#${o.orderNo}`,
-          date: o.deliveryDate || new Date().toLocaleDateString('en-IN'),
-          customerName: o.customerName,
-          fileName: `${isPrintOnly ? '🖨️ Order Docket (Print)' : '🏭 Order Docket (Mfg)'} (${totalQty} pcs)`,
-          whatsapp: '',
-          qty: totalQty,
-          rate: o.ratePerPiece,
-          designCharges: designCost,
-          status: o.statusPrint === 'Done' && o.statusStitch === 'Done' ? 'Completed' : 'Pending',
-          advance: o.advancePaid || 0,
-          rolePanel: isPrintOnly ? 'printing' : 'factory'
-        };
-      });
     }
+  } catch (e) {}
+  return 'fivenest_invoice_bill_records_guest';
+};
 
-    const combinedList = [...studioExports, ...syncedFromOrders];
-    if (combinedList.length === 0) {
-      setBillingList([
-        { id: '1', orderCode: 'INV-2026-1001', date: new Date().toLocaleDateString('en-IN'), customerName: 'Shirke Sports Mfg', fileName: 'MAPL Sublimation Jersey Order (191 pcs)', whatsapp: '9773358920', qty: 191, rate: 15, designCharges: 500, status: 'Completed', advance: 1000, rolePanel: 'printing' }
-      ]);
-    } else {
-      setBillingList(combinedList);
+/**
+ * Helper to format date with 12-hour AM/PM time (e.g. 21-09-2026, 11:04 PM)
+ */
+export const formatDateTime = (dateObj: Date = new Date()): string => {
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const year = dateObj.getFullYear();
+  let hours = dateObj.getHours();
+  const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  const hourStr = String(hours ? hours : 12).padStart(2, '0');
+  return `${day}-${month}-${year}, ${hourStr}:${minutes} ${ampm}`;
+};
+
+// Default is completely cleared with no dummy records
+export const defaultBillingRecords: BillingRecord[] = [];
+
+/**
+ * Global helper to automatically record a new entry into the Invoice & Bill ledger
+ * scoped strictly to the individual logged-in user ID / email.
+ */
+export const recordBillingExport = (data: {
+  customerName?: string;
+  fileName?: string;
+  whatsapp?: string;
+  qty: number;
+  rate?: number;
+  designCharges?: number;
+  status?: 'Completed' | 'Pending';
+}, userEmail?: string | null): BillingRecord => {
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const dateStr = formatDateTime(now);
+
+  const storageKey = getBillingStorageKey(userEmail);
+  let currentList: BillingRecord[] = [];
+  try {
+    const str = localStorage.getItem(storageKey);
+    if (str) {
+      const parsed = JSON.parse(str);
+      if (Array.isArray(parsed)) currentList = parsed;
     }
-  }, [orders, currentUser?.email]);
+  } catch (e) {
+    console.error('Error reading billing records:', e);
+  }
 
-  useEffect(() => {
-    loadBillingData();
-  }, [loadBillingData]);
+  // Generate sequence number based on current user's count
+  const seq = String(currentList.length + 1).padStart(2, '0');
+  const orderCode = `FN-26-${day}${month}-${seq}`;
 
-  // Save billing data changes to localStorage
-  useEffect(() => {
-    if (billingList.length > 0) {
-      localStorage.setItem(userStorageKey, JSON.stringify(billingList));
-    }
-  }, [billingList, userStorageKey]);
-
-  // Invoice Math Helpers
-  const getItemSubtotal = (items?: InvoiceLineItem[], fallbackQty = 1, fallbackRate = 0) => {
-    if (items && items.length > 0) {
-      return items.reduce((acc, it) => acc + (it.qty * it.rate), 0);
-    }
-    return fallbackQty * fallbackRate;
+  const newRecord: BillingRecord = {
+    id: `FN-EXP-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    orderCode,
+    date: dateStr,
+    customerName: data.customerName?.trim() || 'Deep Textile',
+    fileName: data.fileName?.trim() || (data.customerName?.trim() ? `${data.customerName.trim()} - ${data.qty} jerseys` : `Blue Dragon XI (${data.qty} pcs)`),
+    whatsapp: data.whatsapp?.trim() || '',
+    qty: data.qty > 0 ? data.qty : 1,
+    rate: data.rate !== undefined ? data.rate : 5,
+    designCharges: data.designCharges !== undefined ? data.designCharges : 0,
+    status: data.status || 'Pending'
   };
 
-  const getItemTaxTotal = (items?: InvoiceLineItem[]) => {
-    if (!items || items.length === 0) return 0;
-    return items.reduce((acc, it) => acc + ((it.qty * it.rate) * (it.taxPercent / 100)), 0);
-  };
+  const updatedList = [newRecord, ...currentList];
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(updatedList));
+  } catch (e) {
+    console.error('Error saving billing records:', e);
+  }
 
-  const calculateFinalTotal = (rec: BillingRecord) => {
-    if (rec.lineItems && rec.lineItems.length > 0) {
-      const subtotal = getItemSubtotal(rec.lineItems);
-      const tax = getItemTaxTotal(rec.lineItems);
-      const disc = rec.discount || 0;
-      return Math.max(0, subtotal + tax + rec.designCharges - disc);
-    }
-    return (rec.qty * rec.rate) + rec.designCharges - (rec.discount || 0);
-  };
+  // Notify listeners immediately with user storage key details
+  window.dispatchEvent(new CustomEvent('fivenest-billing-updated', { 
+    detail: { record: newRecord, storageKey, userEmail: userEmail || 'guest' } 
+  }));
+  return newRecord;
+};
 
-  const calculateBalanceDue = (rec: BillingRecord) => {
-    const total = calculateFinalTotal(rec);
-    return Math.max(0, total - (rec.advance || 0));
-  };
+export const BillingSystem: React.FC<BillingSystemProps> = ({ 
+  records = [], 
+  metadata, 
+  currentUser 
+}) => {
+  const userStorageKey = getBillingStorageKey(currentUser?.email);
 
-  // Filtered List by Role & Search
-  const filteredList = billingList.filter(rec => {
-    const matchesRole = !rec.rolePanel || rec.rolePanel === activeRolePanel;
-    const matchesSearch = 
-      rec.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      rec.orderCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      rec.fileName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      rec.whatsapp.includes(searchTerm);
-    const matchesStatus = statusFilter === 'All' || rec.status === statusFilter;
-    return matchesRole && matchesSearch && matchesStatus;
+  const [billingList, setBillingList] = useState<BillingRecord[]>(() => {
+    try {
+      // Clear legacy dummy sample records if present
+      const oldGlobal = localStorage.getItem('fivenest_invoice_bill_records');
+      if (oldGlobal && oldGlobal.includes('rec-1')) {
+        localStorage.removeItem('fivenest_invoice_bill_records');
+      }
+
+      const saved = localStorage.getItem(userStorageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Filter out dummy sample rows if any exist from earlier test
+          return parsed.filter(r => !r.id.startsWith('rec-'));
+        }
+      }
+    } catch (e) {}
+    return [];
   });
 
-  // Totals calculations for summary cards
-  const totalReceived = filteredList
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Completed' | 'Pending'>('All');
+  const [selectedInvoice, setSelectedInvoice] = useState<BillingRecord | null>(null);
+  const [editingRecord, setEditingRecord] = useState<BillingRecord | null>(null);
+
+  // Editable Studio UPI ID
+  const [upiId, setUpiId] = useState<string>(() => {
+    return localStorage.getItem('fivenest_upi_id') || 'vilesh332-1@okhdfcbank';
+  });
+
+  const handleUpiChange = (newVal: string) => {
+    setUpiId(newVal);
+    localStorage.setItem('fivenest_upi_id', newVal);
+  };
+
+  // Reload billing data for the specific active user
+  const refreshBillingData = useCallback(() => {
+    const activeKey = getBillingStorageKey(currentUser?.email);
+    try {
+      const saved = localStorage.getItem(activeKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setBillingList(parsed.filter(r => !r.id.startsWith('rec-')));
+          return;
+        }
+      }
+    } catch (e) {}
+    setBillingList([]);
+  }, [currentUser?.email]);
+
+  // Sync whenever user changes or custom update event occurs
+  useEffect(() => {
+    refreshBillingData();
+  }, [currentUser?.email, refreshBillingData]);
+
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      const activeKey = getBillingStorageKey(currentUser?.email);
+      if (e.key === activeKey) {
+        refreshBillingData();
+      }
+    };
+    const handleCustomUpdate = () => {
+      refreshBillingData();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('fivenest-billing-updated', handleCustomUpdate);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('fivenest-billing-updated', handleCustomUpdate);
+    };
+  }, [currentUser?.email, refreshBillingData]);
+
+  // Save changes to current user's isolated storage
+  const saveList = (newList: BillingRecord[]) => {
+    setBillingList(newList);
+    const activeKey = getBillingStorageKey(currentUser?.email);
+    try {
+      localStorage.setItem(activeKey, JSON.stringify(newList));
+    } catch (e) {
+      console.error('Failed to save billing records:', e);
+    }
+  };
+
+  // Clear all billing data for this account
+  const handleClearAll = () => {
+    const userLabel = currentUser?.email ? currentUser.email : 'Guest';
+    if (window.confirm(`Are you sure you want to clear all billing records for [${userLabel}]? This cannot be undone.`)) {
+      saveList([]);
+    }
+  };
+
+  // Calculations
+  const calculateTotal = (rec: BillingRecord) => rec.qty * rec.rate;
+  const calculateFinalTotal = (rec: BillingRecord) => calculateTotal(rec) + rec.designCharges;
+
+  const totalReceived = billingList
     .filter(r => r.status === 'Completed')
     .reduce((sum, r) => sum + calculateFinalTotal(r), 0);
 
-  const totalPending = filteredList
-    .filter(r => r.status === 'Pending' || r.status === 'Draft')
-    .reduce((sum, r) => sum + calculateBalanceDue(r), 0);
+  const totalPending = billingList
+    .filter(r => r.status === 'Pending')
+    .reduce((sum, r) => sum + calculateFinalTotal(r), 0);
 
   const totalGrandRevenue = totalReceived + totalPending;
 
-  // Open Invoice Builder Modal
-  const handleOpenBuilder = (existing?: BillingRecord) => {
-    if (existing) {
-      setBuilderData({ ...existing });
-    } else {
-      const roleProducts = productsDb.filter(p => p.category === activeRolePanel);
-      const firstProd = roleProducts[0] || productsDb[0];
+  // Filtered List
+  const filteredList = billingList.filter(rec => {
+    const matchesSearch = 
+      (rec.customerName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (rec.orderCode || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (rec.fileName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (rec.whatsapp || '').includes(searchTerm);
+    const matchesStatus = statusFilter === 'All' || rec.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
-      setBuilderData({
-        id: `inv-${Date.now()}`,
-        orderCode: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-        date: new Date().toISOString().split('T')[0],
-        dueDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
-        customerName: '',
-        whatsapp: '',
-        customerGstin: '',
-        customerAddress: '',
-        fileName: `${activeRolePanel === 'printing' ? 'Sublimation Print Order' : activeRolePanel === 'factory' ? 'Bulk Jersey Order' : '3D Jersey Design Order'}`,
-        status: 'Pending',
-        advance: 0,
-        discount: 0,
-        gstType: 'CGST_SGST',
-        designCharges: 0,
-        rolePanel: activeRolePanel,
-        lineItems: [
-          {
-            id: `item-${Date.now()}`,
-            description: firstProd ? firstProd.name : 'Custom Sublimation Item',
-            hsnCode: firstProd ? firstProd.hsnCode : '998898',
-            qty: 50,
-            unit: firstProd ? firstProd.unit : 'pcs',
-            rate: firstProd ? firstProd.defaultRate : 15,
-            taxPercent: firstProd ? firstProd.taxPercent : 12,
-            amount: 50 * (firstProd ? firstProd.defaultRate : 15)
-          }
-        ]
-      });
-    }
-    setShowBuilderModal(true);
-  };
+  // Actions
+  const handleAddRecord = () => {
+    const today = new Date();
+    const day = String(today.getDate()).padStart(2, '0');
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const formattedDate = formatDateTime(today);
+    const newCode = `FN-26-${day}${month}-${String(billingList.length + 1).padStart(2, '0')}`;
 
-  // Save Custom Invoice from Builder
-  const handleSaveInvoiceFromBuilder = () => {
-    if (!builderData.customerName?.trim()) {
-      alert('Please enter or select a Customer Name.');
-      return;
-    }
-
-    const finalRec: BillingRecord = {
-      id: builderData.id || `inv-${Date.now()}`,
-      orderCode: builderData.orderCode || `INV-${Date.now()}`,
-      date: builderData.date || new Date().toLocaleDateString('en-IN'),
-      dueDate: builderData.dueDate,
-      customerName: builderData.customerName || 'Client',
-      customerPhone: builderData.customerPhone || builderData.whatsapp,
-      customerGstin: builderData.customerGstin,
-      customerAddress: builderData.customerAddress,
-      customerLogoUrl: builderData.customerLogoUrl,
-      fileName: builderData.fileName || 'Sportswear Order',
-      whatsapp: builderData.whatsapp || builderData.customerPhone || '',
-      qty: builderData.lineItems ? builderData.lineItems.reduce((a, b) => a + Number(b.qty), 0) : Number(builderData.qty || 1),
-      rate: builderData.lineItems && builderData.lineItems.length > 0 ? builderData.lineItems[0].rate : Number(builderData.rate || 0),
-      designCharges: Number(builderData.designCharges || 0),
-      status: builderData.status || 'Pending',
-      advance: Number(builderData.advance || 0),
-      discount: Number(builderData.discount || 0),
-      gstType: builderData.gstType || 'CGST_SGST',
-      rolePanel: builderData.rolePanel || activeRolePanel,
-      lineItems: builderData.lineItems || []
+    const newRec: BillingRecord = {
+      id: `REC-${Date.now()}`,
+      orderCode: newCode,
+      date: formattedDate,
+      customerName: currentUser?.name || 'New Customer',
+      fileName: 'Sublimation Order',
+      whatsapp: '',
+      qty: 1,
+      rate: 5,
+      designCharges: 0,
+      status: 'Pending'
     };
 
-    const existingIdx = billingList.findIndex(r => r.id === finalRec.id);
-    if (existingIdx >= 0) {
-      const updated = [...billingList];
-      updated[existingIdx] = finalRec;
-      setBillingList(updated);
-    } else {
-      setBillingList([finalRec, ...billingList]);
-    }
-
-    setShowBuilderModal(false);
-    setSelectedInvoice(finalRec);
+    const updated = [newRec, ...billingList];
+    saveList(updated);
+    setEditingRecord(newRec);
   };
 
-  // Message Generator Helper
-  const getInvoiceSummaryText = (rec: BillingRecord) => {
+  const handleImportCurrentOrder = () => {
+    const totalRosterQty = records.reduce((acc, r) => acc + (r.qty || 1), 0);
+    const today = new Date();
+    const day = String(today.getDate()).padStart(2, '0');
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const formattedDate = formatDateTime(today);
+    const newCode = `FN-26-${day}${month}-${String(billingList.length + 1).padStart(2, '0')}`;
+
+    const cleanCust = metadata?.customerName?.trim() || currentUser?.name || 'Deep Textile';
+    const cleanFile = metadata?.fileName?.trim() || (metadata?.customerName?.trim() ? `${metadata.customerName.trim()} - ${totalRosterQty || 1} jersey data` : `Blue Dragon XI (${totalRosterQty || 1} pcs)`);
+
+    const importedRec: BillingRecord = {
+      id: `REC-${Date.now()}`,
+      orderCode: newCode,
+      date: formattedDate,
+      customerName: cleanCust,
+      fileName: cleanFile,
+      whatsapp: metadata?.whatsapp?.trim() || '',
+      qty: totalRosterQty > 0 ? totalRosterQty : 1,
+      rate: 5,
+      designCharges: metadata?.designCharges || 0,
+      status: 'Pending'
+    };
+
+    const updated = [importedRec, ...billingList];
+    saveList(updated);
+    setEditingRecord(importedRec);
+  };
+
+  const handleUpdateRecord = (updated: BillingRecord) => {
+    const newList = billingList.map(r => r.id === updated.id ? updated : r);
+    saveList(newList);
+  };
+
+  const handleDeleteRecord = (id: string) => {
+    if (window.confirm('Are you sure you want to delete this billing entry?')) {
+      const newList = billingList.filter(r => r.id !== id);
+      saveList(newList);
+    }
+  };
+
+  // WhatsApp Message Formatter & Direct Payment Link
+  const handleWhatsAppSend = (rec: BillingRecord) => {
+    const printingTotal = calculateTotal(rec);
     const finalTotal = calculateFinalTotal(rec);
-    const balanceDue = calculateBalanceDue(rec);
-    const currentUpi = businessProfile.upiId || 'vilesh332-1@okhdfcbank';
-    const upiUrlRaw = `upi://pay?pa=${currentUpi}&pn=${encodeURIComponent(businessProfile.name)}&am=${balanceDue}&cu=INR`;
+    const currentUpi = upiId || 'vilesh332-1@okhdfcbank';
+
+    const upiUrlRaw = `upi://pay?pa=${currentUpi}&pn=FiveNest&am=${finalTotal}&cu=INR`;
     const qrUrl = `https://quickchart.io/qr?size=500&text=${encodeURIComponent(upiUrlRaw)}`;
 
-    return {
-      finalTotal,
-      balanceDue,
-      currentUpi,
-      upiUrlRaw,
-      qrUrl,
-      text: 
-`🧾 *TAX INVOICE #${rec.orderCode}*
-Hello *${rec.customerName}*,
+    const messageText = 
+`Hello ${rec.customerName},
 
-Here is your tax invoice summary from *${businessProfile.name}*:
+Your Design Billing Details :
 ________________________________________
 
-◆ *Order Reference*: ${rec.fileName}
-◆ *Date*: ${rec.date}
-◆ *Total Quantity*: ${rec.qty} pcs
-◆ *Final Total*: ₹${finalTotal.toLocaleString('en-IN')}
-◆ *Advance Paid*: ₹${(rec.advance || 0).toLocaleString('en-IN')}
-*◆ BALANCE DUE*: ₹${balanceDue.toLocaleString('en-IN')}
+◆ Order Code : ${rec.orderCode}
+◆ Date & Time : ${rec.date}
+◆ File Name : ${rec.fileName}
+◆ Quantity : ${rec.qty}
+◆ Rate : ₹${rec.rate}
+◆ Printing Total : ₹${printingTotal}
+◆ Design Charges : ₹${rec.designCharges}
 ________________________________________
 
-💳 *PAY BALANCE VIA UPI*:
+◆ Final Total Payment : ₹${finalTotal}
+
+◆ Pay Now :
 ${upiUrlRaw}
 
-📲 *SCAN UPI QR CODE*:
+◆ QR Payment :
 ${qrUrl}
 
-Thank you for your business!
-— ${businessProfile.name}`
-    };
-  };
+◆ Thank You For Your Order
+— FiveNest`;
 
-  // PDF Generation Helper Function (html2canvas + jsPDF)
-  const handleDownloadPdf = async (rec: BillingRecord) => {
-    setIsGeneratingPdf(true);
-    try {
-      const element = document.getElementById('printable-invoice');
-      if (!element) {
-        alert('Invoice preview document not found.');
-        return;
-      }
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff'
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Invoice_${rec.orderCode}.pdf`);
-    } catch (err) {
-      console.error('PDF Generation Error:', err);
-      alert('PDF generation completed via print dialog.');
-      window.print();
-    } finally {
-      setIsGeneratingPdf(false);
-    }
-  };
-
-  // 1. WhatsApp Share with PDF Download
-  const handleWhatsAppWithPdf = async (rec: BillingRecord) => {
-    // Generate and download PDF
-    await handleDownloadPdf(rec);
-
-    const info = getInvoiceSummaryText(rec);
-    const pdfMsg = `📎 *PDF TAX INVOICE ATTACHED*: Invoice_${rec.orderCode}.pdf\n\n` + info.text;
-
-    const cleanPhone = (rec.whatsapp || rec.customerPhone || '').replace(/\D/g, '');
+    const cleanPhone = (rec.whatsapp || '').replace(/\D/g, '');
     const url = cleanPhone 
-      ? `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(pdfMsg)}`
-      : `https://wa.me/?text=${encodeURIComponent(pdfMsg)}`;
+      ? `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(messageText)}`
+      : `https://wa.me/?text=${encodeURIComponent(messageText)}`;
     window.open(url, '_blank');
   };
 
-  // 2. Email Share
-  const handleEmailSend = (rec: BillingRecord) => {
-    const info = getInvoiceSummaryText(rec);
-    const subject = encodeURIComponent(`Tax Invoice #${rec.orderCode} from ${businessProfile.name}`);
-    const body = encodeURIComponent(info.text);
-    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
-  };
+  const exportCSV = () => {
+    const headers = [
+      'Order Code', 
+      'Date & Time', 
+      'Customer Name', 
+      'File Name (.csv Data)', 
+      'Whatsapp Contact No', 
+      'Quantity', 
+      'Rate', 
+      'Total', 
+      'Whats app Payment Link', 
+      'Design Charges', 
+      'Final Total', 
+      'Billing Status'
+    ];
+    
+    const rows = billingList.map(r => {
+      const total = calculateTotal(r);
+      const finalTotal = calculateFinalTotal(r);
+      const cleanPhone = (r.whatsapp || '').replace(/\D/g, '');
+      const waLink = cleanPhone ? `https://wa.me/91${cleanPhone}` : `https://wa.me/`;
 
-  // 3. SMS Share
-  const handleSmsSend = (rec: BillingRecord) => {
-    const info = getInvoiceSummaryText(rec);
-    const cleanPhone = (rec.whatsapp || rec.customerPhone || '').replace(/\D/g, '');
-    const body = encodeURIComponent(info.text);
-    window.open(`sms:${cleanPhone}?body=${body}`, '_blank');
-  };
+      return [
+        r.orderCode,
+        r.date,
+        `"${(r.customerName || '').replace(/"/g, '""')}"`,
+        `"${(r.fileName || '').replace(/"/g, '""')}"`,
+        `"${r.whatsapp || ''}"`,
+        r.qty,
+        r.rate,
+        total,
+        waLink,
+        r.designCharges,
+        finalTotal,
+        r.status
+      ];
+    });
 
-  // 4. Copy Invoice Text to Clipboard
-  const handleCopyInvoiceText = (rec: BillingRecord) => {
-    const info = getInvoiceSummaryText(rec);
-    navigator.clipboard.writeText(info.text);
-    setCopiedToast(true);
-    setTimeout(() => setCopiedToast(false), 3000);
-  };
-
-  // Delete invoice
-  const handleDeleteRecord = (id: string) => {
-    if (window.confirm('Delete this invoice entry permanently?')) {
-      setBillingList(billingList.filter(r => r.id !== id));
-    }
-  };
-
-  // Profile Logo File Upload Handler
-  const handleCompanyLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setBusinessProfile(prev => ({ ...prev, logoUrl: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
-    }
+    const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const userLabel = currentUser?.name ? currentUser.name.replace(/\s+/g, '_') : 'User';
+    link.download = `FiveNest_${userLabel}_Billing_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
   };
 
   return (
-    <div className="space-y-6 font-sans p-2 md:p-4 text-left">
-
-      {/* 🏆 PANEL ROLE SWITCHER HEADER */}
-      <div className="bg-slate-900/80 p-5 rounded-3xl border border-slate-800 backdrop-blur-xl flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold uppercase tracking-widest text-cyan-400 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20">
-              🧾 Refrens & MyBillBook Style Custom Invoicing
-            </span>
+    <div className="billing-system-container fade-in" style={{ padding: '8px 4px 40px 4px' }}>
+      
+      {/* Top Banner: User Ledger & UPI Setup */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '12px',
+        marginBottom: '20px',
+        background: '#FFFFFF',
+        border: '1px solid #E8E4DE',
+        padding: '12px 18px',
+        borderRadius: '12px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
+            background: currentUser ? 'linear-gradient(135deg, #10B981 0%, #059669 100%)' : 'linear-gradient(135deg, #FF6B3D 0%, #E4572E 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#FFFFFF'
+          }}>
+            {currentUser ? <User size={17} /> : <FileText size={17} />}
           </div>
-          <h1 className="text-2xl md:text-3xl font-black text-white">Invoices, Billing & Payment Tracker</h1>
-          <p className="text-xs md:text-sm text-slate-400 mt-1">
-            Generate custom GST invoices, download high-definition PDF invoices, & send instant WhatsApp/Email/SMS payment links.
+          <div>
+            <h2 style={{ fontSize: '15px', fontWeight: '800', color: '#171717', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              Invoice & Bill Ledger
+              <span style={{ 
+                fontSize: '10px', 
+                background: currentUser ? '#ECFDF5' : '#F5F3EF', 
+                color: currentUser ? '#047857' : '#686661', 
+                border: currentUser ? '1px solid #A7F3D0' : '1px solid #D8D5CF', 
+                padding: '2px 8px', 
+                borderRadius: '6px', 
+                fontWeight: '800' 
+              }}>
+                {currentUser ? `User: ${currentUser.email}` : 'Guest Mode (Local Storage)'}
+              </span>
+            </h2>
+            <p style={{ fontSize: '11px', color: '#787672', margin: '2px 0 0' }}>
+              {currentUser 
+                ? `All data saved under individual login user ID: ${currentUser.email}` 
+                : 'Sign in to automatically sync and isolate your billing ledger to your personal account.'}
+            </p>
+          </div>
+        </div>
+
+        {/* UPI ID Field */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: '#F9FAFB',
+            padding: '6px 12px',
+            borderRadius: '8px',
+            border: '1px solid #E5E7EB'
+          }}>
+            <QrCode size={14} style={{ color: '#059669' }} />
+            <span style={{ fontSize: '11px', fontWeight: '700', color: '#4B5563' }}>UPI ID:</span>
+            <input 
+              type="text" 
+              value={upiId}
+              onChange={(e) => handleUpiChange(e.target.value)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#059669',
+                fontSize: '12px',
+                fontWeight: '800',
+                width: '180px',
+                outline: 'none',
+                fontFamily: 'monospace'
+              }}
+              title="Click to edit UPI ID for WhatsApp payment links"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Top 3 Summary Stat Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+        
+        {/* Total Payment Received Card */}
+        <div style={{
+          background: '#FFFFFF',
+          border: '1px solid #E2E8F0',
+          borderRadius: '12px',
+          padding: '18px 20px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+          borderLeft: '4px solid #10B981'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span style={{ fontSize: '11px', fontWeight: '800', color: '#059669', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              Total Payment Received
+            </span>
+            <CheckCircle size={18} style={{ color: '#10B981' }} />
+          </div>
+          <div style={{ fontSize: '24px', fontWeight: '900', color: '#0F172A' }}>
+            ₹{totalReceived.toLocaleString('en-IN')}
+          </div>
+          <p style={{ fontSize: '11px', color: '#64748B', marginTop: '4px', margin: 0 }}>
+            Completed billing entries
           </p>
         </div>
 
-        {/* 3 Panel Mode Selector Buttons */}
-        <div className="flex items-center p-1.5 rounded-2xl bg-slate-950 border border-slate-800 gap-1.5">
-          <button
-            onClick={() => setActiveRolePanel('printing')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-              activeRolePanel === 'printing'
-                ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-black shadow-lg shadow-cyan-500/20'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Printer size={15} />
-            <span>Printing Owner Panel</span>
-          </button>
-
-          <button
-            onClick={() => setActiveRolePanel('factory')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-              activeRolePanel === 'factory'
-                ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/20'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Building2 size={15} />
-            <span>Factory Owner Panel</span>
-          </button>
-
-          <button
-            onClick={() => setActiveRolePanel('designer')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-              activeRolePanel === 'designer'
-                ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/20'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Palette size={15} />
-            <span>Designer Panel</span>
-          </button>
+        {/* Total Pending Payment Card */}
+        <div style={{
+          background: '#FFFFFF',
+          border: '1px solid #E2E8F0',
+          borderRadius: '12px',
+          padding: '18px 20px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+          borderLeft: '4px solid #F59E0B'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span style={{ fontSize: '11px', fontWeight: '800', color: '#D97706', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              Total Pending Payment
+            </span>
+            <Clock size={18} style={{ color: '#F59E0B' }} />
+          </div>
+          <div style={{ fontSize: '24px', fontWeight: '900', color: '#0F172A' }}>
+            ₹{totalPending.toLocaleString('en-IN')}
+          </div>
+          <p style={{ fontSize: '11px', color: '#64748B', marginTop: '4px', margin: 0 }}>
+            Awaiting client confirmation
+          </p>
         </div>
+
+        {/* Total Grand Revenue Card */}
+        <div style={{
+          background: '#FFFFFF',
+          border: '1px solid #E2E8F0',
+          borderRadius: '12px',
+          padding: '18px 20px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+          borderLeft: '4px solid #E4572E'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span style={{ fontSize: '11px', fontWeight: '800', color: '#E4572E', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              Total Grand Revenue
+            </span>
+            <DollarSign size={18} style={{ color: '#E4572E' }} />
+          </div>
+          <div style={{ fontSize: '24px', fontWeight: '900', color: '#0F172A' }}>
+            ₹{totalGrandRevenue.toLocaleString('en-IN')}
+          </div>
+          <p style={{ fontSize: '11px', color: '#64748B', marginTop: '4px', margin: 0 }}>
+            {billingList.length} total active records
+          </p>
+        </div>
+
       </div>
 
-      {/* Account Profile & Company Logo / UPI Config Banner */}
-      <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-cyan-950/30 border border-cyan-500/30">
-        <div className="flex items-center gap-3">
-          {businessProfile.logoUrl ? (
-            <img src={businessProfile.logoUrl} alt="Company Logo" className="w-12 h-12 rounded-xl object-contain bg-slate-900 border border-cyan-400/40 p-1" />
-          ) : (
-            <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center font-black text-lg">
-              {businessProfile.name.charAt(0).toUpperCase()}
-            </div>
-          )}
-          <div>
-            <div className="text-xs font-extrabold text-white flex items-center gap-2">
-              <span>{businessProfile.name}</span>
-              <span className="text-cyan-400 text-[10px] font-bold uppercase">({activeRolePanel} Mode)</span>
-            </div>
-            <div className="text-[11px] text-slate-400">
-              GSTIN: <strong className="text-slate-200">{businessProfile.gstin}</strong> | UPI: <strong className="text-emerald-400 font-mono">{businessProfile.upiId}</strong>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Company Profile & Logo Customizer Button */}
-          <button
-            onClick={() => setShowProfileModal(true)}
-            className="px-4 py-2 rounded-xl bg-purple-600/20 border border-purple-500/40 hover:bg-purple-600 hover:text-white text-purple-300 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer"
-          >
-            <Settings size={14} />
-            <span>Edit Company Profile & Logo</span>
-          </button>
-
-          {/* Product Catalog DB Button */}
-          <button
-            onClick={() => setShowProductModal(true)}
-            className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-slate-500 text-slate-200 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer"
-          >
-            <Tag size={14} className="text-cyan-400" />
-            <span>Manage Product Catalog ({productsDb.length})</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <div className="p-6 rounded-3xl bg-slate-900/60 border border-emerald-500/30 backdrop-blur-xl">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Total Received</span>
-            <CheckCircle size={20} className="text-emerald-400" />
-          </div>
-          <div className="text-3xl font-black text-white">₹{totalReceived.toLocaleString('en-IN')}</div>
-          <p className="text-xs text-slate-400 mt-1">From completed orders</p>
-        </div>
-
-        <div className="p-6 rounded-3xl bg-slate-900/60 border border-amber-500/30 backdrop-blur-xl">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">Balance Due / Pending</span>
-            <Clock size={20} className="text-amber-400" />
-          </div>
-          <div className="text-3xl font-black text-white">₹{totalPending.toLocaleString('en-IN')}</div>
-          <p className="text-xs text-slate-400 mt-1">Awaiting client payment</p>
-        </div>
-
-        <div className="p-6 rounded-3xl bg-slate-900/60 border border-purple-500/30 backdrop-blur-xl">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Total Revenue</span>
-            <DollarSign size={20} className="text-purple-400" />
-          </div>
-          <div className="text-3xl font-black text-white">₹{totalGrandRevenue.toLocaleString('en-IN')}</div>
-          <p className="text-xs text-slate-400 mt-1">{filteredList.length} invoices recorded</p>
-        </div>
-      </div>
-
-      {/* Controls & Search */}
-      <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-3xl bg-slate-900/60 border border-slate-800">
-        <div className="flex items-center gap-3 flex-1 min-w-[280px]">
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
+      {/* Toolbar & Filters */}
+      <div style={{
+        background: '#FFFFFF',
+        border: '1px solid #E8E4DE',
+        borderRadius: '12px',
+        padding: '14px 18px',
+        marginBottom: '16px',
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '12px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+      }}>
+        {/* Search & Status Filters */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '280px' }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF' }} />
+            <input 
+              type="text" 
+              className="form-input" 
+              placeholder="Search Customer, Order Code, File Name, Phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by customer, code, or item..."
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-2xl text-white text-xs md:text-sm focus:outline-none focus:border-cyan-400 transition-all"
+              style={{
+                paddingLeft: '36px',
+                fontSize: '12px',
+                height: '38px',
+                borderRadius: '8px',
+                border: '1px solid #D1D5DB',
+                width: '100%',
+                background: '#FFFFFF',
+                color: '#111827'
+              }}
             />
           </div>
 
-          <select
+          <select 
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-2xl text-white text-xs font-bold focus:outline-none"
+            style={{
+              width: '130px',
+              fontSize: '12px',
+              height: '38px',
+              borderRadius: '8px',
+              border: '1px solid #D1D5DB',
+              padding: '0 10px',
+              background: '#FFFFFF',
+              color: '#374151',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
           >
             <option value="All">All Statuses</option>
             <option value="Completed">Completed</option>
             <option value="Pending">Pending</option>
-            <option value="Draft">Draft</option>
           </select>
         </div>
 
-        {/* Create Custom Invoice Button */}
-        <button
-          onClick={() => handleOpenBuilder()}
-          className="px-6 py-3 rounded-2xl bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 text-black font-extrabold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-cyan-500/20 hover:opacity-95 transition-all cursor-pointer"
-        >
-          <Plus size={18} />
-          <span>+ Create Custom Invoice</span>
-        </button>
+        {/* Action Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <button 
+            type="button" 
+            onClick={handleImportCurrentOrder}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12px',
+              fontWeight: '700',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              background: '#F5F3EF',
+              border: '1px solid #D8D5CF',
+              color: '#374151',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            title="Import active Step 2 order into billing"
+          >
+            <Sparkles size={14} style={{ color: '#E4572E' }} />
+            Import Current Job ({records.reduce((a, r) => a + (r.qty || 1), 0)} pcs)
+          </button>
+
+          <button 
+            type="button" 
+            onClick={exportCSV}
+            disabled={billingList.length === 0}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12px',
+              fontWeight: '700',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              background: '#FFFFFF',
+              border: '1px solid #D1D5DB',
+              color: billingList.length === 0 ? '#9CA3AF' : '#374151',
+              cursor: billingList.length === 0 ? 'not-allowed' : 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Download size={14} />
+            Export CSV
+          </button>
+
+          <button 
+            type="button" 
+            onClick={handleAddRecord}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12px',
+              fontWeight: '800',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              background: '#E4572E',
+              border: '1px solid #E4572E',
+              color: '#FFFFFF',
+              cursor: 'pointer',
+              boxShadow: '0 2px 6px rgba(228,87,46,0.3)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Plus size={15} />
+            Add New Entry
+          </button>
+
+          {billingList.length > 0 && (
+            <button 
+              type="button" 
+              onClick={handleClearAll}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontSize: '12px',
+                fontWeight: '700',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                background: '#FEF2F2',
+                border: '1px solid #FCA5A5',
+                color: '#DC2626',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              title="Clear all billing data for this account"
+            >
+              <Trash2 size={13} />
+              Clear All
+            </button>
+          )}
+        </div>
+
       </div>
 
-      {/* Main Invoices Table */}
-      <div className="rounded-3xl bg-slate-900/60 border border-slate-800 overflow-hidden shadow-xl">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+      {/* Main Billing Table matching User Excel Format */}
+      <div style={{
+        background: '#FFFFFF',
+        border: '1px solid #E8E4DE',
+        borderRadius: '12px',
+        overflow: 'hidden',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+      }}>
+        <div style={{ overflowX: 'auto', maxHeight: '620px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '1100px' }}>
             <thead>
-              <tr className="border-b border-slate-800 bg-slate-950/80 text-slate-400 font-extrabold uppercase tracking-wider">
-                <th className="p-4">Invoice #</th>
-                <th className="p-4">Date</th>
-                <th className="p-4">Customer Name</th>
-                <th className="p-4">Order / File Details</th>
-                <th className="p-4 text-center">Download / Share PDF</th>
-                <th className="p-4 text-right">Qty</th>
-                <th className="p-4 text-right">Final Amount</th>
-                <th className="p-4 text-right">Balance Due</th>
-                <th className="p-4 text-center">Status</th>
-                <th className="p-4 text-center">Actions</th>
+              <tr style={{ background: '#F8F9FA', borderBottom: '1px solid #E5E7EB', color: '#111827' }}>
+                <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>Order Code</th>
+                <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>Date & Time</th>
+                <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>Coustomer Name</th>
+                <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>File Name (.csv Data)</th>
+                <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>Whatsapp Contact No</th>
+                <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>Quantity</th>
+                <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>Rate</th>
+                <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>Total</th>
+                <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>Whats app Payment Link</th>
+                <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>Design Charges</th>
+                <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>Final Total</th>
+                <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>Billing Status</th>
+                <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody>
               {filteredList.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="p-12 text-center text-slate-400 italic">
-                    No invoices found matching current filter. Click "+ Create Custom Invoice" to generate a bill.
+                  <td colSpan={13} style={{ textAlign: 'center', padding: '50px 20px', color: '#9CA3AF' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                      <FileText size={36} style={{ color: '#D1D5DB' }} />
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#4B5563' }}>
+                        No billing records found for this account.
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#9CA3AF', maxWidth: '420px', lineHeight: '1.5' }}>
+                        Whenever you export in <strong>Step 3: Export</strong>, a new entry will automatically appear here. You can also click <strong>"+ Add New Entry"</strong> or <strong>"Import Current Job"</strong>.
+                      </div>
+                    </div>
                   </td>
                 </tr>
               ) : (
-                filteredList.map((rec) => {
+                filteredList.map((rec, idx) => {
+                  const total = calculateTotal(rec);
                   const finalTotal = calculateFinalTotal(rec);
-                  const balanceDue = calculateBalanceDue(rec);
+                  const isEditing = editingRecord?.id === rec.id;
+                  const isEven = idx % 2 === 0;
 
                   return (
-                    <tr key={rec.id} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="p-4 font-black text-cyan-400">{rec.orderCode}</td>
-                      <td className="p-4 text-slate-300">{rec.date}</td>
-                      <td className="p-4 font-bold text-white">{rec.customerName}</td>
-                      <td className="p-4 text-slate-400 max-w-[200px] truncate">{rec.fileName}</td>
+                    <tr 
+                      key={rec.id} 
+                      style={{ 
+                        borderBottom: '1px solid #F1F5F9',
+                        background: isEditing ? '#FFFBF7' : (isEven ? '#FFFFFF' : '#FAFAFA'),
+                        transition: 'background 0.15s ease'
+                      }}
+                    >
                       
-                      {/* PDF Download & WhatsApp Buttons */}
-                      <td className="p-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            onClick={() => {
-                              setSelectedInvoice(rec);
-                              setTimeout(() => handleDownloadPdf(rec), 300);
-                            }}
-                            className="px-2.5 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500 hover:text-black font-extrabold text-[11px] inline-flex items-center gap-1 transition-all cursor-pointer"
-                            title="Download PDF Invoice"
-                          >
-                            <Download size={13} />
-                            <span>PDF</span>
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedInvoice(rec);
-                              setTimeout(() => handleWhatsAppWithPdf(rec), 300);
-                            }}
-                            className="px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white font-extrabold text-[11px] inline-flex items-center gap-1 transition-all cursor-pointer"
-                            title="Download PDF & Send via WhatsApp"
-                          >
-                            <Send size={13} />
-                            <span>WhatsApp</span>
-                          </button>
+                      {/* 1. Order Code */}
+                      <td style={{ padding: '10px 14px', fontWeight: '700', color: '#E4572E', whiteSpace: 'nowrap' }}>
+                        {isEditing ? (
+                          <input 
+                            type="text"
+                            value={editingRecord.orderCode}
+                            onChange={(e) => setEditingRecord({ ...editingRecord, orderCode: e.target.value })}
+                            style={{ padding: '4px 8px', fontSize: '11px', border: '1px solid #D1D5DB', borderRadius: '6px', width: '120px' }}
+                          />
+                        ) : rec.orderCode}
+                      </td>
+
+                      {/* 2. Date & Time */}
+                      <td style={{ padding: '10px 14px', whiteSpace: 'nowrap', color: '#374151' }}>
+                        {isEditing ? (
+                          <input 
+                            type="text"
+                            value={editingRecord.date}
+                            onChange={(e) => setEditingRecord({ ...editingRecord, date: e.target.value })}
+                            style={{ padding: '4px 8px', fontSize: '11px', border: '1px solid #D1D5DB', borderRadius: '6px', width: '160px' }}
+                          />
+                        ) : (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                            <Clock size={12} style={{ color: '#9CA3AF' }} />
+                            {rec.date}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* 3. Customer Name */}
+                      <td style={{ padding: '10px 14px', fontWeight: '600', color: '#111827' }}>
+                        {isEditing ? (
+                          <input 
+                            type="text"
+                            value={editingRecord.customerName}
+                            onChange={(e) => setEditingRecord({ ...editingRecord, customerName: e.target.value })}
+                            style={{ padding: '4px 8px', fontSize: '11px', border: '1px solid #D1D5DB', borderRadius: '6px', width: '130px' }}
+                          />
+                        ) : rec.customerName}
+                      </td>
+
+                      {/* 4. File Name (.csv Data) */}
+                      <td style={{ padding: '10px 14px', color: '#4B5563', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {isEditing ? (
+                          <input 
+                            type="text"
+                            value={editingRecord.fileName}
+                            onChange={(e) => setEditingRecord({ ...editingRecord, fileName: e.target.value })}
+                            style={{ padding: '4px 8px', fontSize: '11px', border: '1px solid #D1D5DB', borderRadius: '6px', width: '170px' }}
+                          />
+                        ) : rec.fileName}
+                      </td>
+
+                      {/* 5. Whatsapp Contact No */}
+                      <td style={{ padding: '10px 14px', color: '#374151', whiteSpace: 'nowrap' }}>
+                        {isEditing ? (
+                          <input 
+                            type="text"
+                            value={editingRecord.whatsapp}
+                            onChange={(e) => setEditingRecord({ ...editingRecord, whatsapp: e.target.value })}
+                            style={{ padding: '4px 8px', fontSize: '11px', border: '1px solid #D1D5DB', borderRadius: '6px', width: '110px' }}
+                            placeholder="Phone No"
+                          />
+                        ) : (rec.whatsapp || '-')}
+                      </td>
+
+                      {/* 6. Quantity */}
+                      <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: '700', color: '#111827' }}>
+                        {isEditing ? (
+                          <input 
+                            type="number"
+                            value={editingRecord.qty}
+                            onChange={(e) => setEditingRecord({ ...editingRecord, qty: Number(e.target.value) })}
+                            style={{ padding: '4px 6px', fontSize: '11px', border: '1px solid #D1D5DB', borderRadius: '6px', width: '60px', textAlign: 'right' }}
+                          />
+                        ) : rec.qty}
+                      </td>
+
+                      {/* 7. Rate */}
+                      <td style={{ padding: '10px 14px', textAlign: 'right', color: '#374151' }}>
+                        {isEditing ? (
+                          <input 
+                            type="number"
+                            value={editingRecord.rate}
+                            onChange={(e) => setEditingRecord({ ...editingRecord, rate: Number(e.target.value) })}
+                            style={{ padding: '4px 6px', fontSize: '11px', border: '1px solid #D1D5DB', borderRadius: '6px', width: '60px', textAlign: 'right' }}
+                          />
+                        ) : rec.rate}
+                      </td>
+
+                      {/* 8. Total */}
+                      <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: '600', color: '#111827' }}>
+                        {total}
+                      </td>
+
+                      {/* 9. Whats app Payment Link */}
+                      <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleWhatsAppSend(rec)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#2563EB',
+                            textDecoration: 'underline',
+                            fontWeight: '600',
+                            fontSize: '11px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: 0
+                          }}
+                          title="Click to send WhatsApp payment request with UPI link"
+                        >
+                          Send Payment Link
+                          <ArrowUpRight size={12} style={{ color: '#2563EB' }} />
+                        </button>
+                      </td>
+
+                      {/* 10. Design Charges */}
+                      <td style={{ padding: '10px 14px', textAlign: 'right', color: rec.designCharges > 0 ? '#C2410C' : '#6B7280' }}>
+                        {isEditing ? (
+                          <input 
+                            type="number"
+                            value={editingRecord.designCharges}
+                            onChange={(e) => setEditingRecord({ ...editingRecord, designCharges: Number(e.target.value) })}
+                            style={{ padding: '4px 6px', fontSize: '11px', border: '1px solid #D1D5DB', borderRadius: '6px', width: '60px', textAlign: 'right' }}
+                          />
+                        ) : rec.designCharges}
+                      </td>
+
+                      {/* 11. Final Total */}
+                      <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: '800', color: '#111827' }}>
+                        {finalTotal}
+                      </td>
+
+                      {/* 12. Billing Status Dropdown */}
+                      <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                        <select 
+                          value={isEditing ? editingRecord.status : rec.status}
+                          onChange={(e) => {
+                            const newStatus = e.target.value as 'Completed' | 'Pending';
+                            if (isEditing) {
+                              setEditingRecord({ ...editingRecord, status: newStatus });
+                            } else {
+                              handleUpdateRecord({ ...rec, status: newStatus });
+                            }
+                          }}
+                          style={{
+                            background: (isEditing ? editingRecord.status : rec.status) === 'Completed' ? '#ECFDF5' : '#FFFBEB',
+                            border: (isEditing ? editingRecord.status : rec.status) === 'Completed' ? '1px solid #A7F3D0' : '1px solid #FDE68A',
+                            color: (isEditing ? editingRecord.status : rec.status) === 'Completed' ? '#047857' : '#B45309',
+                            padding: '4px 8px',
+                            borderRadius: '12px',
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            outline: 'none'
+                          }}
+                        >
+                          <option value="Completed">Completed</option>
+                          <option value="Pending">Pending</option>
+                        </select>
+                      </td>
+
+                      {/* 13. Actions */}
+                      <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                          {isEditing ? (
+                            <button 
+                              type="button" 
+                              onClick={() => {
+                                handleUpdateRecord(editingRecord);
+                                setEditingRecord(null);
+                              }}
+                              style={{
+                                background: '#10B981',
+                                border: 'none',
+                                color: '#FFFFFF',
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Save
+                            </button>
+                          ) : (
+                            <>
+                              {/* Invoice Modal Button */}
+                              <button 
+                                type="button" 
+                                onClick={() => setSelectedInvoice(rec)}
+                                style={{
+                                  background: '#F5F3EF',
+                                  border: '1px solid #D8D5CF',
+                                  color: '#374151',
+                                  padding: '4px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: '600',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                                title="View & Print Tax Invoice"
+                              >
+                                <FileText size={12} />
+                                Invoice
+                              </button>
+
+                              <button 
+                                type="button" 
+                                onClick={() => setEditingRecord(rec)}
+                                style={{ background: 'none', border: 'none', color: '#6B7280', cursor: 'pointer', padding: '4px' }}
+                                title="Edit Row"
+                              >
+                                <Edit2 size={13} />
+                              </button>
+
+                              <button 
+                                type="button" 
+                                onClick={() => handleDeleteRecord(rec.id)}
+                                style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '4px' }}
+                                title="Delete Row"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
 
-                      <td className="p-4 text-right font-bold text-slate-200">{rec.qty}</td>
-                      <td className="p-4 text-right font-black text-white">₹{finalTotal.toLocaleString('en-IN')}</td>
-                      <td className="p-4 text-right font-black text-amber-400">₹{balanceDue.toLocaleString('en-IN')}</td>
-                      <td className="p-4 text-center">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-                          rec.status === 'Completed' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
-                          rec.status === 'Pending' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                          'bg-slate-800 text-slate-400'
-                        }`}>
-                          {rec.status}
-                        </span>
-                      </td>
-                      <td className="p-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => setSelectedInvoice(rec)}
-                            className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black transition-all cursor-pointer"
-                            title="View / Print Invoice"
-                          >
-                            <FileText size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleOpenBuilder(rec)}
-                            className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white transition-all cursor-pointer"
-                            title="Edit Invoice"
-                          >
-                            <Edit2 size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteRecord(rec.id)}
-                            className="p-2 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white transition-all cursor-pointer"
-                            title="Delete Invoice"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
                     </tr>
                   );
                 })
@@ -789,881 +1033,273 @@ Thank you for your business!
         </div>
       </div>
 
-      {/* 🏢 USER COMPANY PROFILE & LOGO EDIT MODAL */}
-      {showProfileModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto space-y-6 text-left shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <div>
-                <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest">Business Branding & Settings</span>
-                <h2 className="text-xl font-black text-white">Customize Company Profile & Logo</h2>
-              </div>
-              <button onClick={() => setShowProfileModal(false)} className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white">
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Company Logo Image Uploader */}
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center gap-4">
-              {businessProfile.logoUrl ? (
-                <img src={businessProfile.logoUrl} alt="Company Logo" className="w-16 h-16 rounded-2xl object-contain bg-slate-900 border border-cyan-400/40 p-1" />
-              ) : (
-                <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-dashed border-slate-700 text-slate-500 flex items-center justify-center">
-                  <ImageIcon size={24} />
-                </div>
-              )}
-              <div className="flex-1 space-y-2 text-xs">
-                <label className="block font-bold text-slate-200">Company Logo (Renders on top of Tax Invoice)</label>
-                <div className="flex items-center gap-2">
-                  <label className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer">
-                    <Upload size={14} />
-                    <span>Upload Logo File</span>
-                    <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
-                  </label>
-                  <input
-                    type="text"
-                    value={businessProfile.logoUrl || ''}
-                    onChange={(e) => setBusinessProfile({ ...businessProfile, logoUrl: e.target.value })}
-                    placeholder="Or paste Logo Image URL..."
-                    className="flex-1 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-              <div className="md:col-span-2">
-                <label className="block text-slate-400 font-bold mb-1">User Company Name (Header Title) *</label>
-                <input
-                  type="text"
-                  value={businessProfile.name}
-                  onChange={(e) => setBusinessProfile({ ...businessProfile, name: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-black text-sm"
-                  placeholder="e.g. Vakratunda Sublimation Apparel"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-bold mb-1">Company Tagline / Subtitle</label>
-                <input
-                  type="text"
-                  value={businessProfile.tagline}
-                  onChange={(e) => setBusinessProfile({ ...businessProfile, tagline: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
-                  placeholder="Sportswear Printing OS"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-bold mb-1">GSTIN Number</label>
-                <input
-                  type="text"
-                  value={businessProfile.gstin}
-                  onChange={(e) => setBusinessProfile({ ...businessProfile, gstin: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono"
-                  placeholder="27ABCDE1234F1Z5"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-bold mb-1">Phone Number</label>
-                <input
-                  type="text"
-                  value={businessProfile.phone}
-                  onChange={(e) => setBusinessProfile({ ...businessProfile, phone: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
-                  placeholder="+91 98765 43210"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-bold mb-1">Email Address</label>
-                <input
-                  type="text"
-                  value={businessProfile.email}
-                  onChange={(e) => setBusinessProfile({ ...businessProfile, email: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
-                  placeholder="billing@fivenest.in"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-slate-400 font-bold mb-1">Factory / Office Address</label>
-                <input
-                  type="text"
-                  value={businessProfile.address}
-                  onChange={(e) => setBusinessProfile({ ...businessProfile, address: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
-                  placeholder="Industrial Complex, Ludhiana"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-bold mb-1">Bank Name</label>
-                <input
-                  type="text"
-                  value={businessProfile.bankName}
-                  onChange={(e) => setBusinessProfile({ ...businessProfile, bankName: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
-                  placeholder="HDFC Bank Ltd"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-bold mb-1">Account Number</label>
-                <input
-                  type="text"
-                  value={businessProfile.accountNo}
-                  onChange={(e) => setBusinessProfile({ ...businessProfile, accountNo: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono"
-                  placeholder="50200012345678"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-bold mb-1">IFSC Code</label>
-                <input
-                  type="text"
-                  value={businessProfile.ifsc}
-                  onChange={(e) => setBusinessProfile({ ...businessProfile, ifsc: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono"
-                  placeholder="HDFC0000123"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-bold mb-1">UPI VPA ID (For Instant QR Code)</label>
-                <input
-                  type="text"
-                  value={businessProfile.upiId}
-                  onChange={(e) => setBusinessProfile({ ...businessProfile, upiId: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-emerald-400 font-mono font-bold"
-                  placeholder="vpa@upi"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-4 border-t border-slate-800">
-              <button
-                type="button"
-                onClick={() => setShowProfileModal(false)}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-extrabold text-xs"
-              >
-                Save Business Settings
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 🛠️ INVOICE BUILDER MODAL */}
-      {showBuilderModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 w-full max-w-4xl max-h-[92vh] overflow-y-auto shadow-2xl text-left space-y-6">
-            
-            {/* Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <div>
-                <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest">
-                  Custom Invoice Maker (Refrens / MyBillBook Mode)
-                </span>
-                <h2 className="text-2xl font-black text-white mt-0.5">Generate Tax Invoice for {businessProfile.name}</h2>
-              </div>
-              <button
-                onClick={() => setShowBuilderModal(false)}
-                className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Customer Database Dropdown & Quick Selection */}
-            <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
-              <h3 className="text-xs font-extrabold text-cyan-400 uppercase tracking-wider flex items-center gap-2">
-                <User size={14} /> Customer Selection (Select from Customer CRM Database)
-              </h3>
-
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-400 mb-1">Select Existing Customer CRM Profile</label>
-                  <select
-                    onChange={(e) => {
-                      const found = customerDb.find(c => c.id === e.target.value);
-                      if (found) {
-                        setBuilderData(prev => ({
-                          ...prev,
-                          customerName: found.name,
-                          whatsapp: found.phone,
-                          customerPhone: found.phone,
-                          customerGstin: found.gstin,
-                          customerAddress: found.address,
-                          customerLogoUrl: found.logoUrl
-                        }));
-                      }
-                    }}
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs font-bold focus:outline-none focus:border-cyan-400"
-                  >
-                    <option value="">-- Choose from Customer Database --</option>
-                    {customerDb.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-400 mb-1">Customer / Business Name *</label>
-                  <input
-                    type="text"
-                    value={builderData.customerName || ''}
-                    onChange={(e) => setBuilderData(prev => ({ ...prev, customerName: e.target.value }))}
-                    placeholder="e.g. Shirke Sports Wear"
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-cyan-400"
-                  />
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-3 gap-4 text-xs">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-400 mb-1">WhatsApp Phone Number</label>
-                  <input
-                    type="text"
-                    value={builderData.whatsapp || ''}
-                    onChange={(e) => setBuilderData(prev => ({ ...prev, whatsapp: e.target.value, customerPhone: e.target.value }))}
-                    placeholder="+91 98765 43210"
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-400 mb-1">GSTIN Number</label>
-                  <input
-                    type="text"
-                    value={builderData.customerGstin || ''}
-                    onChange={(e) => setBuilderData(prev => ({ ...prev, customerGstin: e.target.value }))}
-                    placeholder="27ABCDE1234F1Z5"
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs font-mono focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-400 mb-1">Billing Address</label>
-                  <input
-                    type="text"
-                    value={builderData.customerAddress || ''}
-                    onChange={(e) => setBuilderData(prev => ({ ...prev, customerAddress: e.target.value }))}
-                    placeholder="Factory Complex, Market"
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs focus:outline-none"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Line Items Table with Product Catalog Dropdown */}
-            <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-extrabold text-cyan-400 uppercase tracking-wider flex items-center gap-2">
-                  <Package size={14} /> Product Items (Select from Product Catalog Database)
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const roleProducts = productsDb.filter(p => p.category === activeRolePanel);
-                    const firstProd = roleProducts[0] || productsDb[0];
-                    const newItem: InvoiceLineItem = {
-                      id: `item-${Date.now()}`,
-                      description: firstProd ? firstProd.name : 'Sublimation Print Item',
-                      hsnCode: firstProd ? firstProd.hsnCode : '998898',
-                      qty: 10,
-                      unit: firstProd ? firstProd.unit : 'pcs',
-                      rate: firstProd ? firstProd.defaultRate : 15,
-                      taxPercent: firstProd ? firstProd.taxPercent : 12,
-                      amount: 150
-                    };
-                    setBuilderData(prev => ({
-                      ...prev,
-                      lineItems: [...(prev.lineItems || []), newItem]
-                    }));
-                  }}
-                  className="px-3 py-1.5 rounded-xl bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 font-extrabold text-xs flex items-center gap-1.5"
-                >
-                  <Plus size={14} />
-                  <span>+ Add Product Row</span>
-                </button>
-              </div>
-
-              {/* Items List */}
-              <div className="space-y-3">
-                {(builderData.lineItems || []).map((item, idx) => (
-                  <div key={item.id} className="p-4 rounded-xl bg-slate-900 border border-slate-800 grid md:grid-cols-12 gap-3 items-center text-xs">
-                    
-                    {/* Item Select Dropdown */}
-                    <div className="md:col-span-4">
-                      <label className="block text-[10px] text-slate-400 mb-1">Item Description</label>
-                      <select
-                        value={item.description}
-                        onChange={(e) => {
-                          const foundProd = productsDb.find(p => p.name === e.target.value);
-                          const updated = [...(builderData.lineItems || [])];
-                          if (foundProd) {
-                            updated[idx] = {
-                              ...updated[idx],
-                              description: foundProd.name,
-                              hsnCode: foundProd.hsnCode,
-                              unit: foundProd.unit,
-                              rate: foundProd.defaultRate,
-                              taxPercent: foundProd.taxPercent,
-                              amount: updated[idx].qty * foundProd.defaultRate
-                            };
-                          } else {
-                            updated[idx].description = e.target.value;
-                          }
-                          setBuilderData(prev => ({ ...prev, lineItems: updated }));
-                        }}
-                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-bold focus:outline-none"
-                      >
-                        <option value={item.description}>{item.description}</option>
-                        {productsDb.map(p => (
-                          <option key={p.id} value={p.name}>{p.name} (₹{p.defaultRate}/{p.unit})</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* HSN */}
-                    <div className="md:col-span-2">
-                      <label className="block text-[10px] text-slate-400 mb-1">HSN/SAC</label>
-                      <input
-                        type="text"
-                        value={item.hsnCode}
-                        onChange={(e) => {
-                          const updated = [...(builderData.lineItems || [])];
-                          updated[idx].hsnCode = e.target.value;
-                          setBuilderData(prev => ({ ...prev, lineItems: updated }));
-                        }}
-                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-mono focus:outline-none"
-                      />
-                    </div>
-
-                    {/* Qty */}
-                    <div className="md:col-span-2">
-                      <label className="block text-[10px] text-slate-400 mb-1">Qty ({item.unit})</label>
-                      <input
-                        type="number"
-                        value={item.qty}
-                        onChange={(e) => {
-                          const qtyVal = Number(e.target.value);
-                          const updated = [...(builderData.lineItems || [])];
-                          updated[idx].qty = qtyVal;
-                          updated[idx].amount = qtyVal * updated[idx].rate;
-                          setBuilderData(prev => ({ ...prev, lineItems: updated }));
-                        }}
-                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-bold text-right focus:outline-none"
-                      />
-                    </div>
-
-                    {/* Rate */}
-                    <div className="md:col-span-2">
-                      <label className="block text-[10px] text-slate-400 mb-1">Rate (₹)</label>
-                      <input
-                        type="number"
-                        value={item.rate}
-                        onChange={(e) => {
-                          const rateVal = Number(e.target.value);
-                          const updated = [...(builderData.lineItems || [])];
-                          updated[idx].rate = rateVal;
-                          updated[idx].amount = updated[idx].qty * rateVal;
-                          setBuilderData(prev => ({ ...prev, lineItems: updated }));
-                        }}
-                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-bold text-right focus:outline-none"
-                      />
-                    </div>
-
-                    {/* Amount & Remove */}
-                    <div className="md:col-span-2 flex items-center justify-between gap-2 text-right">
-                      <div>
-                        <span className="block text-[10px] text-slate-400">Total</span>
-                        <span className="font-extrabold text-cyan-400">₹{(item.qty * item.rate).toLocaleString('en-IN')}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updated = (builderData.lineItems || []).filter((_, i) => i !== idx);
-                          setBuilderData(prev => ({ ...prev, lineItems: updated }));
-                        }}
-                        className="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500 rounded-lg transition-colors"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Totals & Advance Payments Breakdown */}
-            <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 grid md:grid-cols-2 gap-6 text-xs">
-              <div className="space-y-3">
-                <h4 className="font-extrabold text-slate-200">Invoice Settings & Payment Terms</h4>
-                <div>
-                  <label className="block text-[10px] text-slate-400 mb-1">Design / Artwork Charges (₹)</label>
-                  <input
-                    type="number"
-                    value={builderData.designCharges || 0}
-                    onChange={(e) => setBuilderData(prev => ({ ...prev, designCharges: Number(e.target.value) }))}
-                    className="w-full px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-slate-400 mb-1">Discount (₹)</label>
-                  <input
-                    type="number"
-                    value={builderData.discount || 0}
-                    onChange={(e) => setBuilderData(prev => ({ ...prev, discount: Number(e.target.value) }))}
-                    className="w-full px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-slate-400 mb-1">Advance Received (₹)</label>
-                  <input
-                    type="number"
-                    value={builderData.advance || 0}
-                    onChange={(e) => setBuilderData(prev => ({ ...prev, advance: Number(e.target.value) }))}
-                    className="w-full px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-emerald-400 font-bold"
-                  />
-                </div>
-              </div>
-
-              {/* Calculated Totals Box */}
-              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2 flex flex-col justify-between">
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-slate-300">
-                    <span>Item Subtotal:</span>
-                    <span className="font-bold">₹{getItemSubtotal(builderData.lineItems, builderData.qty, builderData.rate).toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-300">
-                    <span>Design Charges:</span>
-                    <span className="font-bold">₹{(builderData.designCharges || 0).toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-300">
-                    <span>Discount:</span>
-                    <span className="font-bold text-rose-400">- ₹{(builderData.discount || 0).toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-200 text-sm font-black pt-2 border-t border-slate-800">
-                    <span>Grand Total:</span>
-                    <span className="text-white">₹{calculateFinalTotal(builderData as BillingRecord).toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between text-amber-400 text-sm font-black pt-2 border-t border-slate-800">
-                    <span>Balance Due:</span>
-                    <span>₹{calculateBalanceDue(builderData as BillingRecord).toLocaleString('en-IN')}</span>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleSaveInvoiceFromBuilder}
-                  className="w-full py-3.5 mt-4 rounded-xl bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 text-black font-extrabold text-xs flex justify-center items-center gap-2 shadow-lg shadow-cyan-500/20"
-                >
-                  <CheckCircle2 size={16} />
-                  <span>Save Invoice & Preview</span>
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* 🏷️ PRODUCT CATALOG DATABASE MODAL */}
-      {showProductModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 w-full max-w-3xl max-h-[85vh] overflow-y-auto text-left space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <div>
-                <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest">
-                  Product & Service Catalog Database
-                </span>
-                <h2 className="text-2xl font-black text-white mt-0.5">Manage Factory Products</h2>
-              </div>
-              <button onClick={() => setShowProductModal(false)} className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white">
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="flex justify-end">
-              <button
-                onClick={() => {
-                  const newP: ProductItem = {
-                    id: `p-${Date.now()}`,
-                    name: 'New Custom Sportswear Item',
-                    category: activeRolePanel,
-                    hsnCode: '998898',
-                    unit: 'pcs',
-                    defaultRate: 200,
-                    taxPercent: 12,
-                    description: 'Custom factory product service'
-                  };
-                  const updated = [newP, ...productsDb];
-                  setProductsDb(updated);
-                  saveStoredProducts(updated);
-                }}
-                className="px-4 py-2 rounded-xl bg-cyan-500 text-black font-extrabold text-xs flex items-center gap-1.5"
-              >
-                <Plus size={14} /> Add Product to Catalog
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {productsDb.map((p, idx) => (
-                <div key={p.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 text-xs">
-                  <div className="grid md:grid-cols-12 gap-3 items-center">
-                    
-                    {/* Name */}
-                    <div className="md:col-span-4">
-                      <label className="block text-[10px] text-slate-400 font-bold mb-1">Product / Service Name</label>
-                      <input
-                        type="text"
-                        value={p.name}
-                        onChange={(e) => {
-                          const updated = [...productsDb];
-                          updated[idx].name = e.target.value;
-                          setProductsDb(updated);
-                          saveStoredProducts(updated);
-                        }}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white font-bold focus:outline-none focus:border-cyan-400"
-                      />
-                    </div>
-
-                    {/* Category */}
-                    <div className="md:col-span-2">
-                      <label className="block text-[10px] text-slate-400 font-bold mb-1">Panel Category</label>
-                      <select
-                        value={p.category}
-                        onChange={(e) => {
-                          const updated = [...productsDb];
-                          updated[idx].category = e.target.value as any;
-                          setProductsDb(updated);
-                          saveStoredProducts(updated);
-                        }}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-cyan-400 font-bold focus:outline-none"
-                      >
-                        <option value="printing">Printing</option>
-                        <option value="factory">Factory</option>
-                        <option value="designer">Designer</option>
-                      </select>
-                    </div>
-
-                    {/* HSN */}
-                    <div className="md:col-span-2">
-                      <label className="block text-[10px] text-slate-400 font-bold mb-1">HSN/SAC Code</label>
-                      <input
-                        type="text"
-                        value={p.hsnCode}
-                        onChange={(e) => {
-                          const updated = [...productsDb];
-                          updated[idx].hsnCode = e.target.value;
-                          setProductsDb(updated);
-                          saveStoredProducts(updated);
-                        }}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white font-mono focus:outline-none"
-                      />
-                    </div>
-
-                    {/* Rate */}
-                    <div className="md:col-span-2">
-                      <label className="block text-[10px] text-slate-400 font-bold mb-1">Default Rate (₹)</label>
-                      <input
-                        type="number"
-                        value={p.defaultRate}
-                        onChange={(e) => {
-                          const updated = [...productsDb];
-                          updated[idx].defaultRate = Number(e.target.value);
-                          setProductsDb(updated);
-                          saveStoredProducts(updated);
-                        }}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-emerald-400 font-bold text-right focus:outline-none"
-                      />
-                    </div>
-
-                    {/* Delete */}
-                    <div className="md:col-span-2 flex items-center justify-end gap-2">
-                      <select
-                        value={p.unit}
-                        onChange={(e) => {
-                          const updated = [...productsDb];
-                          updated[idx].unit = e.target.value;
-                          setProductsDb(updated);
-                          saveStoredProducts(updated);
-                        }}
-                        className="px-2 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 text-[11px]"
-                      >
-                        <option value="pcs">pcs</option>
-                        <option value="sq ft">sq ft</option>
-                        <option value="meters">meters</option>
-                        <option value="hrs">hrs</option>
-                        <option value="job">job</option>
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updated = productsDb.filter(item => item.id !== p.id);
-                          setProductsDb(updated);
-                          saveStoredProducts(updated);
-                        }}
-                        className="p-2 text-rose-400 hover:text-white hover:bg-rose-500 rounded-xl transition-colors"
-                        title="Delete Item"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 🧾 INVOICE PREVIEW & PRINT MODAL WITH USER COMPANY LOGO & MULTI-CHANNEL SHARE */}
+      {/* 🧾 TAX INVOICE & UPI PAY MODAL */}
       {selectedInvoice && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px'
+          }}
           onClick={() => setSelectedInvoice(null)}
         >
           <div 
-            className="bg-white text-slate-900 rounded-2xl p-6 md:p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl relative"
+            style={{
+              width: '100%',
+              maxWidth: '680px',
+              background: '#FFFFFF',
+              color: '#111827',
+              borderRadius: '16px',
+              padding: '28px 32px',
+              position: 'relative',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header Multi-Channel Action Controls */}
-            <div className="no-print flex flex-wrap justify-between items-center pb-4 mb-6 border-b border-slate-200 gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                
-                {/* 📥 Download High-Def PDF Button */}
-                <button
-                  onClick={() => handleDownloadPdf(selectedInvoice)}
-                  disabled={isGeneratingPdf}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-extrabold text-xs flex items-center gap-2 hover:from-cyan-500 hover:to-blue-500 shadow-md shadow-cyan-500/20 cursor-pointer disabled:opacity-50"
-                  title="Download High Definition PDF Invoice Document"
-                >
-                  {isGeneratingPdf ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                  <span>{isGeneratingPdf ? 'Generating PDF...' : 'Download PDF Invoice'}</span>
-                </button>
-
-                {/* 💬 Send PDF + WhatsApp */}
-                <button
-                  onClick={() => handleWhatsAppWithPdf(selectedInvoice)}
-                  className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white font-extrabold text-xs flex items-center gap-1.5 hover:bg-emerald-500 cursor-pointer"
-                  title="Download PDF Invoice & Share via WhatsApp with Payment Link"
-                >
-                  <Send size={15} />
-                  <span>WhatsApp PDF & Link</span>
-                </button>
-
-                {/* 📧 Email */}
-                <button
-                  onClick={() => handleEmailSend(selectedInvoice)}
-                  className="px-3.5 py-2 rounded-xl bg-blue-600 text-white font-extrabold text-xs flex items-center gap-1.5 hover:bg-blue-500 cursor-pointer"
-                  title="Share Invoice via Email"
-                >
-                  <Mail size={15} />
-                  <span>Email</span>
-                </button>
-
-                {/* 📋 Copy */}
-                <button
-                  onClick={() => handleCopyInvoiceText(selectedInvoice)}
-                  className="px-3.5 py-2 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 font-extrabold text-xs flex items-center gap-1.5 hover:bg-slate-200 cursor-pointer"
-                  title="Copy Invoice details & payment link"
-                >
-                  {copiedToast ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />}
-                  <span>{copiedToast ? 'Copied!' : 'Copy Link'}</span>
-                </button>
-
-                {/* 🖨️ Print */}
-                <button
+            {/* Modal Controls */}
+            <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #E5E7EB', paddingBottom: '14px' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button 
+                  type="button" 
                   onClick={() => window.print()}
-                  className="px-3.5 py-2 rounded-xl bg-slate-900 text-white font-extrabold text-xs flex items-center gap-1.5 hover:bg-slate-800 cursor-pointer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    background: '#E4572E',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    cursor: 'pointer'
+                  }}
                 >
                   <Printer size={15} />
-                  <span>Print</span>
+                  Print / Save PDF
+                </button>
+
+                <button 
+                  type="button" 
+                  onClick={() => handleWhatsAppSend(selectedInvoice)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    background: '#10B981',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Send size={15} />
+                  Send WhatsApp Bill
                 </button>
               </div>
 
-              <button onClick={() => setSelectedInvoice(null)} className="p-2 text-slate-500 hover:text-slate-900">
+              <button 
+                onClick={() => setSelectedInvoice(null)} 
+                style={{ background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', padding: '4px' }}
+              >
                 <X size={20} />
               </button>
             </div>
 
-            {/* Printable Invoice Document Sheet */}
-            <div id="printable-invoice" className="font-sans text-left text-slate-900 p-2 bg-white">
+            {/* Printable Invoice Sheet */}
+            <div id="printable-invoice" style={{ fontFamily: 'system-ui, sans-serif' }}>
               
-              {/* Top User Business Header with Custom Logo */}
-              <div className="flex justify-between items-start border-b-2 border-cyan-500 pb-4 mb-6">
-                <div className="flex items-center gap-4">
-                  {businessProfile.logoUrl ? (
-                    <img src={businessProfile.logoUrl} alt={businessProfile.name} className="w-16 h-16 object-contain rounded-xl border border-slate-200 p-1" />
-                  ) : (
-                    <div className="w-14 h-14 rounded-xl bg-cyan-600 text-white font-black text-2xl flex items-center justify-center">
-                      {businessProfile.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <div>
-                    <h1 className="text-2xl font-black text-cyan-600 uppercase tracking-tight">{businessProfile.name}</h1>
-                    <p className="text-xs text-slate-500">{businessProfile.tagline}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">GSTIN: {businessProfile.gstin} | Phone: {businessProfile.phone}</p>
-                    <p className="text-xs text-slate-500">{businessProfile.address}</p>
-                  </div>
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #E4572E', paddingBottom: '16px', marginBottom: '20px' }}>
+                <div>
+                  <h1 style={{ fontSize: '22px', fontWeight: '900', color: '#E4572E', margin: 0, textTransform: 'uppercase' }}>
+                    FiveNest Web Studio
+                  </h1>
+                  <p style={{ fontSize: '11px', color: '#6B7280', margin: '4px 0 0' }}>
+                    Precision Sublimation & Sportswear Printing Solutions
+                  </p>
+                  <p style={{ fontSize: '11px', color: '#6B7280', margin: '2px 0 0' }}>
+                    GSTIN / Tax ID: 27ABCDE1234F1Z5 | Support: support@fivenest.in
+                  </p>
                 </div>
 
-                <div className="text-right">
-                  <h2 className="text-xl font-extrabold text-slate-800 uppercase">TAX INVOICE</h2>
-                  <p className="text-sm font-black text-cyan-600 mt-1">#{selectedInvoice.orderCode}</p>
-                  <p className="text-xs text-slate-500 mt-1">Date: <strong>{selectedInvoice.date}</strong></p>
+                <div style={{ textAlign: 'right' }}>
+                  <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#111827', margin: 0, textTransform: 'uppercase' }}>
+                    TAX INVOICE
+                  </h2>
+                  <p style={{ fontSize: '13px', fontWeight: '800', color: '#E4572E', margin: '4px 0 0' }}>
+                    #{selectedInvoice.orderCode}
+                  </p>
+                  <p style={{ fontSize: '11px', color: '#6B7280', margin: '2px 0 0' }}>
+                    Date & Time: <strong>{selectedInvoice.date}</strong>
+                  </p>
                 </div>
               </div>
 
-              {/* Bill To with Customer Logo & Order Reference */}
-              <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-slate-100 border border-slate-200 mb-6 text-xs">
-                <div className="flex items-start gap-3">
-                  {selectedInvoice.customerLogoUrl ? (
-                    <img src={selectedInvoice.customerLogoUrl} alt={selectedInvoice.customerName} className="w-12 h-12 rounded-lg object-cover border border-slate-300 bg-white p-0.5" />
-                  ) : null}
-                  <div>
-                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-0.5">BILLED TO</span>
-                    <h3 className="text-base font-bold text-slate-900">{selectedInvoice.customerName}</h3>
-                    {selectedInvoice.whatsapp && <p className="text-slate-600 mt-0.5">Phone: +91 {selectedInvoice.whatsapp}</p>}
-                    {selectedInvoice.customerGstin && <p className="text-slate-600 font-mono">GSTIN: {selectedInvoice.customerGstin}</p>}
-                    {selectedInvoice.customerAddress && <p className="text-slate-600">{selectedInvoice.customerAddress}</p>}
-                  </div>
+              {/* Bill To & Reference */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px', background: '#F8FAFC', padding: '16px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                <div>
+                  <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Billed To:</span>
+                  <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0F172A', margin: '0 0 2px' }}>{selectedInvoice.customerName}</h3>
+                  {selectedInvoice.whatsapp && (
+                    <p style={{ fontSize: '12px', color: '#475569', margin: 0 }}>Contact: +91 {selectedInvoice.whatsapp}</p>
+                  )}
                 </div>
 
-                <div className="text-right">
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">ORDER REFERENCE</span>
-                  <p className="font-bold text-slate-800">{selectedInvoice.fileName}</p>
-                  <div className="mt-2">
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
-                      selectedInvoice.status === 'Completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                    }`}>
-                      Status: {selectedInvoice.status}
-                    </span>
-                  </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Order Reference:</span>
+                  <p style={{ fontSize: '12px', fontWeight: '700', color: '#334155', margin: '0 0 4px' }}>{selectedInvoice.fileName}</p>
+                  <span style={{ 
+                    fontSize: '11px', 
+                    fontWeight: '800', 
+                    color: selectedInvoice.status === 'Completed' ? '#047857' : '#B45309',
+                    background: selectedInvoice.status === 'Completed' ? '#ECFDF5' : '#FFFBEB',
+                    padding: '2px 8px',
+                    borderRadius: '8px',
+                    display: 'inline-block'
+                  }}>
+                    Status: {selectedInvoice.status.toUpperCase()}
+                  </span>
                 </div>
               </div>
 
               {/* Items Table */}
-              <table className="w-full text-left text-xs mb-6 border-collapse">
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px', fontSize: '12px' }}>
                 <thead>
-                  <tr className="bg-slate-200 border-b-2 border-slate-300 font-bold text-slate-700">
-                    <th className="p-3">Description</th>
-                    <th className="p-3 text-center">HSN/SAC</th>
-                    <th className="p-3 text-center">Qty</th>
-                    <th className="p-3 text-right">Rate (₹)</th>
-                    <th className="p-3 text-right">Amount (₹)</th>
+                  <tr style={{ background: '#F1F5F9', borderBottom: '2px solid #CBD5E1', textAlign: 'left' }}>
+                    <th style={{ padding: '10px 12px', fontWeight: '800' }}>Description</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: '800' }}>Qty</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '800' }}>Rate (₹)</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '800' }}>Amount (₹)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {selectedInvoice.lineItems && selectedInvoice.lineItems.length > 0 ? (
-                    selectedInvoice.lineItems.map(it => (
-                      <tr key={it.id}>
-                        <td className="p-3 font-semibold">{it.description}</td>
-                        <td className="p-3 text-center font-mono text-slate-600">{it.hsnCode}</td>
-                        <td className="p-3 text-center font-bold">{it.qty} {it.unit}</td>
-                        <td className="p-3 text-right">₹{it.rate.toFixed(2)}</td>
-                        <td className="p-3 text-right font-bold">₹{(it.qty * it.rate).toFixed(2)}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td className="p-3 font-semibold">{selectedInvoice.fileName}</td>
-                      <td className="p-3 text-center font-mono text-slate-600">998898</td>
-                      <td className="p-3 text-center font-bold">{selectedInvoice.qty} pcs</td>
-                      <td className="p-3 text-right">₹{selectedInvoice.rate.toFixed(2)}</td>
-                      <td className="p-3 text-right font-bold">₹{(selectedInvoice.qty * selectedInvoice.rate).toFixed(2)}</td>
-                    </tr>
-                  )}
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                    <td style={{ padding: '12px' }}>
+                      <strong>Sublimation Apparel Printing</strong><br />
+                      <span style={{ fontSize: '11px', color: '#64748B' }}>{selectedInvoice.fileName}</span>
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'center', fontWeight: '700' }}>{selectedInvoice.qty} pcs</td>
+                    <td style={{ padding: '12px', textAlign: 'right' }}>₹{selectedInvoice.rate.toFixed(2)}</td>
+                    <td style={{ padding: '12px', textAlign: 'right', fontWeight: '700' }}>₹{calculateTotal(selectedInvoice).toFixed(2)}</td>
+                  </tr>
 
                   {selectedInvoice.designCharges > 0 && (
-                    <tr>
-                      <td className="p-3 font-semibold">Custom Design & Artwork Setup Charges</td>
-                      <td className="p-3 text-center font-mono text-slate-600">998391</td>
-                      <td className="p-3 text-center font-bold">1 job</td>
-                      <td className="p-3 text-right">₹{selectedInvoice.designCharges.toFixed(2)}</td>
-                      <td className="p-3 text-right font-bold">₹{selectedInvoice.designCharges.toFixed(2)}</td>
+                    <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                      <td style={{ padding: '12px' }}>
+                        <strong>Custom Design & Artwork Setup Charges</strong>
+                      </td>
+                      <td style={{ padding: '12px', textAlign: 'center' }}>1 job</td>
+                      <td style={{ padding: '12px', textAlign: 'right' }}>₹{selectedInvoice.designCharges.toFixed(2)}</td>
+                      <td style={{ padding: '12px', textAlign: 'right', fontWeight: '700' }}>₹{selectedInvoice.designCharges.toFixed(2)}</td>
                     </tr>
                   )}
                 </tbody>
               </table>
 
               {/* Totals Breakdown */}
-              <div className="flex justify-between items-start pt-4 border-t-2 border-slate-200 mb-6 text-xs">
-                <div className="max-w-xs text-slate-500 text-[11px]">
-                  <p className="font-bold text-slate-800 mb-1">Bank Payment Transfer Details:</p>
-                  <p>Bank: {businessProfile.bankName}</p>
-                  <p>A/C: {businessProfile.accountNo} | IFSC: {businessProfile.ifsc}</p>
-                  <p className="mt-1 font-bold text-cyan-700">UPI ID: {businessProfile.upiId}</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderTop: '2px solid #E2E8F0', paddingTop: '16px', marginBottom: '20px' }}>
+                <div style={{ fontSize: '11px', color: '#64748B', maxWidth: '300px' }}>
+                  <p style={{ margin: '0 0 4px', fontWeight: '700', color: '#334155' }}>Payment Terms:</p>
+                  <p style={{ margin: 0 }}>Payment due upon invoice receipt. Scan UPI QR Code or click Pay Now button to settle balance.</p>
                 </div>
 
-                <div className="w-56 space-y-1.5">
-                  <div className="flex justify-between text-slate-600">
+                <div style={{ width: '220px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px', color: '#64748B' }}>
                     <span>Subtotal:</span>
-                    <span>₹{getItemSubtotal(selectedInvoice.lineItems, selectedInvoice.qty, selectedInvoice.rate).toFixed(2)}</span>
+                    <span>₹{calculateTotal(selectedInvoice).toFixed(2)}</span>
                   </div>
                   {selectedInvoice.designCharges > 0 && (
-                    <div className="flex justify-between text-slate-600">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px', color: '#64748B' }}>
                       <span>Design Fee:</span>
                       <span>₹{selectedInvoice.designCharges.toFixed(2)}</span>
                     </div>
                   )}
-                  {selectedInvoice.discount > 0 && (
-                    <div className="flex justify-between text-rose-600">
-                      <span>Discount:</span>
-                      <span>- ₹{selectedInvoice.discount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-base font-black text-slate-900 pt-2 border-t border-slate-300">
-                    <span>Grand Total:</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '15px', fontWeight: '900', color: '#E4572E', borderTop: '2px solid #E4572E', marginTop: '6px' }}>
+                    <span>Final Total:</span>
                     <span>₹{calculateFinalTotal(selectedInvoice).toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-xs font-bold text-emerald-700">
-                    <span>Advance Paid:</span>
-                    <span>₹{(selectedInvoice.advance || 0).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm font-black text-amber-700 pt-1 border-t border-slate-300">
-                    <span>Balance Due:</span>
-                    <span>₹{calculateBalanceDue(selectedInvoice).toFixed(2)}</span>
-                  </div>
                 </div>
               </div>
 
-              {/* ⚡ Instant UPI Payment QR Code Section */}
-              <div className="p-4 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-between gap-4">
+              {/* UPI QR Payment Block */}
+              <div style={{ 
+                padding: '16px 20px', 
+                background: '#F8FAFC', 
+                borderRadius: '10px', 
+                border: '1.5px solid #CBD5E1', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                gap: '20px' 
+              }}>
                 <div>
-                  <h4 className="text-xs font-extrabold text-purple-900 flex items-center gap-1.5">
-                    <QrCode size={16} /> Instant UPI Payment (GPay / PhonePe / Paytm / BHIM)
+                  <h4 style={{ margin: '0 0 4px', fontSize: '13px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <QrCode size={16} style={{ color: '#059669' }} /> Instant UPI Payment (GPay / PhonePe / Paytm / BHIM)
                   </h4>
-                  <p className="text-[11px] text-purple-700 mt-1">
-                    Scan QR code using GPay or PhonePe to settle balance of ₹{calculateBalanceDue(selectedInvoice).toFixed(2)}
+                  <p style={{ margin: '0 0 8px', fontSize: '11px', color: '#64748B', lineHeight: '1.4' }}>
+                    Scan QR code with any UPI app or click below to launch payment.
                   </p>
-                  <p className="text-xs font-mono font-bold text-purple-900 mt-2">UPI ID: {businessProfile.upiId}</p>
+                  <div style={{ fontSize: '11px', color: '#1E293B', fontWeight: '700', marginBottom: '10px' }}>
+                    UPI ID: <span style={{ color: '#059669', background: '#FFFFFF', padding: '3px 8px', borderRadius: '4px', border: '1px solid #D1D5DB', fontFamily: 'monospace' }}>{upiId}</span>
+                  </div>
+                  
+                  <a 
+                    href={`upi://pay?pa=${upiId}&pn=FiveNest&am=${calculateFinalTotal(selectedInvoice)}&cu=INR`}
+                    style={{ 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: '6px', 
+                      fontSize: '11px', 
+                      padding: '8px 16px', 
+                      borderRadius: '8px', 
+                      textDecoration: 'none', 
+                      background: '#059669', 
+                      color: '#FFFFFF', 
+                      fontWeight: '800',
+                      boxShadow: '0 2px 6px rgba(5, 150, 105, 0.25)'
+                    }}
+                  >
+                    <DollarSign size={14} /> Pay ₹{calculateFinalTotal(selectedInvoice)} via GPay / PhonePe
+                  </a>
                 </div>
 
-                <div className="bg-white p-2 rounded-lg border border-purple-200 text-center">
-                  <img
-                    src={`https://quickchart.io/qr?size=300&text=${encodeURIComponent(`upi://pay?pa=${businessProfile.upiId}&pn=${encodeURIComponent(businessProfile.name)}&am=${calculateBalanceDue(selectedInvoice)}&cu=INR`)}`}
-                    alt="UPI QR Code"
-                    className="w-24 h-24 block"
+                <div style={{ textAlign: 'center', background: '#FFFFFF', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                  <img 
+                    src={`https://quickchart.io/qr?size=300&text=${encodeURIComponent(`upi://pay?pa=${upiId}&pn=FiveNest&am=${calculateFinalTotal(selectedInvoice)}&cu=INR`)}`} 
+                    alt="UPI Payment QR Code" 
+                    style={{ width: '105px', height: '105px', display: 'block' }}
                   />
-                  <span className="text-[9px] font-bold text-purple-900 block mt-1">SCAN TO PAY</span>
+                  <span style={{ fontSize: '9px', fontWeight: '800', color: '#059669', display: 'block', marginTop: '4px' }}>
+                    SCAN TO PAY ₹{calculateFinalTotal(selectedInvoice)}
+                  </span>
                 </div>
               </div>
 
-              <div className="mt-6 text-center text-[11px] text-slate-400 pt-4 border-t border-slate-200">
-                Thank you for your business with {businessProfile.name}! ⚡
+              {/* Footer */}
+              <div style={{ marginTop: '24px', textAlign: 'center', borderTop: '1px solid #E5E7EB', paddingTop: '14px', fontSize: '11px', color: '#9CA3AF' }}>
+                Thank you for your business with FiveNest Web Studio! ⚡
               </div>
 
             </div>
+
           </div>
         </div>
       )}
 
-      {/* Print CSS */}
+      {/* Print Stylesheet */}
       <style>{`
         @media print {
           body * { visibility: hidden; }
@@ -1672,6 +1308,7 @@ Thank you for your business!
           .no-print { display: none !important; }
         }
       `}</style>
+
     </div>
   );
 };

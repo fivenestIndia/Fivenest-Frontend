@@ -308,19 +308,10 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.enableZoom = true;
-    controls.zoomSpeed = 1.2;
-    controls.enablePan = true;
-    controls.screenSpacePanning = true; // Enables full vertical Y-axis and horizontal X-axis panning
-    controls.panSpeed = 1.8;
-    controls.mouseButtons = {
-      LEFT: THREE.MOUSE.ROTATE,
-      MIDDLE: THREE.MOUSE.DOLLY,
-      RIGHT: THREE.MOUSE.PAN
-    };
-    controls.minDistance = 0.5;
-    controls.maxDistance = 6.0;
-    controls.maxPolarAngle = Math.PI / 1.7;
+    controls.enablePan = false;
+    controls.minDistance = 1.0;
+    controls.maxDistance = 5.5;
+    controls.maxPolarAngle = Math.PI / 1.8;
     controls.target.set(0, 0, 0);
     controlsRef.current = controls;
 
@@ -328,24 +319,11 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
     let isSpaceDown = false;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      const activeEl = document.activeElement;
-      if (
-        activeEl && (
-          activeEl.tagName === 'INPUT' ||
-          activeEl.tagName === 'TEXTAREA' ||
-          activeEl.tagName === 'SELECT' ||
-          (activeEl as HTMLElement).isContentEditable
-        )
-      ) {
-        return;
-      }
-
       if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault();
         if (!isSpaceDown) {
           isSpaceDown = true;
           controls.enablePan = true;
-          controls.screenSpacePanning = true;
           controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
           if (canvasRef.current) {
             canvasRef.current.style.cursor = 'grab';
@@ -587,7 +565,7 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
     <div 
       ref={containerRef} 
       className="w-full h-full relative" 
-      style={{ width: '100%', height: '100%', minHeight: '520px', backgroundColor: '#141419', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 0 50px rgba(0,0,0,0.6)', overflow: 'hidden' }}
+      style={{ minHeight: '520px', backgroundColor: '#0a0a0f', borderRadius: '8px' }}
     >
       <canvas 
         ref={canvasRef} 
@@ -600,13 +578,8 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
           <p className="text-sm font-semibold tracking-wider">GENERATING 3D MODEL PREVIEW... {progress}%</p>
         </div>
       )}
-      <div className="absolute bottom-3 left-3 bg-slate-950/80 border border-slate-700/60 text-slate-300 text-[11px] px-3 py-1.5 rounded-full select-none pointer-events-none backdrop-blur-md flex items-center gap-2 shadow-lg">
-        <span className="text-cyan-400 font-bold">3D VIEWPORT:</span>
-        <span>Left-click drag to rotate</span>
-        <span>•</span>
-        <span>Scroll to zoom (centered)</span>
-        <span>•</span>
-        <span>Right-click drag to pan</span>
+      <div className="absolute bottom-3 left-3 bg-black/60 text-white text-[11px] px-2 py-1 rounded select-none pointer-events-none">
+        Left-click & drag to rotate • Scroll to zoom
       </div>
     </div>
   );

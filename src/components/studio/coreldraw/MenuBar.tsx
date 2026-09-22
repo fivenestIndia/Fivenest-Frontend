@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   FileUp, Save, Trash2, RotateCcw, ZoomIn, ZoomOut, Maximize2, 
-  Eye, Grid, HelpCircle, Layers, HardDrive, Check 
+  Eye, Grid, Keyboard, Layers, HardDrive, Check 
 } from 'lucide-react';
 import { exportAllLocalData } from '../localDataManager';
 
@@ -18,7 +18,6 @@ interface MenuBarProps {
   onOpenBulkImport?: () => void;
   onClearPanel: () => void;
   onOpenShortcutsModal: () => void;
-  onOpenPanelEditor?: () => void;
 }
 
 export const MenuBar: React.FC<MenuBarProps> = ({
@@ -33,8 +32,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   onOpenImport,
   onOpenBulkImport,
   onClearPanel,
-  onOpenShortcutsModal,
-  onOpenPanelEditor
+  onOpenShortcutsModal
 }) => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -67,16 +65,22 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   return (
     <div className="cd-menubar" ref={containerRef}>
       {/* Brand Badge */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '8px', color: '#00f0ff', fontWeight: '800' }}>
-        <span style={{ background: '#0284c7', color: '#fff', padding: '1px 5px', borderRadius: '3px', fontSize: '10px' }}>Corel</span>
-        <span>Studio</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '6px', flexShrink: 0 }}>
+        <span style={{ background: '#E4572E', color: '#fff', padding: '2px 7px', borderRadius: '5px', fontSize: '10px', fontWeight: '800', letterSpacing: '0.04em' }}>FN</span>
+        <span style={{ fontSize: '12px', fontWeight: '700', color: '#171717', letterSpacing: '-0.01em' }}>Studio</span>
       </div>
 
+      <div style={{ width: '1px', height: '16px', background: '#E8E4DE', margin: '0 4px', flexShrink: 0 }} />
+
       {/* FILE MENU */}
-      <div className="cd-menu-item-wrapper" style={{ position: 'relative' }}>
-        <div className={`cd-menu-item ${openMenu === 'file' ? 'active' : ''}`} onClick={() => toggleMenu('file')}>
+      <div className="cd-menu-item-wrapper">
+        <button 
+          type="button"
+          className={`cd-menu-item ${openMenu === 'file' ? 'active' : ''}`} 
+          onClick={() => toggleMenu('file')}
+        >
           File
-        </div>
+        </button>
         {openMenu === 'file' && (
           <div className="cd-menu-dropdown">
             <div className="cd-dropdown-action" onClick={() => { onOpenImport(); close(); }}>
@@ -92,8 +96,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             <div className="cd-dropdown-action" onClick={() => { exportAllLocalData(); close(); }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><HardDrive size={13} /> Export Local Backup</span>
             </div>
-            <div style={{ height: '1px', background: '#2d2d38', margin: '4px 0' }} />
-            <div className="cd-dropdown-action" onClick={() => { onClearPanel(); close(); }} style={{ color: '#ef4444' }}>
+            <div style={{ height: '1px', background: '#E8E4DE', margin: '4px 0' }} />
+            <div className="cd-dropdown-action" onClick={() => { onClearPanel(); close(); }} style={{ color: '#C84535' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Trash2 size={13} /> Clear Active Panel</span>
               <span style={{ opacity: 0.5 }}>Del</span>
             </div>
@@ -102,10 +106,14 @@ export const MenuBar: React.FC<MenuBarProps> = ({
       </div>
 
       {/* VIEW MENU */}
-      <div className="cd-menu-item-wrapper" style={{ position: 'relative' }}>
-        <div className={`cd-menu-item ${openMenu === 'view' ? 'active' : ''}`} onClick={() => toggleMenu('view')}>
+      <div className="cd-menu-item-wrapper">
+        <button 
+          type="button"
+          className={`cd-menu-item ${openMenu === 'view' ? 'active' : ''}`} 
+          onClick={() => toggleMenu('view')}
+        >
           View
-        </div>
+        </button>
         {openMenu === 'view' && (
           <div className="cd-menu-dropdown">
             <div className="cd-dropdown-action" onClick={() => { onSetZoom(Math.min(3, zoom + 0.25)); close(); }}>
@@ -120,24 +128,28 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><RotateCcw size={13} /> Reset Zoom (100%)</span>
               <span style={{ opacity: 0.5 }}>Ctrl+0</span>
             </div>
-            <div style={{ height: '1px', background: '#2d2d38', margin: '4px 0' }} />
+            <div style={{ height: '1px', background: '#E8E4DE', margin: '4px 0' }} />
             <div className="cd-dropdown-action" onClick={() => { onToggleGuidelines(); close(); }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Grid size={13} /> Toggle Guidelines</span>
-              {showGuidelines ? <Check size={13} style={{ color: '#38bdf8' }} /> : <span style={{ opacity: 0.5 }}>G</span>}
+              {showGuidelines ? <Check size={13} style={{ color: '#E4572E' }} /> : <span style={{ opacity: 0.5 }}>G</span>}
             </div>
             <div className="cd-dropdown-action" onClick={() => { onToggleRulers(); close(); }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Eye size={13} /> Toggle Rulers</span>
-              {rulersEnabled ? <Check size={13} style={{ color: '#38bdf8' }} /> : <span style={{ opacity: 0.5 }}>R</span>}
+              {rulersEnabled ? <Check size={13} style={{ color: '#E4572E' }} /> : <span style={{ opacity: 0.5 }}>R</span>}
             </div>
           </div>
         )}
       </div>
 
       {/* LAYOUT / PANELS MENU */}
-      <div className="cd-menu-item-wrapper" style={{ position: 'relative' }}>
-        <div className={`cd-menu-item ${openMenu === 'panels' ? 'active' : ''}`} onClick={() => toggleMenu('panels')}>
+      <div className="cd-menu-item-wrapper">
+        <button 
+          type="button"
+          className={`cd-menu-item ${openMenu === 'panels' ? 'active' : ''}`} 
+          onClick={() => toggleMenu('panels')}
+        >
           Panels
-        </div>
+        </button>
         {openMenu === 'panels' && (
           <div className="cd-menu-dropdown">
             {panels.map(p => (
@@ -147,47 +159,38 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                 onClick={() => { onSelectTab(p.id); close(); }}
               >
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Layers size={13} /> {p.label}</span>
-                {activeTab === p.id && <Check size={13} style={{ color: '#38bdf8' }} />}
+                {activeTab === p.id && <Check size={13} style={{ color: '#E4572E' }} />}
               </div>
             ))}
-            <div style={{ height: '1px', background: '#2d2d38', margin: '4px 0' }} />
-            <div className="cd-dropdown-action" onClick={() => { if (onOpenPanelEditor) onOpenPanelEditor(); close(); }} style={{ color: '#00f0ff', fontWeight: 'bold' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>⚙️ Core Panel & Size Editor</span>
-            </div>
           </div>
         )}
       </div>
 
-      {/* HELP MENU */}
-      <div className="cd-menu-item-wrapper" style={{ position: 'relative' }}>
-        <div className={`cd-menu-item ${openMenu === 'help' ? 'active' : ''}`} onClick={() => toggleMenu('help')}>
-          Help
-        </div>
+      {/* SHORTCUTS MENU */}
+      <div className="cd-menu-item-wrapper">
+        <button 
+          type="button"
+          className={`cd-menu-item ${openMenu === 'help' ? 'active' : ''}`} 
+          onClick={() => toggleMenu('help')}
+        >
+          Shortcuts
+        </button>
         {openMenu === 'help' && (
           <div className="cd-menu-dropdown">
             <div className="cd-dropdown-action" onClick={() => { onOpenShortcutsModal(); close(); }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><HelpCircle size={13} /> CorelDRAW Shortcuts</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Keyboard size={13} /> Keyboard Shortcuts</span>
               <span style={{ opacity: 0.5 }}>F1</span>
             </div>
           </div>
         )}
       </div>
 
-      {/* Panel Editor Quick Button + Active Panel Badge on Right */}
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <button 
-          className="btn btn-secondary" 
-          onClick={() => { if (onOpenPanelEditor) onOpenPanelEditor(); }}
-          style={{ padding: '3px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '5px', color: '#00f0ff', borderColor: 'rgba(0, 240, 255, 0.4)', borderRadius: '4px', fontWeight: 'bold', background: 'rgba(0, 240, 255, 0.08)' }}
-        >
-          ⚙️ Panel Editor
-        </button>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: '#38bdf8', background: '#0f172a', padding: '2px 8px', borderRadius: '4px', border: '1px solid #1e293b' }}>
-          <span>ACTIVE:</span>
-          <strong style={{ color: '#fff', textTransform: 'uppercase' }}>{activeTab}</strong>
-        </div>
+      {/* Active Panel Badge on Right */}
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', background: '#FFF3EF', border: '1px solid #F5C4B2', color: '#C94725', borderRadius: '6px', padding: '3px 10px', fontSize: '11px', fontWeight: '600' }}>
+        <span style={{ fontWeight: '700', color: '#92908A' }}>ACTIVE:</span>
+        <strong style={{ color: '#E4572E', fontWeight: '700', textTransform: 'uppercase' }}>{activeTab}</strong>
       </div>
+
     </div>
   );
 };

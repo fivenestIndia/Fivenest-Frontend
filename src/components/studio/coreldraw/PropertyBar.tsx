@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   ZoomIn, ZoomOut, RotateCcw, AlignLeft, AlignCenter, AlignRight, 
-  Lock, Unlock, Type, Image as ImageIcon, Paintbrush, Layers, Sliders 
+  Lock, Unlock, Type, Image as ImageIcon, Paintbrush, Layers, Sliders, Sparkles 
 } from 'lucide-react';
 import type { CorelTool } from './ToolBox';
 import type { PanelConfig, TextConfig } from '../designer';
@@ -52,100 +52,141 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
   };
 
   return (
-    <div className="cd-propertybar">
-      {/* 1. TOOL INDICATOR BADGE */}
-      <div className="cd-property-group">
-        <span style={{ fontWeight: '700', color: '#38bdf8', textTransform: 'uppercase', fontSize: '10px' }}>
+    <div 
+      className="cd-propertybar" 
+      style={{ 
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        height: '42px',
+        minHeight: '42px',
+        padding: '0 12px',
+        overflowX: 'auto',
+        overflowY: 'hidden',
+        boxSizing: 'border-box',
+        zIndex: 35
+      }}
+    >
+      {/* 1. ACTIVE TOOL BADGE */}
+      <div 
+        className="cd-property-group"
+        style={{
+          background: '#FBE7E1',
+          border: '1px solid #F5C4B2',
+          borderRadius: '8px',
+          padding: '4px 10px',
+        }}
+      >
+        <span style={{ fontWeight: '600', color: '#E4572E', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#E4572E' }} />
           [{activeTool}]
         </span>
       </div>
 
       {/* 2. PANEL SIZE / TAB CONTROL */}
-      <div className="cd-property-group">
-        <span style={{ opacity: 0.6 }}>Page Size:</span>
-        <span style={{ color: '#00f0ff', fontWeight: '600' }}>{physicalWidth}" × {physicalHeight}"</span>
-
-        {(activeTab === 'sleeveLeft' || activeTab === 'sleeveRight') && onSleeveTypeChange && (
-          <div style={{ display: 'flex', gap: '4px', marginLeft: '6px' }}>
-            <button
-              onClick={() => onSleeveTypeChange('half')}
-              style={{
-                padding: '1px 6px',
-                borderRadius: '3px',
-                fontSize: '10px',
-                background: previewSleeveType === 'half' ? '#0284c7' : '#22222e',
-                color: previewSleeveType === 'half' ? '#fff' : '#94a3b8',
-                border: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              Half
-            </button>
-            <button
-              onClick={() => onSleeveTypeChange('full')}
-              style={{
-                padding: '1px 6px',
-                borderRadius: '3px',
-                fontSize: '10px',
-                background: previewSleeveType === 'full' ? '#0284c7' : '#22222e',
-                color: previewSleeveType === 'full' ? '#fff' : '#94a3b8',
-                border: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              Full
-            </button>
-          </div>
-        )}
+      <div 
+        className="cd-property-group"
+        style={{
+          background: '#FFFFFF',
+          border: '1px solid #D8D5CF',
+          borderRadius: '8px',
+          padding: '4px 10px',
+        }}
+      >
+        <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600' }}>Page Size:</span>
+        <span style={{ color: '#E4572E', fontWeight: '700', fontSize: '11px', marginLeft: '4px', letterSpacing: '0.02em' }}>
+          {physicalWidth}" × {physicalHeight}"
+        </span>
       </div>
 
-      {/* 3. TOOL-SPECIFIC CONTROLS */}
+
+
+      {/* 4. ZOOM CONTROLS */}
       {activeTool === 'zoom' && (
-        <div className="cd-property-group">
-          <span style={{ opacity: 0.6 }}>Zoom level:</span>
+        <div 
+          className="cd-property-group"
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid #D8D5CF',
+            borderRadius: '8px',
+            padding: '3px 8px',
+            gap: '4px'
+          }}
+        >
+          <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600' }}>Zoom:</span>
           {[0.5, 1, 1.5, 2].map(z => (
             <button
               key={z}
+              type="button"
               onClick={() => onSetZoom(z)}
               style={{
-                padding: '2px 6px',
-                borderRadius: '3px',
+                padding: '3px 8px',
+                borderRadius: '5px',
                 fontSize: '10px',
-                background: zoom === z ? '#0284c7' : '#1e1e28',
-                color: zoom === z ? '#fff' : '#94a3b8',
-                border: '1px solid #334155',
-                cursor: 'pointer'
+                fontWeight: '600',
+                background: zoom === z ? '#E4572E' : '#FFFFFF',
+                color: zoom === z ? '#FFFFFF' : '#686661',
+                border: zoom === z ? '1px solid #E4572E' : '1px solid #D8D5CF',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
               }}
             >
               {Math.round(z * 100)}%
             </button>
           ))}
           <button
+            type="button"
             onClick={() => onSetZoom(1)}
-            style={{ padding: '2px 6px', borderRadius: '3px', fontSize: '10px', background: '#1e1e28', color: '#38bdf8', border: '1px solid #334155', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}
+            style={{ 
+              padding: '3px 8px', 
+              borderRadius: '5px', 
+              fontSize: '10px', 
+              fontWeight: '600',
+              background: '#FBE7E1', 
+              color: '#E4572E', 
+              border: '1px solid #F5C4B2', 
+              cursor: 'pointer', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '4px' 
+            }}
           >
-            <RotateCcw size={10} /> Reset
+            <RotateCcw size={11} /> Reset
           </button>
         </div>
       )}
 
+      {/* 5. TEXT CONTROLS */}
       {activeTool === 'text' && activeTextConfig && (
         <>
-          <div className="cd-property-group">
-            <span style={{ opacity: 0.6 }}>Layer:</span>
+          {/* Layer Selector */}
+          <div 
+            className="cd-property-group"
+            style={{
+              background: '#FFFFFF',
+              border: '1px solid #D8D5CF',
+              borderRadius: '8px',
+              padding: '3px 6px',
+              gap: '4px'
+            }}
+          >
+            <span style={{ fontSize: '10px', fontWeight: '700', color: '#92908A', textTransform: 'uppercase' }}>Layer:</span>
             {(['name', 'number', 'sizeTag'] as const).map(l => (
               <button
                 key={l}
+                type="button"
                 onClick={() => onSelectTextLayer(l)}
                 style={{
-                  padding: '2px 6px',
-                  borderRadius: '3px',
-                  fontSize: '10px',
-                  background: activeTextLayer === l ? '#0284c7' : '#1e1e28',
-                  color: activeTextLayer === l ? '#fff' : '#94a3b8',
-                  border: '1px solid #334155',
+                  padding: '3px 8px',
+                  borderRadius: '5px',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  background: activeTextLayer === l ? '#E4572E' : '#FFFFFF',
+                  color: activeTextLayer === l ? '#FFFFFF' : '#686661',
+                  border: activeTextLayer === l ? '1px solid #E4572E' : '1px solid #D8D5CF',
                   cursor: 'pointer',
-                  textTransform: 'capitalize'
+                  textTransform: 'capitalize',
+                  transition: 'all 0.15s ease'
                 }}
               >
                 {l}
@@ -153,13 +194,30 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
             ))}
           </div>
 
-          <div className="cd-property-group">
-            <span style={{ opacity: 0.6 }}>Font:</span>
+          {/* Font & Size */}
+          <div 
+            className="cd-property-group"
+            style={{
+              background: '#FFFFFF',
+              border: '1px solid #D8D5CF',
+              borderRadius: '8px',
+              padding: '3px 8px',
+              gap: '6px'
+            }}
+          >
+            <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600' }}>Font:</span>
             <select
               value={activeTextConfig.fontFamily}
               onChange={(e) => updateActiveText({ fontFamily: e.target.value })}
-              className="cd-property-input"
-              style={{ width: '110px' }}
+              style={{
+                width: '120px',
+                border: '1px solid #D8D5CF',
+                borderRadius: '6px',
+                fontSize: '11px',
+                fontWeight: '600',
+                padding: '3px 6px',
+                outline: 'none'
+              }}
             >
               <option value="OldSport02AthleticNcv-E0gj">Athletic Bold</option>
               <option value="Impact">Impact</option>
@@ -168,110 +226,187 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               <option value="Montserrat">Montserrat</option>
             </select>
 
-            <span style={{ opacity: 0.6, marginLeft: '6px' }}>Size:</span>
+            <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600', marginLeft: '4px' }}>Size:</span>
             <input
               type="number"
               step="0.1"
               value={activeTextConfig.fontSize}
               onChange={(e) => updateActiveText({ fontSize: parseFloat(e.target.value) || 1 })}
-              className="cd-property-input"
-              style={{ width: '50px' }}
+              style={{
+                width: '50px',
+                border: '1px solid #D8D5CF',
+                borderRadius: '6px',
+                fontSize: '11px',
+                fontWeight: '600',
+                padding: '3px 6px',
+                textAlign: 'center',
+                outline: 'none'
+              }}
             />
           </div>
 
-          <div className="cd-property-group">
-            <span style={{ opacity: 0.6 }}>Align:</span>
-            <div style={{ display: 'flex', gap: '2px' }}>
-              {(['left', 'center', 'right'] as const).map(a => (
-                <button
-                  key={a}
-                  onClick={() => updateActiveText({ align: a })}
-                  style={{
-                    padding: '3px 5px',
-                    borderRadius: '3px',
-                    background: (activeTextConfig.align || 'center') === a ? '#0284c7' : '#1e1e28',
-                    color: '#fff',
-                    border: '1px solid #334155',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {a === 'left' ? <AlignLeft size={12} /> : a === 'center' ? <AlignCenter size={12} /> : <AlignRight size={12} />}
-                </button>
-              ))}
+          {/* Alignment */}
+          <div 
+            className="cd-property-group"
+            style={{
+              background: '#FFFFFF',
+              border: '1px solid #D8D5CF',
+              borderRadius: '8px',
+              padding: '3px 6px',
+              gap: '4px'
+            }}
+          >
+            <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600' }}>Align:</span>
+            <div style={{ display: 'flex', gap: '3px' }}>
+              {(['left', 'center', 'right'] as const).map(a => {
+                const isSelected = (activeTextConfig.align || 'center') === a;
+                return (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() => updateActiveText({ align: a })}
+                    style={{
+                      padding: '4px 6px',
+                      borderRadius: '5px',
+                      background: isSelected ? '#E4572E' : '#FFFFFF',
+                      color: isSelected ? '#FFFFFF' : '#686661',
+                      border: isSelected ? '1px solid #E4572E' : '1px solid #D8D5CF',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    {a === 'left' ? <AlignLeft size={12} /> : a === 'center' ? <AlignCenter size={12} /> : <AlignRight size={12} />}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <div className="cd-property-group">
-            <span style={{ opacity: 0.6 }}>Fill:</span>
+          {/* Fill & Stroke */}
+          <div 
+            className="cd-property-group"
+            style={{
+              background: '#FFFFFF',
+              border: '1px solid #D8D5CF',
+              borderRadius: '8px',
+              padding: '3px 8px',
+              gap: '6px'
+            }}
+          >
+            <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600' }}>Fill:</span>
             <input
               type="color"
               value={activeTextConfig.color}
               onChange={(e) => updateActiveText({ color: e.target.value })}
-              style={{ width: '22px', height: '20px', border: 'none', background: 'none', cursor: 'pointer' }}
+              style={{ width: '24px', height: '22px', border: '1px solid #D8D5CF', borderRadius: '4px', background: 'none', cursor: 'pointer', padding: 0 }}
             />
-            <span style={{ opacity: 0.6, marginLeft: '4px' }}>Stroke:</span>
+            <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600', marginLeft: '4px' }}>Stroke:</span>
             <input
               type="color"
               value={activeTextConfig.strokeColor}
               onChange={(e) => updateActiveText({ strokeColor: e.target.value })}
-              style={{ width: '22px', height: '20px', border: 'none', background: 'none', cursor: 'pointer' }}
+              style={{ width: '24px', height: '22px', border: '1px solid #D8D5CF', borderRadius: '4px', background: 'none', cursor: 'pointer', padding: 0 }}
             />
-            <span style={{ opacity: 0.6, marginLeft: '6px' }}>W:</span>
+            <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600', marginLeft: '4px' }}>Width:</span>
             <input
               type="number"
-              step="0.01"
+              step="0.5"
               min="0"
-              max="0.5"
+              max="50"
               value={activeTextConfig.strokeWidth || 0}
               onChange={(e) => updateActiveText({ strokeWidth: parseFloat(e.target.value) || 0 })}
-              className="cd-property-input"
-              style={{ width: '45px', marginLeft: '2px' }}
+              style={{
+                width: '46px',
+                border: '1px solid #D8D5CF',
+                borderRadius: '6px',
+                fontSize: '11px',
+                fontWeight: '600',
+                padding: '3px 4px',
+                textAlign: 'center',
+                outline: 'none'
+              }}
             />
           </div>
         </>
       )}
 
+      {/* 6. LOGO CONTROLS */}
       {activeTool === 'logo' && (
-        <div className="cd-property-group">
-          <span style={{ opacity: 0.6 }}>Torso Logo W/H (in):</span>
+        <div 
+          className="cd-property-group"
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid #D8D5CF',
+            borderRadius: '8px',
+            padding: '3px 8px',
+            gap: '6px'
+          }}
+        >
+          <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600' }}>Torso Logo (in):</span>
           <input
             type="number"
             step="0.5"
             placeholder="W"
             value={panel.torsoLogo?.width || 8.5}
             onChange={(e) => onUpdatePanel({ torsoLogo: { ...(panel.torsoLogo || { enabled: true, uploadedUrl: null, width: 8.5, height: 2.6, xPos: 11, yPos: 13.3 }), width: parseFloat(e.target.value) || 1 } })}
-            className="cd-property-input"
-            style={{ width: '45px' }}
+            style={{
+              width: '46px',
+              border: '1px solid #D8D5CF',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: '600',
+              padding: '3px 4px',
+              textAlign: 'center',
+              outline: 'none'
+            }}
           />
-          <span>×</span>
+          <span style={{ color: '#92908A' }}>×</span>
           <input
             type="number"
             step="0.5"
             placeholder="H"
             value={panel.torsoLogo?.height || 2.6}
             onChange={(e) => onUpdatePanel({ torsoLogo: { ...(panel.torsoLogo || { enabled: true, uploadedUrl: null, width: 8.5, height: 2.6, xPos: 11, yPos: 13.3 }), height: parseFloat(e.target.value) || 1 } })}
-            className="cd-property-input"
-            style={{ width: '45px' }}
+            style={{
+              width: '46px',
+              border: '1px solid #D8D5CF',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: '600',
+              padding: '3px 4px',
+              textAlign: 'center',
+              outline: 'none'
+            }}
           />
         </div>
       )}
 
-      {/* QUICK BACKGROUND COLOR CHOOSERS */}
-      <div className="cd-property-group" style={{ marginLeft: 'auto' }}>
-        <span style={{ opacity: 0.6 }}>BG Colors:</span>
+      {/* 7. QUICK BACKGROUND COLOR CHOOSERS */}
+      <div 
+        className="cd-property-group" 
+        style={{ 
+          marginLeft: 'auto',
+          background: '#FFFFFF',
+          border: '1px solid #D8D5CF',
+          borderRadius: '8px',
+          padding: '3px 8px',
+          gap: '6px'
+        }}
+      >
+        <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '700' }}>BG Colors:</span>
         <input
           type="color"
           value={panel.generatedColor1}
           onChange={(e) => onUpdatePanel({ generatedColor1: e.target.value })}
           title="Background Color 1"
-          style={{ width: '22px', height: '20px', border: 'none', background: 'none', cursor: 'pointer' }}
+          style={{ width: '22px', height: '20px', border: '1px solid #D8D5CF', borderRadius: '4px', background: 'none', cursor: 'pointer', padding: 0 }}
         />
         <input
           type="color"
           value={panel.generatedColor2}
           onChange={(e) => onUpdatePanel({ generatedColor2: e.target.value })}
           title="Background Color 2"
-          style={{ width: '22px', height: '20px', border: 'none', background: 'none', cursor: 'pointer' }}
+          style={{ width: '22px', height: '20px', border: '1px solid #D8D5CF', borderRadius: '4px', background: 'none', cursor: 'pointer', padding: 0 }}
         />
       </div>
     </div>

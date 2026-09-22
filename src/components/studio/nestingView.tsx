@@ -1,43 +1,226 @@
+// BUILD v20260906-r5 — FiveNest Studio Export Processing Modal
 import React, { useState, useEffect, useRef } from 'react';
 import { jsPDF } from 'jspdf';
 import confetti from 'canvas-confetti';
-import { Play, Download, Sliders, Coins, QrCode, CheckCircle, AlertTriangle, Loader2, X } from 'lucide-react';
+import { Play, Download, Sliders, Coins, QrCode, CheckCircle, AlertTriangle, Loader2, X, Palette } from 'lucide-react';
 import JSZip from 'jszip';
 import { supabase, fetchUserWallet } from '../../lib/supabaseClient';
+import { fivenestLabelTagDataUrl } from '../../assets/labelTagBase64';
+import { ExportProcessingModal } from './ExportProcessingModal';
+import { recordBillingExport } from './billingSystem';
 
-const getCanvasBlob = (canvas: HTMLCanvasElement): Promise<Blob> => {
+// ---- Export format utilities ----
+type ExportFormat = 'jpg' | 'png' | 'tiff';
+type ColorProfile = 'rgb' | 'cmyk';
+
+/** Convert RGB pixel to CMYK approximation */
+const rgbToCmyk = (r: number, g: number, b: number): [number, number, number, number] => {
+  if (r === 0 && g === 0 && b === 0) return [0, 0, 0, 1];
+  const rn = r / 255, gn = g / 255, bn = b / 255;
+  const k = 1 - Math.max(rn, gn, bn);
+  const c = (1 - rn - k) / (1 - k);
+  const m = (1 - gn - k) / (1 - k);
+  const y = (1 - bn - k) / (1 - k);
+  return [c, m, y, k];
+};
+
+/** Convert RGB canvas to PNG blob */
+const canvasToPngBlob = (canvas: HTMLCanvasElement): Promise<Blob> => {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => {
+      resolve(blob || new Blob());
+    }, 'image/png');
+  });
+};
+
+/** Inject DPI into PNG blob via pHYs chunk (pixels per metre) */
+const injectPngDpi = (blob: Blob, dpiValue: number): Promise<Blob> => {
+  return new Promise((resolve) => {
+    const ppm = Math.round(dpiValue / 0.0254); // pixels per metre
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const ab = e.target!.result as ArrayBuffer;
+        const orig = new Uint8Array(ab);
+        // Build pHYs chunk: 4 bytes type "pHYs", 4+4+1 = 9 bytes data, 4 bytes CRC
+        const chunkData = new Uint8Array(9);
+        const view = new DataView(chunkData.buffer);
+        view.setUint32(0, ppm); // X pixels per unit
+        view.setUint32(4, ppm); // Y pixels per unit
+        chunkData[8] = 1; // unit: metre
+        // CRC32 over "pHYs" + data
+        const crcInput = new Uint8Array(13);
+        crcInput.set([112, 72, 89, 115]); // "pHYs"
+        crcInput.set(chunkData, 4);
+        const crc = crc32(crcInput);
+        const chunk = new Uint8Array(4 + 4 + 9 + 4);
+        const cv = new DataView(chunk.buffer);
+        cv.setUint32(0, 9); // chunk length
+        chunk.set([112, 72, 89, 115], 4); // "pHYs"
+        chunk.set(chunkData, 8);
+        cv.setUint32(17, crc);
+        // Insert after PNG signature (8 bytes) + IHDR chunk (4+4+13+4=25 bytes) = offset 33
+        const insertAt = 33;
+        const result = new Uint8Array(orig.length + chunk.length);
+        result.set(orig.slice(0, insertAt));
+        result.set(chunk, insertAt);
+        result.set(orig.slice(insertAt), insertAt + chunk.length);
+        resolve(new Blob([result], { type: 'image/png' }));
+      } catch {
+        resolve(blob);
+      }
+    };
+    reader.onerror = () => resolve(blob);
+    reader.readAsArrayBuffer(blob);
+  });
+};
+
+/** Simple CRC32 for PNG chunk */
+const crc32 = (data: Uint8Array): number => {
+  let crc = 0xFFFFFFFF;
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    table[i] = c;
+  }
+  for (let i = 0; i < data.length; i++) crc = table[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8);
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+};
+
+/** Encode canvas as minimal TIFF (baseline, uncompressed, RGB or CMYK) */
+const canvasToTiffBlob = (canvas: HTMLCanvasElement, dpiValue: number, cmyk: boolean): Promise<Blob> => {
   return new Promise((resolve) => {
     try {
-      canvas.toBlob((blob) => {
-        if (blob) {
-          resolve(blob);
+      const ctx = canvas.getContext('2d')!;
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const { data, width, height } = imgData;
+      const samplesPerPixel = cmyk ? 4 : 3;
+      const pixelCount = width * height;
+      const stripData = new Uint8Array(pixelCount * samplesPerPixel);
+      for (let i = 0; i < pixelCount; i++) {
+        const r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2];
+        if (cmyk) {
+          const [c, m, y, k] = rgbToCmyk(r, g, b);
+          stripData[i * 4]     = Math.round(c * 255);
+          stripData[i * 4 + 1] = Math.round(m * 255);
+          stripData[i * 4 + 2] = Math.round(y * 255);
+          stripData[i * 4 + 3] = Math.round(k * 255);
         } else {
-          try {
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-            const parts = dataUrl.split(',');
-            const byteString = atob(parts[1]);
-            const ab = new ArrayBuffer(byteString.length);
-            const ia = new Uint8Array(ab);
-            for (let i = 0; i < byteString.length; i++) {
-              ia[i] = byteString.charCodeAt(i);
-            }
-            resolve(new Blob([ab], { type: 'image/jpeg' }));
-          } catch (e) {
-            resolve(new Blob());
-          }
+          stripData[i * 3]     = r;
+          stripData[i * 3 + 1] = g;
+          stripData[i * 3 + 2] = b;
         }
-      }, 'image/jpeg', 0.85);
-    } catch (err) {
+      }
+      // TIFF header: II (little endian), magic 42, offset to first IFD
+      const ifdEntryCount = 12;
+      const ifdOffset = 8;
+      const ifdSize = 2 + ifdEntryCount * 12 + 4;
+      const extraDataOffset = ifdOffset + ifdSize;
+      // Extra data: BitsPerSample (3 or 4 SHORTs), XRes rational (2 LONGs), YRes rational
+      const bpsSize = samplesPerPixel * 2;
+      const resSize = 8; // rational = 2 * uint32
+      const stripOffset = extraDataOffset + bpsSize + resSize * 2;
+      const totalSize = stripOffset + stripData.length;
+      const buf = new ArrayBuffer(totalSize);
+      const v = new DataView(buf);
+      const u = new Uint8Array(buf);
+      // TIFF header
+      v.setUint16(0, 0x4949, true); // 'II' little endian
+      v.setUint16(2, 42, true);
+      v.setUint32(4, ifdOffset, true);
+      // IFD
+      let p = ifdOffset;
+      v.setUint16(p, ifdEntryCount, true); p += 2;
+      const setEntry = (tag: number, type: number, count: number, valOrOffset: number) => {
+        v.setUint16(p, tag, true);
+        v.setUint16(p + 2, type, true);
+        v.setUint32(p + 4, count, true);
+        v.setUint32(p + 8, valOrOffset, true);
+        p += 12;
+      };
+      setEntry(256, 4, 1, width);               // ImageWidth
+      setEntry(257, 4, 1, height);              // ImageLength
+      setEntry(258, 3, samplesPerPixel, bpsSize > 4 ? extraDataOffset : ((samplesPerPixel as number) === 1 ? 8 : 0x00080008)); // BitsPerSample
+      setEntry(259, 3, 1, 1);                   // Compression: none
+      setEntry(262, 3, 1, cmyk ? 5 : 2);        // PhotometricInterpretation: 5=CMYK, 2=RGB
+      setEntry(278, 4, 1, height);              // RowsPerStrip
+      setEntry(279, 4, 1, stripData.length);   // StripByteCounts
+      setEntry(282, 5, 1, extraDataOffset + bpsSize);       // XResolution rational offset
+      setEntry(283, 5, 1, extraDataOffset + bpsSize + resSize); // YResolution rational offset
+      setEntry(284, 3, 1, 1);                   // PlanarConfig: chunky
+      setEntry(296, 3, 1, 2);                   // ResolutionUnit: inch
+      setEntry(273, 4, 1, stripOffset);         // StripOffsets
+      v.setUint32(p, 0, true); // next IFD offset = 0 (none)
+      // Write BitsPerSample values
+      for (let i = 0; i < samplesPerPixel; i++) {
+        v.setUint16(extraDataOffset + i * 2, 8, true);
+      }
+      // Write XRes and YRes rationals
+      const resOff = extraDataOffset + bpsSize;
+      v.setUint32(resOff, dpiValue, true);
+      v.setUint32(resOff + 4, 1, true);
+      v.setUint32(resOff + resSize, dpiValue, true);
+      v.setUint32(resOff + resSize + 4, 1, true);
+      // Write pixel data
+      u.set(stripData, stripOffset);
+      resolve(new Blob([buf], { type: 'image/tiff' }));
+    } catch (e) {
+      console.warn('TIFF encode error:', e);
       resolve(new Blob());
     }
   });
 };
+
+/** Get canvas blob in the selected format */
+const getCanvasBlobForFormat = async (
+  canvas: HTMLCanvasElement,
+  format: ExportFormat,
+  profile: ColorProfile,
+  dpi: number
+): Promise<Blob> => {
+  if (format === 'png') {
+    let blob = await canvasToPngBlob(canvas);
+    blob = await injectPngDpi(blob, dpi);
+    return blob;
+  }
+  if (format === 'tiff') {
+    return canvasToTiffBlob(canvas, dpi, profile === 'cmyk');
+  }
+  // Default: JPG
+  return new Promise((resolve) => {
+    try {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else {
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+          const parts = dataUrl.split(',');
+          const byteString = atob(parts[1]);
+          const ab = new ArrayBuffer(byteString.length);
+          const ia = new Uint8Array(ab);
+          for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+          resolve(new Blob([ab], { type: 'image/jpeg' }));
+        }
+      }, 'image/jpeg', 0.92);
+    } catch {
+      resolve(new Blob());
+    }
+  });
+};
+
+const getCanvasBlob = (canvas: HTMLCanvasElement): Promise<Blob> => {
+  return getCanvasBlobForFormat(canvas, 'jpg', 'rgb', 300);
+};
+
 
 const logoPathCyan = typeof Path2D !== 'undefined' ? new Path2D("M32.55,0l3.08,2.98c.82.79.83,2.1.03,2.91l-14.83,14.9c-1.88,1.98-2.2,4.93-.21,6.95l4.84,4.94,13.51-13.47,2.99,2.72c.8.73,1.1,2.2.22,3.09l-8.72,8.82c-1.7,1.72-2.03,4.58-.29,6.38l3.18,3.3-4.6,4.57-1.44-1.69-14.48-14.7c-3.92-3.98-3.89-10.64.04-14.63L32.55,0Z") : null;
 const logoPathWhite = typeof Path2D !== 'undefined' ? new Path2D("M43.8,27.28c1.93-1.94,2.44-4.88.4-6.88l-4.99-4.88-13.44,13.22-2.84-2.54c-.35-.31-.94-.94-.94-1.63,0-.79.52-1.52.98-2.01l15.96-16.62,9.95,10.2c4.27,4.37,3.79,11.05-.3,15.32l-10.11,10.18-3.15-2.92c-.83-.88-.93-2,0-2.94l8.46-8.49h.02Z") : null;
 
 const fivenestLogoImageInstance = new Image();
 fivenestLogoImageInstance.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64.8 48.1"><path fill="#0acbf9" d="M32.55,0l3.08,2.98c.82.79.83,2.1.03,2.91l-14.83,14.9c-1.88,1.98-2.2,4.93-.21,6.95l4.84,4.94,13.51-13.47,2.99,2.72c.8.73,1.1,2.2.22,3.09l-8.72,8.82c-1.7,1.72-2.03,4.58-.29,6.38l3.18,3.3-4.6,4.57-1.44-1.69-14.48-14.7c-3.92-3.98-3.89-10.64.04-14.63L32.55,0Z"/><path fill="#ffffff" d="M43.8,27.28c1.93-1.94,2.44-4.88.4-6.88l-4.99-4.88-13.44,13.22-2.84-2.54c-.35-.31-.94-.94-.94-1.63,0-.79.52-1.52.98-2.01l15.96-16.62,9.95,10.2c4.27,4.37,3.79,11.05-.3,15.32l-10.11,10.18-3.15-2.92c-.83-.88-.93-2,0-2.94l8.46-8.49h.02Z"/></svg>`)}`;
+
+const fivenestLabelTagImageInstance = new Image();
+fivenestLabelTagImageInstance.src = fivenestLabelTagDataUrl;
 
 const injectJPDpi = (blob: Blob, dpiValue: number): Promise<Blob> => {
   return new Promise((resolve) => {
@@ -171,6 +354,59 @@ import type { SizeDatabase } from './sizesDb';
 import type { PlayerRecord, OrderMetadata } from './orderEntry';
 import type { ArtDesignConfig, TextConfig } from './designer';
 
+/**
+ * Global helper to strictly check whether any artwork / graphic images were uploaded in Step 1: Artwork.
+ * System requires an uploaded image in at least one panel before allowing export.
+ */
+export const checkArtworkUploadStatus = (
+  designConfig?: ArtDesignConfig | null, 
+  metadata?: OrderMetadata | null
+) => {
+  const frontHasArtwork = Boolean(
+    designConfig?.front?.uploadedFileUrl ||
+    (designConfig?.front?.leftChestLogo?.enabled && designConfig?.front?.leftChestLogo?.uploadedUrl) ||
+    (designConfig?.front?.rightChestLogo?.enabled && designConfig?.front?.rightChestLogo?.uploadedUrl) ||
+    (designConfig?.front?.torsoLogo?.enabled && designConfig?.front?.torsoLogo?.uploadedUrl)
+  );
+
+  const backHasArtwork = Boolean(
+    designConfig?.back?.uploadedFileUrl ||
+    (designConfig?.back?.leftChestLogo?.enabled && designConfig?.back?.leftChestLogo?.uploadedUrl) ||
+    (designConfig?.back?.rightChestLogo?.enabled && designConfig?.back?.rightChestLogo?.uploadedUrl) ||
+    (designConfig?.back?.torsoLogo?.enabled && designConfig?.back?.torsoLogo?.uploadedUrl)
+  );
+
+  const sleeveHasArtwork = Boolean(
+    designConfig?.sleeveLeft?.uploadedFileUrl || 
+    designConfig?.sleeveLeft?.uploadedFileHalfUrl || 
+    designConfig?.sleeveLeft?.uploadedFileFullUrl || 
+    designConfig?.sleeveRight?.uploadedFileUrl ||
+    designConfig?.sleeveRight?.uploadedFileHalfUrl ||
+    designConfig?.sleeveRight?.uploadedFileFullUrl
+  );
+
+  const a4HasArtwork = Boolean(
+    metadata?.a4BackPrint && designConfig?.a4Print?.uploadedFileUrl
+  );
+
+  const trimHasArtwork = Boolean(
+    designConfig?.trim?.collar?.uploadedUrl ||
+    designConfig?.trim?.placket?.uploadedUrl ||
+    designConfig?.trim?.sleeveStripe?.uploadedUrl
+  );
+
+  const anyArtworkUploaded = frontHasArtwork || backHasArtwork || sleeveHasArtwork || a4HasArtwork || trimHasArtwork;
+
+  return {
+    frontHasArtwork,
+    backHasArtwork,
+    sleeveHasArtwork,
+    a4HasArtwork,
+    trimHasArtwork,
+    anyArtworkUploaded,
+  };
+};
+
 interface NestingViewProps {
   records: PlayerRecord[];
   metadata: OrderMetadata;
@@ -180,6 +416,7 @@ interface NestingViewProps {
   testMode: boolean;
   onUserChange: (user: { email: string; name: string; balance: number } | null) => void;
   onOpenLogin: () => void;
+  onGoToArtwork?: () => void;
 }
 
 interface PlacedItem {
@@ -195,6 +432,7 @@ interface PlacedItem {
   rotated: boolean;
   sleeveType?: 'half' | 'full';
   isRaglan?: boolean;
+  qty?: number;
 }
 
 interface NestingSheet {
@@ -230,15 +468,29 @@ export const NestingView: React.FC<NestingViewProps> = ({
   currentUser,
   testMode,
   onUserChange,
-  onOpenLogin
+  onOpenLogin,
+  onGoToArtwork
 }) => {
+  const artworkStatus = checkArtworkUploadStatus(designConfig, metadata);
+  const { anyArtworkUploaded, frontHasArtwork, backHasArtwork, sleeveHasArtwork } = artworkStatus;
   const [enableNesting, setEnableNesting] = useState<boolean>(true);
   const [rollW, setRollW] = useState<number>(64);
   const [rollH, setRollH] = useState<number>(100); // Max paper height before page split
   const [itemGap, setItemGap] = useState<number>(0.25);
   const [tightestFit, setTightestFit] = useState<boolean>(true);
   const [rotateToFit, setRotateToFit] = useState<boolean>(true);
-  const [dpi, setDpi] = useState<number>(100); // Render DPI: 72, 100, 150, 300
+  const [dpi, setDpi] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('fivenest_pref_dpi');
+      return saved ? JSON.parse(saved) : 300;
+    } catch { return 300; }
+  });
+  const [exportFormat, setExportFormat] = useState<ExportFormat>(() => {
+    try { return (localStorage.getItem('fivenest_pref_export_format') as ExportFormat) || 'jpg'; } catch { return 'jpg'; }
+  });
+  const [colorProfile, setColorProfile] = useState<ColorProfile>(() => {
+    try { return (localStorage.getItem('fivenest_pref_color_profile') as ColorProfile) || 'rgb'; } catch { return 'rgb'; }
+  });
   
   const [includeWatermarkLogo, setIncludeWatermarkLogo] = useState<boolean>(() => {
     try {
@@ -397,6 +649,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
   };
   const [activeSheetIndex, setActiveSheetIndex] = useState<number>(0);
   const [exportProgress, setExportProgress] = useState<string>("");
+  const [exportProgressPct, setExportProgressPct] = useState<number>(0);
   const [isExporting, setIsExporting] = useState<boolean>(false);
 
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -459,37 +712,22 @@ export const NestingView: React.FC<NestingViewProps> = ({
     }
   }, []);
 
-  // Trigger Nesting layout calculations
   // Helper to compile the list of all panel pieces to export on the fly with Selective Panel Filtering
   const getItemsToExport = (): PlacedItem[] => {
+    const { 
+      frontHasArtwork: fHas, 
+      backHasArtwork: bHas, 
+      sleeveHasArtwork: sHas, 
+      a4HasArtwork: a4Has, 
+      anyArtworkUploaded: hasArt 
+    } = checkArtworkUploadStatus(designConfig, metadata);
+
+    // STRICT VALIDATION: If NO artwork image is uploaded in ANY panel, export 0 panels
+    if (!hasArt) {
+      return [];
+    }
+
     const items: PlacedItem[] = [];
-
-    // Check panel artwork status: panel has uploaded image OR generated pattern
-    const frontHasArtwork = Boolean(
-      designConfig?.front?.uploadedFileUrl || 
-      (designConfig?.front?.backgroundType === 'upload' && designConfig?.front?.uploadedFileUrl) ||
-      designConfig?.front?.backgroundType === 'generate'
-    );
-    const backHasArtwork = Boolean(
-      designConfig?.back?.uploadedFileUrl || 
-      (designConfig?.back?.backgroundType === 'upload' && designConfig?.back?.uploadedFileUrl) ||
-      designConfig?.back?.backgroundType === 'generate'
-    );
-    const sleeveHasArtwork = Boolean(
-      designConfig?.sleeveLeft?.uploadedFileUrl || 
-      designConfig?.sleeveLeft?.uploadedFileHalfUrl || 
-      designConfig?.sleeveLeft?.uploadedFileFullUrl || 
-      designConfig?.sleeveRight?.uploadedFileUrl ||
-      designConfig?.sleeveRight?.uploadedFileHalfUrl ||
-      designConfig?.sleeveRight?.uploadedFileFullUrl ||
-      designConfig?.sleeveLeft?.backgroundType === 'upload' || 
-      designConfig?.sleeveRight?.backgroundType === 'upload' ||
-      designConfig?.sleeveLeft?.backgroundType === 'generate' ||
-      designConfig?.sleeveRight?.backgroundType === 'generate'
-    );
-
-    // If any artwork is uploaded, only export panels that have uploaded/active artwork (unless explicitly entered in roster)
-    const anyArtworkUploaded = frontHasArtwork || backHasArtwork || sleeveHasArtwork;
 
     records.forEach((player, idx) => {
       const sizeConf = sizeDB[player.size] || sizeDB["40"] || Object.values(sizeDB)[0];
@@ -501,8 +739,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
       for (let q = 0; q < player.qty; q++) {
         const itemIndex = `${player.id}-item-${idx}-${q}`;
         
-        // Front panel: Include if front artwork exists (or if no artwork uploaded at all or explicitly requested)
-        const includeFront = (!anyArtworkUploaded || frontHasArtwork || isFrontOnly) && !isSleeveOnly && !isBackOnly;
+        // Front panel: Include only if front artwork exists (or front only roster)
+        const includeFront = (fHas || isFrontOnly) && !isSleeveOnly && !isBackOnly;
         if (includeFront) {
           items.push({
             recordId: itemIndex,
@@ -518,8 +756,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
           });
         }
         
-        // Back panel: Include if back artwork exists (or if no artwork uploaded at all or explicitly requested)
-        const includeBack = (!anyArtworkUploaded || backHasArtwork || isBackOnly) && !isSleeveOnly && !isFrontOnly;
+        // Back panel: Include only if back artwork exists (or back only roster)
+        const includeBack = (bHas || isBackOnly) && !isSleeveOnly && !isFrontOnly;
         if (includeBack) {
           items.push({
             recordId: itemIndex,
@@ -535,9 +773,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
           });
         }
 
-        // Sleeve panels: Include if sleeve artwork exists (or if no artwork uploaded at all or sleeve style requested)
+        // Sleeve panels: Include ONLY if sleeve artwork was actually uploaded!
         const effectiveSleeveType: 'half' | 'full' = player.sleeve === 'full' ? 'full' : 'half';
-        const includeSleeve = (!anyArtworkUploaded || sleeveHasArtwork || player.sleeve !== 'none') && !isFrontOnly && !isBackOnly;
+        const includeSleeve = sHas && player.sleeve !== 'none' && !isFrontOnly && !isBackOnly;
 
         if (includeSleeve) {
           let sleeveW = 0;
@@ -598,7 +836,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
         }
 
         // Standalone A4 chest/print panel (10x11 in)
-        if (metadata.a4BackPrint && !isSleeveOnly) {
+        const includeA4 = metadata.a4BackPrint && a4Has && !isSleeveOnly;
+        if (includeA4) {
           items.push({
             recordId: itemIndex,
             playerName: player.name,
@@ -614,11 +853,17 @@ export const NestingView: React.FC<NestingViewProps> = ({
         }
       }
     });
+
     return items;
   };
 
   // Trigger Nesting layout calculations
   const runNesting = () => {
+    if (!anyArtworkUploaded) {
+      alert("Artwork file is not detected!\n\nNo uploaded artwork found in Step 1: Artwork. Please upload an artwork file for at least one panel (Front, Back, or Sleeves) before generating nested rolls.");
+      return;
+    }
+
     if (records.length === 0) {
       alert("No items in order to nest. Please import a CSV or add quick size quantities first.");
       return;
@@ -628,7 +873,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
     
     const itemsToPack = getItemsToExport();
     if (itemsToPack.length === 0) {
-      alert("No items to nest. Check your roster entries.");
+      alert("Artwork file is not detected!\n\nNo printable panels found to nest. Please upload an artwork file in Step 1: Artwork.");
       setIsNesting(false);
       return;
     }
@@ -1027,6 +1272,12 @@ export const NestingView: React.FC<NestingViewProps> = ({
       }
       const conf = designConfig[panelTypeKey] || designConfig.front;
 
+      // Reference Size 40 base dimensions (inches) for perfect grading normalization across Size 18-60
+      const refW = (item.panelType === 'front' || item.panelType === 'back') ? 22 : item.panelType.startsWith('sleeve') ? 20 : 10;
+      const refH = (item.panelType === 'front' || item.panelType === 'back') ? 30 : item.panelType.startsWith('sleeve') ? 26 : 11;
+      const relW = item.w / refW;
+      const relH = item.h / refH;
+
       // Load optional guides preferences from localStorage (Default ON = true)
       const savedCenter = localStorage.getItem('fivenest_pref_center_marks');
       const centerMarks = savedCenter !== null ? JSON.parse(savedCenter) : true;
@@ -1034,24 +1285,22 @@ export const NestingView: React.FC<NestingViewProps> = ({
       const sizeWatermarks = savedWater !== null ? JSON.parse(savedWater) : true;
 
       const drawTechnicalMarks = () => {
-        // Fixed physical inch-based stroke: 3pt = 3/72 inches
-        const stroke3ptPx = Math.max(1, Math.round((3 / 72) * scaleDpi));
-
         if (centerMarks && item.panelType !== 'a4-print') {
           ctx.save();
           ctx.shadowColor = 'transparent';
           
-          // FIXED PHYSICAL SIZE: always 0.1" wide × 0.25" tall
-          // Uses scaleDpi so physical size in inches is IDENTICAL on all panels at same DPI
-          const wPx = Math.round(0.1 * scaleDpi);
-          const hPx = Math.round(0.25 * scaleDpi);
+          // Smart normalized notch mark: Normalized to reference Size 40 proportions
+          // Identical relative appearance & razor sharp across all sizes 18 to 60
+          const wPx = Math.max(2, Math.round(0.08 * scaleDpi * relW));
+          const hPx = Math.max(4, Math.round(0.22 * scaleDpi * relH));
+          const strokePx = Math.max(1, Math.round(((1.5 / 72) * scaleDpi) * relW));
           const leftEdgeXPx = Math.round(widthPx / 2 - wPx / 2);
 
-          // White 3pt outside stroke for technical center marks
+          // White outside stroke for technical center marks
           ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = stroke3ptPx;
-          ctx.strokeRect(leftEdgeXPx - stroke3ptPx / 2, 0, wPx + stroke3ptPx, hPx + stroke3ptPx / 2);
-          ctx.strokeRect(leftEdgeXPx - stroke3ptPx / 2, heightPx - hPx - stroke3ptPx / 2, wPx + stroke3ptPx, hPx + stroke3ptPx / 2);
+          ctx.lineWidth = strokePx;
+          ctx.strokeRect(leftEdgeXPx - strokePx / 2, 0, wPx + strokePx, hPx + strokePx / 2);
+          ctx.strokeRect(leftEdgeXPx - strokePx / 2, heightPx - hPx - strokePx / 2, wPx + strokePx, hPx + strokePx / 2);
 
           // Top Center & Bottom Center solid patch in Red
           ctx.fillStyle = '#ff1744';
@@ -1062,12 +1311,13 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
         if (sizeWatermarks && item.panelType !== 'a4-print') {
           ctx.save();
-          // FIXED 14pt font size — same physical size on ALL panels (size 18 through 60)
-          const fontSizePx = Math.round((14 / 72) * scaleDpi);
+          // Smart normalized sleeve watermark (14pt reference scaled with panel width)
+          const fontSizePx = Math.max(8, Math.round(((14 / 72) * scaleDpi) * relW));
+          const strokePx = Math.max(1, Math.round(fontSizePx * 0.12));
           ctx.font = `bold ${fontSizePx}px system-ui`;
           ctx.shadowColor = 'transparent';
 
-          const offset = Math.round(0.04 * scaleDpi);
+          const offset = Math.max(4, Math.round(0.06 * scaleDpi * relW));
 
           // Sleeve Style on top-right of Back panel
           if (item.panelType === 'back') {
@@ -1082,11 +1332,11 @@ export const NestingView: React.FC<NestingViewProps> = ({
                 ? (isRaglan ? 'RAGLAN FULL' : 'FULL')
                 : (isRaglan ? 'RAGLAN HALF' : 'HALF');
 
-              // White 3pt outside stroke
+              // White outside stroke
               ctx.lineJoin = 'round';
               ctx.lineCap = 'round';
               ctx.strokeStyle = '#ffffff';
-              ctx.lineWidth = stroke3ptPx * 2;
+              ctx.lineWidth = strokePx * 2;
               ctx.strokeText(typeStr, widthPx - offset, offset);
 
               // Red Fill
@@ -1109,7 +1359,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
         ctx.textBaseline = 'middle';
 
         // Proportional stroke calculation matching screen preview
-        const strokePx = Math.max(1, Math.round((textConf.strokeWidth / 100) * fontSizePx));
+        const strokePx = Math.max(1, Math.round((textConf.strokeWidth / 50) * fontSizePx));
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
 
@@ -1147,6 +1397,31 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
         const displayName = textConf.caseType === 'uppercase' ? text.toUpperCase() : text;
 
+        const getTextFillStyle = (measuredTextW: number, textH: number): string | CanvasGradient => {
+          if (textConf.fillType === 'gradient') {
+            const stops = (textConf.gradientStops && textConf.gradientStops.length >= 2)
+              ? textConf.gradientStops
+              : [textConf.gradientColor1 || textConf.color || '#00e5ff', textConf.gradientColor2 || '#ff0055'];
+            const dir = textConf.gradientDirection || 'vertical';
+            let grad: CanvasGradient;
+            if (dir === 'horizontal') {
+              grad = ctx.createLinearGradient(-measuredTextW / 2, 0, measuredTextW / 2, 0);
+            } else if (dir === 'radial') {
+              grad = ctx.createRadialGradient(0, 0, 2, 0, 0, textH);
+            } else if (dir === 'diagonal') {
+              grad = ctx.createLinearGradient(-measuredTextW / 2, -textH / 2, measuredTextW / 2, textH / 2);
+            } else {
+              grad = ctx.createLinearGradient(0, -textH / 2, 0, textH / 2);
+            }
+            stops.forEach((color, idx) => {
+              const offset = idx / Math.max(1, stops.length - 1);
+              grad.addColorStop(offset, color);
+            });
+            return grad;
+          }
+          return textConf.color;
+        };
+
         if (textConf.effect === 'arch') {
           // Circular arched text bending concave (ends down)
           const radius = heightPx * 0.45;
@@ -1154,6 +1429,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
           const totalAngle = Math.min(Math.PI / 2.5, (displayName.length * fontSizePx * 0.55) / radius);
           const startAngle = -totalAngle / 2;
           const angleStep = totalAngle / (displayName.length - 1 || 1);
+          const archFill = getTextFillStyle(radius * 2, fontSizePx);
 
           for (let i = 0; i < displayName.length; i++) {
             const char = displayName[i];
@@ -1165,7 +1441,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
               ctx.lineWidth = strokePx * 2;
               ctx.strokeText(char, 0, -radius);
             }
-            ctx.fillStyle = textConf.color;
+            ctx.fillStyle = archFill;
             ctx.fillText(char, 0, -radius);
             ctx.restore();
           }
@@ -1181,7 +1457,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
             ctx.lineWidth = strokePx * 2;
             ctx.strokeText(displayName, 0, 0);
           }
-          ctx.fillStyle = textConf.color;
+          ctx.fillStyle = getTextFillStyle(measuredW, fontSizePx);
           ctx.fillText(displayName, 0, 0);
         }
         ctx.restore();
@@ -1189,14 +1465,12 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
       const drawOverlays = () => {
         const hideOverlays = metadata.blankKit;
-        // Force name/number overlay on front panel in preview mode so customers can verify
-        const isFrontPreview = item.panelType === 'front' && isPreview;
-        const isNameEnabled = conf.nameConfig.enabled || isFrontPreview;
-        const isNumEnabled = conf.numberConfig.enabled || isFrontPreview;
+        const isNameEnabled = conf.nameConfig.enabled;
+        const isNumEnabled = conf.numberConfig.enabled;
 
         // Draw Name overlay if enabled
         if (!hideOverlays && isNameEnabled && item.playerName && item.playerName !== "BLANK") {
-          const textX = widthPx / 2;
+          const textX = conf.nameConfig.xPos !== undefined ? (conf.nameConfig.xPos / 100) * widthPx : widthPx / 2;
           const textY = (conf.nameConfig.yPos / 100) * heightPx;
           // Scale maxLimitPx proportionally to reference width (22in) so scaling across sizes (18 to 60) stays proportional
           const maxLimitPx = (conf.nameConfig.maxW / 22) * widthPx;
@@ -1205,7 +1479,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
         // Draw Number overlay if enabled
         if (!hideOverlays && isNumEnabled && item.playerNum) {
-          const textX = widthPx / 2;
+          const textX = conf.numberConfig.xPos !== undefined ? (conf.numberConfig.xPos / 100) * widthPx : widthPx / 2;
           const textY = (conf.numberConfig.yPos / 100) * heightPx;
           // Scale maxLimitPx proportionally to reference width (22in) so scaling across sizes (18 to 60) stays proportional
           const maxLimitPx = (conf.numberConfig.maxW / 22) * widthPx;
@@ -1213,19 +1487,21 @@ export const NestingView: React.FC<NestingViewProps> = ({
         }
 
         // Draw customizable Size Tag (Top Left)
-        const sizeTagConf = conf.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'Impact', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
+        const sizeTagConf = conf.sizeTagConfig || { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left' };
         if (sizeTagConf.enabled && item.panelType !== 'a4-print') {
           ctx.save();
-          const fontSizePx = Math.round(((sizeTagConf.fontSize * 0.78) / 72) * scaleDpi);
-          ctx.font = `bold ${fontSizePx}px "${sizeTagConf.fontFamily}"`;
-          
+          // Smart normalized size tag font (reference pt scaled with panel width relative to Size 40)
+          const basePt = sizeTagConf.fontSize || 26;
+          const fontSizePx = Math.max(8, Math.round(((basePt / 72) * scaleDpi) * relW));
+          ctx.font = `bold ${fontSizePx}px "${sizeTagConf.fontFamily}", Impact, sans-serif`;
+
           const align = sizeTagConf.align || 'left';
           ctx.textAlign = align;
           ctx.textBaseline = 'top';
           ctx.lineJoin = 'round';
 
-          const offsetX = Math.round(0.06 * scaleDpi); // ~4px at 72dpi, flush to top-left
-          const offsetY = Math.round(0.05 * scaleDpi); // ~3.5px at 72dpi
+          const offsetX = Math.max(4, Math.round(0.06 * scaleDpi * relW));
+          const offsetY = Math.max(4, Math.round(0.05 * scaleDpi * relH));
           
           let targetX = offsetX;
           if (align === 'center') {
@@ -1238,7 +1514,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
           let spacingPx = 0;
 
           if (sizeTagConf.letterSpacing !== undefined) {
-            spacingPx = Math.round(sizeTagConf.letterSpacing * scaleDpi);
+            spacingPx = Math.round(sizeTagConf.letterSpacing * scaleDpi * relW);
             ctx.letterSpacing = `${spacingPx}px`;
             if (align === 'center') {
               drawX += spacingPx / 2;
@@ -1249,9 +1525,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
           if (sizeTagConf.effect === 'shadow') {
             ctx.shadowColor = 'rgba(0,0,0,0.6)';
-            ctx.shadowBlur = 4 * (scaleDpi / 100);
-            ctx.shadowOffsetX = 2 * (scaleDpi / 100);
-            ctx.shadowOffsetY = 2 * (scaleDpi / 100);
+            ctx.shadowBlur = 4 * (scaleDpi / 100) * relW;
+            ctx.shadowOffsetX = 2 * (scaleDpi / 100) * relW;
+            ctx.shadowOffsetY = 2 * (scaleDpi / 100) * relW;
           }
 
           // Calculate total quantity for this size in the roster order
@@ -1271,7 +1547,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
           const compressedDrawX = drawX / 0.80;
 
           const sw = sizeTagConf.strokeWidth > 0 ? sizeTagConf.strokeWidth : 3;
-          const swPx = Math.max(1, Math.round((sw / 72) * scaleDpi));
+          const swPx = Math.max(1, Math.round(((sw / 72) * scaleDpi) * relW));
 
           ctx.strokeStyle = sizeTagConf.strokeColor || '#ffffff';
           ctx.lineWidth = swPx * 2;
@@ -1285,53 +1561,32 @@ export const NestingView: React.FC<NestingViewProps> = ({
         // Draw center tick marks and corner watermark text labels
         drawTechnicalMarks();
 
-        // Draw FiveNest Watermark Logo in 180° (upside-down) with full brand text "FiveNest" in original colors without stroke
+        // Draw FiveNest Woven Label Tag (Upright, 0.50 in from Right side, 0.05 in from Bottom edge, FIXED 1" x 0.4" on ALL sizes)
         if (includeWatermarkLogo && item.panelType === 'front') {
           ctx.save();
-          // Slightly smaller logo size: 0.26" width, 0.19" height
-          const logoW = Math.round(0.26 * scaleDpi);
-          const logoH = Math.round((0.26 * (48.1 / 64.8)) * scaleDpi);
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
 
-          // Position watermark shifted right towards right edge
-          const marginX = Math.round(0.10 * scaleDpi);
-          const marginY = Math.round(0.20 * scaleDpi);
+          // FIXED physical dimensions: 1.00" x 0.40" (identical physical size on all panels 18 to 60)
+          const physicalPatchW = 1.00; // in inches
+          const physicalPatchH = 0.40; // in inches
+          const patchW = Math.round(physicalPatchW * scaleDpi);
+          const patchH = Math.round(physicalPatchH * scaleDpi);
 
-          const cx = widthPx - marginX;
-          const cy = heightPx - marginY;
+          // EXACT Placement: 0.50 inches from Right edge and 0.05 inches from Bottom edge
+          const marginFromRight = Math.round(0.50 * scaleDpi);
+          const marginFromBottom = Math.round(0.05 * scaleDpi);
 
-          ctx.translate(cx, cy);
-          ctx.rotate(Math.PI); // Rotate 180 Degrees (upside down)
+          const drawX = widthPx - marginFromRight - patchW;
+          const drawY = heightPx - marginFromBottom - patchH;
 
           ctx.globalAlpha = 1.0;
 
-          if (logoPathCyan && logoPathWhite) {
-            ctx.save();
-            ctx.scale(logoW / 64.8, logoH / 48.1);
-            ctx.translate(-64.8 / 2, -48.1 / 2);
-
-            // Dark Maroon Main Shape (#650f24) - Original Brand Color, NO STROKE
-            ctx.fillStyle = '#650f24';
-            ctx.fill(logoPathCyan);
-
-            // Orange Accent Path (#ee6f30) - Original Brand Color, NO STROKE
-            ctx.fillStyle = '#ee6f30';
-            ctx.fill(logoPathWhite);
-            ctx.restore();
+          if (fivenestLabelTagImageInstance && fivenestLabelTagImageInstance.complete && fivenestLabelTagImageInstance.naturalWidth > 0) {
+            ctx.drawImage(fivenestLabelTagImageInstance, drawX, drawY, patchW, patchH);
           } else if (fivenestLogoImageInstance && fivenestLogoImageInstance.complete && fivenestLogoImageInstance.naturalWidth > 0) {
-            ctx.drawImage(fivenestLogoImageInstance, -logoW / 2, -logoH / 2, logoW, logoH);
+            ctx.drawImage(fivenestLogoImageInstance, drawX, drawY, patchW, patchH);
           }
-
-          // Draw full "FiveNest" brand text right below icon in Original Dark Maroon color (#650f24), NO STROKE
-          const textFontSize = Math.round(0.09 * scaleDpi); // ~6.5pt crisp text size
-          ctx.font = `bold ${textFontSize}px system-ui, -apple-system, sans-serif`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'top';
-
-          const textY = (logoH / 2) + Math.round(0.03 * scaleDpi);
-
-          // Solid Dark Maroon text fill without any stroke
-          ctx.fillStyle = '#650f24';
-          ctx.fillText("FiveNest", 0, textY);
 
           ctx.restore();
         }
@@ -1533,42 +1788,24 @@ export const NestingView: React.FC<NestingViewProps> = ({
   const logPrintProductionExportBillingEntry = (backPanelCount: number) => {
     try {
       const activeRate = includeWatermarkLogo ? 3.00 : 5.00;
-      const designDebitCost = backPanelCount * activeRate;   // charged per back panel (jersey)
-      const cleanCust = metadata?.customerName || "Studio Client";
-      const cleanOrder = metadata?.orderNum || "01";
-      const userEmail = currentUser?.email || 'guest';
-      const timestamp = Date.now();
-      const exportId = `RIP-EXP-${cleanOrder}-${timestamp}`;
+      const cleanCust = metadata?.customerName?.trim() || "Deep Textile";
+      const cleanFile = metadata?.fileName?.trim() 
+        ? metadata.fileName.trim() 
+        : (metadata?.customerName?.trim() 
+            ? `${metadata.customerName.trim()} - ${backPanelCount} jersey data` 
+            : `Blue Dragon XI (${backPanelCount} Jerseys)`);
 
-      const newRecord = {
-        id: exportId,
-        orderCode: `RIP-EXP-${cleanOrder}`,
-        date: new Date().toLocaleDateString("en-GB").replace(/\//g, "-"),
+      const entry = recordBillingExport({
         customerName: cleanCust,
-        fileName: `🖨️ 300 DPI Plotter RIP Export (${backPanelCount} Jerseys)`,
-        whatsapp: "",
-        qty: backPanelCount,
+        fileName: cleanFile,
+        whatsapp: metadata?.whatsapp?.trim() || "",
+        qty: backPanelCount > 0 ? backPanelCount : 1,
         rate: activeRate,
-        designCharges: designDebitCost,
-        status: "Completed",
-        advance: 0
-      };
+        designCharges: metadata?.designCharges !== undefined ? metadata.designCharges : 0,
+        status: "Pending"
+      }, currentUser?.email);
 
-      // Write to all 3 keys so billing page always finds it
-      const keysToUpdate = [
-        `fivenest_studio_export_billing_${userEmail.toLowerCase().trim()}`,
-        `fivenest_studio_export_billing_guest`,
-        `fivenest_studio_export_billing_all`
-      ];
-
-      keysToUpdate.forEach(k => {
-        const existingStr = localStorage.getItem(k);
-        let list: any[] = existingStr ? JSON.parse(existingStr) : [];
-        list.unshift(newRecord);
-        localStorage.setItem(k, JSON.stringify(list));
-      });
-
-      console.log(`[FiveNest] Logged billing entry: ${exportId} — ${backPanelCount} jerseys × ₹${activeRate} = ₹${designDebitCost}`);
+      console.log(`[FiveNest] Logged billing entry: ${entry.orderCode} (${entry.customerName}) for user: ${currentUser?.email || 'guest'}`);
     } catch (err) {
       console.error("Failed to log print export billing entry:", err);
     }
@@ -1576,6 +1813,11 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
   // Compile full nesting sheets and save PDF
   const handleExportPDF = async () => {
+    if (!anyArtworkUploaded) {
+      alert("Artwork file is not detected!\n\nNo uploaded artwork was found in Step 1: Artwork. Please upload an artwork file for at least one panel (Front, Back, or Sleeves) before exporting.");
+      return;
+    }
+
     if (enableNesting && nestingSheets.length === 0) {
       // Auto-run nesting calculation so user doesn't get blocked
       runNesting();
@@ -1588,7 +1830,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
     // Only back panels are billed (one per jersey)
     const billedJerseyCount = items.filter(i => i.panelType === 'back').length || totalPieces;
     if (totalPieces === 0) {
-      alert("No items to export.");
+      alert("Artwork file is not detected!\n\nNo printable panels found. Please upload an artwork file in Step 1: Artwork before exporting.");
       return;
     }
 
@@ -1610,6 +1852,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
     const executeExport = async () => {
       setIsExporting(true);
+      setExportProgressPct(0);
       setExportProgress("Initializing high-resolution rendering...");
 
       try {
@@ -1626,6 +1869,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
         // TEST MODE: EXPORT SINGLE 72 DPI PDF ONLY (NO ZIP / NO FOLDERS)
         if (testMode) {
+          setExportProgressPct(8);
           setExportProgress("Generating Test Mode 72 DPI PDF document...");
 
           const frontOverlaysChecked = (designConfig.front.nameConfig.enabled || designConfig.front.numberConfig.enabled) && !metadata.blankKit;
@@ -1765,6 +2009,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
             for (let i = 0; i < testPdfPages.length; i++) {
               const page = testPdfPages[i];
               const item = page.item;
+              setExportProgressPct(Math.round(10 + ((i / testPdfPages.length) * 85)));
               setExportProgress(`Rendering 72 DPI Test PDF Page (${i + 1}/${testPdfPages.length}): ${page.label}...`);
 
               // Page margins & top header layout
@@ -1840,8 +2085,15 @@ export const NestingView: React.FC<NestingViewProps> = ({
             testPdf.save(`${cleanCust}_${cleanOrder}_72DPI_Test.pdf`);
           }
 
+          // Auto-log Print Production Export Billing Entry in Invoices & Billing
+          logPrintProductionExportBillingEntry(billedJerseyCount);
+
+          setExportProgressPct(100);
+          setExportProgress("Export complete!");
+          await new Promise(r => setTimeout(r, 1800));
           setIsExporting(false);
           setExportProgress("");
+          setExportProgressPct(0);
 
           confetti({
             particleCount: 150,
@@ -1943,13 +2195,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
               allBackItems.push(...backSizeMap[size]);
             });
             allBackItems.forEach((item, index) => {
-              const safeName = (item.playerName || 'BLANK').replace(/[\/\\:*?"<>|]/g, "_").trim();
-              const safeNum = (item.playerNum || '').replace(/[\/\\:*?"<>|]/g, "_").trim();
-              const namePart = (safeName && safeName !== 'BLANK') ? `_${safeName}` : '';
-              const numPart = safeNum ? `_${safeNum}` : '';
               renderActions.push({
                 representativeItem: item,
-                fileName: `${item.size}_${index + 1}${namePart}${numPart}_B.jpg`,
+                fileName: `${item.size} ${index + 1} B.jpg`,
                 folder: 'Back'
               });
             });
@@ -2007,24 +2255,30 @@ export const NestingView: React.FC<NestingViewProps> = ({
           });
 
           const zip = new JSZip();
+          const fileExt = exportFormat === 'png' ? '.png' : exportFormat === 'tiff' ? '.tif' : '.jpg';
 
           for (let i = 0; i < renderActions.length; i++) {
             const action = renderActions[i];
-            setExportProgress(`Rendering ${action.folder || 'other'} panel: ${action.fileName} (${i + 1}/${renderActions.length}) at ${activeDpi} DPI...`);
+            // Replace .jpg extension in fileName with selected format extension
+            const outFileName = action.fileName.replace(/\.jpe?g$/i, fileExt);
+            setExportProgressPct(Math.round(15 + ((i / renderActions.length) * 65)));
+            setExportProgress(`Rendering ${action.folder || 'other'} panel: ${outFileName} (${i + 1}/${renderActions.length}) at ${activeDpi} DPI...`);
 
             // Yield control to main thread so browser repaints progress text
             await new Promise(r => setTimeout(r, 0));
 
             const itemCanvas = await renderPanelGraphic(action.representativeItem, activeDpi);
-            let blob = await getCanvasBlob(itemCanvas);
+            let blob = await getCanvasBlobForFormat(itemCanvas, exportFormat, colorProfile, activeDpi);
 
-            // Pipe through injectJPDpi to ensure physical size is correct in inches
-            blob = await injectJPDpi(blob, activeDpi);
+            // For JPG, inject DPI metadata into EXIF
+            if (exportFormat === 'jpg') {
+              blob = await injectJPDpi(blob, activeDpi);
+            }
 
             if (action.folder) {
-              zip.folder(action.folder)?.file(action.fileName, blob);
+              zip.folder(action.folder)?.file(outFileName, blob);
             } else {
-              zip.file(action.fileName, blob);
+              zip.file(outFileName, blob);
             }
 
             // Immediately release GPU canvas memory
@@ -2032,6 +2286,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
             itemCanvas.height = 0;
           }
 
+          setExportProgressPct(82);
           setExportProgress("Compiling ZIP package...");
           const content = await zip.generateAsync({ type: "blob" });
           
@@ -2047,6 +2302,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
           // Now, generate and download a 72 DPI preview PDF alongside if activeDpi > 72 and not in testMode
           const needPreviewPdf = !testMode && activeDpi > 72;
           if (needPreviewPdf && renderActions.length > 0) {
+            setExportProgressPct(90);
             setExportProgress("Generating preview PDF at 72 DPI...");
             
             interface PreviewPage {
@@ -2160,8 +2416,12 @@ export const NestingView: React.FC<NestingViewProps> = ({
           // Auto-log Print Production Export Billing Entry (Test Mode)
           logPrintProductionExportBillingEntry(billedJerseyCount);
 
+          setExportProgressPct(100);
+          setExportProgress("Export complete!");
+          await new Promise(r => setTimeout(r, 1800));
           setIsExporting(false);
           setExportProgress("");
+          setExportProgressPct(0);
 
           confetti({
             particleCount: 150,
@@ -2212,6 +2472,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
           // Directly draw each nested panel onto the PDF document
           for (let i = 0; i < sheet.items.length; i++) {
             const item = sheet.items[i];
+            const totalItems = nestingSheets.reduce((acc, sh) => acc + sh.items.length, 0);
+            const globalIdx = nestingSheets.slice(0, s).reduce((acc, sh) => acc + sh.items.length, 0) + i;
+            setExportProgressPct(Math.round(15 + ((globalIdx / Math.max(totalItems, 1)) * 68)));
             setExportProgress(`Rendering panel ${i + 1}/${sheet.items.length} on Sheet ${s + 1} at ${activeDpi} DPI...`);
 
             // Compute original unrotated dimensions to prevent template stretching
@@ -2274,6 +2537,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
           }
         }
 
+        setExportProgressPct(97);
         setExportProgress("Saving PDF document...");
         pdf.save(`${cleanCust}_${cleanOrder}_Print_Roll.pdf`);
 
@@ -2284,8 +2548,12 @@ export const NestingView: React.FC<NestingViewProps> = ({
         // Auto-log Print Production Export Billing Entry in Invoices & Billing
         logPrintProductionExportBillingEntry(billedJerseyCount);
 
+        setExportProgressPct(100);
+        setExportProgress("Export complete!");
+        await new Promise(r => setTimeout(r, 1800));
         setIsExporting(false);
         setExportProgress("");
+        setExportProgressPct(0);
 
         confetti({
           particleCount: 150,
@@ -2297,6 +2565,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
         alert(`Export failed: ${(err as Error).message}\n\nPlease check the developer console for detailed logs.`);
         setIsExporting(false);
         setExportProgress("");
+        setExportProgressPct(0);
       }
     };
 
@@ -2321,319 +2590,706 @@ export const NestingView: React.FC<NestingViewProps> = ({
   };
 
   return (
-    <div className="nesting-view fade-in">
-      <div className="glass-card" style={{ marginBottom: '24px' }}>
-        <h2 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Sliders size={20} style={{ color: 'var(--color-primary)' }} /> Nesting Engine Configuration
-        </h2>
-
-        {enableNesting && (
-          <div className="grid-3" style={{ marginBottom: '20px' }}>
-            <div className="form-group">
-              <label className="form-label">Roll Canvas Width (in):</label>
-              <input 
-                type="number" 
-                className="form-input" 
-                value={rollW} 
-                onChange={(e) => {
-                  const w = parseFloat(e.target.value) || 64;
-                  setRollW(w);
-                  localStorage.setItem('fivenest_pref_roll_w', JSON.stringify(w));
-                }} 
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Max Print Height (in):</label>
-              <input 
-                type="number" 
-                className="form-input" 
-                value={rollH} 
-                onChange={(e) => {
-                  const h = parseFloat(e.target.value) || 100;
-                  setRollH(h);
-                  localStorage.setItem('fivenest_pref_roll_h', JSON.stringify(h));
-                }} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Item Safety Gap (in):</label>
-              <input 
-                type="number" 
-                step="0.05" 
-                className="form-input" 
-                value={itemGap} 
-                onChange={(e) => {
-                  const g = parseFloat(e.target.value) || 0.25;
-                  setItemGap(g);
-                  localStorage.setItem('fivenest_pref_item_gap', JSON.stringify(g));
-                }} 
-              />
+    <div className="nesting-view fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '30px' }}>
+      
+      {/* Top Hero Glass Header & Quick Stat Tiles */}
+      <div className="glass-card" style={{ padding: '20px 24px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', marginBottom: '18px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#FFF0EB', border: '1px solid #FCD7C8', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(228,87,46,0.15)' }}>
+                <Sliders size={20} style={{ color: '#E4572E' }} />
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '900', letterSpacing: '-0.02em', color: '#111827' }}>
+                  Production & Export Engine
+                </h2>
+                <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#6B7280', fontWeight: '500' }}>
+                  High-Precision Sublimation RIP Layouts, Roll Packing & 300 DPI Export
+                </p>
+              </div>
             </div>
           </div>
-        )}
 
-        <div className="form-row" style={{ marginBottom: '24px' }}>
-          <label className={`checkbox-card ${enableNesting ? 'checked' : ''}`}>
-            <input 
-              type="checkbox" 
-              checked={enableNesting} 
-              onChange={(e) => {
-                setEnableNesting(e.target.checked);
-                localStorage.setItem('fivenest_pref_enable_nesting', JSON.stringify(e.target.checked));
-              }} 
-            />
-            <div style={{ textAlign: 'left' }}>
-              <p style={{ fontWeight: 'bold', fontSize: '13px' }}>Enable Roll Nesting</p>
-              <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Pack panels onto a continuous roll. Uncheck to export as individual files</p>
+          {/* Wallet Balance Pill */}
+          <div 
+            onClick={onOpenLogin}
+            style={{ 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: '10px', 
+              padding: '7px 16px', 
+              borderRadius: '9999px', 
+              background: '#FAF8F5', 
+              border: '1px solid #E8E4DE', 
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            title="Click to manage wallet / recharge"
+          >
+            <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#FFF0EB', border: '1px solid #FCD7C8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Coins size={14} style={{ color: '#E4572E' }} />
             </div>
-          </label>
-
-          {enableNesting && (
-            <>
-              <label className={`checkbox-card ${tightestFit ? 'checked' : ''}`}>
-                <input 
-                  type="checkbox" 
-                  checked={tightestFit} 
-                  onChange={(e) => {
-                    setTightestFit(e.target.checked);
-                    localStorage.setItem('fivenest_pref_tightest_fit', JSON.stringify(e.target.checked));
-                  }} 
-                />
-                <div style={{ textAlign: 'left' }}>
-                  <p style={{ fontWeight: 'bold', fontSize: '13px' }}>Tightest 2D Fit (Bin Packing)</p>
-                  <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Maximize roll space using nested gaps</p>
-                </div>
-              </label>
-
-              <label className={`checkbox-card ${rotateToFit ? 'checked' : ''}`}>
-                <input 
-                  type="checkbox" 
-                  checked={rotateToFit} 
-                  onChange={(e) => {
-                    setRotateToFit(e.target.checked);
-                    localStorage.setItem('fivenest_pref_rotate_to_fit', JSON.stringify(e.target.checked));
-                  }} 
-                />
-                <div style={{ textAlign: 'left' }}>
-                  <p style={{ fontWeight: 'bold', fontSize: '13px' }}>Rotate Panels to Fit</p>
-                  <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Allows 90° rotation to fit tight empty spots</p>
-                </div>
-              </label>
-            </>
-          )}
-
-          <div className="form-group" style={{ margin: 0 }}>
-            <label className="form-label">Export Print DPI Resolution:</label>
-            <select 
-              className="form-select" 
-              value={dpi} 
-              onChange={(e) => {
-                const d = parseInt(e.target.value);
-                setDpi(d);
-                localStorage.setItem('fivenest_pref_dpi', JSON.stringify(d));
-              }}
-            >
-              <option value="72">72 DPI (Low-res Preview Fast)</option>
-              <option value="100">100 DPI (Medium Standard)</option>
-              <option value="150">150 DPI (High-res Sublimation Print)</option>
-              <option value="300">300 DPI (Ultra high-res Professional Rip)</option>
-            </select>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: '10px', fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Wallet Balance</div>
+              <div style={{ fontSize: '13px', fontWeight: '900', color: (currentUser?.balance || 0) > 0 ? '#15803D' : '#D97706' }}>
+                ₹{(currentUser?.balance || 0).toFixed(2)} INR
+              </div>
+            </div>
+            <span style={{ fontSize: '11px', fontWeight: '800', background: '#E4572E', color: '#FFFFFF', padding: '3px 10px', borderRadius: '12px', boxShadow: '0 1px 4px rgba(228,87,46,0.25)' }}>
+              + Add
+            </span>
           </div>
         </div>
 
-        {enableNesting && (
-          <button className="btn btn-primary" onClick={runNesting} style={{ width: '100%', padding: '12px' }} disabled={isNesting}>
-            <Play size={16} /> {isNesting ? "Preparing Export Layout..." : "▶ RUN NESTING CALCULATION"}
-          </button>
-        )}
-      </div>
-
-      {(!enableNesting || (enableNesting && nestingSheets.length > 0)) && (
-        <div className="grid-2">
-          {/* Visual Canvas Panel */}
-          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column' }}>
-            {enableNesting ? (
-              <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <h3>🗺️ Visual Roll Sheet Preview</h3>
-                  <div style={{ display: 'flex', background: 'rgba(0,0,0,0.3)', padding: '2px', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
-                    {nestingSheets.map((_, index) => (
-                      <button 
-                        key={index} 
-                        className={`btn ${activeSheetIndex === index ? 'btn-primary' : 'btn-secondary'}`} 
-                        style={{ padding: '4px 10px', fontSize: '12px' }}
-                        onClick={() => setActiveSheetIndex(index)}
-                      >
-                        Sheet {index + 1}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="nesting-roll-canvas">
-                  <canvas ref={previewCanvasRef} />
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '16px', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Total Roll Width</p>
-                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--color-primary)' }}>{rollW}"</p>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Roll Length Height</p>
-                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--color-secondary)' }}>
-                      {Math.round(nestingSheets[activeSheetIndex]?.height || 0)}"
-                    </p>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Efficiency</p>
-                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--color-success)' }}>
-                      {nestingSheets[activeSheetIndex]?.efficiency || 0}%
-                    </p>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <h3 style={{ marginBottom: '16px' }}>📋 Individual Export Roster ({getItemsToExport().length} Panels)</h3>
-                {getItemsToExport().length > 0 ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '10px', maxHeight: '420px', overflowY: 'auto', padding: '10px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
-                    {getItemsToExport().map((item, idx) => (
-                      <div key={idx} style={{ padding: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-light)', borderRadius: '6px', textAlign: 'left' }}>
-                        <span style={{ fontSize: '9px', textTransform: 'uppercase', color: 'var(--color-secondary)', fontWeight: 'bold' }}>
-                          {item.panelType.replace('-', ' ')}
-                        </span>
-                        <p style={{ fontSize: '13px', fontWeight: 'bold', margin: '2px 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {item.playerName || 'BLANK'}
-                        </p>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                          <span>Size {item.size}</span>
-                          <span>{item.w}"x{item.h}"</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '60px 20px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', border: '1px dashed var(--border-light)', width: '100%' }}>
-                    <p style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '6px' }}>📋 Roster is currently empty</p>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Go to the <strong>Roster & Details</strong> tab to import or add items.</p>
-                  </div>
-                )}
-              </>
-            )}
+        {/* 4 Clean Stat Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+          
+          {/* Card 1: Printable Panels */}
+          <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '10px', padding: '12px 16px', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <span style={{ fontSize: '11px', fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Printable Panels</span>
+              <span style={{ fontSize: '16px' }}>📦</span>
+            </div>
+            <div style={{ fontSize: '20px', fontWeight: '900', color: anyArtworkUploaded ? '#111827' : '#DC2626' }}>
+              {!anyArtworkUploaded 
+                ? '0 Panels'
+                : (enableNesting 
+                    ? `${nestingSheets.reduce((acc, sheet) => acc + sheet.items.length, 0)} Panels`
+                    : `${getItemsToExport().length} Panels`)}
+            </div>
+            <div style={{ fontSize: '11px', color: anyArtworkUploaded ? '#6B7280' : '#DC2626', marginTop: '3px', fontWeight: '600' }}>
+              {!anyArtworkUploaded 
+                ? '⚠️ No artwork file detected'
+                : `${records.reduce((acc, r) => acc + r.qty, 0)} Total Garments in Job`}
+            </div>
           </div>
 
-          {/* Export Action Card */}
-          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div>
-              <h3 style={{ marginBottom: '16px' }}>📦 Export Options & Summary</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left', marginBottom: '20px' }}>
-                <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '8px' }}>
-                  <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Export Format Mode:</p>
-                  <p style={{ fontSize: '16px', fontWeight: 'bold' }}>
-                    {enableNesting ? `${nestingSheets.length} Roll Pages` : `Individual Panel Images (ZIP)`}
-                  </p>
-                </div>
-                
-                <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '8px' }}>
-                  <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Total Packed Components:</p>
-                  <p style={{ fontSize: '16px', fontWeight: 'bold' }}>
-                    {enableNesting 
-                      ? nestingSheets.reduce((acc, sheet) => acc + sheet.items.length, 0)
-                      : getItemsToExport().length} printable panels
-                  </p>
-                </div>
+          {/* Card 2: Export Resolution */}
+          <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '10px', padding: '12px 16px', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <span style={{ fontSize: '11px', fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profile & Quality</span>
+              <span style={{ fontSize: '16px' }}>⚙️</span>
+            </div>
+            <div style={{ fontSize: '20px', fontWeight: '900', color: '#E4572E' }}>
+              {dpi} DPI
+            </div>
+            <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '3px', fontWeight: '500' }}>
+              {exportFormat.toUpperCase()} • {colorProfile.toUpperCase()} Profile
+            </div>
+          </div>
 
-                <div>
-                  <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Output Document DPI:</p>
-                  <p style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--color-primary)' }}>
-                    {testMode ? "72 DPI (Forced in Test Mode)" : `${dpi} DPI`} {enableNesting ? `(${dpi * rollW} x ${Math.round(dpi * (nestingSheets[activeSheetIndex]?.height || 0))} pixels)` : ''}
-                  </p>
-                </div>
+          {/* Card 3: Woven Label Watermark Tag */}
+          <div 
+            style={{ 
+              cursor: 'pointer', 
+              background: '#FAF8F5',
+              borderRadius: '10px', 
+              padding: '12px 16px', 
+              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+              border: includeWatermarkLogo ? '1.5px solid #86EFAC' : '1.5px solid #FCD34D',
+              transition: 'all 0.15s ease'
+            }}
+            onClick={() => {
+              const val = !includeWatermarkLogo;
+              setIncludeWatermarkLogo(val);
+              localStorage.setItem('fivenest_pref_logo_watermark', JSON.stringify(val));
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <span style={{ fontSize: '11px', fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>FiveNest Woven Label</span>
+              <span style={{ fontSize: '14px' }}>{includeWatermarkLogo ? '🏷️' : '🚫'}</span>
+            </div>
+            <div style={{ fontSize: '20px', fontWeight: '900', color: includeWatermarkLogo ? '#15803D' : '#D97706' }}>
+              {includeWatermarkLogo ? 'ON (₹3/pc)' : 'OFF (₹5/pc)'}
+            </div>
+            <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '3px', fontWeight: '500' }}>
+              {includeWatermarkLogo ? 'Discounted Rate Applied' : 'Standard Rate (No Tag)'}
+            </div>
+          </div>
 
-                <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '12px', marginTop: '4px' }}>
-                  <div style={{ 
-                    background: includeWatermarkLogo ? 'rgba(0, 230, 118, 0.06)' : 'rgba(255, 171, 0, 0.06)', 
-                    border: `1px solid ${includeWatermarkLogo ? 'rgba(0, 230, 118, 0.3)' : 'rgba(255, 171, 0, 0.3)'}`, 
-                    borderRadius: '8px', 
-                    padding: '12px 14px'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '13px', fontWeight: 'bold' }}>FiveNest 180° Watermark Logo</span>
-                          <span style={{ 
-                            fontSize: '10px', 
-                            background: includeWatermarkLogo ? 'rgba(0, 230, 118, 0.2)' : 'rgba(255, 171, 0, 0.2)', 
-                            color: includeWatermarkLogo ? '#00e676' : '#ffab00', 
-                            padding: '2px 6px', 
-                            borderRadius: '4px', 
-                            fontWeight: 'bold' 
-                          }}>
-                            {includeWatermarkLogo ? '₹3 / pc (Discounted)' : '₹5 / pc (Standard)'}
-                          </span>
-                        </div>
-                        <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '3px' }}>
-                          Renders small 0.3" FiveNest logo upside-down (180°) at bottom-right of Front files.
-                        </p>
-                      </div>
+          {/* Card 4: Layout Efficiency */}
+          <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '10px', padding: '12px 16px', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <span style={{ fontSize: '11px', fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Layout Strategy</span>
+              <span style={{ fontSize: '16px' }}>🗺️</span>
+            </div>
+            <div style={{ fontSize: '20px', fontWeight: '900', color: '#E4572E' }}>
+              {enableNesting 
+                ? `${nestingSheets[activeSheetIndex]?.efficiency || 0}% Efficiency` 
+                : 'Individual ZIP'}
+            </div>
+            <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '3px', fontWeight: '500' }}>
+              {enableNesting ? `Roll: ${rollW}" × ${Math.round(nestingSheets[activeSheetIndex]?.height || 0)}"` : 'Organized in Subfolders'}
+            </div>
+          </div>
 
-                      <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '6px' }}>
-                        <input 
-                          type="checkbox" 
-                          checked={includeWatermarkLogo}
-                          onChange={(e) => {
-                            const val = e.target.checked;
-                            setIncludeWatermarkLogo(val);
-                            localStorage.setItem('fivenest_pref_logo_watermark', JSON.stringify(val));
-                          }}
-                          style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#00e676' }}
-                        />
-                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: includeWatermarkLogo ? '#00e676' : '#ffab00' }}>
-                          {includeWatermarkLogo ? 'ON (₹3)' : 'OFF (₹5)'}
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
+        </div>
+      </div>
+
+      {/* Main Dual Configuration Container (Mode Selection + Export Bar) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '20px', alignItems: 'start' }}>
+        
+        {/* Left Column: Mode Selector & Roll Options */}
+        <div style={{ background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', color: '#111827' }}>
+              <Sliders size={16} style={{ color: '#E4572E' }} /> Production Packaging Mode
+            </h3>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: '#6B7280' }}>Select Workflow</span>
+          </div>
+
+          {/* Segmented Mode Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            
+            {/* Mode 1: Individual Panels (ZIP) */}
+            <div 
+              onClick={() => {
+                setEnableNesting(false);
+                localStorage.setItem('fivenest_pref_enable_nesting', JSON.stringify(false));
+              }}
+              style={{
+                padding: '12px 14px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                background: !enableNesting ? '#FFF0EB' : '#FAF8F5',
+                border: !enableNesting ? '1.5px solid #E4572E' : '1px solid #E8E4DE',
+                boxShadow: !enableNesting ? '0 2px 8px rgba(228, 87, 46, 0.12)' : 'none',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '20px' }}>📦</span>
+                <span style={{ 
+                  width: '14px', 
+                  height: '14px', 
+                  borderRadius: '50%', 
+                  border: !enableNesting ? '4px solid #E4572E' : '2px solid #D1D5DB', 
+                  background: !enableNesting ? '#FFFFFF' : 'transparent' 
+                }}></span>
+              </div>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: !enableNesting ? '#E4572E' : '#111827' }}>
+                Individual (ZIP)
+              </div>
+              <div style={{ fontSize: '10px', color: '#6B7280', lineHeight: '1.3' }}>
+                Separated panel files sorted into Front, Back, and Sleeves.
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {isExporting ? (
-                <div style={{ textAlign: 'center', background: 'rgba(155, 77, 255, 0.08)', border: '1px solid var(--border-active)', padding: '16px', borderRadius: '8px' }}>
-                  <div style={{ display: 'inline-block', width: '20px', height: '20px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--color-primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '8px' }}></div>
-                  <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-                  <p style={{ fontSize: '13px', fontWeight: 'bold' }}>Rendering High-Resolution Graphics...</p>
-                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>{exportProgress}</p>
+            {/* Mode 2: Roll Nesting (PDF) */}
+            <div 
+              onClick={() => {
+                setEnableNesting(true);
+                localStorage.setItem('fivenest_pref_enable_nesting', JSON.stringify(true));
+              }}
+              style={{
+                padding: '12px 14px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                background: enableNesting ? '#FFF0EB' : '#FAF8F5',
+                border: enableNesting ? '1.5px solid #E4572E' : '1px solid #E8E4DE',
+                boxShadow: enableNesting ? '0 2px 8px rgba(228, 87, 46, 0.12)' : 'none',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '20px' }}>🗺️</span>
+                <span style={{ 
+                  width: '14px', 
+                  height: '14px', 
+                  borderRadius: '50%', 
+                  border: enableNesting ? '4px solid #E4572E' : '2px solid #D1D5DB', 
+                  background: enableNesting ? '#FFFFFF' : 'transparent' 
+                }}></span>
+              </div>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: enableNesting ? '#E4572E' : '#111827' }}>
+                Roll Nesting (PDF)
+              </div>
+              <div style={{ fontSize: '10px', color: '#6B7280', lineHeight: '1.3' }}>
+                Continuous tightly-packed canvas for direct RIP roll printing.
+              </div>
+            </div>
+
+          </div>
+
+          {/* Roll Nesting Specific Sub-controls */}
+          {enableNesting && (
+            <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '10px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontSize: '10px', color: '#6B7280', fontWeight: '600' }}>Roll W (in):</label>
+                  <input 
+                    type="number" 
+                    className="form-input" 
+                    style={{ padding: '6px 8px', fontSize: '12px', borderRadius: '6px', background: '#FFFFFF', border: '1px solid #D1D5DB', color: '#111827' }}
+                    value={rollW} 
+                    onChange={(e) => {
+                      const w = parseFloat(e.target.value) || 64;
+                      setRollW(w);
+                      localStorage.setItem('fivenest_pref_roll_w', JSON.stringify(w));
+                    }} 
+                  />
                 </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontSize: '10px', color: '#6B7280', fontWeight: '600' }}>Max H (in):</label>
+                  <input 
+                    type="number" 
+                    className="form-input" 
+                    style={{ padding: '6px 8px', fontSize: '12px', borderRadius: '6px', background: '#FFFFFF', border: '1px solid #D1D5DB', color: '#111827' }}
+                    value={rollH} 
+                    onChange={(e) => {
+                      const h = parseFloat(e.target.value) || 100;
+                      setRollH(h);
+                      localStorage.setItem('fivenest_pref_roll_h', JSON.stringify(h));
+                    }} 
+                  />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontSize: '10px', color: '#6B7280', fontWeight: '600' }}>Gap (in):</label>
+                  <input 
+                    type="number" 
+                    step="0.05" 
+                    className="form-input" 
+                    style={{ padding: '6px 8px', fontSize: '12px', borderRadius: '6px', background: '#FFFFFF', border: '1px solid #D1D5DB', color: '#111827' }}
+                    value={itemGap} 
+                    onChange={(e) => {
+                      const g = parseFloat(e.target.value) || 0.25;
+                      setItemGap(g);
+                      localStorage.setItem('fivenest_pref_item_gap', JSON.stringify(g));
+                    }} 
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', color: '#374151' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={tightestFit} 
+                    onChange={(e) => {
+                      setTightestFit(e.target.checked);
+                      localStorage.setItem('fivenest_pref_tightest_fit', JSON.stringify(e.target.checked));
+                    }} 
+                  />
+                  <span>Tightest 2D Fit</span>
+                </label>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', color: '#374151' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={rotateToFit} 
+                    onChange={(e) => {
+                      setRotateToFit(e.target.checked);
+                      localStorage.setItem('fivenest_pref_rotate_to_fit', JSON.stringify(e.target.checked));
+                    }} 
+                  />
+                  <span>Rotate 90° to Fit</span>
+                </label>
+              </div>
+
+              <button 
+                className="btn btn-primary" 
+                onClick={runNesting} 
+                style={{ width: '100%', padding: '8px 14px', fontSize: '11px', fontWeight: '800', borderRadius: '8px', background: 'linear-gradient(135deg, #E4572E 0%, #EA580C 100%)', color: '#FFFFFF', border: 'none', boxShadow: '0 2px 6px rgba(228, 87, 46, 0.25)' }} 
+                disabled={isNesting}
+              >
+                <Play size={14} /> {isNesting ? "Computing Optimal Layout..." : "▶ Re-Calculate Roll Packing"}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Smart Export Parameters & Download CTA */}
+        <div style={{ background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+          
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', color: '#111827' }}>
+              <Download size={16} style={{ color: '#E4572E' }} /> Export Configuration
+            </h3>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: '#6B7280' }}>Print Parameters</span>
+          </div>
+
+          {/* Row 1: Dropdown Selectors */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontSize: '10px', color: '#6B7280', fontWeight: '600' }}>Resolution:</label>
+              <select
+                className="form-select"
+                style={{ padding: '6px 8px', fontSize: '11px', borderRadius: '6px', background: '#FAF8F5', border: '1px solid #D1D5DB', color: '#111827', fontWeight: '600' }}
+                value={dpi}
+                onChange={(e) => {
+                  const d = parseInt(e.target.value);
+                  setDpi(d);
+                  localStorage.setItem('fivenest_pref_dpi', JSON.stringify(d));
+                }}
+              >
+                <option value="72">72 DPI</option>
+                <option value="100">100 DPI</option>
+                <option value="150">150 DPI</option>
+                <option value="300">300 DPI ★</option>
+              </select>
+            </div>
+
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontSize: '10px', color: '#6B7280', fontWeight: '600' }}>Format:</label>
+              <select
+                className="form-select"
+                style={{ padding: '6px 8px', fontSize: '11px', borderRadius: '6px', background: '#FAF8F5', border: '1px solid #D1D5DB', color: '#111827', fontWeight: '600' }}
+                value={exportFormat}
+                onChange={(e) => {
+                  const f = e.target.value as ExportFormat;
+                  setExportFormat(f);
+                  localStorage.setItem('fivenest_pref_export_format', f);
+                }}
+              >
+                <option value="jpg">JPG (Default ★)</option>
+                <option value="png">PNG (Lossless)</option>
+                <option value="tiff">TIFF (Pro)</option>
+              </select>
+            </div>
+
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontSize: '10px', color: '#6B7280', fontWeight: '600' }}>Color Mode:</label>
+              <select
+                className="form-select"
+                style={{ padding: '6px 8px', fontSize: '11px', borderRadius: '6px', background: '#FAF8F5', border: '1px solid #D1D5DB', color: '#111827', fontWeight: '600' }}
+                value={colorProfile}
+                onChange={(e) => {
+                  const p = e.target.value as ColorProfile;
+                  setColorProfile(p);
+                  localStorage.setItem('fivenest_pref_color_profile', p);
+                }}
+              >
+                <option value="rgb">RGB (Default ★)</option>
+                <option value="cmyk">CMYK</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Row 2: Artwork Detection Indicators */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', background: anyArtworkUploaded ? '#FAF8F5' : '#FEF2F2', padding: '8px 12px', borderRadius: '8px', border: `1px solid ${anyArtworkUploaded ? '#E8E4DE' : '#FECACA'}`, transition: 'all 0.2s ease' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', color: anyArtworkUploaded ? '#4B5563' : '#991B1B' }}>Detected Artwork:</span>
+                {!anyArtworkUploaded && (
+                  <span style={{ fontSize: '10px', fontWeight: '800', background: '#FEE2E2', color: '#DC2626', border: '1px solid #FCA5A5', padding: '2px 7px', borderRadius: '5px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <AlertTriangle size={11} color="#DC2626" /> No File Detected
+                  </span>
+                )}
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ 
+                  fontSize: '10px', 
+                  fontWeight: '800', 
+                  padding: '3px 8px', 
+                  borderRadius: '6px', 
+                  background: frontHasArtwork ? '#DCFCE7' : '#F3F4F6',
+                  color: frontHasArtwork ? '#15803D' : '#9CA3AF',
+                  border: frontHasArtwork ? '1px solid #86EFAC' : '1px solid #E5E7EB'
+                }}>
+                  Front {frontHasArtwork ? '✓' : '—'}
+                </span>
+                <span style={{ 
+                  fontSize: '10px', 
+                  fontWeight: '800', 
+                  padding: '3px 8px', 
+                  borderRadius: '6px', 
+                  background: backHasArtwork ? '#DCFCE7' : '#F3F4F6',
+                  color: backHasArtwork ? '#15803D' : '#9CA3AF',
+                  border: backHasArtwork ? '1px solid #86EFAC' : '1px solid #E5E7EB'
+                }}>
+                  Back {backHasArtwork ? '✓' : '—'}
+                </span>
+                <span style={{ 
+                  fontSize: '10px', 
+                  fontWeight: '800', 
+                  padding: '3px 8px', 
+                  borderRadius: '6px', 
+                  background: sleeveHasArtwork ? '#DCFCE7' : '#F3F4F6',
+                  color: sleeveHasArtwork ? '#15803D' : '#9CA3AF',
+                  border: sleeveHasArtwork ? '1px solid #86EFAC' : '1px solid #E5E7EB'
+                }}>
+                  Sleeves {sleeveHasArtwork ? '✓' : '—'}
+                </span>
+              </div>
+            </div>
+
+            {!anyArtworkUploaded && (
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                gap: '8px', 
+                padding: '7px 12px', 
+                borderRadius: '6px', 
+                background: '#FFF5F5', 
+                border: '1px dashed #FCA5A5', 
+                fontSize: '11px', 
+                color: '#B91C1C' 
+              }}>
+                <span>⚠️ Artwork file is not detected. Upload artwork in <strong>Step 1: Artwork</strong> before exporting.</span>
+                {onGoToArtwork && (
+                  <button 
+                    type="button" 
+                    onClick={onGoToArtwork}
+                    style={{ 
+                      background: '#DC2626', 
+                      color: '#FFFFFF', 
+                      border: 'none', 
+                      padding: '3px 9px', 
+                      borderRadius: '5px', 
+                      fontSize: '10px', 
+                      fontWeight: '800', 
+                      cursor: 'pointer' 
+                    }}
+                  >
+                    Go to Step 1 →
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Row 3: Export progress bar (visible when rendering) */}
+          {isExporting ? (
+            <div style={{ padding: '4px 0 8px' }}>
+              {/* Pct label + step text */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: '700', color: '#E4572E' }}>
+                  ⚙ Rendering production panels…
+                </span>
+                <span style={{ fontSize: '12px', fontWeight: '800', color: '#E4572E', fontVariantNumeric: 'tabular-nums' }}>
+                  {exportProgressPct}%
+                </span>
+              </div>
+              {/* Track */}
+              <div style={{ height: '8px', borderRadius: '4px', background: '#F3F4F6', border: '1px solid #E8E4DE', overflow: 'hidden', position: 'relative' }}>
+                <div style={{
+                  height: '100%',
+                  borderRadius: '4px',
+                  background: 'linear-gradient(90deg, #E4572E, #EA580C)',
+                  width: `${exportProgressPct}%`,
+                  transition: 'width 0.3s ease',
+                  minWidth: exportProgressPct > 0 ? '8px' : '0',
+                }}/>
+                {/* Shimmer sweep */}
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%)',
+                  animation: 'shimmerSweep 1.6s ease-in-out infinite',
+                  backgroundSize: '200% 100%',
+                }}/>
+              </div>
+              {/* Step detail text */}
+              <div style={{ fontSize: '10px', color: '#6B7280', marginTop: '6px', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {exportProgress || 'Initialising…'}
+              </div>
+            </div>
+          ) : (
+            <button 
+              type="button"
+              className="btn"
+              onClick={handleExportPDF} 
+              style={{ 
+                width: '100%', 
+                padding: '13px 20px', 
+                fontSize: '13px', 
+                fontWeight: '900', 
+                letterSpacing: '0.04em',
+                borderRadius: '10px',
+                border: !anyArtworkUploaded ? '1px solid #FCA5A5' : 'none',
+                background: !anyArtworkUploaded
+                  ? '#FEF2F2'
+                  : (getItemsToExport().length > 0 
+                      ? 'linear-gradient(135deg, #E4572E 0%, #EA580C 100%)' 
+                      : '#F3F4F6'),
+                color: !anyArtworkUploaded
+                  ? '#DC2626'
+                  : (getItemsToExport().length > 0 ? '#FFFFFF' : '#9CA3AF'),
+                boxShadow: anyArtworkUploaded && getItemsToExport().length > 0 
+                  ? '0 4px 14px rgba(228, 87, 46, 0.35)' 
+                  : 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '9px',
+                transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+              }}
+            >
+              {!anyArtworkUploaded ? (
+                <>
+                  <AlertTriangle size={18} color="#DC2626" /> 
+                  ARTWORK FILE NOT DETECTED (UPLOAD IN STEP 1)
+                </>
               ) : (
                 <>
-                  <button 
-                    className={`btn ${testMode ? 'btn-secondary' : 'btn-success'}`}
-                    onClick={handleExportPDF} 
-                    style={{ width: '100%', padding: '14px' }} 
-                    disabled={getItemsToExport().length === 0}
-                  >
-                    <Download size={18} /> {testMode ? "TEST DOWNLOAD (FREE - 72 DPI)" : (enableNesting ? "DOWNLOAD PRINT-READY ROLL (PDF)" : "DOWNLOAD INDIVIDUAL PANELS (ZIP)")}
-                  </button>
-                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center' }}>
-                    {testMode 
-                      ? "Downloads a watermarked, low-resolution 72 DPI copy of your panels for layout verification."
-                      : (enableNesting 
-                          ? "Saves a direct multi-page PDF vector container file. Ideal for loading straight into Rip Software (Wasatch, ErgoSoft, Caldera)."
-                          : "Saves a structured ZIP file containing individual JPEG panels sorted into Front, Back, and Sleeve folders.")}
-                  </p>
+                  <Download size={18} style={{ color: getItemsToExport().length > 0 ? '#FFFFFF' : '#9CA3AF' }} /> 
+                  {testMode 
+                    ? "TEST DOWNLOAD (FREE - 72 DPI)" 
+                    : (enableNesting ? "DOWNLOAD PRINT-READY ROLL (PDF)" : "DOWNLOAD INDIVIDUAL PANELS (ZIP)")}
+                </>
+              )}
+            </button>
+          )}
+
+        </div>
+      </div>
+
+      {/* Main View Canvas / Roster Area or Missing Artwork Banner */}
+      {!anyArtworkUploaded ? (
+        <div style={{
+          width: '100%',
+          background: '#FFFFFF',
+          border: '2px dashed #FECACA',
+          borderRadius: '14px',
+          padding: '44px 24px',
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '14px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+        }}>
+          <div style={{
+            width: '56px',
+            height: '56px',
+            borderRadius: '50%',
+            background: '#FEF2F2',
+            border: '1px solid #FECACA',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#DC2626'
+          }}>
+            <AlertTriangle size={28} color="#DC2626" />
+          </div>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#111827' }}>
+              Artwork File Not Detected
+            </h3>
+            <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#6B7280', maxWidth: '480px', lineHeight: '1.5' }}>
+              No artwork file was found in <strong>Step 1: Artwork</strong>. Production export requires an uploaded design file for at least one panel (Front, Back, or Sleeves).
+            </p>
+          </div>
+          {onGoToArtwork && (
+            <button
+              type="button"
+              onClick={onGoToArtwork}
+              style={{
+                marginTop: '4px',
+                padding: '10px 22px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, #E4572E 0%, #EA580C 100%)',
+                color: '#FFFFFF',
+                border: 'none',
+                fontWeight: '800',
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 12px rgba(228, 87, 46, 0.25)'
+              }}
+            >
+              <Palette size={16} color="#FFFFFF" />
+              Go to Step 1: Upload Artwork
+            </button>
+          )}
+        </div>
+      ) : (
+        (!enableNesting || (enableNesting && nestingSheets.length > 0)) && (
+          <div style={{ width: '100%' }}>
+            <div style={{ background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '12px', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+              {enableNesting ? (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                    <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: '800', color: '#111827' }}>
+                      🗺️ Visual Roll Sheet Preview
+                    </h3>
+                    <div style={{ display: 'flex', background: '#FAF8F5', padding: '3px', borderRadius: '8px', border: '1px solid #E8E4DE', gap: '4px' }}>
+                      {nestingSheets.map((_, index) => (
+                        <button 
+                          key={index} 
+                          style={{ 
+                            padding: '5px 12px', 
+                            fontSize: '12px', 
+                            fontWeight: '800', 
+                            borderRadius: '6px', 
+                            border: 'none', 
+                            background: activeSheetIndex === index ? '#E4572E' : 'transparent', 
+                            color: activeSheetIndex === index ? '#FFFFFF' : '#6B7280', 
+                            cursor: 'pointer', 
+                            transition: 'all 0.15s ease' 
+                          }}
+                          onClick={() => setActiveSheetIndex(index)}
+                        >
+                          Roll #{index + 1}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ position: 'relative', border: '2px dashed #D1D5DB', background: '#FAF8F5', borderRadius: '8px', padding: '10px', display: 'flex', justifyContent: 'center' }}>
+                      <canvas 
+                        ref={previewCanvasRef} 
+                        style={{ maxWidth: '100%', height: 'auto', display: 'block', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} 
+                      />
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#6B7280', fontWeight: '500' }}>
+                      Interactive Canvas Scale (1 px ≈ 0.1 in) • Efficiency: <strong style={{ color: '#15803D' }}>{nestingSheets[activeSheetIndex]?.efficiency || 0}%</strong> • Used Roll: <strong>{rollW}" × {Math.round(nestingSheets[activeSheetIndex]?.height || 0)}"</strong>
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: '800', color: '#111827' }}>
+                      📦 Individual Panels ({getItemsToExport().length} pieces)
+                    </h3>
+                    <span style={{ fontSize: '11px', background: '#FAF8F5', border: '1px solid #E8E4DE', padding: '4px 8px', borderRadius: '6px', fontWeight: '700', color: '#6B7280' }}>
+                      Direct High-Resolution Export
+                    </span>
+                  </div>
+                  {getItemsToExport().length > 0 ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px', maxHeight: '420px', overflowY: 'auto', padding: '4px' }}>
+                      {getItemsToExport().map((item, idx) => (
+                        <div key={idx} style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '8px', padding: '10px 12px' }}>
+                          <span style={{ fontSize: '9px', textTransform: 'uppercase', color: '#C2410C', background: '#FFF0EB', fontWeight: '800', letterSpacing: '0.05em', padding: '2px 6px', borderRadius: '4px', display: 'inline-block' }}>
+                            {item.panelType.replace('-', ' ')}
+                          </span>
+                          <p style={{ fontSize: '13px', fontWeight: '800', margin: '6px 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#111827' }}>
+                            {item.playerName || '— (Blank)'}
+                          </p>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', color: '#6B7280', marginTop: '6px', borderTop: '1px solid #F3F4F6', paddingTop: '6px' }}>
+                            <span style={{ fontWeight: '800', color: '#15803D', background: '#DCFCE7', padding: '1px 6px', borderRadius: '4px' }}>Size {item.size}</span>
+                            <span style={{ fontWeight: '600' }}>{item.w}" × {item.h}"</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '60px 20px', background: '#FAF8F5', borderRadius: '10px', border: '1px dashed #D1D5DB', width: '100%' }}>
+                      <p style={{ fontSize: '15px', fontWeight: '800', color: '#374151', marginBottom: '6px' }}>📋 Roster is currently empty</p>
+                      <p style={{ fontSize: '12px', color: '#6B7280' }}>Go to the <strong>Job Details & Excel Data</strong> tab to import CSV or enter sizes.</p>
+                    </div>
+                  )}
                 </>
               )}
             </div>
           </div>
-        </div>
+        )
       )}
 
-      {/* UPI QR Payment Modal */}
+      {/* Glassmorphic Sublimation Checkout Modal */}
       {showPaymentModal && (
         <div className="modal-backdrop" style={{
           position: 'fixed',
@@ -2641,7 +3297,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(5, 5, 10, 0.85)',
+          background: 'rgba(17, 24, 39, 0.65)',
           backdropFilter: 'blur(8px)',
           WebkitBackdropFilter: 'blur(8px)',
           display: 'flex',
@@ -2650,78 +3306,117 @@ export const NestingView: React.FC<NestingViewProps> = ({
           zIndex: 1000,
           padding: '16px'
         }}>
-          <div className="glass-card fade-in" style={{
+          <div className="fade-in" style={{
+            background: '#FFFFFF',
+            border: '1px solid #E8E4DE',
+            borderRadius: '16px',
             width: '100%',
-            maxWidth: '440px',
-            padding: '30px',
-            background: 'rgba(15, 15, 25, 0.85)',
-            border: '1px solid var(--border-active)',
+            maxWidth: '480px',
+            padding: '28px',
             position: 'relative',
-            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5)'
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.15)'
           }}>
             <button 
               onClick={() => {
                 setShowPaymentModal(false);
                 setIsExporting(false);
+                setExportProgressPct(0);
               }}
               style={{
                 position: 'absolute',
-                top: '20px',
-                right: '20px',
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-muted)',
+                top: '18px',
+                right: '18px',
+                background: '#F3F4F6',
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+                color: '#6B7280',
                 cursor: 'pointer',
-                padding: '4px'
+                padding: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
             >
-              <X size={20} />
+              <X size={16} />
             </button>
 
-            <h3 style={{ fontSize: '20px', fontWeight: 'bold', color: 'white', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <QrCode size={22} style={{ color: 'var(--color-primary)' }} /> Sublimation Panel Checkout
+            <h3 style={{ fontSize: '18px', fontWeight: '900', color: '#111827', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <QrCode size={20} style={{ color: '#E4572E' }} /> Sublimation Panel Checkout
             </h3>
             
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px' }}>
-              Production-ready rendering is billed at **₹3.00 INR per Back panel** and **₹0.50 INR per A4 size print panel**. Front and sleeve panels are free.
+            <p style={{ fontSize: '12px', color: '#4B5563', marginBottom: '18px', lineHeight: '1.4' }}>
+              Production rendering is billed at <strong>₹3.00/pc</strong> for Back panels with FiveNest label tag (or ₹5.00/pc standard). Front and sleeve panels are free.
             </p>
 
-            <div className="glass-card" style={{ background: 'rgba(0,0,0,0.15)', padding: '16px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* Pricing Breakdown Card */}
+            <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '10px', padding: '14px 16px', marginBottom: '18px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Player Roster Count:</span>
-                <span style={{ fontWeight: '600' }}>{records.reduce((acc, r) => acc + r.qty, 0)} players</span>
+                <span style={{ color: '#6B7280' }}>Player Roster Count:</span>
+                <span style={{ fontWeight: '700', color: '#111827' }}>{records.reduce((acc, r) => acc + r.qty, 0)} players</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Charged Back Panels:</span>
-                <span style={{ fontWeight: '600' }}>{getItemsToExport().filter(item => item.panelType === 'back').length} pcs (₹3.00 each)</span>
+                <span style={{ color: '#6B7280' }}>Charged Back Panels:</span>
+                <span style={{ fontWeight: '700', color: '#111827' }}>{getItemsToExport().filter(item => item.panelType === 'back').length} pcs (₹{includeWatermarkLogo ? '3.00' : '5.00'} each)</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Charged A4 Prints:</span>
-                <span style={{ fontWeight: '600' }}>{getItemsToExport().filter(item => item.panelType === 'a4-print').length} pcs (₹0.50 each)</span>
+                <span style={{ color: '#6B7280' }}>Charged A4 Prints:</span>
+                <span style={{ fontWeight: '700', color: '#111827' }}>{getItemsToExport().filter(item => item.panelType === 'a4-print').length} pcs (₹0.50 each)</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Free Panels (Front/Sleeve):</span>
-                <span style={{ fontWeight: '600' }}>{getItemsToExport().filter(item => item.panelType !== 'back' && item.panelType !== 'a4-print').length} pcs (₹0.00 each)</span>
+                <span style={{ color: '#6B7280' }}>Free Panels (Front/Sleeve):</span>
+                <span style={{ fontWeight: '700', color: '#15803D' }}>{getItemsToExport().filter(item => item.panelType !== 'back' && item.panelType !== 'a4-print').length} pcs (₹0.00)</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', borderTop: '1px solid var(--border-light)', paddingTop: '8px', marginTop: '4px' }}>
-                <span style={{ fontWeight: 'bold', color: 'white' }}>Total Amount Due:</span>
-                <span style={{ fontWeight: 'bold', color: 'var(--color-secondary)', fontSize: '15px' }}>₹{paymentCost.toFixed(2)} INR</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', borderTop: '1px solid #E8E4DE', paddingTop: '10px', marginTop: '4px' }}>
+                <span style={{ fontWeight: '800', color: '#111827' }}>Total Amount Due:</span>
+                <span style={{ fontWeight: '900', color: '#E4572E', fontSize: '17px' }}>₹{paymentCost.toFixed(2)} INR</span>
               </div>
             </div>
 
             {/* Payment Method Selector */}
-            <div className="tab-btn-group" style={{ marginBottom: '20px' }}>
+            <div style={{ display: 'flex', background: '#F3F4F6', padding: '4px', borderRadius: '10px', border: '1px solid #E5E7EB', gap: '4px', marginBottom: '18px' }}>
               <button 
-                className={`tab-btn ${upiPaymentMethod === 'wallet' ? 'active' : ''}`}
+                type="button"
                 onClick={() => setUpiPaymentMethod('wallet')}
-                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '11px' }}
+                style={{ 
+                  flex: 1, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '6px', 
+                  fontSize: '11px', 
+                  borderRadius: '8px', 
+                  padding: '8px',
+                  border: upiPaymentMethod === 'wallet' ? '1px solid #E8E4DE' : 'none',
+                  cursor: 'pointer',
+                  fontWeight: upiPaymentMethod === 'wallet' ? '800' : '600',
+                  background: upiPaymentMethod === 'wallet' ? '#FFFFFF' : 'transparent',
+                  color: upiPaymentMethod === 'wallet' ? '#E4572E' : '#6B7280',
+                  boxShadow: upiPaymentMethod === 'wallet' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
               >
                 <Coins size={14} /> Pay via Wallet
               </button>
               <button 
-                className={`tab-btn ${upiPaymentMethod === 'upi' ? 'active' : ''}`}
+                type="button"
                 onClick={() => setUpiPaymentMethod('upi')}
-                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '11px' }}
+                style={{ 
+                  flex: 1, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '6px', 
+                  fontSize: '11px', 
+                  borderRadius: '8px', 
+                  padding: '8px',
+                  border: upiPaymentMethod === 'upi' ? '1px solid #E8E4DE' : 'none',
+                  cursor: 'pointer',
+                  fontWeight: upiPaymentMethod === 'upi' ? '800' : '600',
+                  background: upiPaymentMethod === 'upi' ? '#FFFFFF' : 'transparent',
+                  color: upiPaymentMethod === 'upi' ? '#E4572E' : '#6B7280',
+                  boxShadow: upiPaymentMethod === 'upi' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
               >
                 <QrCode size={14} /> Scan UPI QR
               </button>
@@ -2729,29 +3424,29 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
             {/* Wallet Deduct Panel */}
             {upiPaymentMethod === 'wallet' && currentUser && (
-              <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
-                  Wallet Balance: <strong style={{ color: currentUser.balance >= paymentCost ? 'var(--color-success)' : 'var(--color-danger)' }}>₹{currentUser.balance.toFixed(2)}</strong>
+              <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={{ fontSize: '13px', color: '#4B5563' }}>
+                  Wallet Balance: <strong style={{ color: currentUser.balance >= paymentCost ? '#15803D' : '#DC2626', fontSize: '15px' }}>₹{currentUser.balance.toFixed(2)}</strong>
                 </div>
 
                 {currentUser.balance >= paymentCost ? (
                   <button 
                     className="btn btn-primary"
                     onClick={executePaymentWithWallet}
-                    style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                    style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', borderRadius: '10px', fontSize: '13px', fontWeight: '800', background: 'linear-gradient(135deg, #E4572E 0%, #EA580C 100%)', color: '#FFFFFF', border: 'none', boxShadow: '0 4px 14px rgba(228, 87, 46, 0.3)' }}
                   >
                     <CheckCircle size={16} /> Deduct ₹{paymentCost.toFixed(2)} & Export High-Res
                   </button>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <div style={{ color: 'var(--color-danger)', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
+                    <div style={{ color: '#DC2626', background: '#FEF2F2', border: '1px solid #FECACA', padding: '8px 12px', borderRadius: '8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
                       <AlertTriangle size={14} /> Insufficient balance (₹{currentUser.balance.toFixed(2)}). Add funds below.
                     </div>
 
                     {/* Custom topup input */}
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <div style={{ position: 'relative', flex: 1 }}>
-                        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-secondary)', fontWeight: '700', fontSize: '13px' }}>₹</span>
+                        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#E4572E', fontWeight: '700', fontSize: '13px' }}>₹</span>
                         <input
                           type="number"
                           min="1"
@@ -2761,10 +3456,10 @@ export const NestingView: React.FC<NestingViewProps> = ({
                           style={{
                             width: '100%',
                             padding: '9px 10px 9px 26px',
-                            background: 'rgba(255,255,255,0.05)',
-                            border: '1px solid rgba(0,229,255,0.3)',
+                            background: '#FFFFFF',
+                            border: '1px solid #D1D5DB',
                             borderRadius: '8px',
-                            color: 'white',
+                            color: '#111827',
                             fontSize: '13px',
                             outline: 'none',
                             boxSizing: 'border-box'
@@ -2776,12 +3471,12 @@ export const NestingView: React.FC<NestingViewProps> = ({
                         disabled={topupLoading}
                         style={{
                           padding: '9px 14px',
-                          background: topupLoading ? 'rgba(0,229,255,0.3)' : 'rgba(0,229,255,0.15)',
-                          border: '1px solid rgba(0,229,255,0.4)',
+                          background: '#FFF0EB',
+                          border: '1px solid #FCD7C8',
                           borderRadius: '8px',
-                          color: 'var(--color-secondary)',
+                          color: '#E4572E',
                           fontSize: '11px',
-                          fontWeight: '700',
+                          fontWeight: '800',
                           cursor: topupLoading ? 'not-allowed' : 'pointer',
                           whiteSpace: 'nowrap',
                           display: 'flex',
@@ -2799,9 +3494,9 @@ export const NestingView: React.FC<NestingViewProps> = ({
                         fontSize: '11px',
                         padding: '6px 10px',
                         borderRadius: '6px',
-                        background: topupMessage.ok ? 'rgba(0,230,118,0.1)' : 'rgba(255,82,82,0.1)',
-                        color: topupMessage.ok ? '#00e676' : '#ff5252',
-                        border: `1px solid ${topupMessage.ok ? 'rgba(0,230,118,0.2)' : 'rgba(255,82,82,0.2)'}`
+                        background: topupMessage.ok ? '#DCFCE7' : '#FEF2F2',
+                        color: topupMessage.ok ? '#15803D' : '#DC2626',
+                        border: `1px solid ${topupMessage.ok ? '#86EFAC' : '#FECACA'}`
                       }}>
                         {topupMessage.text}
                       </div>
@@ -2813,7 +3508,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
                         setShowPaymentModal(false);
                         onOpenLogin();
                       }}
-                      style={{ width: '100%', padding: '8px', fontSize: '11px' }}
+                      style={{ width: '100%', padding: '9px', fontSize: '11px', borderRadius: '8px', background: '#FAF8F5', border: '1px solid #D1D5DB', color: '#374151' }}
                     >
                       Or Recharge via Razorpay
                     </button>
@@ -2824,20 +3519,21 @@ export const NestingView: React.FC<NestingViewProps> = ({
 
             {/* UPI QR Scanner Panel */}
             {upiPaymentMethod === 'upi' && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', position: 'relative' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', position: 'relative' }}>
                 {simulatedPaymentLoading ? (
-                  <div style={{ height: '220px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-                    <Loader2 size={36} className="spin" style={{ color: 'var(--color-primary)' }} />
-                    <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Confirming UPI Payment...</p>
+                  <div style={{ height: '200px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                    <Loader2 size={36} className="spin" style={{ color: '#E4572E' }} />
+                    <p style={{ fontSize: '13px', color: '#4B5563' }}>Confirming UPI Payment...</p>
                   </div>
                 ) : (
                   <>
                     <div style={{ 
-                      padding: '10px', 
-                      background: 'white', 
+                      padding: '12px', 
+                      background: '#FFFFFF', 
                       borderRadius: '12px', 
+                      border: '1px solid #E8E4DE',
                       position: 'relative', 
-                      boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center'
@@ -2851,92 +3547,27 @@ export const NestingView: React.FC<NestingViewProps> = ({
                       {/* Pulse Scan Line overlay */}
                       <div className="scan-line" style={{
                         position: 'absolute',
-                        left: '10px',
-                        right: '10px',
+                        left: '12px',
+                        right: '12px',
                         height: '2px',
-                        background: 'var(--color-primary)',
-                        boxShadow: '0 0 8px var(--color-primary)',
+                        background: '#E4572E',
+                        boxShadow: '0 0 10px #E4572E',
                         animation: 'scan 2.5s linear infinite'
                       }}></div>
                       <style>{`
                         @keyframes scan {
-                          0% { top: 10px; }
-                          50% { top: 170px; }
-                          100% { top: 10px; }
+                          0% { top: 12px; }
+                          50% { top: 172px; }
+                          100% { top: 12px; }
                         }
                         @keyframes spin { to { transform: rotate(360deg); } }
                         .spin { animation: spin 1s linear infinite; }
                       `}</style>
                     </div>
                     
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>
-                      Scan this QR code using GPay, PhonePe, Paytm, or BHIM to pay ₹{paymentCost.toFixed(2)} INR.
+                    <p style={{ fontSize: '11px', color: '#6B7280', textAlign: 'center', margin: 0 }}>
+                      Scan QR code using GPay, PhonePe, Paytm, or BHIM to pay ₹{paymentCost.toFixed(2)} INR.
                     </p>
-
-                    {/* Custom amount top-up section */}
-                    <div style={{ width: '100%', borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '12px' }}>
-                      <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', textAlign: 'center' }}>
-                        💳 Add any amount to your wallet
-                      </p>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <div style={{ position: 'relative', flex: 1 }}>
-                          <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-secondary)', fontWeight: '700', fontSize: '13px' }}>₹</span>
-                          <input
-                            type="number"
-                            min="1"
-                            placeholder="Amount to add"
-                            value={customTopupAmount}
-                            onChange={(e) => setCustomTopupAmount(e.target.value)}
-                            style={{
-                              width: '100%',
-                              padding: '9px 10px 9px 26px',
-                              background: 'rgba(255,255,255,0.05)',
-                              border: '1px solid rgba(0,229,255,0.3)',
-                              borderRadius: '8px',
-                              color: 'white',
-                              fontSize: '13px',
-                              outline: 'none',
-                              boxSizing: 'border-box'
-                            }}
-                          />
-                        </div>
-                        <button
-                          onClick={handleCustomTopup}
-                          disabled={topupLoading}
-                          style={{
-                            padding: '9px 14px',
-                            background: topupLoading ? 'rgba(0,229,255,0.3)' : 'rgba(0,229,255,0.15)',
-                            border: '1px solid rgba(0,229,255,0.4)',
-                            borderRadius: '8px',
-                            color: 'var(--color-secondary)',
-                            fontSize: '11px',
-                            fontWeight: '700',
-                            cursor: topupLoading ? 'not-allowed' : 'pointer',
-                            whiteSpace: 'nowrap',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}
-                        >
-                          {topupLoading ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : null}
-                          Add to Wallet
-                        </button>
-                      </div>
-                      {topupMessage && (
-                        <div style={{
-                          marginTop: '8px',
-                          fontSize: '11px',
-                          padding: '6px 10px',
-                          borderRadius: '6px',
-                          background: topupMessage.ok ? 'rgba(0,230,118,0.1)' : 'rgba(255,82,82,0.1)',
-                          color: topupMessage.ok ? '#00e676' : '#ff5252',
-                          border: `1px solid ${topupMessage.ok ? 'rgba(0,230,118,0.2)' : 'rgba(255,82,82,0.2)'}`
-                        }}>
-                          {topupMessage.text}
-                        </div>
-                      )}
-                    </div>
-
                   </>
                 )}
               </div>
@@ -2948,13 +3579,22 @@ export const NestingView: React.FC<NestingViewProps> = ({
                 setShowPaymentModal(false);
                 setIsExporting(false);
               }}
-              style={{ width: '100%', marginTop: '12px', padding: '10px' }}
+              style={{ width: '100%', marginTop: '14px', padding: '9px', borderRadius: '8px', fontSize: '12px', background: '#FAF8F5', border: '1px solid #E8E4DE', color: '#6B7280' }}
             >
               Cancel Transaction
             </button>
           </div>
         </div>
       )}
+
+      {/* ── Animated Export Processing Modal ── */}
+      <ExportProcessingModal
+        isOpen={isExporting}
+        progress={exportProgressPct}
+        statusText={exportProgress}
+        totalPanels={getItemsToExport().length}
+        orderName={metadata.customerName ? `${metadata.customerName} — Order ${metadata.orderNum || '#'}` : undefined}
+      />
     </div>
   );
 };

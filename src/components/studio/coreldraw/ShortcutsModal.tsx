@@ -7,24 +7,20 @@ interface ShortcutsModalProps {
 
 export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ onClose }) => {
   const shortcuts = [
-    { key: 'V / F1', desc: 'Pick Tool (select & transform)' },
-    { key: 'H', desc: 'Hand / Pan Tool' },
-    { key: 'Z', desc: 'Zoom Tool (click & drag to zoom)' },
-    { key: 'T', desc: 'Text Overlay Tool' },
-    { key: 'L', desc: 'Logo / Image Placement Tool' },
-    { key: 'I', desc: 'Eyedropper Color Picker' },
-    { key: 'G / Ctrl+.', desc: 'Toggle Guidelines' },
-    { key: 'R', desc: 'Toggle Rulers' },
+    { key: 'Ctrl + Z', desc: 'Undo any move, drag, or edit action' },
+    { key: 'Ctrl + Shift + Z / Ctrl + Y', desc: 'Redo move or edit action' },
+    { key: 'Ctrl + R', desc: 'Toggle Show / Hide Rulers' },
+    { key: 'Ctrl + G', desc: 'Toggle Show / Hide Guidelines' },
+    { key: 'Double Click Text', desc: 'Open Editor Panel Popup for Edit Specification' },
+    { key: 'Double Click Canvas', desc: 'Upload Artwork Graphic Image' },
     { key: 'Arrow Keys / Shift+Arrows', desc: 'Nudge active text layer position (1% / 5%)' },
     { key: 'C / E / P', desc: 'Align Center H (C), Center V (E), Center Page (P)' },
     { key: 'T / B / L / R', desc: 'Align Top (T), Bottom (B), Left (L), Right (R)' },
-    { key: 'Z (hold & drag)', desc: 'Scrubby Drag Zoom In / Out (Photoshop style)' },
-    { key: 'Space (hold)', desc: 'Pan workspace dynamically (Illustrator style)' },
+    { key: 'Space (hold & drag)', desc: 'Pan canvas dynamically' },
+    { key: 'Ctrl + 0', desc: 'Fit Canvas View to Screen' },
     { key: 'Ctrl + I', desc: 'Import single panel graphic image' },
     { key: 'Ctrl + Shift + I / Ctrl + B', desc: 'Bulk Import ZIP containing all panels' },
-    { key: 'Delete', desc: 'Clear current uploaded panel background' },
-    { key: 'Left Click Swatch', desc: 'Set Text / Background Fill Color' },
-    { key: 'Right Click Swatch', desc: 'Set Text / Background Stroke Color' }
+    { key: 'Delete', desc: 'Clear current uploaded panel background' }
   ];
 
   return (
@@ -42,7 +38,7 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ onClose }) => {
         style={{
           width: '100%', maxWidth: '480px',
           background: '#121218',
-          border: '1px solid #334155',
+          border: '1px solid #E2DED7',
           borderRadius: '12px',
           padding: '24px',
           position: 'relative',
@@ -52,22 +48,22 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ onClose }) => {
       >
         <button
           onClick={onClose}
-          style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+          style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: '#71717A', cursor: 'pointer' }}
         >
           <X size={18} />
         </button>
 
         <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Keyboard size={20} style={{ color: '#0284c7' }} /> CorelDRAW Keyboard Shortcuts
+          <Keyboard size={20} style={{ color: '#E4572E' }} /> Studio Keyboard Shortcuts
         </h3>
-        <p style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '16px' }}>
-          Use these CorelDRAW-standard hotkeys to speed up your artwork preparation:
+        <p style={{ fontSize: '12px', color: '#71717A', marginBottom: '16px' }}>
+          Use these hotkeys to speed up your artwork preparation:
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', maxHeight: '360px', overflowY: 'auto' }}>
           {shortcuts.map((s, idx) => (
             <div key={idx} style={{ background: '#1a1a24', padding: '8px 10px', borderRadius: '6px', border: '1px solid #2b2b36' }}>
-              <div style={{ fontSize: '11px', fontWeight: '800', color: '#00f0ff', fontFamily: 'monospace' }}>{s.key}</div>
+              <div style={{ fontSize: '11px', fontWeight: '800', color: '#E4572E', fontFamily: 'monospace' }}>{s.key}</div>
               <div style={{ fontSize: '10px', color: '#cbd5e1', marginTop: '2px' }}>{s.desc}</div>
             </div>
           ))}
@@ -77,7 +73,7 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ onClose }) => {
           onClick={onClose}
           style={{
             width: '100%', marginTop: '16px', padding: '10px',
-            background: '#0284c7', color: '#fff', fontWeight: '700',
+            background: '#E4572E', color: '#fff', fontWeight: '700',
             borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '12px'
           }}
         >

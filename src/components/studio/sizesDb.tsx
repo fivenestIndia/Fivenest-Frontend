@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, RotateCcw } from 'lucide-react';
+import { Save, RotateCcw, Trash2, CheckCircle2, Bookmark, Grid, Lock, Unlock } from 'lucide-react';
 
 export interface Dimension {
   w: number;
@@ -46,6 +46,39 @@ export const defaultSizes: SizeDatabase = {
   "60": { front: { w: 32, h: 37 }, back: { w: 32, h: 37 }, half: { w: 27.0, h: 16.5 }, full: { w: 27, h: 30 }, rHalf: { w: 26.0, h: 22.5 }, rFull: { w: 26.0, h: 34.5 }, nn: { w: 13, h: 13 } }
 };
 
+export const DEFAULT_SIZE_AGE_MAP: Record<string, string> = {
+  "18": "6 month To 1 year",
+  "20": "1 year",
+  "22": "1.5 year",
+  "24": "2-3 year",
+  "26": "4-5 year",
+  "28": "6-8 year",
+  "30": "10-11 year",
+  "32": "11-12 year",
+  "34": "13-14 year",
+  "36": "XS",
+  "38": "S",
+  "40": "M",
+  "42": "L",
+  "44": "XL",
+  "46": "2XL",
+  "48": "3XL",
+  "50": "4XL",
+  "52": "5XL",
+  "54": "6XL",
+  "56": "7XL",
+  "58": "8XL",
+  "60": "9XL"
+};
+
+export const BUILT_IN_PRESETS: Record<string, { label: string; description: string; db: SizeDatabase }> = {
+  "Default Size": {
+    label: "Default Size",
+    description: "Official factory sizing matrix calibrated for standard sublimated sportswear (sizes 18–60).",
+    db: defaultSizes
+  }
+};
+
 interface SizesDbProps {
   onDatabaseChange?: (db: SizeDatabase) => void;
 }
@@ -54,6 +87,47 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
   const [sizeDB, setSizeDB] = useState<SizeDatabase>(defaultSizes);
   const [selectedSize, setSelectedSize] = useState<string>("40");
   const [saveMessage, setSaveMessage] = useState<string>("");
+  const [presetName, setPresetName] = useState<string>('');
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
+  
+  const [ageMap, setAgeMap] = useState<Record<string, string>>(() => {
+    try {
+      const saved = localStorage.getItem('fivenest_size_age_map');
+      return saved ? JSON.parse(saved) : DEFAULT_SIZE_AGE_MAP;
+    } catch {
+      return DEFAULT_SIZE_AGE_MAP;
+    }
+  });
+
+  const handleUpdateAge = (size: string, val: string) => {
+    setAgeMap(prev => {
+      const next = { ...prev, [size]: val };
+      localStorage.setItem('fivenest_size_age_map', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const [savedPresets, setSavedPresets] = useState<Record<string, SizeDatabase>>(() => {
+    try { 
+      return JSON.parse(localStorage.getItem('fivenest_size_presets') || '{}'); 
+    } catch { 
+      return {}; 
+    }
+  });
+
+  const [activePreset, setActivePreset] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('fivenest_active_size_preset');
+      const presets = JSON.parse(localStorage.getItem('fivenest_size_presets') || '{}');
+      if (saved && saved !== 'Standard Factory Sizing' && (saved === 'Default Size' || presets[saved])) {
+        return saved;
+      }
+      return 'Default Size';
+    } catch {
+      return 'Default Size';
+    }
+  });
+
   const [centerMarks, setCenterMarks] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('fivenest_pref_center_marks');
@@ -62,6 +136,7 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
       return true;
     }
   });
+
   const [sizeWatermarks, setSizeWatermarks] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('fivenest_pref_size_watermarks');
@@ -70,59 +145,8 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
       return true;
     }
   });
-  const [showRulers, setShowRulers] = useState<boolean>(true);
-  const [gridSpacing, setGridSpacing] = useState<number>(2);
 
-  // Load technical marks preferences from localStorage on mount
-  useEffect(() => {
-    const savedCenter = localStorage.getItem('fivenest_pref_center_marks');
-    if (savedCenter !== null) {
-      try {
-        setCenterMarks(JSON.parse(savedCenter));
-      } catch (e) {}
-    } else {
-      localStorage.setItem('fivenest_pref_center_marks', 'true');
-    }
-
-    const savedWater = localStorage.getItem('fivenest_pref_size_watermarks');
-    if (savedWater !== null) {
-      try {
-        setSizeWatermarks(JSON.parse(savedWater));
-      } catch (e) {}
-    } else {
-      localStorage.setItem('fivenest_pref_size_watermarks', 'true');
-    }
-    const savedRulers = localStorage.getItem('fivenest_pref_rulers');
-    if (savedRulers) {
-      try {
-        setShowRulers(JSON.parse(savedRulers));
-      } catch (e) {}
-    }
-    const savedGrid = localStorage.getItem('fivenest_pref_guideline_spacing');
-    if (savedGrid) {
-      try {
-        setGridSpacing(JSON.parse(savedGrid));
-      } catch (e) {}
-    }
-  }, []);
-
-  // Dimensions state for the selected size in inputs
-  const [frontW, setFrontW] = useState<number>(0);
-  const [frontH, setFrontH] = useState<number>(0);
-  const [backW, setBackW] = useState<number>(0);
-  const [backH, setBackH] = useState<number>(0);
-  const [halfW, setHalfW] = useState<number>(0);
-  const [halfH, setHalfH] = useState<number>(0);
-  const [fullW, setFullW] = useState<number>(0);
-  const [fullH, setFullH] = useState<number>(0);
-  const [rHalfW, setRHalfW] = useState<number>(0);
-  const [rHalfH, setRHalfH] = useState<number>(0);
-  const [rFullW, setRFullW] = useState<number>(0);
-  const [rFullH, setRFullH] = useState<number>(0);
-  const [nnW, setNnW] = useState<number>(0);
-  const [nnH, setNnH] = useState<number>(0);
-
-  // Load from localStorage on mount
+  // Load active size database from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('teedex_size_database');
     if (saved) {
@@ -136,204 +160,617 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
     }
   }, []);
 
-  // Update inputs when selected size or database changes
-  useEffect(() => {
-    const config = sizeDB[selectedSize];
-    if (config) {
-      setFrontW(config.front.w);
-      setFrontH(config.front.h);
-      setBackW(config.back.w);
-      setBackH(config.back.h);
-      setHalfW(config.half.w);
-      setHalfH(config.half.h);
-      setFullW(config.full.w);
-      setFullH(config.full.h);
-      setRHalfW(config.rHalf.w);
-      setRHalfH(config.rHalf.h);
-      setRFullW(config.rFull.w);
-      setRFullH(config.rFull.h);
-      setNnW(config.nn.w);
-      setNnH(config.nn.h);
-    }
-  }, [selectedSize, sizeDB]);
+  // Update a single cell dimension in real time
+  const handleUpdateCell = (
+    size: string,
+    panel: 'front' | 'back' | 'half' | 'full' | 'rHalf' | 'rFull' | 'nn',
+    dim: 'w' | 'h',
+    val: number
+  ) => {
+    setSizeDB(prev => {
+      const currentConf = prev[size] || defaultSizes[size] || {
+        front: { w: 0, h: 0 },
+        back: { w: 0, h: 0 },
+        half: { w: 0, h: 0 },
+        full: { w: 0, h: 0 },
+        rHalf: { w: 0, h: 0 },
+        rFull: { w: 0, h: 0 },
+        nn: { w: 0, h: 0 }
+      };
+      const updated = {
+        ...prev,
+        [size]: {
+          ...currentConf,
+          [panel]: {
+            ...currentConf[panel],
+            [dim]: val
+          }
+        }
+      };
+      localStorage.setItem('teedex_size_database', JSON.stringify(updated));
+      if (onDatabaseChange) onDatabaseChange(updated);
+      return updated;
+    });
+  };
 
-  const handleSaveSize = () => {
-    const updated = {
-      ...sizeDB,
-      [selectedSize]: {
-        front: { w: frontW, h: frontH },
-        back: { w: backW, h: backH },
-        half: { w: halfW, h: halfH },
-        full: { w: fullW, h: fullH },
-        rHalf: { w: rHalfW, h: rHalfH },
-        rFull: { w: rFullW, h: rFullH },
-        nn: { w: nnW, h: nnH }
-      }
-    };
-    setSizeDB(updated);
-    localStorage.setItem('teedex_size_database', JSON.stringify(updated));
-    if (onDatabaseChange) onDatabaseChange(updated);
-    
-    setSaveMessage("Size " + selectedSize + " dimensions saved!");
-    setTimeout(() => setSaveMessage(""), 3000);
+  // Load a preset
+  const handleLoadPreset = (name: string) => {
+    if (!name) return;
+    let targetDb: SizeDatabase | null = null;
+    if (name === "Default Size" || BUILT_IN_PRESETS[name]) {
+      targetDb = defaultSizes;
+    } else if (savedPresets[name]) {
+      targetDb = savedPresets[name];
+    }
+    if (!targetDb) return;
+
+    setActivePreset(name);
+    localStorage.setItem('fivenest_active_size_preset', name);
+    setSizeDB(targetDb);
+    localStorage.setItem('teedex_size_database', JSON.stringify(targetDb));
+    if (onDatabaseChange) onDatabaseChange(targetDb);
+    setSaveMessage(`Loaded preset "${name}" into all 22 sizes!`);
+    setTimeout(() => setSaveMessage(""), 3500);
+  };
+
+  // Save current sizing as a new preset
+  const handleSavePreset = () => {
+    const trimmed = presetName.trim();
+    if (!trimmed) {
+      alert("Please enter a preset name.");
+      return;
+    }
+    if (trimmed.toLowerCase() === 'default size') {
+      alert("Cannot overwrite 'Default Size'. Please choose a unique name for your preset.");
+      return;
+    }
+    localStorage.setItem('teedex_size_database', JSON.stringify(sizeDB));
+    if (onDatabaseChange) onDatabaseChange(sizeDB);
+
+    const updatedPresets = { ...savedPresets, [trimmed]: sizeDB };
+    setSavedPresets(updatedPresets);
+    localStorage.setItem('fivenest_size_presets', JSON.stringify(updatedPresets));
+    setActivePreset(trimmed);
+    localStorage.setItem('fivenest_active_size_preset', trimmed);
+    setPresetName('');
+    setSaveMessage(`Preset "${trimmed}" saved and added to Sizing Presets Manager!`);
+    setTimeout(() => setSaveMessage(""), 3500);
+  };
+
+  // Delete a custom preset
+  const handleDeletePreset = (nameToDelete?: string) => {
+    const name = nameToDelete || activePreset;
+    if (!name || name === 'Default Size') {
+      alert("Default Size cannot be deleted.");
+      return;
+    }
+    if (!savedPresets[name]) {
+      alert(`Custom preset "${name}" not found.`);
+      return;
+    }
+    if (window.confirm(`Are you sure you want to delete preset "${name}"?`)) {
+      const updated = { ...savedPresets };
+      delete updated[name];
+      setSavedPresets(updated);
+      localStorage.setItem('fivenest_size_presets', JSON.stringify(updated));
+      setActivePreset('Default Size');
+      localStorage.setItem('fivenest_active_size_preset', 'Default Size');
+      setSizeDB(defaultSizes);
+      localStorage.setItem('teedex_size_database', JSON.stringify(defaultSizes));
+      if (onDatabaseChange) onDatabaseChange(defaultSizes);
+      setSaveMessage(`Preset "${name}" deleted. Reverted to Default Size.`);
+      setTimeout(() => setSaveMessage(""), 3500);
+    }
   };
 
   const handleResetToDefault = () => {
     if (window.confirm("Are you sure you want to reset all size dimensions back to default factory settings?")) {
       setSizeDB(defaultSizes);
+      setAgeMap(DEFAULT_SIZE_AGE_MAP);
+      localStorage.setItem('fivenest_size_age_map', JSON.stringify(DEFAULT_SIZE_AGE_MAP));
+      setActivePreset("Default Size");
+      localStorage.setItem('fivenest_active_size_preset', 'Default Size');
       localStorage.setItem('teedex_size_database', JSON.stringify(defaultSizes));
       if (onDatabaseChange) onDatabaseChange(defaultSizes);
-      setSaveMessage("Database reset to defaults.");
-      setTimeout(() => setSaveMessage(""), 3000);
+      setSaveMessage("Reset all sizes to Default Size.");
+      setTimeout(() => setSaveMessage(""), 3500);
     }
   };
 
-  return (
-    <div className="sizes-db-container fade-in">
-      <div className="glass-card" style={{ marginBottom: '24px' }}>
-        <h2 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          👕 Sublimation Grading Size Database
-        </h2>
-        <p className="form-label" style={{ marginBottom: '20px' }}>
-          Define the precise fabric print dimensions in **inches** for each jersey panel size. 
-          The rendering engine uses these measurements to auto-scale the jersey panels, sleeves, and collars to fit the size chosen for each player.
-        </p>
+  const renderCellContent = (
+    size: string,
+    panel: 'front' | 'back' | 'half' | 'full' | 'rHalf' | 'rFull' | 'nn',
+    dim: Dimension,
+    textColor: string,
+    panelLabel: string,
+    isSelected: boolean
+  ) => {
+    if (!isUnlocked) {
+      return (
+        <td
+          key={panel}
+          style={{
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+            fontSize: '12.5px',
+            fontWeight: isSelected ? '700' : '500',
+            color: textColor,
+            padding: '8px 12px',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          {dim.w}" × {dim.h}"
+        </td>
+      );
+    }
 
-        <div className="form-row" style={{ alignItems: 'flex-end', marginBottom: '24px' }}>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label className="form-label">Select Size to Edit:</label>
-            <select 
-              className="form-select" 
-              value={selectedSize} 
-              onChange={(e) => setSelectedSize(e.target.value)}
-              style={{ minWidth: '120px' }}
-            >
-              {Object.keys(sizeDB).sort((a,b) => parseInt(a) - parseInt(b)).map(size => (
-                <option key={size} value={size}>Size {size}</option>
-              ))}
-            </select>
+    return (
+      <td
+        key={panel}
+        style={{
+          padding: '5px 8px',
+          background: isSelected ? '#FFF0EB' : '#FFFFFF',
+          whiteSpace: 'nowrap'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+          <input
+            type="number"
+            step="any"
+            className="table-dim-input"
+            value={dim.w === 0 ? '' : dim.w}
+            onChange={(e) => {
+              const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+              handleUpdateCell(size, panel, 'w', isNaN(val) ? 0 : val);
+            }}
+            placeholder="0"
+            style={{
+              width: '46px',
+              height: '28px',
+              fontSize: '12px',
+              fontWeight: '700',
+              textAlign: 'center',
+              background: '#FFFFFF',
+              border: '1px solid #D1D5DB',
+              borderRadius: '6px',
+              color: '#111827',
+              padding: '0 2px'
+            }}
+            title={`Size ${size} ${panelLabel} Width (in)`}
+          />
+          <span style={{ color: '#9CA3AF', fontSize: '11px', fontWeight: '700', userSelect: 'none' }}>×</span>
+          <input
+            type="number"
+            step="any"
+            className="table-dim-input"
+            value={dim.h === 0 ? '' : dim.h}
+            onChange={(e) => {
+              const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+              handleUpdateCell(size, panel, 'h', isNaN(val) ? 0 : val);
+            }}
+            placeholder="0"
+            style={{
+              width: '46px',
+              height: '28px',
+              fontSize: '12px',
+              fontWeight: '700',
+              textAlign: 'center',
+              background: '#FFFFFF',
+              border: '1px solid #D1D5DB',
+              borderRadius: '6px',
+              color: '#111827',
+              padding: '0 2px'
+            }}
+            title={`Size ${size} ${panelLabel} Height (in)`}
+          />
+        </div>
+      </td>
+    );
+  };
+
+  return (
+    <div className="sizes-db-container fade-in" style={{ paddingBottom: '20px' }}>
+      
+      {/* 1. TOP PROMINENT BANNER: Current Active Preset */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '14px',
+        padding: '14px 20px',
+        background: 'linear-gradient(135deg, #FFF0EB 0%, #FAF8F5 100%)',
+        border: '1.5px solid #FCD7C8',
+        borderRadius: '12px',
+        marginBottom: '16px',
+        boxShadow: '0 2px 8px rgba(228, 87, 46, 0.08)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '10px',
+            background: '#E4572E',
+            color: '#FFFFFF',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '20px',
+            boxShadow: '0 2px 8px rgba(228, 87, 46, 0.28)',
+            flexShrink: 0
+          }}>
+            ⭐
           </div>
-          
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button className="btn btn-primary" onClick={handleSaveSize}>
-              <Save size={16} /> Save Size {selectedSize}
-            </button>
-            <button className="btn btn-secondary" onClick={handleResetToDefault}>
-              <RotateCcw size={16} /> Reset All Defaults
-            </button>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '11px', fontWeight: '800', color: '#9A3412', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Active Sizing Preset
+              </span>
+              <span style={{ fontSize: '10px', background: '#DCFCE7', color: '#15803D', border: '1px solid #86EFAC', padding: '1px 8px', borderRadius: '10px', fontWeight: '800' }}>
+                LOADED & APPLIED
+              </span>
+            </div>
+            <div style={{ fontSize: '16px', fontWeight: '800', color: '#111827', marginTop: '2px' }}>
+              {activePreset}
+            </div>
           </div>
         </div>
 
-        {saveMessage && (
-          <div className="status-tiny" style={{ color: 'var(--color-success)', fontWeight: 'bold', marginBottom: '16px' }}>
-            {saveMessage}
+        <div style={{ textAlign: 'right' }}>
+          <span style={{ fontSize: '12px', fontWeight: '800', color: '#E4572E' }}>
+            22 Sizes Active
+          </span>
+          <span style={{ display: 'block', fontSize: '11px', color: '#6B7280' }}>
+            Chest 18" to 60"
+          </span>
+        </div>
+      </div>
+
+      {/* 2. Load Preset & Management Bar */}
+      <div className="glass-card" style={{ padding: '16px 20px', marginBottom: '20px', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+          <span style={{ fontSize: '12px', fontWeight: '800', color: '#111827', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            📦 Sizing Presets Manager
+          </span>
+          <span style={{ fontSize: '11px', color: '#6B7280' }}>
+            Switch presets or save current dimensions for different sports or client cut profiles
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '12px', alignItems: 'center' }}>
+          {/* Dropdown to select and load preset */}
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <select
+              value={activePreset}
+              onChange={(e) => handleLoadPreset(e.target.value)}
+              className="form-select"
+              style={{
+                flex: 1,
+                height: '38px',
+                fontSize: '12px',
+                fontWeight: '700',
+                padding: '0 30px 0 12px',
+                borderRadius: '8px',
+                background: '#FFFFFF',
+                border: '1px solid #D1D5DB',
+                color: '#111827'
+              }}
+            >
+              <option value="Default Size">Default Size</option>
+              {Object.keys(savedPresets).map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+
+            {activePreset !== 'Default Size' && savedPresets[activePreset] && (
+              <button
+                type="button"
+                className="btn"
+                title={`Delete preset "${activePreset}"`}
+                style={{
+                  height: '38px',
+                  padding: '0 12px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  color: '#DC2626',
+                  background: '#FEE2E2',
+                  border: '1px solid #FECACA',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+                onClick={() => handleDeletePreset(activePreset)}
+              >
+                <Trash2 size={13} /> Delete
+              </button>
+            )}
           </div>
-        )}
 
-        <div className="grid-2">
-          {/* Main Panel Dimensions */}
-          <div className="glass-card" style={{ background: 'rgba(0,0,0,0.2)' }}>
-            <h3 style={{ fontSize: '16px', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px', marginBottom: '16px', color: 'var(--color-primary)' }}>
-              Core Panels
-            </h3>
-            
-            <div className="form-row" style={{ marginBottom: '14px' }}>
-              <div className="form-group">
-                <label className="form-label">Front Panel Width (in)</label>
-                <input type="number" step="0.1" className="form-input" value={frontW} onChange={(e) => setFrontW(parseFloat(e.target.value) || 0)} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Front Panel Height (in)</label>
-                <input type="number" step="0.1" className="form-input" value={frontH} onChange={(e) => setFrontH(parseFloat(e.target.value) || 0)} />
-              </div>
-            </div>
-
-            <div className="form-row" style={{ marginBottom: '14px' }}>
-              <div className="form-group">
-                <label className="form-label">Back Panel Width (in)</label>
-                <input type="number" step="0.1" className="form-input" value={backW} onChange={(e) => setBackW(parseFloat(e.target.value) || 0)} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Back Panel Height (in)</label>
-                <input type="number" step="0.1" className="form-input" value={backH} onChange={(e) => setBackH(parseFloat(e.target.value) || 0)} />
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Name & Number Print Width (in)</label>
-                <input type="number" step="0.1" className="form-input" value={nnW} onChange={(e) => setNnW(parseFloat(e.target.value) || 0)} />
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Name & Number Print Height (in)</label>
-                <input type="number" step="0.1" className="form-input" value={nnH} onChange={(e) => setNnH(parseFloat(e.target.value) || 0)} />
-              </div>
-            </div>
-          </div>
-
-          {/* Sleeve Panel Dimensions */}
-          <div className="glass-card" style={{ background: 'rgba(0,0,0,0.2)' }}>
-            <h3 style={{ fontSize: '16px', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px', marginBottom: '16px', color: 'var(--color-secondary)' }}>
-              Sleeve Panels (Standard & Raglan)
-            </h3>
-
-            <div className="form-row" style={{ marginBottom: '14px' }}>
-              <div className="form-group">
-                <label className="form-label">Half Sleeve Width (in)</label>
-                <input type="number" step="0.1" className="form-input" value={halfW} onChange={(e) => setHalfW(parseFloat(e.target.value) || 0)} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Half Sleeve Height (in)</label>
-                <input type="number" step="0.1" className="form-input" value={halfH} onChange={(e) => setHalfH(parseFloat(e.target.value) || 0)} />
-              </div>
-            </div>
-
-            <div className="form-row" style={{ marginBottom: '14px' }}>
-              <div className="form-group">
-                <label className="form-label">Full Sleeve Width (in)</label>
-                <input type="number" step="0.1" className="form-input" value={fullW} onChange={(e) => setFullW(parseFloat(e.target.value) || 0)} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Full Sleeve Height (in)</label>
-                <input type="number" step="0.1" className="form-input" value={fullH} onChange={(e) => setFullH(parseFloat(e.target.value) || 0)} />
-              </div>
-            </div>
-
-            <div className="form-row" style={{ marginBottom: '14px' }}>
-              <div className="form-group">
-                <label className="form-label">Raglan Half Sleeve W (in)</label>
-                <input type="number" step="0.1" className="form-input" value={rHalfW} onChange={(e) => setRHalfW(parseFloat(e.target.value) || 0)} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Raglan Half Sleeve H (in)</label>
-                <input type="number" step="0.1" className="form-input" value={rHalfH} onChange={(e) => setRHalfH(parseFloat(e.target.value) || 0)} />
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Raglan Full Sleeve W (in)</label>
-                <input type="number" step="0.1" className="form-input" value={rFullW} onChange={(e) => setRFullW(parseFloat(e.target.value) || 0)} />
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Raglan Full Sleeve H (in)</label>
-                <input type="number" step="0.1" className="form-input" value={rFullH} onChange={(e) => setRFullH(parseFloat(e.target.value) || 0)} />
-              </div>
-            </div>
+          {/* Save New Preset */}
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <input
+              type="text"
+              placeholder="New preset name (e.g. Football Slim, Pro Rugby)..."
+              value={presetName}
+              onChange={(e) => setPresetName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSavePreset(); }}
+              className="form-input"
+              style={{
+                flex: 1,
+                height: '38px',
+                fontSize: '12px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                background: '#FFFFFF',
+                border: '1px solid #D1D5DB',
+                color: '#111827'
+              }}
+            />
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{
+                height: '38px',
+                padding: '0 16px',
+                fontSize: '12px',
+                fontWeight: '700',
+                background: '#E4572E',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '8px',
+                boxShadow: '0 2px 8px rgba(228,87,46,0.25)',
+                whiteSpace: 'nowrap',
+                cursor: 'pointer'
+              }}
+              onClick={handleSavePreset}
+            >
+              💾 Save Preset
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Technical Alignment Marks & Corner Options */}
-      <div className="glass-card" style={{ padding: '20px', marginBottom: '24px', textAlign: 'left' }}>
-        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: 'var(--color-primary)' }}>
-          🎯 Technical Alignment Marks Options
-        </h3>
-        <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-          Toggle cutting guide lines and print alignment annotations. These will draw directly onto the exported sublimation panels.
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '16px' }}>
-          <label className={`checkbox-card ${centerMarks ? 'checked' : ''}`} style={{ flex: 1, margin: 0, padding: '12px' }}>
+      {/* 3. Master Size Database Editor Panel (Direct Table Editor) */}
+      <div className="glass-card" style={{ padding: '18px 20px', marginBottom: '20px', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+        
+        {saveMessage && (
+          <div style={{ 
+            padding: '9px 14px', 
+            background: '#DCFCE7', 
+            border: '1px solid #86EFAC', 
+            color: '#15803D', 
+            fontWeight: '700', 
+            fontSize: '12px', 
+            borderRadius: '8px', 
+            marginBottom: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <span>✅</span> {saveMessage}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#111827', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                📐 Master Database Editor (All Dimensions in Inches)
+              </h3>
+              {isUnlocked ? (
+                <span style={{ fontSize: '11px', background: '#DCFCE7', color: '#15803D', border: '1px solid #86EFAC', padding: '3px 9px', borderRadius: '8px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                  <Unlock size={12} /> UNLOCKED & EDITABLE
+                </span>
+              ) : (
+                <span style={{ fontSize: '11px', background: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB', padding: '3px 9px', borderRadius: '8px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                  <Lock size={12} /> LOCKED (READ-ONLY)
+                </span>
+              )}
+            </div>
+            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#6B7280' }}>
+              {isUnlocked 
+                ? "Direct spreadsheet editing active. Edit any dimension directly in the table below. Edits auto-apply." 
+                : "Master size grading matrix for all 22 chest sizes. Click 'Unlock Editor' to edit measurements."}
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={() => setIsUnlocked(!isUnlocked)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '7px',
+                padding: '8px 16px',
+                fontSize: '12px',
+                fontWeight: '800',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                background: isUnlocked ? '#16A34A' : '#E4572E',
+                color: '#FFFFFF',
+                border: 'none',
+                boxShadow: isUnlocked ? '0 2px 8px rgba(22, 163, 74, 0.25)' : '0 2px 8px rgba(228, 87, 46, 0.25)',
+                transition: 'all 0.15s ease'
+              }}
+              title={isUnlocked ? "Lock table to prevent accidental changes" : "Unlock table to edit dimensions directly"}
+            >
+              {isUnlocked ? (
+                <>
+                  <Lock size={14} /> Lock Editor
+                </>
+              ) : (
+                <>
+                  <Unlock size={14} /> Unlock Editor
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleResetToDefault}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                fontSize: '12px',
+                fontWeight: '700',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                background: '#FFFFFF',
+                border: '1px solid #D1D5DB',
+                color: '#4B5563'
+              }}
+              title="Reset all sizes back to Default Size"
+            >
+              <RotateCcw size={13} /> Reset Defaults
+            </button>
+          </div>
+        </div>
+
+        <div className="sheets-scroll-container" style={{ maxHeight: '420px', overflowY: 'auto', border: '1px solid #E8E4DE', borderRadius: '10px 10px 0 0' }}>
+          <table className="custom-table sheets-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ width: '65px', textAlign: 'center' }}>Size</th>
+                <th style={{ minWidth: '130px', textAlign: 'center' }}>Age</th>
+                <th style={{ minWidth: '135px' }}>Front (W × H)</th>
+                <th style={{ minWidth: '135px' }}>Back (W × H)</th>
+                <th style={{ minWidth: '135px' }}>Half Sleeve</th>
+                <th style={{ minWidth: '135px' }}>Full Sleeve</th>
+                <th style={{ minWidth: '135px' }}>Raglan Half</th>
+                <th style={{ minWidth: '135px' }}>Raglan Full</th>
+                <th style={{ minWidth: '125px' }}>Name & #</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.keys(sizeDB).sort((a,b) => parseInt(a) - parseInt(b)).map(size => {
+                const conf = sizeDB[size];
+                const isSelected = size === selectedSize;
+                return (
+                  <tr 
+                    key={size} 
+                    style={{
+                      cursor: 'pointer',
+                      background: isSelected ? '#FFF0EB' : '#FFFFFF',
+                      transition: 'background 0.15s ease'
+                    }} 
+                    onClick={() => setSelectedSize(size)}
+                    title={`Size ${size}`}
+                  >
+                    <td style={{ textAlign: 'center', padding: '6px 10px' }}>
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: '800',
+                        background: isSelected ? '#E4572E' : '#F3F0EA',
+                        color: isSelected ? '#FFFFFF' : '#111827',
+                        minWidth: '46px'
+                      }}>
+                        {size}
+                      </span>
+                    </td>
+                    {isUnlocked ? (
+                      <td style={{ textAlign: 'center', padding: '5px 8px', background: isSelected ? '#FFF0EB' : '#FFFFFF', whiteSpace: 'nowrap' }}>
+                        <input
+                          type="text"
+                          value={ageMap[size] ?? DEFAULT_SIZE_AGE_MAP[size] ?? ''}
+                          onChange={(e) => handleUpdateAge(size, e.target.value)}
+                          style={{
+                            width: '115px',
+                            height: '28px',
+                            fontSize: '11.5px',
+                            fontWeight: '700',
+                            textAlign: 'center',
+                            background: '#FFFFFF',
+                            border: '1px solid #D1D5DB',
+                            borderRadius: '6px',
+                            color: '#111827',
+                            padding: '0 4px'
+                          }}
+                          title={`Size ${size} Age / Fit label`}
+                        />
+                      </td>
+                    ) : (
+                      <td style={{ textAlign: 'center', padding: '6px 10px', whiteSpace: 'nowrap' }}>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '3px 10px',
+                          borderRadius: '6px',
+                          fontSize: '11.5px',
+                          fontWeight: '700',
+                          background: parseInt(size) >= 36 ? '#EFF6FF' : '#F4F2EC',
+                          color: parseInt(size) >= 36 ? '#1D4ED8' : '#374151',
+                          border: parseInt(size) >= 36 ? '1px solid #BFDBFE' : '1px solid #E2DED7'
+                        }}>
+                          {ageMap[size] || DEFAULT_SIZE_AGE_MAP[size] || '-'}
+                        </span>
+                      </td>
+                    )}
+                    {renderCellContent(size, 'front', conf.front, isSelected ? '#111827' : '#374151', 'Front', isSelected)}
+                    {renderCellContent(size, 'back', conf.back, isSelected ? '#111827' : '#374151', 'Back', isSelected)}
+                    {renderCellContent(size, 'half', conf.half, isSelected ? '#16A34A' : '#15803D', 'Half Sleeve', isSelected)}
+                    {renderCellContent(size, 'full', conf.full, isSelected ? '#2563EB' : '#1D4ED8', 'Full Sleeve', isSelected)}
+                    {renderCellContent(size, 'rHalf', conf.rHalf, isSelected ? '#7C3AED' : '#6D28D9', 'Raglan Half', isSelected)}
+                    {renderCellContent(size, 'rFull', conf.rFull, isSelected ? '#7C3AED' : '#6D28D9', 'Raglan Full', isSelected)}
+                    {renderCellContent(size, 'nn', conf.nn, isSelected ? '#C2410C' : '#4B5563', 'Name & #', isSelected)}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        
+        <div className="sheets-summary-bar">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+            <span>Total Sizes: <strong style={{ color: '#111827' }}>22</strong> (Sizes 18 to 60)</span>
+            <span style={{ color: '#D1D5DB' }}>|</span>
+            <span>Active Size: <strong style={{ color: '#E4572E' }}>Size {selectedSize}</strong></span>
+            {isUnlocked && (
+              <>
+                <span style={{ color: '#D1D5DB' }}>|</span>
+                <span style={{ color: '#15803D', fontWeight: '700' }}>✏️ Direct Editing Enabled</span>
+              </>
+            )}
+          </div>
+          <span style={{ fontSize: '11px', color: '#6B7280' }}>
+            {isUnlocked ? "Type in any input box to modify dimensions" : "Click 'Unlock Editor' to edit any dimensions"}
+          </span>
+        </div>
+      </div>
+
+      {/* 4. Technical Alignment Marks Options */}
+      <div className="glass-card" style={{ padding: '18px 20px', marginBottom: '20px', textAlign: 'left', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '12px' }}>
+        <div style={{ marginBottom: '14px' }}>
+          <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#111827', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            🎯 Technical Alignment Marks Options
+          </h3>
+          <p style={{ fontSize: '12px', color: '#6B7280', margin: '4px 0 0' }}>
+            Toggle cutting guide lines and print alignment annotations on exported sublimation panels.
+          </p>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+          <label 
+            className={`checkbox-card ${centerMarks ? 'checked' : ''}`} 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'flex-start', 
+              gap: '12px', 
+              padding: '14px 16px', 
+              margin: 0, 
+              cursor: 'pointer',
+              background: centerMarks ? '#FFF0EB' : '#FFFFFF',
+              border: centerMarks ? '1px solid #E4572E' : '1px solid #E2DED7',
+              borderRadius: '10px',
+              transition: 'all 0.15s ease'
+            }}
+          >
             <input 
               type="checkbox" 
               checked={centerMarks} 
@@ -342,14 +779,31 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
                 localStorage.setItem('fivenest_pref_center_marks', JSON.stringify(e.target.checked));
                 window.dispatchEvent(new Event('storage-preference-changed'));
               }} 
+              style={{ accentColor: '#E4572E', width: '16px', height: '16px', marginTop: '3px', cursor: 'pointer' }}
             />
-            <div style={{ textAlign: 'left' }}>
-              <p style={{ fontWeight: 'bold', fontSize: '13px' }}>Print Center Marks</p>
-              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Adds vertical ticks at the top and bottom center of every jersey/sleeve panel</p>
+            <div>
+              <p style={{ fontWeight: '800', fontSize: '13px', margin: 0, color: '#111827' }}>Print Center Marks</p>
+              <p style={{ fontSize: '11px', color: '#6B7280', margin: '4px 0 0', lineHeight: 1.4 }}>
+                Adds vertical ticks at the top and bottom center of every jersey and sleeve panel for heat-press alignment.
+              </p>
             </div>
           </label>
 
-          <label className={`checkbox-card ${sizeWatermarks ? 'checked' : ''}`} style={{ flex: 1, margin: 0, padding: '12px' }}>
+          <label 
+            className={`checkbox-card ${sizeWatermarks ? 'checked' : ''}`} 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'flex-start', 
+              gap: '12px', 
+              padding: '14px 16px', 
+              margin: 0, 
+              cursor: 'pointer',
+              background: sizeWatermarks ? '#FFF0EB' : '#FFFFFF',
+              border: sizeWatermarks ? '1px solid #E4572E' : '1px solid #E2DED7',
+              borderRadius: '10px',
+              transition: 'all 0.15s ease'
+            }}
+          >
             <input 
               type="checkbox" 
               checked={sizeWatermarks} 
@@ -358,90 +812,15 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
                 localStorage.setItem('fivenest_pref_size_watermarks', JSON.stringify(e.target.checked));
                 window.dispatchEvent(new Event('storage-preference-changed'));
               }} 
+              style={{ accentColor: '#E4572E', width: '16px', height: '16px', marginTop: '3px', cursor: 'pointer' }}
             />
-            <div style={{ textAlign: 'left' }}>
-              <p style={{ fontWeight: 'bold', fontSize: '13px' }}>Print Size Watermarks (Corners)</p>
-              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Adds Size text to top-left and Sleeve-Type to top-right corner of back panel</p>
+            <div>
+              <p style={{ fontWeight: '800', fontSize: '13px', margin: 0, color: '#111827' }}>Print Size Watermarks (Corners)</p>
+              <p style={{ fontSize: '11px', color: '#6B7280', margin: '4px 0 0', lineHeight: 1.4 }}>
+                Adds Size text to top-left and Sleeve-Type to top-right corner of back panel for fast cutting identification.
+              </p>
             </div>
           </label>
-
-          <div className={`checkbox-card ${showRulers ? 'checked' : ''}`} style={{ flex: 1, margin: 0, padding: '12px', minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'stretch' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', userSelect: 'none', margin: 0, padding: 0 }}>
-              <input 
-                type="checkbox" 
-                checked={showRulers} 
-                onChange={(e) => {
-                  setShowRulers(e.target.checked);
-                  localStorage.setItem('fivenest_pref_rulers', JSON.stringify(e.target.checked));
-                  window.dispatchEvent(new Event('storage-preference-changed'));
-                }} 
-                style={{ accentColor: 'var(--color-primary)', width: '16px', height: '16px' }}
-              />
-              <div style={{ textAlign: 'left' }}>
-                <p style={{ fontWeight: 'bold', fontSize: '13px' }}>Show Rulers & Guidelines</p>
-                <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Draw custom rulers and gridlines on panels</p>
-              </div>
-            </label>
-            {showRulers && (
-              <div style={{ marginTop: '8px', borderTop: '1px solid var(--border-light)', paddingTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Grid Spacing:</span>
-                <input 
-                  type="number" 
-                  min="0.5" 
-                  max="10" 
-                  step="0.5"
-                  className="form-input"
-                  style={{ width: '80px', padding: '4px 8px', fontSize: '11px', margin: 0 }}
-                  value={gridSpacing}
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value) || 2;
-                    setGridSpacing(val);
-                    localStorage.setItem('fivenest_pref_guideline_spacing', JSON.stringify(val));
-                    window.dispatchEvent(new Event('storage-preference-changed'));
-                  }}
-                />
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>inches</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Database Overview Table */}
-      <div className="glass-card">
-        <h3 style={{ marginBottom: '16px' }}>📐 Database Overview (Inches)</h3>
-        <div className="table-container" style={{ maxHeight: '300px', overflowY: 'auto' }}>
-          <table className="custom-table">
-            <thead>
-              <tr>
-                <th>Size</th>
-                <th>Front (W x H)</th>
-                <th>Back (W x H)</th>
-                <th>Half Sleeve (W x H)</th>
-                <th>Full Sleeve (W x H)</th>
-                <th>Raglan Half (W x H)</th>
-                <th>Raglan Full (W x H)</th>
-                <th>A4 Back (W x H)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.keys(sizeDB).sort((a,b) => parseInt(a) - parseInt(b)).map(size => {
-                const conf = sizeDB[size];
-                return (
-                  <tr key={size} style={size === selectedSize ? { background: 'rgba(155, 77, 255, 0.08)' } : {}} onClick={() => setSelectedSize(size)}>
-                    <td style={{ fontWeight: 'bold', cursor: 'pointer', color: 'var(--color-primary)' }}>{size}</td>
-                    <td>{conf.front.w}" x {conf.front.h}"</td>
-                    <td>{conf.back.w}" x {conf.back.h}"</td>
-                    <td>{conf.half.w}" x {conf.half.h}"</td>
-                    <td>{conf.full.w}" x {conf.full.h}"</td>
-                    <td>{conf.rHalf.w}" x {conf.rHalf.h}"</td>
-                    <td>{conf.rFull.w}" x {conf.rFull.h}"</td>
-                    <td>{conf.nn.w}" x {conf.nn.h}"</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
         </div>
       </div>
     </div>
@@ -451,50 +830,24 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
 interface SizesModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onDatabaseChange?: (db: SizeDatabase) => void;
+  onDatabaseChange?: () => void;
 }
 
 export const SizesModal: React.FC<SizesModalProps> = ({ isOpen, onClose, onDatabaseChange }) => {
   if (!isOpen) return null;
   return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      zIndex: 99999,
-      background: 'rgba(0, 0, 0, 0.85)',
-      backdropFilter: 'blur(16px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '20px'
-    }}>
-      <div style={{
-        background: '#14141c',
-        border: '2px solid rgba(0, 240, 255, 0.6)',
-        boxShadow: '0 0 50px rgba(0, 240, 255, 0.3)',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '960px',
-        maxHeight: '90vh',
-        overflowY: 'auto',
-        padding: '24px',
-        position: 'relative'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
-          <h2 style={{ margin: 0, fontSize: '18px', color: '#00f0ff', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            ⚙️ Sublimation Core Panel & Size Grading Editor
-          </h2>
-          <button 
-            className="btn btn-secondary" 
-            onClick={onClose} 
-            style={{ padding: '6px 16px', fontSize: '12px', color: '#ff1744', fontWeight: 'bold', borderRadius: '20px' }}
-          >
-            ✕ Close Editor
-          </button>
-        </div>
-
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(23,23,23,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div style={{ background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '14px', width: '100%', maxWidth: '980px', maxHeight: '90vh', overflowY: 'auto', padding: '20px', position: 'relative', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
+        <button 
+          onClick={onClose} 
+          style={{ position: 'absolute', top: '16px', right: '16px', background: '#F3F0EA', border: '1px solid #E2DED7', borderRadius: '6px', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#171717', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}
+          title="Close modal"
+        >
+          ✕
+        </button>
         <SizesDb onDatabaseChange={onDatabaseChange} />
       </div>
     </div>
   );
 };
+

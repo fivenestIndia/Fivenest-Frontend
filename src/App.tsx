@@ -1,92 +1,61 @@
-import React, { Component, ErrorInfo, ReactNode } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index.tsx";
-import Success from "./pages/Success.tsx";
-import NotFound from "./pages/NotFound.tsx";
-import WebStudio from "./pages/WebStudio.tsx";
-import Academy from "./pages/Academy.tsx";
-import Plugins from "./pages/Plugins.tsx";
-import OrderManagement from "./pages/OrderManagement.tsx";
-import { FivenestAiWidget } from "@/components/FivenestAiWidget";
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import Home from './pages/Home';
+import OrderManagement from './pages/OrderManagement';
+import WebStudio from './pages/WebStudio';
+import Contact from './pages/Contact';
 
-interface ErrorBoundaryProps {
-  children: ReactNode;
-}
-
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-}
-
-class StudioErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = {
-    hasError: false,
-    error: null,
-  };
-
-  public static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
-  }
-
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("Uncaught error in Studio:", error, errorInfo);
-  }
-
-  public render() {
-    if (this.state.hasError) {
-      return (
-        <div style={{ padding: "40px", background: "#05070a", color: "#fff", minHeight: "100vh", fontFamily: "sans-serif" }}>
-          <h2>⚠️ Production Studio Error Detected</h2>
-          <p style={{ color: "#ff1744", marginTop: "10px" }}>{this.state.error?.toString()}</p>
-          <button
-            onClick={() => {
-              localStorage.clear();
-              window.location.reload();
-            }}
-            style={{ marginTop: "20px", padding: "10px 20px", background: "#00f0ff", color: "#000", fontWeight: "bold", border: "none", borderRadius: "6px", cursor: "pointer" }}
-          >
-            Clear Cache & Reload Studio
-          </button>
-        </div>
-      );
+// Scroll to top on route change (for non-studio pages)
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    if (!pathname.startsWith('/production') && !pathname.startsWith('/studio')) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-    return this.props.children;
-  }
+  }, [pathname]);
+  return null;
 }
 
-const queryClient = new QueryClient();
+function AppLayout() {
+  const { pathname } = useLocation();
+  const isStudio = pathname.startsWith('/production') || pathname.startsWith('/studio');
 
-const App = () => (
-  <StudioErrorBoundary>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <FivenestAiWidget />
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/success" element={<Success />} />
-            <Route path="/success/*" element={<Success />} />
-            <Route path="/plugins/success" element={<Success />} />
-            <Route path="/plugins/success/*" element={<Success />} />
-            <Route path="/studio" element={<WebStudio />} />
-            <Route path="/studio/*" element={<WebStudio />} />
-            <Route path="/orders" element={<OrderManagement />} />
-            <Route path="/orders/*" element={<OrderManagement />} />
-            <Route path="/academy" element={<Academy />} />
-            <Route path="/plugins" element={<Plugins />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
-  </StudioErrorBoundary>
-);
+  // Studio page: render full-viewport without any wrapper
+  if (isStudio) {
+    return <WebStudio />;
+  }
 
-export default App;
+  // Normal pages: warm bg wrapper
+  return (
+    <div className="min-h-screen bg-[#F5F3EF] text-[#171717] selection:bg-[#E4572E]/20 selection:text-[#171717]">
+      <ScrollToTop />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/order-management" element={<OrderManagement />} />
+        <Route path="/orders" element={<OrderManagement />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/production" element={<WebStudio />} />
+        <Route path="/production/*" element={<WebStudio />} />
+        <Route path="/studio" element={<WebStudio />} />
+        <Route path="/studio/*" element={<WebStudio />} />
+        <Route path="*" element={<Home />} />
+      </Routes>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Router>
+      <Routes>
+        {/* Studio — standalone full viewport, no global nav wrapper */}
+        <Route path="/production" element={<AppLayout />} />
+        <Route path="/production/*" element={<AppLayout />} />
+        <Route path="/studio" element={<AppLayout />} />
+        <Route path="/studio/*" element={<AppLayout />} />
+        {/* All other pages */}
+        <Route path="*" element={<AppLayout />} />
+      </Routes>
+    </Router>
+  );
+}
