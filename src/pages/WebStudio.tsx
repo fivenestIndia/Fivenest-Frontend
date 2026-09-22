@@ -49,7 +49,14 @@ export default function WebStudio() {
   const [sizeDB, setSizeDB] = useState<SizeDatabase>(defaultSizes);
 
   // Authentication & billing states
-  const [currentUser, setCurrentUser] = useState<{ email: string; name: string; balance: number } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ email: string; name: string; balance: number; id?: string } | null>(() => {
+    try {
+      const saved = localStorage.getItem('fivenest_active_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [testMode, setTestMode] = useState<boolean>(false);
   const [loginModalOpen, setLoginModalOpen] = useState<boolean>(false);
 
@@ -72,32 +79,50 @@ export default function WebStudio() {
     }
 
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const details = await fetchUserWallet(session.user.id);
-        setCurrentUser({
-          email: session.user.email || '',
-          name: details.name,
-          balance: details.balance
-        });
-      } else {
-        setCurrentUser(null);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const details = await fetchUserWallet(session.user.id);
+          const updated = {
+            id: session.user.id,
+            email: session.user.email || '',
+            name: details.name || session.user.user_metadata?.name || (session.user.email ? session.user.email.split('@')[0] : 'User'),
+            balance: details.balance
+          };
+          setCurrentUser(updated);
+          localStorage.setItem('fivenest_active_user', JSON.stringify(updated));
+        }
+      } catch (e) {
+        console.warn("Session check fallback to cached user", e);
       }
     };
     checkSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
-        const details = await fetchUserWallet(session.user.id);
-        setCurrentUser({
-          email: session.user.email || '',
-          name: details.name,
-          balance: details.balance
-        });
-      } else {
+        try {
+          const details = await fetchUserWallet(session.user.id);
+          const updated = {
+            id: session.user.id,
+            email: session.user.email || '',
+            name: details.name || session.user.user_metadata?.name || (session.user.email ? session.user.email.split('@')[0] : 'User'),
+            balance: details.balance
+          };
+          setCurrentUser(updated);
+          localStorage.setItem('fivenest_active_user', JSON.stringify(updated));
+        } catch (e) {}
+      } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
+        localStorage.removeItem('fivenest_active_user');
       }
     });
+
+    const handleUserUpdated = (e: any) => {
+      if (e.detail) {
+        setCurrentUser(e.detail);
+      }
+    };
+    window.addEventListener('fivenest_user_updated', handleUserUpdated);
 
     // Client-side anti-piracy protections
     const handleContextMenu = (e: MouseEvent) => {
@@ -123,6 +148,7 @@ export default function WebStudio() {
 
     return () => {
       subscription.unsubscribe();
+      window.removeEventListener('fivenest_user_updated', handleUserUpdated);
       document.removeEventListener('contextmenu', handleContextMenu);
       window.removeEventListener('keydown', handleKeyDownGuard);
     };
