@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, Bell, Filter, Download, Settings, Factory, Palette, Printer,
   LayoutDashboard, Users, ShoppingBag, FileText, CreditCard, AlertTriangle,
-  BookOpen, BarChart3, X, CheckCircle, ChevronDown
+  BookOpen, BarChart3, X, CheckCircle, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -16,9 +16,9 @@ import DesignerBillForm from '../components/orders/DesignerBillForm';
 import PrintingModule from '../components/orders/PrintingModule';
 import PaymentDrawer from '../components/orders/PaymentDrawer';
 import LedgerView from '../components/orders/LedgerView';
-import OutstandingView from '../components/orders/OutstandingView';
 import ReportsView from '../components/orders/ReportsView';
 import JobSheetModal from '../components/orders/JobSheetModal';
+import PaymentsHub from '../components/orders/PaymentsHub';
 import { ManufacturerOrder, DesignerBill } from '../hooks/useOrderStore';
 
 const cn = (...c: (string|undefined|boolean)[]) => c.filter(Boolean).join(' ');
@@ -32,35 +32,32 @@ type SubView = 'overview' | 'orders' | 'customers' | 'payments' | 'outstanding' 
 interface NavItem { key: SubView; label: string; icon: React.FC<{size?: number; className?: string}> }
 
 const NAV_ALL: NavItem[] = [
-  { key: 'overview',     label: 'Overview',     icon: LayoutDashboard },
-  { key: 'customers',    label: 'Customers',    icon: Users           },
-  { key: 'outstanding',  label: 'Outstanding',  icon: AlertTriangle   },
-  { key: 'ledger',       label: 'Ledger',       icon: BookOpen        },
-  { key: 'reports',      label: 'Reports',      icon: BarChart3       },
+  { key: 'overview',     label: 'Overview',       icon: LayoutDashboard },
+  { key: 'customers',    label: 'Customers',      icon: Users           },
+  { key: 'payments',     label: 'Payments & Due', icon: CreditCard      },
+  { key: 'ledger',       label: 'Ledger',         icon: BookOpen        },
+  { key: 'reports',      label: 'Reports',        icon: BarChart3       },
 ];
 const NAV_MFG: NavItem[] = [
-  { key: 'overview',    label: 'Overview',     icon: LayoutDashboard },
-  { key: 'orders',      label: 'Orders',       icon: ShoppingBag     },
-  { key: 'payments',    label: 'Payments',     icon: CreditCard      },
-  { key: 'outstanding', label: 'Outstanding',  icon: AlertTriangle   },
-  { key: 'ledger',      label: 'Ledger',       icon: BookOpen        },
-  { key: 'reports',     label: 'Reports',      icon: BarChart3       },
+  { key: 'orders',       label: 'Orders',         icon: ShoppingBag     },
+  { key: 'payments',     label: 'Payments & Due', icon: CreditCard      },
+  { key: 'customers',    label: 'Customers',      icon: Users           },
+  { key: 'ledger',       label: 'Ledger',         icon: BookOpen        },
+  { key: 'reports',      label: 'Reports',        icon: BarChart3       },
 ];
 const NAV_DSG: NavItem[] = [
-  { key: 'overview',    label: 'Overview',     icon: LayoutDashboard },
-  { key: 'orders',      label: 'Bills',        icon: FileText        },
-  { key: 'payments',    label: 'Payments',     icon: CreditCard      },
-  { key: 'outstanding', label: 'Outstanding',  icon: AlertTriangle   },
-  { key: 'ledger',      label: 'Ledger',       icon: BookOpen        },
-  { key: 'reports',     label: 'Reports',      icon: BarChart3       },
+  { key: 'orders',       label: 'Bills',          icon: FileText        },
+  { key: 'payments',     label: 'Payments & Due', icon: CreditCard      },
+  { key: 'customers',    label: 'Customers',      icon: Users           },
+  { key: 'ledger',       label: 'Ledger',         icon: BookOpen        },
+  { key: 'reports',      label: 'Reports',        icon: BarChart3       },
 ];
 const NAV_PRT: NavItem[] = [
-  { key: 'overview',    label: 'Overview',     icon: LayoutDashboard },
-  { key: 'orders',      label: 'Orders',       icon: ShoppingBag     },
-  { key: 'payments',    label: 'Payments',     icon: CreditCard      },
-  { key: 'outstanding', label: 'Outstanding',  icon: AlertTriangle   },
-  { key: 'ledger',      label: 'Ledger',       icon: BookOpen        },
-  { key: 'reports',     label: 'Reports',      icon: BarChart3       },
+  { key: 'orders',       label: 'Orders & Rates', icon: ShoppingBag     },
+  { key: 'payments',     label: 'Payments & Due', icon: CreditCard      },
+  { key: 'customers',    label: 'Customers',      icon: Users           },
+  { key: 'ledger',       label: 'Ledger',         icon: BookOpen        },
+  { key: 'reports',      label: 'Reports',        icon: BarChart3       },
 ];
 
 function getNav(mode: BusinessMode): NavItem[] {
@@ -260,51 +257,6 @@ function DesignerBillsView({ store, onReceivePayment }: {
 }
 
 // ─── Payments History View ────────────────────────────────────────────────────
-function PaymentsView({ store }: { store: ReturnType<typeof useOrderStore> }) {
-  return (
-    <div className="bg-white border border-[#E8E4DE] rounded-2xl overflow-hidden">
-      <div className="px-6 py-4 border-b border-[#E8E4DE] bg-[#FAF8F5]">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-[#71717A]">Payment History ({store.state.payments.length})</h3>
-      </div>
-      {store.state.payments.length === 0 ? (
-        <div className="text-center py-16">
-          <CreditCard size={36} className="mx-auto text-[#D8D5CF] mb-3"/>
-          <p className="text-[#52525B] font-semibold">No payments recorded yet</p>
-        </div>
-      ) : (
-        <table className="w-full">
-          <thead>
-            <tr className="bg-[#FAF8F5] border-b border-[#E8E4DE]">
-              {['Receipt #','Customer','Date','Amount','Mode','Reference','Allocated To'].map(h => (
-                <th key={h} className="text-left px-4 py-3 text-xs uppercase tracking-wider font-semibold text-[#71717A]">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {[...store.state.payments].reverse().map(p => {
-              const cust = store.state.customers.find(c => c.id === p.customerId);
-              return (
-                <tr key={p.id} className="border-t border-[#E8E4DE] hover:bg-[#FAF8F5]">
-                  <td className="px-4 py-3 text-xs font-mono font-bold text-emerald-700">{p.paymentNumber}</td>
-                  <td className="px-4 py-3 font-semibold text-sm">{cust?.businessName || '—'}</td>
-                  <td className="px-4 py-3 text-xs text-[#71717A]">{new Date(p.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'})}</td>
-                  <td className="px-4 py-3 font-black text-emerald-600">{fmt(p.amount)}</td>
-                  <td className="px-4 py-3">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FAF8F5] border border-[#E8E4DE] uppercase">{p.mode}</span>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-[#71717A] font-mono">{p.referenceNumber || '—'}</td>
-                  <td className="px-4 py-3 text-xs text-[#52525B]">
-                    {p.allocations.length > 0 ? p.allocations.map(a => a.orderType[0].toUpperCase() + ' ' + a.amount.toLocaleString('en-IN')).join(', ') : '—'}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-}
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 export default function OrderManagement() {
@@ -404,7 +356,16 @@ export default function OrderManagement() {
             return (
               <button
                 key={mode}
-                onClick={() => { setBusinessMode(mode); setSubView('overview'); }}
+                onClick={() => {
+                  setBusinessMode(mode);
+                  if (mode === 'all') {
+                    setSubView('overview');
+                  } else {
+                    if (subView === 'overview') {
+                      setSubView('orders');
+                    }
+                  }
+                }}
                 className={cn(
                   'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border transition-all whitespace-nowrap',
                   isActive ? cfg.color : 'bg-white text-[#52525B] border-[#E8E4DE] hover:border-[#E4572E]/30 hover:text-[#171717]'
@@ -454,20 +415,179 @@ export default function OrderManagement() {
               initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
-              {/* Overview / Dashboard */}
+              {/* Overview / Dashboard (Consolidated Cockpit for All Business) */}
               {subView === 'overview' && (
                 <div className="space-y-6">
                   <div>
                     <h2 className="text-xl font-black text-[#171717]">
-                      {businessMode === 'all' ? 'Business Overview' :
-                       businessMode === 'manufacturer' ? 'Manufacturer Overview' :
-                       businessMode === 'designer' ? 'Designer Overview' : 'Printing Overview'}
+                      Business Command Center
                     </h2>
-                    <p className="text-sm text-[#71717A] mt-0.5">Real-time summary of your business activity</p>
+                    <p className="text-sm text-[#71717A] mt-0.5">
+                      Consolidated operations & quick hub for Manufacturing, Design Studio, and Printing
+                    </p>
                   </div>
-                  <KPICards stats={stats} mode={businessMode} />
+                  <KPICards stats={stats} mode="all" />
 
-                  {/* Activity feed */}
+                  {/* ── Smart Business Hub (Manufacturer, Designer, Printing Owner Cards) ── */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    {/* Manufacturer Card */}
+                    <div className="bg-white border border-[#E8E4DE] hover:border-orange-300 rounded-2xl p-5 shadow-sm transition-all flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-9 h-9 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center font-bold">
+                              <Factory size={18} />
+                            </span>
+                            <div>
+                              <h4 className="font-black text-sm text-[#171717]">Manufacturer</h4>
+                              <p className="text-[10px] text-[#71717A] uppercase font-bold tracking-wider">Sportswear Production</p>
+                            </div>
+                          </div>
+                          <span className="text-xs font-black text-orange-700 bg-orange-50 px-2.5 py-0.5 rounded-full border border-orange-200">
+                            {store.state.manufacturerOrders.length} Orders
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 my-3 p-3 bg-[#FAF8F5] rounded-xl border border-[#E8E4DE] text-xs">
+                          <div>
+                            <span className="text-[10px] uppercase text-[#71717A] font-bold block">Invoiced</span>
+                            <span className="font-black text-[#171717]">{fmt(stats.mfgRevenue)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] uppercase text-[#71717A] font-bold block">Balance Due</span>
+                            <span className="font-black text-red-600">{fmt(store.state.manufacturerOrders.reduce((s,o)=>s+o.outstanding,0))}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-[#71717A] px-1 mb-2">
+                          <span>In Production: <strong className="text-[#171717]">{store.state.manufacturerOrders.filter(o=>o.status==='production').length}</strong></span>
+                          <span>Ready/Sent: <strong className="text-[#171717]">{store.state.manufacturerOrders.filter(o=>o.status==='ready'||o.status==='dispatched').length}</strong></span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-3 border-t border-[#E8E4DE]">
+                        <button
+                          onClick={() => { setBusinessMode('manufacturer'); setSubView('orders'); }}
+                          className="flex-1 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-800 text-xs font-bold transition-colors text-center flex items-center justify-center gap-1"
+                        >
+                          Open Orders <ChevronRight size={14} />
+                        </button>
+                        <button
+                          onClick={() => openMfgOrder()}
+                          className="px-3 py-2 rounded-xl bg-[#E4572E] hover:bg-[#D4431B] text-white text-xs font-bold transition-colors"
+                          title="New Manufacturer Order"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Designer Studio Card */}
+                    <div className="bg-white border border-[#E8E4DE] hover:border-purple-300 rounded-2xl p-5 shadow-sm transition-all flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+                              <Palette size={18} />
+                            </span>
+                            <div>
+                              <h4 className="font-black text-sm text-[#171717]">Designer Studio</h4>
+                              <p className="text-[10px] text-[#71717A] uppercase font-bold tracking-wider">Artwork & Digitizing</p>
+                            </div>
+                          </div>
+                          <span className="text-xs font-black text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">
+                            {store.state.designerBills.length} Bills
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 my-3 p-3 bg-[#FAF8F5] rounded-xl border border-[#E8E4DE] text-xs">
+                          <div>
+                            <span className="text-[10px] uppercase text-[#71717A] font-bold block">Invoiced</span>
+                            <span className="font-black text-[#171717]">{fmt(stats.dsgRevenue)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] uppercase text-[#71717A] font-bold block">Balance Due</span>
+                            <span className="font-black text-red-600">{fmt(store.state.designerBills.reduce((s,b)=>s+b.outstanding,0))}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-[#71717A] px-1 mb-2">
+                          <span>Paid Bills: <strong className="text-emerald-700">{store.state.designerBills.filter(b=>b.paymentStatus==='paid').length}</strong></span>
+                          <span>Pending: <strong className="text-red-600">{store.state.designerBills.filter(b=>b.outstanding>0).length}</strong></span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-3 border-t border-[#E8E4DE]">
+                        <button
+                          onClick={() => { setBusinessMode('designer'); setSubView('orders'); }}
+                          className="flex-1 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 text-xs font-bold transition-colors text-center flex items-center justify-center gap-1"
+                        >
+                          Open Bills <ChevronRight size={14} />
+                        </button>
+                        <button
+                          onClick={() => openDesignerBill()}
+                          className="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-colors"
+                          title="New Designer Bill"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Printing Owner Card */}
+                    <div className="bg-white border border-[#E8E4DE] hover:border-blue-300 rounded-2xl p-5 shadow-sm transition-all flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                              <Printer size={18} />
+                            </span>
+                            <div>
+                              <h4 className="font-black text-sm text-[#171717]">Printing Owner</h4>
+                              <p className="text-[10px] text-[#71717A] uppercase font-bold tracking-wider">Sublimation & Print Jobs</p>
+                            </div>
+                          </div>
+                          <span className="text-xs font-black text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
+                            {store.state.printingOrders.length} Jobs
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 my-3 p-3 bg-[#FAF8F5] rounded-xl border border-[#E8E4DE] text-xs">
+                          <div>
+                            <span className="text-[10px] uppercase text-[#71717A] font-bold block">Invoiced</span>
+                            <span className="font-black text-[#171717]">{fmt(stats.prtRevenue)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] uppercase text-[#71717A] font-bold block">Balance Due</span>
+                            <span className="font-black text-red-600">{fmt(store.state.printingOrders.reduce((s,o)=>s+o.outstanding,0))}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-[#71717A] px-1 mb-2">
+                          <span>In Printing: <strong className="text-[#171717]">{store.state.printingOrders.filter(o=>o.status==='printing').length}</strong></span>
+                          <span>Delivered: <strong className="text-emerald-700">{store.state.printingOrders.filter(o=>o.status==='delivered').length}</strong></span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-3 border-t border-[#E8E4DE]">
+                        <button
+                          onClick={() => { setBusinessMode('printing'); setSubView('orders'); }}
+                          className="flex-1 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 text-xs font-bold transition-colors text-center flex items-center justify-center gap-1"
+                        >
+                          Open Printing <ChevronRight size={14} />
+                        </button>
+                        <button
+                          onClick={() => openPrintingOrder()}
+                          className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors"
+                          title="New Printing Order"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Activity feed & Outstanding preview */}
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     {/* Recent transactions */}
                     <div className="bg-white border border-[#E8E4DE] rounded-2xl overflow-hidden">
@@ -507,7 +627,7 @@ export default function OrderManagement() {
                     <div className="bg-white border border-[#E8E4DE] rounded-2xl overflow-hidden">
                       <div className="px-5 py-4 border-b border-[#E8E4DE] flex items-center justify-between">
                         <h3 className="text-sm font-bold text-[#171717]">Outstanding Summary</h3>
-                        <button onClick={() => setSubView('outstanding')} className="text-xs text-[#E4572E] font-semibold hover:underline">View All</button>
+                        <button onClick={() => setSubView('payments')} className="text-xs text-[#E4572E] font-semibold hover:underline">View in Payments →</button>
                       </div>
                       <div className="p-5 space-y-4">
                         {[
@@ -592,26 +712,13 @@ export default function OrderManagement() {
                 </div>
               )}
 
-              {/* Payments sub-view */}
+              {/* Payments & Due sub-view (with smart Outstanding Receivables integration) */}
               {subView === 'payments' && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-black text-[#171717]">Payment History</h2>
-                    <button onClick={() => openPayment()}
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 shadow-sm">
-                      <CreditCard size={15}/> Receive Payment
-                    </button>
-                  </div>
-                  <PaymentsView store={store}/>
-                </div>
-              )}
-
-              {/* Outstanding sub-view */}
-              {subView === 'outstanding' && (
-                <div className="space-y-4">
-                  <h2 className="text-xl font-black text-[#171717]">Outstanding Receivables</h2>
-                  <OutstandingView store={store} mode={businessMode} onReceivePayment={openPayment} onViewInvoice={() => {}}/>
-                </div>
+                <PaymentsHub
+                  store={store}
+                  mode={businessMode}
+                  onReceivePayment={openPayment}
+                />
               )}
 
               {/* Ledger sub-view */}
