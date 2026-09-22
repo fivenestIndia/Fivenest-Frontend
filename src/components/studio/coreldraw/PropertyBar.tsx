@@ -15,10 +15,11 @@ interface PropertyBarProps {
   zoom: number;
   onSetZoom: (zoom: number) => void;
   onUpdatePanel: (fields: Partial<PanelConfig>) => void;
-  activeTextLayer: 'name' | 'number' | 'sizeTag';
+  activeTextLayer?: 'name' | 'number' | 'sizeTag' | null;
   onSelectTextLayer: (layer: 'name' | 'number' | 'sizeTag') => void;
   previewSleeveType?: 'half' | 'full';
   onSleeveTypeChange?: (type: 'half' | 'full') => void;
+  customFonts?: Array<{ name: string; url: string }>;
 }
 
 export const PropertyBar: React.FC<PropertyBarProps> = ({
@@ -33,16 +34,59 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
   activeTextLayer,
   onSelectTextLayer,
   previewSleeveType,
-  onSleeveTypeChange
+  onSleeveTypeChange,
+  customFonts
 }) => {
+  const resolvedLayer: 'name' | 'number' | 'sizeTag' = 
+    activeTextLayer || (panel.nameConfig?.enabled ? 'name' : panel.numberConfig?.enabled ? 'number' : 'sizeTag');
+
   const activeTextConfig: TextConfig | undefined = 
-    activeTextLayer === 'name' ? panel.nameConfig :
-    activeTextLayer === 'number' ? panel.numberConfig :
+    resolvedLayer === 'name' ? panel.nameConfig :
+    resolvedLayer === 'number' ? panel.numberConfig :
     panel.sizeTagConfig;
+
+  // Resolve custom fonts from props or localStorage
+  const effectiveCustomFonts = React.useMemo(() => {
+    let fonts = customFonts || [];
+    if (fonts.length === 0 && typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('teedex_custom_fonts');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            fonts = parsed;
+          }
+        }
+      } catch (e) {
+        console.error('Failed to read teedex_custom_fonts in PropertyBar', e);
+      }
+    }
+    return fonts;
+  }, [customFonts]);
+
+  // Ensure any custom fonts are loaded into document.fonts
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || !('fonts' in document)) return;
+    effectiveCustomFonts.forEach(async (font) => {
+      try {
+        let alreadyLoaded = false;
+        document.fonts.forEach(f => {
+          if (f.family === font.name) alreadyLoaded = true;
+        });
+        if (!alreadyLoaded) {
+          const fontFace = new FontFace(font.name, `url(${font.url})`);
+          const loaded = await fontFace.load();
+          document.fonts.add(loaded);
+        }
+      } catch (e) {
+        console.error('Error registering custom font in PropertyBar:', font.name, e);
+      }
+    });
+  }, [effectiveCustomFonts]);
 
   const updateActiveText = (fields: Partial<TextConfig>) => {
     if (!activeTextConfig) return;
-    const configKey = activeTextLayer === 'name' ? 'nameConfig' : activeTextLayer === 'number' ? 'numberConfig' : 'sizeTagConfig';
+    const configKey = resolvedLayer === 'name' ? 'nameConfig' : resolvedLayer === 'number' ? 'numberConfig' : 'sizeTagConfig';
     onUpdatePanel({
       [configKey]: {
         ...activeTextConfig,
@@ -157,7 +201,7 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
       )}
 
       {/* 5. TEXT CONTROLS */}
-      {activeTool === 'text' && activeTextConfig && (
+      {(activeTool === 'text' || !!activeTextLayer) && activeTextConfig && (
         <>
           {/* Layer Selector */}
           <div 
@@ -171,27 +215,30 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
             }}
           >
             <span style={{ fontSize: '10px', fontWeight: '700', color: '#92908A', textTransform: 'uppercase' }}>Layer:</span>
-            {(['name', 'number', 'sizeTag'] as const).map(l => (
-              <button
-                key={l}
-                type="button"
-                onClick={() => onSelectTextLayer(l)}
-                style={{
-                  padding: '3px 8px',
-                  borderRadius: '5px',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                  background: activeTextLayer === l ? '#E4572E' : '#FFFFFF',
-                  color: activeTextLayer === l ? '#FFFFFF' : '#686661',
-                  border: activeTextLayer === l ? '1px solid #E4572E' : '1px solid #D8D5CF',
-                  cursor: 'pointer',
-                  textTransform: 'capitalize',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                {l}
-              </button>
-            ))}
+            {(['name', 'number', 'sizeTag'] as const).map(l => {
+              const isSelected = activeTextLayer === l || (!activeTextLayer && resolvedLayer === l);
+              return (
+                <button
+                  key={l}
+                  type="button"
+                  onClick={() => onSelectTextLayer(l)}
+                  style={{
+                    padding: '3px 8px',
+                    borderRadius: '5px',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    background: isSelected ? '#E4572E' : '#FFFFFF',
+                    color: isSelected ? '#FFFFFF' : '#686661',
+                    border: isSelected ? '1px solid #E4572E' : '1px solid #D8D5CF',
+                    cursor: 'pointer',
+                    textTransform: 'capitalize',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {l}
+                </button>
+              );
+            })}
           </div>
 
           {/* Font & Size */}
@@ -207,23 +254,59 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
           >
             <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600' }}>Font:</span>
             <select
-              value={activeTextConfig.fontFamily}
+              value={activeTextConfig.fontFamily || 'OldSport02AthleticNcv-E0gj'}
               onChange={(e) => updateActiveText({ fontFamily: e.target.value })}
               style={{
-                width: '120px',
+                width: '145px',
                 border: '1px solid #D8D5CF',
                 borderRadius: '6px',
                 fontSize: '11px',
                 fontWeight: '600',
                 padding: '3px 6px',
-                outline: 'none'
+                outline: 'none',
+                background: '#FFFFFF',
+                color: '#1A1917',
+                cursor: 'pointer'
               }}
             >
-              <option value="OldSport02AthleticNcv-E0gj">Athletic Bold</option>
-              <option value="Impact">Impact</option>
-              <option value="Arial">Arial</option>
-              <option value="Roboto">Roboto</option>
-              <option value="Montserrat">Montserrat</option>
+              <optgroup label="Standard Fonts">
+                <option value="OldSport02AthleticNcv-E0gj">Athletic Bold (Default)</option>
+                <option value="Impact">Impact (Bold Athletic)</option>
+                <option value="Arial">Arial Black</option>
+                <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
+                <option value="Times New Roman">Times (Classic Serif)</option>
+                <option value="Roboto">Roboto</option>
+                <option value="Montserrat">Montserrat</option>
+              </optgroup>
+
+              {effectiveCustomFonts.length > 0 && (
+                <optgroup label="Custom Uploaded Fonts">
+                  {effectiveCustomFonts.map((font) => (
+                    <option key={font.name} value={font.name}>
+                      {font.name} (Custom)
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+
+              {activeTextConfig.fontFamily &&
+                ![
+                  'OldSport02AthleticNcv-E0gj',
+                  'Impact',
+                  'Arial',
+                  'Trebuchet MS',
+                  'Times New Roman',
+                  'Roboto',
+                  'Montserrat',
+                  ...effectiveCustomFonts.map(f => f.name)
+                ].includes(activeTextConfig.fontFamily) && (
+                  <optgroup label="Current Font">
+                    <option value={activeTextConfig.fontFamily}>
+                      {activeTextConfig.fontFamily}
+                    </option>
+                  </optgroup>
+                )
+              }
             </select>
 
             <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600', marginLeft: '4px' }}>Size:</span>

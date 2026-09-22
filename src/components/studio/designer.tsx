@@ -2443,9 +2443,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         onSetZoom={setZoom}
         onUpdatePanel={updateActivePanel}
         activeTextLayer={activeTextLayer as any}
-        onSelectTextLayer={(layer) => setActiveTextLayer(layer as any)}
+        onSelectTextLayer={(layer) => {
+          setActiveTextLayer(layer as any);
+          setActiveTool('text');
+        }}
         previewSleeveType={previewSleeveType}
         onSleeveTypeChange={handleSleeveTypeChange}
+        customFonts={customFonts}
       />
 
       {/* 3. MAIN WORKSPACE: CANVAS + RIGHT DOCKERS */}
@@ -4524,6 +4528,24 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
                     {true && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ fontSize: '11px' }}>Font Family:</label>
+                          <select 
+                            className="form-select" 
+                            value={activePanel.sizeTagConfig?.fontFamily || 'OldSport02AthleticNcv-E0gj'}
+                            onChange={(e) => updateTextConfig('sizeTag', { fontFamily: e.target.value })}
+                            style={{ padding: '6px' }}
+                          >
+                            <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
+                            <option value="Impact">Impact (Bold Athletic)</option>
+                            <option value="Arial">Arial Black</option>
+                            <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
+                            <option value="Times New Roman">Times (Classic Serif)</option>
+                            {customFonts.map(font => (
+                              <option key={font.name} value={font.name}>{font.name} (Custom)</option>
+                            ))}
+                          </select>
+                        </div>
                         <div className="form-row">
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ fontSize: '11px' }}>Font Size (pt):</label>
