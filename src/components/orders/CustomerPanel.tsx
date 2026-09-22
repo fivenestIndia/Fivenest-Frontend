@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Plus, X, MoreVertical, ChevronRight, Factory, Palette, Printer,
-  Phone, Mail, MapPin, User, Trash2, Eye, CreditCard, AlertTriangle
+  Phone, Mail, MapPin, User, Trash2, Eye, CreditCard, AlertTriangle, BookOpen
 } from 'lucide-react';
 import {
   useOrderStore, Customer, fmt, BusinessType, getCustomerSummary, getCustomerLedger
@@ -16,6 +16,7 @@ interface Props {
   onNewDesignerBill: (customerId: string) => void;
   onNewPrintingOrder: (customerId: string) => void;
   onReceivePayment: (customerId: string) => void;
+  onViewLedger?: (customerId: string) => void;
 }
 
 const SERVICE_BADGE: Record<BusinessType, { label: string; cls: string }> = {
@@ -152,11 +153,12 @@ function AddCustomerDrawer({
 // ── Customer Profile Drawer ────────────────────────────────────────────────────
 function CustomerProfileDrawer({
   store, customer, onClose,
-  onNewMfgOrder, onNewDesignerBill, onNewPrintingOrder, onReceivePayment,
+  onNewMfgOrder, onNewDesignerBill, onNewPrintingOrder, onReceivePayment, onViewLedger,
 }: {
   store: ReturnType<typeof useOrderStore>; customer: Customer; onClose: () => void;
   onNewMfgOrder: () => void; onNewDesignerBill: () => void;
   onNewPrintingOrder: () => void; onReceivePayment: () => void;
+  onViewLedger?: () => void;
 }) {
   const summary = getCustomerSummary(store.state, customer.id);
   const ledger = getCustomerLedger(store.state, customer.id).slice(-8).reverse();
@@ -178,66 +180,80 @@ function CustomerProfileDrawer({
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* Contact info */}
-          <div className="flex flex-wrap gap-3 text-xs text-[#52525B]">
-            {customer.phone && <span className="flex items-center gap-1"><Phone size={12}/>{customer.phone}</span>}
-            {customer.email && <span className="flex items-center gap-1"><Mail size={12}/>{customer.email}</span>}
-            {customer.gstin && <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded font-mono">{customer.gstin}</span>}
-          </div>
-
-          {/* Services */}
-          <div className="flex gap-2 flex-wrap">
-            {summary.services.map(s => (
-              <span key={s} className={cn('px-3 py-1 rounded-full text-xs font-bold border', SERVICE_BADGE[s].cls)}>
-                {s.charAt(0).toUpperCase()+s.slice(1)}
+          {/* Summary stats */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-[#FAF8F5] p-3 rounded-xl border border-[#E8E4DE]">
+              <span className="text-[10px] uppercase font-bold text-[#71717A] block">Total Business</span>
+              <span className="text-lg font-black text-[#171717]">{fmt(summary.totalBusiness)}</span>
+            </div>
+            <div className="bg-[#FAF8F5] p-3 rounded-xl border border-[#E8E4DE]">
+              <span className="text-[10px] uppercase font-bold text-[#71717A] block">Total Paid</span>
+              <span className="text-lg font-black text-emerald-600">{fmt(summary.totalPaid)}</span>
+            </div>
+            <div className="bg-[#FAF8F5] p-3 rounded-xl border border-[#E8E4DE]">
+              <span className="text-[10px] uppercase font-bold text-[#71717A] block">Outstanding</span>
+              <span className={`text-lg font-black ${summary.outstanding > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                {fmt(summary.outstanding)}
               </span>
-            ))}
-            {summary.services.length === 0 && <span className="text-xs text-[#71717A]">No transactions yet</span>}
+            </div>
           </div>
 
-          {/* Summary cards */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Contact & addresses */}
+          <div className="space-y-2 text-xs">
+            <div className="flex items-center gap-2 text-[#52525B]">
+              <Phone size={14}/><span>{customer.phone}</span>
+              {customer.whatsapp && <span className="text-emerald-600">(WA: {customer.whatsapp})</span>}
+            </div>
+            {customer.email && (
+              <div className="flex items-center gap-2 text-[#52525B]">
+                <Mail size={14}/><span>{customer.email}</span>
+              </div>
+            )}
+            {customer.gstin && (
+              <div className="flex items-center gap-2 text-[#52525B]">
+                <span className="font-bold">GSTIN:</span><span className="font-mono">{customer.gstin}</span>
+              </div>
+            )}
+            {customer.billingAddress && (
+              <div className="flex items-start gap-2 text-[#52525B]">
+                <MapPin size={14} className="shrink-0 mt-0.5"/><span>{customer.billingAddress}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Business-wise breakdown */}
+          <div className="space-y-2">
+            <div className="text-xs font-bold uppercase tracking-wider text-[#71717A]">Business Summary</div>
             {[
-              { label: 'Total Business', value: fmt(summary.totalBusiness), cls: 'text-[#171717]' },
-              { label: 'Outstanding', value: fmt(summary.outstanding), cls: summary.outstanding > 0 ? 'text-red-600' : 'text-emerald-600' },
-              { label: 'Total Paid', value: fmt(summary.totalPaid), cls: 'text-emerald-600' },
-              { label: 'Services Used', value: summary.services.length.toString(), cls: 'text-[#E4572E]' },
-            ].map(m => (
-              <div key={m.label} className="bg-[#FAF8F5] border border-[#E8E4DE] rounded-xl p-4">
-                <p className="text-[11px] uppercase tracking-wider text-[#71717A] font-semibold">{m.label}</p>
-                <p className={`text-xl font-black mt-0.5 ${m.cls}`}>{m.value}</p>
+              { label: 'Manufacturer Orders', total: summary.mfgTotal, paid: summary.mfgPaid, out: summary.mfgOutstanding, color: 'text-orange-600' },
+              { label: 'Designer Bills', total: summary.dsgTotal, paid: summary.dsgPaid, out: summary.dsgOutstanding, color: 'text-purple-600' },
+              { label: 'Printing Orders', total: summary.prtTotal, paid: summary.prtPaid, out: summary.prtOutstanding, color: 'text-blue-600' },
+            ].map(b => (
+              <div key={b.label} className="flex items-center justify-between py-2 border-b border-[#F0EDE8] text-xs">
+                <span className="font-semibold text-[#171717]">{b.label}</span>
+                <div className="flex gap-4">
+                  <span className="text-[#71717A]">Total: {fmt(b.total)}</span>
+                  <span className="text-emerald-600">Paid: {fmt(b.paid)}</span>
+                  <span className={`font-bold ${b.out > 0 ? 'text-red-600' : 'text-emerald-600'}`}>Due: {fmt(b.out)}</span>
+                </div>
               </div>
             ))}
           </div>
 
-          {/* Service breakdown */}
-          {summary.services.length > 0 && (
-            <div className="border border-[#E8E4DE] rounded-xl overflow-hidden">
-              <div className="bg-[#FAF8F5] px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#71717A]">Service Breakdown</div>
-              {[
-                { svc: 'manufacturer' as BusinessType, label: 'Manufacturer', total: summary.mfgTotal, paid: summary.mfgPaid, outstanding: summary.mfgOutstanding, icon: Factory, color: 'text-[#E4572E]' },
-                { svc: 'designer' as BusinessType, label: 'Designer',     total: summary.dsgTotal, paid: summary.dsgPaid, outstanding: summary.dsgOutstanding, icon: Palette, color: 'text-purple-600' },
-                { svc: 'printing' as BusinessType, label: 'Printing',     total: summary.prtTotal, paid: summary.prtPaid, outstanding: summary.prtOutstanding, icon: Printer, color: 'text-blue-600' },
-              ].filter(s => summary.services.includes(s.svc)).map(row => {
-                const Icon = row.icon;
-                return (
-                  <div key={row.svc} className="flex items-center justify-between px-4 py-3 border-t border-[#E8E4DE]">
-                    <span className={`flex items-center gap-1.5 text-sm font-semibold ${row.color}`}><Icon size={14}/>{row.label}</span>
-                    <div className="flex gap-4 text-xs text-right">
-                      <div><p className="text-[#71717A]">Billed</p><p className="font-bold text-[#171717]">{fmt(row.total)}</p></div>
-                      <div><p className="text-[#71717A]">Paid</p><p className="font-bold text-emerald-600">{fmt(row.paid)}</p></div>
-                      <div><p className="text-[#71717A]">Due</p><p className={`font-bold ${row.outstanding>0?'text-red-600':'text-emerald-600'}`}>{fmt(row.outstanding)}</p></div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
           {/* Recent ledger */}
           {ledger.length > 0 && (
             <div className="border border-[#E8E4DE] rounded-xl overflow-hidden">
-              <div className="bg-[#FAF8F5] px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#71717A]">Recent Transactions</div>
+              <div className="bg-[#FAF8F5] px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#71717A] flex items-center justify-between">
+                <span>Recent Transactions</span>
+                {onViewLedger && (
+                  <button
+                    onClick={() => { onViewLedger(); onClose(); }}
+                    className="text-[#E4572E] hover:underline font-bold text-xs flex items-center gap-1"
+                  >
+                    Open Full Ledger →
+                  </button>
+                )}
+              </div>
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-t border-[#E8E4DE]">
@@ -264,6 +280,12 @@ function CustomerProfileDrawer({
 
         {/* Quick actions */}
         <div className="px-6 py-4 border-t border-[#E8E4DE] grid grid-cols-2 gap-2">
+          {onViewLedger && (
+            <button onClick={() => { onViewLedger(); onClose(); }}
+              className="col-span-2 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold hover:bg-blue-100 transition-all shadow-sm">
+              <BookOpen size={14}/> View Full Customer Ledger
+            </button>
+          )}
           <button onClick={() => { onNewMfgOrder(); onClose(); }}
             className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold hover:bg-orange-100">
             <Factory size={13}/> New Mfg Order
@@ -287,7 +309,9 @@ function CustomerProfileDrawer({
 }
 
 // ── Main Customer Panel ────────────────────────────────────────────────────────
-export default function CustomerPanel({ store, onNewMfgOrder, onNewDesignerBill, onNewPrintingOrder, onReceivePayment }: Props) {
+export default function CustomerPanel({
+  store, onNewMfgOrder, onNewDesignerBill, onNewPrintingOrder, onReceivePayment, onViewLedger
+}: Props) {
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
@@ -299,39 +323,43 @@ export default function CustomerPanel({ store, onNewMfgOrder, onNewDesignerBill,
       || c.phone.includes(q) || c.gstin.toLowerCase().includes(q);
   });
 
-  const profileCustomer = profileId ? store.state.customers.find(c => c.id === profileId) : null;
+  const profileCustomer = store.state.customers.find(c => c.id === profileId);
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
+      {/* Top bar */}
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+        <div className="relative flex-1 max-w-sm">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#71717A]" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search customers by name, phone, GSTIN..."
-            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-[#E8E4DE] text-sm focus:outline-none focus:border-[#E4572E] focus:ring-1 focus:ring-[#E4572E]/20 bg-white"
+          <input
+            value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search by name, phone, GSTIN..."
+            className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#E8E4DE] text-sm focus:outline-none focus:border-[#E4572E] bg-white"
           />
         </div>
-        <button onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#E4572E] text-white text-sm font-bold hover:bg-[#D4431B] shadow-sm whitespace-nowrap">
-          <Plus size={16}/> Add Customer
+        <button
+          onClick={() => setShowAdd(true)}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#E4572E] text-white text-sm font-bold hover:bg-[#D4431B] shadow-sm transition-all"
+        >
+          <Plus size={16} /> Add Customer
         </button>
       </div>
 
-      {/* Table */}
+      {/* Customer table */}
       {filtered.length === 0 ? (
-        <div className="text-center py-20 border border-dashed border-[#E8E4DE] rounded-2xl">
+        <div className="text-center py-16 border border-dashed border-[#E8E4DE] rounded-2xl">
           <User size={40} className="mx-auto text-[#D8D5CF] mb-3" />
-          <p className="text-[#52525B] font-semibold">{search ? 'No customers found' : 'No Customers Yet'}</p>
-          <p className="text-sm text-[#71717A] mt-1">{search ? 'Try a different search' : 'Add your first customer to get started.'}</p>
-          {!search && <button onClick={() => setShowAdd(true)} className="mt-4 px-4 py-2 rounded-xl bg-[#E4572E] text-white text-sm font-bold hover:bg-[#D4431B]">+ Add Customer</button>}
+          <p className="font-semibold text-[#52525B]">No Customers Found</p>
+          <p className="text-sm text-[#71717A] mt-1">Add your first customer to get started.</p>
+          <button onClick={() => setShowAdd(true)} className="mt-4 px-4 py-2 rounded-xl bg-[#E4572E] text-white text-sm font-bold">+ Add Customer</button>
         </div>
       ) : (
-        <div className="bg-white border border-[#E8E4DE] rounded-2xl overflow-hidden">
+        <div className="bg-white border border-[#E8E4DE] rounded-2xl overflow-hidden shadow-sm">
           <table className="w-full">
             <thead>
               <tr className="bg-[#FAF8F5] border-b border-[#E8E4DE]">
-                {['Customer', 'Phone', 'Services', 'Total Business', 'Outstanding', ''].map(h => (
-                  <th key={h} className="text-left px-4 py-3 text-xs uppercase tracking-wider font-semibold text-[#71717A]">{h}</th>
+                {['Customer / Business', 'Phone', 'Services', 'Total Business', 'Outstanding', ''].map((h, i) => (
+                  <th key={i} className="text-left px-4 py-3 text-xs uppercase tracking-wider font-semibold text-[#71717A]">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -379,6 +407,7 @@ export default function CustomerPanel({ store, onNewMfgOrder, onNewDesignerBill,
                           >
                             {[
                               { label: 'View Profile', icon: Eye, action: () => { setProfileId(c.id); setMenuId(null); } },
+                              { label: 'View Ledger', icon: BookOpen, action: () => { onViewLedger?.(c.id); setMenuId(null); } },
                               { label: 'New Mfg Order', icon: Factory, action: () => { onNewMfgOrder(c.id); setMenuId(null); } },
                               { label: 'New Designer Bill', icon: Palette, action: () => { onNewDesignerBill(c.id); setMenuId(null); } },
                               { label: 'New Printing Order', icon: Printer, action: () => { onNewPrintingOrder(c.id); setMenuId(null); } },
@@ -415,6 +444,7 @@ export default function CustomerPanel({ store, onNewMfgOrder, onNewDesignerBill,
             onNewDesignerBill={() => onNewDesignerBill(profileCustomer.id)}
             onNewPrintingOrder={() => onNewPrintingOrder(profileCustomer.id)}
             onReceivePayment={() => onReceivePayment(profileCustomer.id)}
+            onViewLedger={() => onViewLedger?.(profileCustomer.id)}
           />
         )}
       </AnimatePresence>

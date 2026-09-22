@@ -15,10 +15,11 @@ interface Props {
   store: ReturnType<typeof useOrderStore>;
   mode: 'all' | BusinessType;
   onReceivePayment: (customerId?: string) => void;
+  onViewLedger?: (customerId: string) => void;
   defaultTab?: 'outstanding' | 'history';
 }
 
-export default function PaymentsHub({ store, mode, onReceivePayment, defaultTab = 'outstanding' }: Props) {
+export default function PaymentsHub({ store, mode, onReceivePayment, onViewLedger, defaultTab = 'outstanding' }: Props) {
   const [activeTab, setActiveTab] = useState<'outstanding' | 'history'>(defaultTab);
   const [searchHistory, setSearchHistory] = useState('');
 
@@ -191,6 +192,7 @@ export default function PaymentsHub({ store, mode, onReceivePayment, defaultTab 
               store={store}
               mode={mode}
               onReceivePayment={onReceivePayment}
+              onViewLedger={onViewLedger}
             />
           </motion.div>
         ) : (
@@ -216,27 +218,21 @@ export default function PaymentsHub({ store, mode, onReceivePayment, defaultTab 
             </div>
 
             {/* Table */}
-            <div className="bg-white border border-[#E8E4DE] rounded-2xl overflow-hidden shadow-sm">
-              {filteredPayments.length === 0 ? (
-                <div className="text-center py-16">
-                  <CreditCard size={36} className="mx-auto text-[#D8D5CF] mb-3" />
-                  <p className="text-[#52525B] font-semibold">No Payment Receipts Found</p>
-                  <p className="text-xs text-[#71717A] mt-1">
-                    {searchHistory ? 'Try changing your search term.' : 'Record your first payment receipt.'}
-                  </p>
-                  <button
-                    onClick={() => onReceivePayment()}
-                    className="mt-4 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700"
-                  >
-                    + Receive Payment
-                  </button>
-                </div>
-              ) : (
+            {filteredPayments.length === 0 ? (
+              <div className="text-center py-16 border border-dashed border-[#E8E4DE] rounded-2xl bg-white">
+                <CreditCard size={40} className="mx-auto text-[#D8D5CF] mb-3" />
+                <p className="font-semibold text-[#52525B]">No Payments Found</p>
+                <p className="text-sm text-[#71717A] mt-1">
+                  {searchHistory ? 'Try changing your search term.' : 'Recorded payment receipts will appear here.'}
+                </p>
+              </div>
+            ) : (
+              <div className="bg-white border border-[#E8E4DE] rounded-2xl overflow-hidden shadow-sm">
                 <table className="w-full">
                   <thead>
                     <tr className="bg-[#FAF8F5] border-b border-[#E8E4DE]">
-                      {['Receipt #', 'Customer', 'Date', 'Amount', 'Payment Mode', 'Reference #', 'Allocations', ''].map(h => (
-                        <th key={h} className="text-left px-4 py-3 text-xs uppercase tracking-wider font-semibold text-[#71717A]">
+                      {['Receipt #', 'Customer', 'Date', 'Amount', 'Mode', 'Ref / Txn #', 'Allocations', ''].map((h, i) => (
+                        <th key={i} className="text-left px-4 py-3 text-xs uppercase tracking-wider font-semibold text-[#71717A]">
                           {h}
                         </th>
                       ))}
@@ -251,7 +247,18 @@ export default function PaymentsHub({ store, mode, onReceivePayment, defaultTab 
                             {p.paymentNumber}
                           </td>
                           <td className="px-4 py-3">
-                            <p className="font-bold text-sm text-[#171717]">{cust?.businessName || '—'}</p>
+                            {onViewLedger ? (
+                              <button
+                                type="button"
+                                onClick={() => onViewLedger(p.customerId)}
+                                className="font-bold text-sm text-[#171717] hover:text-[#E4572E] hover:underline text-left block"
+                                title="Click to view Customer Ledger"
+                              >
+                                {cust?.businessName || '—'}
+                              </button>
+                            ) : (
+                              <p className="font-bold text-sm text-[#171717]">{cust?.businessName || '—'}</p>
+                            )}
                             <p className="text-xs text-[#71717A]">{cust?.name}</p>
                           </td>
                           <td className="px-4 py-3 text-xs text-[#71717A] whitespace-nowrap">
@@ -300,8 +307,8 @@ export default function PaymentsHub({ store, mode, onReceivePayment, defaultTab 
                     })}
                   </tbody>
                 </table>
-              )}
-            </div>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

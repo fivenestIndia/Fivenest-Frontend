@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AlertCircle, Clock, AlertOctagon, CheckCircle, MessageSquare } from 'lucide-react';
+import { AlertCircle, Clock, AlertOctagon, CheckCircle, MessageSquare, BookOpen } from 'lucide-react';
 import {
   useOrderStore, BusinessType, fmt, STATUS_COLORS, STATUS_LABELS
 } from '../../hooks/useOrderStore';
@@ -10,6 +10,7 @@ interface Props {
   store: ReturnType<typeof useOrderStore>;
   mode: 'all' | BusinessType;
   onReceivePayment: (customerId: string) => void;
+  onViewLedger?: (customerId: string) => void;
 }
 
 type AgingBucket = 'not_due' | '0_30' | '31_60' | '61_90' | '90plus';
@@ -54,7 +55,7 @@ const TYPE_BADGE: Record<BusinessType, string> = {
   printing: 'bg-blue-50 text-blue-700 border-blue-200',
 };
 
-export default function OutstandingView({ store, mode, onReceivePayment }: Props) {
+export default function OutstandingView({ store, mode, onReceivePayment, onViewLedger }: Props) {
   const [tab, setTab] = useState<OutstandingTab>('all');
   const [customerFilter, setCustomerFilter] = useState('');
 
@@ -200,7 +201,20 @@ export default function OutstandingView({ store, mode, onReceivePayment }: Props
                 <tr key={row.id} className={cn('border-t border-[#E8E4DE] transition-colors',
                   row.daysOverdue > 0 ? 'bg-red-50/30 hover:bg-red-50/60' : 'hover:bg-[#FAF8F5]'
                 )}>
-                  <td className="px-4 py-3 font-semibold text-sm text-[#171717]">{row.customerName}</td>
+                  <td className="px-4 py-3">
+                    {onViewLedger ? (
+                      <button
+                        type="button"
+                        onClick={() => onViewLedger(row.customerId)}
+                        className="font-bold text-sm text-[#171717] hover:text-[#E4572E] hover:underline text-left block"
+                        title="Click to view Customer Ledger"
+                      >
+                        {row.customerName}
+                      </button>
+                    ) : (
+                      <span className="font-semibold text-sm text-[#171717]">{row.customerName}</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border', TYPE_BADGE[row.serviceType])}>
                       {row.serviceType.charAt(0).toUpperCase()+row.serviceType.slice(1)}
@@ -234,6 +248,16 @@ export default function OutstandingView({ store, mode, onReceivePayment }: Props
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
+                      {onViewLedger && (
+                        <button
+                          type="button"
+                          onClick={() => onViewLedger(row.customerId)}
+                          title="View Customer Ledger"
+                          className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600 transition-colors"
+                        >
+                          <BookOpen size={15}/>
+                        </button>
+                      )}
                       <button onClick={() => onReceivePayment(row.customerId)} title="Receive Payment"
                         className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600 transition-colors">
                         <CheckCircle size={15}/>

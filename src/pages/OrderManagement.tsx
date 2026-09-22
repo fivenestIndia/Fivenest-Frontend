@@ -18,6 +18,7 @@ import PaymentDrawer from '../components/orders/PaymentDrawer';
 import LedgerView from '../components/orders/LedgerView';
 import ReportsView from '../components/orders/ReportsView';
 import JobSheetModal from '../components/orders/JobSheetModal';
+import DesignerBillModal from '../components/orders/DesignerBillModal';
 import PaymentsHub from '../components/orders/PaymentsHub';
 import { ManufacturerOrder, DesignerBill } from '../hooks/useOrderStore';
 
@@ -134,11 +135,13 @@ const MODE_CONFIG: Record<BusinessMode, { label: string; icon?: React.FC<{size?:
 };
 
 // ─── Manufacturer Orders Section ──────────────────────────────────────────────
-function MfgOrdersView({ store, onEdit, onView, onReceivePayment }: {
+// ─── Manufacturer Orders Section ──────────────────────────────────────────────
+function MfgOrdersView({ store, onEdit, onView, onReceivePayment, onViewLedger }: {
   store: ReturnType<typeof useOrderStore>;
   onEdit: (order: ManufacturerOrder) => void;
   onView: (order: ManufacturerOrder) => void;
   onReceivePayment: (customerId: string) => void;
+  onViewLedger?: (customerId: string) => void;
 }) {
   const columns: Column<ManufacturerOrder>[] = [
     { key: 'orderNumber', label: 'Order #', sortable: true, render: row => (
@@ -148,7 +151,23 @@ function MfgOrdersView({ store, onEdit, onView, onReceivePayment }: {
     )},
     { key: 'customerId', label: 'Customer', render: row => {
       const c = store.state.customers.find(x => x.id === row.customerId);
-      return <div><p className="font-bold text-sm text-[#171717]">{c?.businessName||'—'}</p><p className="text-xs text-[#71717A]">{row.teamName || c?.name}</p></div>;
+      return (
+        <div>
+          {onViewLedger ? (
+            <button
+              type="button"
+              onClick={() => onViewLedger(row.customerId)}
+              className="font-bold text-sm text-[#171717] hover:text-[#E4572E] hover:underline text-left block"
+              title="Click to view Customer Ledger"
+            >
+              {c?.businessName || '—'}
+            </button>
+          ) : (
+            <p className="font-bold text-sm text-[#171717]">{c?.businessName || '—'}</p>
+          )}
+          <p className="text-xs text-[#71717A]">{row.teamName || c?.name}</p>
+        </div>
+      );
     }},
     { key: 'fabric', label: 'Fabric & Print', render: row => (
       <div>
@@ -215,15 +234,42 @@ function MfgOrdersView({ store, onEdit, onView, onReceivePayment }: {
 }
 
 // ─── Designer Bills Section ───────────────────────────────────────────────────
-function DesignerBillsView({ store, onReceivePayment }: {
+function DesignerBillsView({ store, onReceivePayment, onView, onViewLedger }: {
   store: ReturnType<typeof useOrderStore>;
   onReceivePayment: (customerId: string) => void;
+  onView?: (bill: DesignerBill) => void;
+  onViewLedger?: (customerId: string) => void;
 }) {
   const columns: Column<DesignerBill>[] = [
-    { key: 'billNumber', label: 'Bill #', sortable: true },
+    {
+      key: 'billNumber',
+      label: 'Bill #',
+      sortable: true,
+      render: row => (
+        <button
+          type="button"
+          onClick={() => onView?.(row)}
+          className="font-mono text-xs font-bold text-purple-600 hover:text-purple-800 hover:underline text-left"
+          title="Click to view Designer Bill"
+        >
+          {row.billNumber}
+        </button>
+      ),
+    },
     { key: 'customerId', label: 'Customer', render: row => {
       const c = store.state.customers.find(x => x.id === row.customerId);
-      return <span className="font-semibold">{c?.businessName||'—'}</span>;
+      return onViewLedger ? (
+        <button
+          type="button"
+          onClick={() => onViewLedger(row.customerId)}
+          className="font-bold text-sm text-[#171717] hover:text-[#E4572E] hover:underline text-left block"
+          title="Click to view Customer Ledger"
+        >
+          {c?.businessName || '—'}
+        </button>
+      ) : (
+        <span className="font-semibold">{c?.businessName||'—'}</span>
+      );
     }},
     { key: 'productionJobId', label: 'Job #', hideOnMobile: true, render: row => (
       <span className="text-xs font-mono text-[#52525B]">{row.productionJobId || '—'}</span>
@@ -247,6 +293,7 @@ function DesignerBillsView({ store, onReceivePayment }: {
       rows={store.state.designerBills}
       actions={['view','payment','delete']}
       onAction={(action, row) => {
+        if (action === 'view') onView?.(row);
         if (action === 'payment') onReceivePayment(row.customerId);
         if (action === 'delete') { if(confirm(`Delete ${row.billNumber}?`)) store.dispatch({ type: 'DELETE_DESIGNER_BILL', payload: row.id }); }
       }}
@@ -269,6 +316,8 @@ export default function OrderManagement() {
   const [showMfgForm, setShowMfgForm] = useState(false);
   const [editOrder, setEditOrder] = useState<ManufacturerOrder | null>(null);
   const [jobSheetOrder, setJobSheetOrder] = useState<ManufacturerOrder | null>(null);
+  const [viewingDesignerBill, setViewingDesignerBill] = useState<DesignerBill | null>(null);
+  const [selectedLedgerCustomerId, setSelectedLedgerCustomerId] = useState<string | undefined>();
   const [mfgPrefillCustomerId, setMfgPrefillCustomerId] = useState<string | undefined>();
   const [showDesignerForm, setShowDesignerForm] = useState(false);
   const [dsgPrefillCustomerId, setDsgPrefillCustomerId] = useState<string | undefined>();
@@ -280,6 +329,11 @@ export default function OrderManagement() {
   const stats = store.getKPIStats(businessMode);
 
   const showToast = (msg: string) => { setToast(msg); };
+
+  const openCustomerLedger = (customerId?: string) => {
+    if (customerId) setSelectedLedgerCustomerId(customerId);
+    setSubView('ledger');
+  };
 
   const openMfgOrder = (customerId?: string) => {
     setMfgPrefillCustomerId(customerId);
@@ -687,13 +741,23 @@ export default function OrderManagement() {
                       onEdit={order => { setEditOrder(order); setShowMfgForm(true); }}
                       onView={order => setJobSheetOrder(order)}
                       onReceivePayment={openPayment}
+                      onViewLedger={openCustomerLedger}
                     />
                   )}
                   {(businessMode === 'designer' || businessMode === 'all') && (
-                    <DesignerBillsView store={store} onReceivePayment={openPayment}/>
+                    <DesignerBillsView
+                      store={store}
+                      onReceivePayment={openPayment}
+                      onView={bill => setViewingDesignerBill(bill)}
+                      onViewLedger={openCustomerLedger}
+                    />
                   )}
                   {businessMode === 'printing' && (
-                    <PrintingModule store={store} onReceivePayment={openPayment}/>
+                    <PrintingModule
+                      store={store}
+                      onReceivePayment={openPayment}
+                      onViewCustomerLedger={openCustomerLedger}
+                    />
                   )}
                 </div>
               )}
@@ -708,6 +772,7 @@ export default function OrderManagement() {
                     onNewDesignerBill={openDesignerBill}
                     onNewPrintingOrder={openPrintingOrder}
                     onReceivePayment={openPayment}
+                    onViewLedger={openCustomerLedger}
                   />
                 </div>
               )}
@@ -718,6 +783,7 @@ export default function OrderManagement() {
                   store={store}
                   mode={businessMode}
                   onReceivePayment={openPayment}
+                  onViewLedger={openCustomerLedger}
                 />
               )}
 
@@ -725,7 +791,13 @@ export default function OrderManagement() {
               {subView === 'ledger' && (
                 <div className="space-y-4">
                   <h2 className="text-xl font-black text-[#171717]">Customer Ledger</h2>
-                  <LedgerView store={store}/>
+                  <LedgerView
+                    store={store}
+                    mode={businessMode}
+                    customerId={selectedLedgerCustomerId}
+                    onSelectCustomer={id => setSelectedLedgerCustomerId(id)}
+                    onReceivePayment={openPayment}
+                  />
                 </div>
               )}
 
@@ -793,6 +865,15 @@ export default function OrderManagement() {
               setEditOrder(ord);
               setShowMfgForm(true);
             }}
+          />
+        )}
+        {viewingDesignerBill && (
+          <DesignerBillModal
+            bill={viewingDesignerBill}
+            customer={store.state.customers.find(c => c.id === viewingDesignerBill.customerId)}
+            onClose={() => setViewingDesignerBill(null)}
+            onReceivePayment={openPayment}
+            onViewCustomerLedger={openCustomerLedger}
           />
         )}
         {toast && <Toast message={toast} onClose={() => setToast(null)}/>}

@@ -6,6 +6,7 @@ import {
   PAYMENT_MODES, PAYMENT_MODE_LABELS, PaymentMode, STATUS_COLORS, STATUS_LABELS, fmt, getEffectivePrintingRate
 } from '../../hooks/useOrderStore';
 import TransactionTable, { Column } from './TransactionTable';
+import PrintingJobSheetModal from './PrintingJobSheetModal';
 
 const cn = (...c: (string|undefined|boolean)[]) => c.filter(Boolean).join(' ');
 const today = () => new Date().toISOString().slice(0,10);
@@ -14,6 +15,7 @@ const addDays = (d: string, n: number) => { const dt = new Date(d); dt.setDate(d
 interface Props {
   store: ReturnType<typeof useOrderStore>;
   onReceivePayment: (customerId: string) => void;
+  onViewCustomerLedger?: (customerId: string) => void;
 }
 
 // ── Add/Edit Service Drawer ────────────────────────────────────────────────────
@@ -396,18 +398,53 @@ function PrintingOrderDrawer({ store, onClose, onSaved }: { store: ReturnType<ty
 }
 
 // ── Main Printing Module ───────────────────────────────────────────────────────
-export default function PrintingModule({ store, onReceivePayment }: Props) {
+export default function PrintingModule({ store, onReceivePayment, onViewCustomerLedger }: Props) {
   const [tab, setTab] = useState<'rates' | 'orders'>('orders');
   const [showServiceDrawer, setShowServiceDrawer] = useState(false);
   const [editService, setEditService] = useState<PrintingService | undefined>();
   const [showOrderDrawer, setShowOrderDrawer] = useState(false);
+  const [viewingOrder, setViewingOrder] = useState<PrintingOrder | null>(null);
 
   const orderColumns: Column<PrintingOrder>[] = [
-    { key: 'orderNumber', label: 'Order #', sortable: true },
-    { key: 'customerId', label: 'Customer', render: (row) => {
-      const c = store.state.customers.find(x => x.id === row.customerId);
-      return <span className="font-semibold">{c?.businessName || '—'}</span>;
-    }},
+    {
+      key: 'orderNumber',
+      label: 'Order #',
+      sortable: true,
+      render: (row) => (
+        <button
+          type="button"
+          onClick={() => setViewingOrder(row)}
+          className="font-mono text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 text-left"
+          title="Click to view Printing Job Card"
+        >
+          {row.orderNumber}
+        </button>
+      ),
+    },
+    {
+      key: 'customerId',
+      label: 'Customer',
+      render: (row) => {
+        const c = store.state.customers.find(x => x.id === row.customerId);
+        return (
+          <div>
+            {onViewCustomerLedger ? (
+              <button
+                type="button"
+                onClick={() => onViewCustomerLedger(row.customerId)}
+                className="font-bold text-sm text-[#171717] hover:text-[#E4572E] hover:underline text-left block"
+                title="Click to view Customer Ledger"
+              >
+                {c?.businessName || '—'}
+              </button>
+            ) : (
+              <span className="font-bold text-sm text-[#171717]">{c?.businessName || '—'}</span>
+            )}
+            {c?.name && <p className="text-xs text-[#71717A]">{c.name}</p>}
+          </div>
+        );
+      },
+    },
     { key: 'serviceId', label: 'Printing Type', render: (row) => {
       const s = store.state.printingServices.find(x => x.id === row.serviceId);
       return <span>{s?.name || '—'}</span>;
@@ -454,6 +491,7 @@ export default function PrintingModule({ store, onReceivePayment }: Props) {
             columns={orderColumns} rows={store.state.printingOrders}
             actions={['view','payment','delete']}
             onAction={(action, row) => {
+              if (action === 'view') setViewingOrder(row);
               if (action === 'payment') onReceivePayment(row.customerId);
               if (action === 'delete') { if(confirm(`Delete ${row.orderNumber}?`)) store.dispatch({ type: 'DELETE_PRINTING_ORDER', payload: row.id }); }
             }}
@@ -527,6 +565,16 @@ export default function PrintingModule({ store, onReceivePayment }: Props) {
         )}
         {showOrderDrawer && (
           <PrintingOrderDrawer store={store} onClose={() => setShowOrderDrawer(false)} onSaved={() => setShowOrderDrawer(false)} />
+        )}
+        {viewingOrder && (
+          <PrintingJobSheetModal
+            order={viewingOrder}
+            customer={store.state.customers.find(c => c.id === viewingOrder.customerId)}
+            service={store.state.printingServices.find(s => s.id === viewingOrder.serviceId)}
+            onClose={() => setViewingOrder(null)}
+            onReceivePayment={onReceivePayment}
+            onViewCustomerLedger={onViewCustomerLedger}
+          />
         )}
       </AnimatePresence>
     </div>
