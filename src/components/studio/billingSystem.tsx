@@ -219,6 +219,9 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({
     } catch (e) {
       console.error('Failed to save billing records:', e);
     }
+    window.dispatchEvent(new CustomEvent('fivenest-billing-updated', {
+      detail: { records: newList, storageKey: activeKey, userEmail: currentUser?.email || 'guest' }
+    }));
   };
 
   // Clear all billing data for this account

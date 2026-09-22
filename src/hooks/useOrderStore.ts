@@ -4,6 +4,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useReducer, useEffect, useCallback } from 'react';
+import {
+  syncProductionBillingToStore,
+  saveDesignerBillToProduction,
+  deleteDesignerBillFromProduction,
+  updateProductionBillingPayment
+} from '../lib/designerProductionSync';
 
 // ─────────────── TYPES ───────────────────────────────────────────────────────
 
@@ -339,8 +345,9 @@ export type Action =
   | { type: 'ADD_QUOTATION'; payload: Omit<Quotation, 'id' | 'quotationNumber' | 'createdAt'> }
   | { type: 'UPDATE_QUOTATION'; payload: Quotation }
   | { type: 'DELETE_QUOTATION'; payload: string }
-  // Reset
-  | { type: 'LOAD_STATE'; payload: OrderStore };
+  // Reset & Production Sync
+  | { type: 'LOAD_STATE'; payload: OrderStore }
+  | { type: 'SYNC_PRODUCTION_BILLING' };
 
 // ─────────────── HELPERS ─────────────────────────────────────────────────────
 
@@ -393,7 +400,7 @@ function applyAllocations(state: OrderStore): OrderStore {
 // ─────────────── INITIAL SEED DATA ───────────────────────────────────────────
 
 const SEED: OrderStore = {
-  counters: { mfg: 3, dsg: 2, prt: 3, pay: 3, quo: 1 },
+  counters: { mfg: 0, dsg: 0, prt: 0, pay: 0, quo: 0 },
   printingServices: [
     {
       id: 'svc-1', name: 'Sublimation Printing', pricingMethod: 'per_piece', baseRate: 45,
@@ -411,89 +418,12 @@ const SEED: OrderStore = {
       minQuantity: 1, minCharge: 150, rushCharge: 400, setupCharge: 500, gstPct: 12, active: true, customerRates: [],
     },
   ],
-  customers: [
-    { id: 'cust-1', name: 'Ramesh Sharma', businessName: 'Mumbai Warriors FC', phone: '9876543210', whatsapp: '9876543210', email: 'ramesh@mumbaiwarriors.com', gstin: '27AABCS1234B1ZX', billingAddress: 'Shop 12, Dadar, Mumbai 400014', shippingAddress: 'Same as billing', state: 'Maharashtra', customerType: 'direct', openingBalance: 0, openingBalanceDate: '2026-01-01', notes: 'Regular tournament client', createdAt: '2026-08-01T09:00:00Z' },
-    { id: 'cust-2', name: 'Priya Patel', businessName: 'Delhi Tigers CC', phone: '9812345678', whatsapp: '9812345678', email: 'priya@delhitigers.com', gstin: '07AABCP5678C1ZY', billingAddress: 'B-42, Rajouri Garden, Delhi 110027', shippingAddress: 'Same as billing', state: 'Delhi', customerType: 'wholesaler', openingBalance: 5000, openingBalanceDate: '2026-09-01', notes: 'Opening balance from Excel', createdAt: '2026-08-15T10:30:00Z' },
-    { id: 'cust-3', name: 'Arun Kumar', businessName: 'Chennai Strikers Sports', phone: '9445678901', whatsapp: '9445678901', email: 'arun@chennaistrikers.com', gstin: '33AABCA9012D1ZZ', billingAddress: '5th Street, T Nagar, Chennai 600017', shippingAddress: 'Same as billing', state: 'Tamil Nadu', customerType: 'retailer', openingBalance: 0, openingBalanceDate: '2026-01-01', notes: '', createdAt: '2026-09-01T08:00:00Z' },
-  ],
-  manufacturerOrders: [
-    {
-      id: 'mfg-1', orderNumber: 'MFG-2026-000001', customerId: 'cust-1',
-      orderDate: '2026-09-01', deliveryDate: '2026-09-20', dueDate: '2026-09-25',
-      priority: 'normal', status: 'completed', paymentStatus: 'paid',
-      items: [{ id: 'item-1', product: 'Football Jersey', category: 'Jersey', sku: 'J-102', sizes: { S: 5, M: 10, L: 5, XL: 2 }, totalQty: 22, rate: 450, discount: 0, taxPct: 18, amount: 9900 }],
-      teamName: 'Mumbai Warriors FC', tournamentName: 'City Cup 2026', playerNames: 'Sharma, Mehta, Khan...', playerNumbers: '1-22', sponsor: 'SportZone', collarType: 'V-Neck', sleeveType: 'Short', fabric: 'Polyester', jerseyType: 'Football', shortsRequired: true, sublimation: true, embroidery: false, printing: true, packaging: true, specialInstructions: 'Urgent delivery', referenceDesign: 'J-102.psd',
-      itemsTotal: 9900, printingCharges: 2200, packagingCharges: 500, additionalCharges: 0, discount: 600, gstPct: 18, gstAmount: 2160, shipping: 0, roundOff: 0, grandTotal: 14160,
-      totalPaid: 14160, outstanding: 0, notes: '', createdAt: '2026-09-01T09:00:00Z', updatedAt: '2026-09-20T14:00:00Z',
-    },
-    {
-      id: 'mfg-2', orderNumber: 'MFG-2026-000002', customerId: 'cust-2',
-      orderDate: '2026-09-05', deliveryDate: '2026-09-30', dueDate: '2026-10-05',
-      priority: 'urgent', status: 'production', paymentStatus: 'partial',
-      items: [{ id: 'item-2', product: 'Cricket Jersey', category: 'Jersey', sku: 'J-201', sizes: { M: 6, L: 6, XL: 4 }, totalQty: 16, rate: 550, discount: 0, taxPct: 18, amount: 8800 }],
-      teamName: 'Delhi Tigers CC', tournamentName: 'DPL 2026', playerNames: 'Patel, Singh, Gupta...', playerNumbers: '1-16', sponsor: '', collarType: 'Round', sleeveType: 'Half', fabric: 'Dri-Fit', jerseyType: 'Cricket', shortsRequired: false, sublimation: true, embroidery: true, printing: false, packaging: true, specialInstructions: '', referenceDesign: '',
-      itemsTotal: 8800, printingCharges: 1600, packagingCharges: 400, additionalCharges: 0, discount: 0, gstPct: 18, gstAmount: 1872, shipping: 200, roundOff: 0, grandTotal: 12872,
-      totalPaid: 5000, outstanding: 7872, notes: 'Advance received', createdAt: '2026-09-05T11:00:00Z', updatedAt: '2026-09-10T10:00:00Z',
-    },
-    {
-      id: 'mfg-3', orderNumber: 'MFG-2026-000003', customerId: 'cust-3',
-      orderDate: '2026-09-10', deliveryDate: '2026-10-10', dueDate: '2026-10-15',
-      priority: 'express', status: 'confirmed', paymentStatus: 'unpaid',
-      items: [{ id: 'item-3', product: 'Basketball Jersey', category: 'Jersey', sku: 'J-301', sizes: { S: 5, M: 10, L: 10, XL: 5 }, totalQty: 30, rate: 480, discount: 0, taxPct: 18, amount: 14400 }],
-      teamName: 'Chennai Strikers', tournamentName: 'State League', playerNames: '', playerNumbers: '', sponsor: 'SportMax', collarType: 'V-Neck', sleeveType: 'Sleeveless', fabric: 'Mesh', jerseyType: 'Basketball', shortsRequired: true, sublimation: true, embroidery: false, printing: true, packaging: false, specialInstructions: 'Player names TBC', referenceDesign: '',
-      itemsTotal: 14400, printingCharges: 3000, packagingCharges: 0, additionalCharges: 500, discount: 1000, gstPct: 18, gstAmount: 3042, shipping: 0, roundOff: 0, grandTotal: 19942,
-      totalPaid: 0, outstanding: 19942, notes: '', createdAt: '2026-09-10T14:00:00Z', updatedAt: '2026-09-10T14:00:00Z',
-    },
-  ],
-  designerBills: [
-    {
-      id: 'dsg-1', billNumber: 'DSG-2026-000001', customerId: 'cust-1', productionJobId: 'JOB-1024',
-      date: '2026-09-02', dueDate: '2026-09-17', status: 'paid', paymentStatus: 'paid',
-      items: [{ id: 'ditem-1', type: 'design', description: 'Football Jersey Base Design', amount: 2000 }, { id: 'ditem-2', type: 'revision', description: '2 Revision Rounds', amount: 500 }, { id: 'ditem-3', type: 'mockup', description: '3D Mockup', amount: 300 }],
-      discount: 0, gstPct: 18, gstAmount: 504, grandTotal: 3304, totalPaid: 3304, outstanding: 0, notes: 'Job completed', createdAt: '2026-09-02T10:00:00Z',
-    },
-    {
-      id: 'dsg-2', billNumber: 'DSG-2026-000002', customerId: 'cust-2', productionJobId: 'JOB-1025',
-      date: '2026-09-08', dueDate: '2026-09-23', status: 'partial', paymentStatus: 'partial',
-      items: [{ id: 'ditem-4', type: 'design', description: 'Cricket Jersey Design', amount: 2500 }, { id: 'ditem-5', type: 'logo', description: 'Team Logo Design', amount: 1500 }],
-      discount: 200, gstPct: 18, gstAmount: 684, grandTotal: 4484, totalPaid: 2000, outstanding: 2484, notes: '', createdAt: '2026-09-08T09:00:00Z',
-    },
-  ],
-  printingOrders: [
-    {
-      id: 'prt-1', orderNumber: 'PRT-2026-000001', customerId: 'cust-1', serviceId: 'svc-1',
-      date: '2026-09-02', requiredDate: '2026-09-18', deliveryDate: '2026-09-19',
-      status: 'delivered', paymentStatus: 'paid',
-      quantity: 22, appliedRate: 70, material: 'Polyester', fabric: '100% Polyester', color: 'Red/White', printArea: 'Full Body', artworkFile: 'artwork-mw-fc.pdf', artworkApproved: true, specialInstructions: '',
-      subtotal: 1540, additionalCharges: 0, discount: 0, gstPct: 12, gstAmount: 184.8, grandTotal: 1724.8, totalPaid: 1724.8, outstanding: 0, notes: '', createdAt: '2026-09-02T11:00:00Z',
-    },
-    {
-      id: 'prt-2', orderNumber: 'PRT-2026-000002', customerId: 'cust-3', serviceId: 'svc-1',
-      date: '2026-09-12', requiredDate: '2026-10-08', deliveryDate: '',
-      status: 'artwork_pending', paymentStatus: 'unpaid',
-      quantity: 30, appliedRate: 60, material: 'Mesh', fabric: '100% Mesh', color: 'Yellow/Black', printArea: 'Front + Back + Sleeves', artworkFile: '', artworkApproved: false, specialInstructions: 'Await artwork from client',
-      subtotal: 1800, additionalCharges: 500, discount: 0, gstPct: 12, gstAmount: 276, grandTotal: 2576, totalPaid: 0, outstanding: 2576, notes: '', createdAt: '2026-09-12T10:00:00Z',
-    },
-    {
-      id: 'prt-3', orderNumber: 'PRT-2026-000003', customerId: 'cust-2', serviceId: 'svc-3',
-      date: '2026-09-06', requiredDate: '2026-09-28', deliveryDate: '',
-      status: 'printing', paymentStatus: 'partial',
-      quantity: 16, appliedRate: 150, material: 'Dri-Fit', fabric: 'Polyester Blend', color: 'Blue', printArea: 'Left Chest', artworkFile: 'logo-dt.pdf', artworkApproved: true, specialInstructions: '',
-      subtotal: 2400, additionalCharges: 500, discount: 0, gstPct: 12, gstAmount: 348, grandTotal: 3248, totalPaid: 1500, outstanding: 1748, notes: '', createdAt: '2026-09-06T12:00:00Z',
-    },
-  ],
-  payments: [
-    { id: 'pay-1', paymentNumber: 'PAY-000001', customerId: 'cust-1', date: '2026-09-01', amount: 14160, mode: 'upi', referenceNumber: 'UPI-TXN-112233', notes: 'Full payment', receivedBy: 'Admin', allocations: [{ orderId: 'mfg-1', orderType: 'manufacturer', amount: 14160 }], createdAt: '2026-09-01T15:00:00Z' },
-    { id: 'pay-2', paymentNumber: 'PAY-000002', customerId: 'cust-2', date: '2026-09-06', amount: 7000, mode: 'bank', referenceNumber: 'NEFT-778899', notes: 'Advance + design partial', receivedBy: 'Admin', allocations: [{ orderId: 'mfg-2', orderType: 'manufacturer', amount: 5000 }, { orderId: 'dsg-2', orderType: 'designer', amount: 2000 }], createdAt: '2026-09-06T12:00:00Z' },
-    { id: 'pay-3', paymentNumber: 'PAY-000003', customerId: 'cust-1', date: '2026-09-03', amount: 5028.8, mode: 'cash', referenceNumber: '', notes: 'Printing + design payment', receivedBy: 'Admin', allocations: [{ orderId: 'prt-1', orderType: 'printing', amount: 1724.8 }, { orderId: 'dsg-1', orderType: 'designer', amount: 3304 }], createdAt: '2026-09-03T16:00:00Z' },
-  ],
-  quotations: [
-    {
-      id: 'quo-1', quotationNumber: 'QUO-2026-000001', customerId: 'cust-3', date: '2026-09-09', validUntil: '2026-09-24', businessType: 'manufacturer',
-      items: [{ id: 'qitem-1', product: 'Football Jersey', category: 'Jersey', sku: 'J-401', sizes: { M: 20, L: 20, XL: 10 }, totalQty: 50, rate: 450, discount: 0, taxPct: 18, amount: 22500 }],
-      discount: 1000, gstPct: 18, gstAmount: 3870, grandTotal: 25370, status: 'sent', convertedToOrderId: '', notes: 'Awaiting confirmation', terms: 'Payment: 50% advance, 50% before delivery', createdAt: '2026-09-09T10:00:00Z',
-    },
-  ],
+  customers: [],
+  manufacturerOrders: [],
+  designerBills: [],
+  printingOrders: [],
+  payments: [],
+  quotations: [],
 };
 
 // ─────────────── REDUCER ──────────────────────────────────────────────────────
@@ -580,19 +510,29 @@ function reducer(state: OrderStore, action: Action): OrderStore {
       const bill: DesignerBill = {
         ...action.payload,
         id: `dsg-${uid()}`,
-        billNumber: `DSG-${year()}-${pad(n)}`,
+        billNumber: action.payload.productionJobId || `DSG-${year()}-${pad(n)}`,
         totalPaid: 0, outstanding: action.payload.grandTotal,
         paymentStatus: 'unpaid',
         createdAt: now(),
       };
+      const cust = state.customers.find(c => c.id === bill.customerId);
+      saveDesignerBillToProduction(bill, cust);
       next = { ...state, designerBills: [...state.designerBills, bill], counters: { ...state.counters, dsg: n } };
       break;
     }
     case 'UPDATE_DESIGNER_BILL': {
+      const cust = state.customers.find(c => c.id === action.payload.customerId);
+      saveDesignerBillToProduction(action.payload, cust);
       next = { ...state, designerBills: state.designerBills.map(b => b.id === action.payload.id ? action.payload : b) };
       break;
     }
     case 'DELETE_DESIGNER_BILL': {
+      const bill = state.designerBills.find(b => b.id === action.payload);
+      if (bill) {
+        deleteDesignerBillFromProduction(bill.id);
+        if (bill.productionJobId) deleteDesignerBillFromProduction(bill.productionJobId);
+        if (bill.billNumber) deleteDesignerBillFromProduction(bill.billNumber);
+      }
       next = { ...state, designerBills: state.designerBills.filter(b => b.id !== action.payload) };
       break;
     }
@@ -641,6 +581,16 @@ function reducer(state: OrderStore, action: Action): OrderStore {
       const payment: Payment = { ...action.payload, id: `pay-${uid()}`, paymentNumber: `PAY-${pad(n)}`, createdAt: now() };
       const withPay = { ...state, payments: [...state.payments, payment], counters: { ...state.counters, pay: n } };
       next = applyAllocations(withPay);
+
+      // Update production billing records for any designer allocations
+      for (const alloc of payment.allocations) {
+        if (alloc.orderType === 'designer') {
+          const bill = next.designerBills.find(b => b.id === alloc.orderId || b.billNumber === alloc.orderId);
+          if (bill) {
+            updateProductionBillingPayment(bill.id, bill.totalPaid, bill.paymentStatus === 'paid');
+          }
+        }
+      }
       break;
     }
     case 'DELETE_PAYMENT': {
@@ -668,6 +618,12 @@ function reducer(state: OrderStore, action: Action): OrderStore {
     case 'LOAD_STATE':
       next = action.payload;
       break;
+
+    case 'SYNC_PRODUCTION_BILLING': {
+      const synced = syncProductionBillingToStore(state);
+      next = applyAllocations(synced);
+      break;
+    }
 
     default:
       return state;
@@ -815,14 +771,56 @@ const STORAGE_KEY = 'fn_orders_v1';
 export function useOrderStore() {
   const [state, dispatch] = useReducer(reducer, null, () => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved) as OrderStore;
+      const savedStr = localStorage.getItem(STORAGE_KEY);
+      if (savedStr) {
+        const saved = JSON.parse(savedStr) as OrderStore;
+        // Purge any sample mock records from all 3 tabs
+        saved.manufacturerOrders = (saved.manufacturerOrders || []).filter(
+          o => !['mfg-1', 'mfg-2', 'mfg-3'].includes(o.id)
+        );
+        saved.printingOrders = (saved.printingOrders || []).filter(
+          o => !['prt-1', 'prt-2', 'prt-3'].includes(o.id)
+        );
+        saved.payments = (saved.payments || []).filter(
+          p => !['pay-1', 'pay-2', 'pay-3'].includes(p.id)
+        );
+        saved.quotations = (saved.quotations || []).filter(q => q.id !== 'quo-1');
+        saved.customers = (saved.customers || []).filter(
+          c => !['cust-1', 'cust-2', 'cust-3'].includes(c.id)
+        );
+        saved.designerBills = (saved.designerBills || []).filter(
+          b => !['dsg-1', 'dsg-2'].includes(b.id)
+        );
+
+        // Synchronize real bills and customers from Production Studio
+        const synced = syncProductionBillingToStore(saved);
+        const allocated = applyAllocations(synced);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(allocated));
+        return allocated;
+      }
     } catch { /* ignore */ }
-    // Bootstrap with seed + apply allocations
-    const seeded = applyAllocations(SEED);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
-    return seeded;
+
+    // Bootstrap with clean seed + synchronized production data
+    const cleanSynced = syncProductionBillingToStore(SEED);
+    const allocated = applyAllocations(cleanSynced);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allocated));
+    return allocated;
   });
+
+  // Listen for live updates from Production Studio (Nesting exports & Invoice/Bill changes)
+  useEffect(() => {
+    const handleSync = () => {
+      dispatch({ type: 'SYNC_PRODUCTION_BILLING' });
+    };
+
+    window.addEventListener('fivenest-billing-updated', handleSync);
+    window.addEventListener('storage', handleSync);
+
+    return () => {
+      window.removeEventListener('fivenest-billing-updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, []);
 
   // Selectors
   const getCustomer = useCallback((id: string) => state.customers.find(c => c.id === id), [state]);

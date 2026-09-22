@@ -136,12 +136,13 @@ const MODE_CONFIG: Record<BusinessMode, { label: string; icon?: React.FC<{size?:
 
 // ─── Manufacturer Orders Section ──────────────────────────────────────────────
 // ─── Manufacturer Orders Section ──────────────────────────────────────────────
-function MfgOrdersView({ store, onEdit, onView, onReceivePayment, onViewLedger }: {
+function MfgOrdersView({ store, onEdit, onView, onReceivePayment, onViewLedger, onNewOrder }: {
   store: ReturnType<typeof useOrderStore>;
   onEdit: (order: ManufacturerOrder) => void;
   onView: (order: ManufacturerOrder) => void;
   onReceivePayment: (customerId: string) => void;
   onViewLedger?: (customerId: string) => void;
+  onNewOrder?: () => void;
 }) {
   const columns: Column<ManufacturerOrder>[] = [
     { key: 'orderNumber', label: 'Order #', sortable: true, render: row => (
@@ -228,17 +229,20 @@ function MfgOrdersView({ store, onEdit, onView, onReceivePayment, onViewLedger }
         if (action === 'delete') { if(confirm(`Delete ${row.orderNumber}?`)) store.dispatch({ type: 'DELETE_MFG_ORDER', payload: row.id }); }
       }}
       emptyTitle="No Manufacturing Orders"
-      emptyDesc="Start creating orders for your jersey manufacturing business."
+      emptyDesc="Start creating orders and factory job sheets for your jersey manufacturing business."
+      addLabel="+ New Manufacturing Order"
+      onAdd={onNewOrder}
     />
   );
 }
 
 // ─── Designer Bills Section ───────────────────────────────────────────────────
-function DesignerBillsView({ store, onReceivePayment, onView, onViewLedger }: {
+function DesignerBillsView({ store, onReceivePayment, onView, onViewLedger, onNewBill }: {
   store: ReturnType<typeof useOrderStore>;
   onReceivePayment: (customerId: string) => void;
   onView?: (bill: DesignerBill) => void;
   onViewLedger?: (customerId: string) => void;
+  onNewBill?: () => void;
 }) {
   const columns: Column<DesignerBill>[] = [
     {
@@ -274,9 +278,13 @@ function DesignerBillsView({ store, onReceivePayment, onView, onViewLedger }: {
     { key: 'productionJobId', label: 'Job #', hideOnMobile: true, render: row => (
       <span className="text-xs font-mono text-[#52525B]">{row.productionJobId || '—'}</span>
     )},
-    { key: 'date', label: 'Date', sortable: true, render: row => (
-      <span className="text-xs">{new Date(row.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'})}</span>
-    )},
+    { key: 'date', label: 'Date', sortable: true, render: row => {
+      const d = new Date(row.date);
+      const dateText = !isNaN(d.getTime())
+        ? d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })
+        : row.date || '—';
+      return <span className="text-xs">{dateText}</span>;
+    }},
     { key: 'grandTotal', label: 'Amount', sortable: true, render: row => <span className="font-semibold">{fmt(row.grandTotal)}</span> },
     { key: 'totalPaid', label: 'Paid', render: row => <span className="text-emerald-600 font-semibold">{fmt(row.totalPaid)}</span> },
     { key: 'outstanding', label: 'Outstanding', sortable: true, render: row => (
@@ -288,18 +296,39 @@ function DesignerBillsView({ store, onReceivePayment, onView, onViewLedger }: {
   ];
 
   return (
-    <TransactionTable<DesignerBill>
-      columns={columns}
-      rows={store.state.designerBills}
-      actions={['view','payment','delete']}
-      onAction={(action, row) => {
-        if (action === 'view') onView?.(row);
-        if (action === 'payment') onReceivePayment(row.customerId);
-        if (action === 'delete') { if(confirm(`Delete ${row.billNumber}?`)) store.dispatch({ type: 'DELETE_DESIGNER_BILL', payload: row.id }); }
-      }}
-      emptyTitle="No Designer Bills"
-      emptyDesc="Designer bills generated from production jobs will appear here."
-    />
+    <div className="space-y-3">
+      {/* Live sync banner with Production Studio */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-2.5 bg-purple-50/80 border border-purple-200/80 rounded-2xl text-xs">
+        <div className="flex items-center gap-2 text-purple-900">
+          <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse shrink-0" />
+          <span className="font-bold">Live Synced with Production Studio:</span>
+          <span className="text-purple-700 hidden md:inline">Invoices & bills from exports and billing records appear here automatically.</span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Link
+            to="/production"
+            className="font-bold text-purple-700 hover:text-purple-900 hover:underline flex items-center gap-1"
+          >
+            Open Production Studio →
+          </Link>
+        </div>
+      </div>
+
+      <TransactionTable<DesignerBill>
+        columns={columns}
+        rows={store.state.designerBills}
+        actions={['view','payment','delete']}
+        onAction={(action, row) => {
+          if (action === 'view') onView?.(row);
+          if (action === 'payment') onReceivePayment(row.customerId);
+          if (action === 'delete') { if(confirm(`Delete ${row.billNumber}?`)) store.dispatch({ type: 'DELETE_DESIGNER_BILL', payload: row.id }); }
+        }}
+        emptyTitle="No Designer Bills"
+        emptyDesc="Invoices & bills created or exported in Production Studio (https://www.fivenest.in/production) will automatically appear here."
+        addLabel="Go to Production Studio"
+        onAdd={() => window.open('/production', '_self')}
+      />
+    </div>
   );
 }
 
@@ -742,6 +771,7 @@ export default function OrderManagement() {
                       onView={order => setJobSheetOrder(order)}
                       onReceivePayment={openPayment}
                       onViewLedger={openCustomerLedger}
+                      onNewOrder={() => openMfgOrder()}
                     />
                   )}
                   {(businessMode === 'designer' || businessMode === 'all') && (
@@ -750,6 +780,7 @@ export default function OrderManagement() {
                       onReceivePayment={openPayment}
                       onView={bill => setViewingDesignerBill(bill)}
                       onViewLedger={openCustomerLedger}
+                      onNewBill={() => openDesignerBill()}
                     />
                   )}
                   {businessMode === 'printing' && (
