@@ -897,7 +897,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
               </p>
               <div style={{ display: 'flex', gap: '7px', marginBottom: '12px' }}>
                 {[10, 50, 100, 500].map(amt => (
-                  <button key={amt} type="button" onClick={() => { setRechargeAmount(amt); setCustomInputVal(String(amt)); }}
+                  <button key={amt} type="button" onClick={() => { setRechargeAmount(amt); setCustomInputVal(String(amt)); clearMessages(); }}
                     style={{
                       flex: 1, padding: '8px 4px', borderRadius: '8px',
                       border: rechargeAmount === amt ? '1px solid #E4572E' : '1px solid rgba(255,255,255,0.1)',
@@ -910,47 +910,43 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
                 ))}
               </div>
 
-              {/* Custom amount entry */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '12px' }}>
-                <div style={{ position: 'relative', width: '100%' }}>
-                  <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#E4572E', fontWeight: '700', fontSize: '13px' }}>₹</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max={MAX_RECHARGE_LIMIT}
-                    placeholder="Custom amount (max ₹50,000)"
-                    value={customInputVal}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setCustomInputVal(val);
-                      const v = parseFloat(val);
-                      if (!isNaN(v)) {
-                        if (v > MAX_RECHARGE_LIMIT) {
-                          setRechargeAmount(MAX_RECHARGE_LIMIT);
-                          setErrorMessage(`Maximum wallet recharge limit is ₹${MAX_RECHARGE_LIMIT.toLocaleString('en-IN')}/-`);
-                        } else {
-                          clearMessages();
-                          if (v > 0) setRechargeAmount(v);
-                        }
+              {/* Custom amount entry - 5 digits max */}
+              <div style={{ position: 'relative', width: '100%', marginBottom: '12px' }}>
+                <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#E4572E', fontWeight: '700', fontSize: '13px' }}>₹</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={5}
+                  placeholder="Custom amount"
+                  value={customInputVal}
+                  onChange={(e) => {
+                    const cleaned = e.target.value.replace(/[^0-9]/g, '').slice(0, 5);
+                    setCustomInputVal(cleaned);
+                    const v = parseInt(cleaned, 10);
+                    if (!isNaN(v)) {
+                      if (v > MAX_RECHARGE_LIMIT) {
+                        setRechargeAmount(MAX_RECHARGE_LIMIT);
+                      } else {
+                        setRechargeAmount(v);
                       }
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '9px 10px 9px 26px',
-                      background: 'rgba(255,255,255,0.04)',
-                      border: rechargeAmount > MAX_RECHARGE_LIMIT ? '1px solid #EF4444' : '1px solid rgba(228,87,46,0.3)',
-                      borderRadius: '8px',
-                      color: 'white',
-                      fontSize: '13px',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 2px' }}>
-                  <span style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.4)' }}>Min: ₹1</span>
-                  <span style={{ fontSize: '10.5px', color: '#E4572E', fontWeight: '700' }}>Max Limit: ₹50,000/-</span>
-                </div>
+                      clearMessages();
+                    } else {
+                      setRechargeAmount(0);
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '9px 10px 9px 26px',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(228,87,46,0.3)',
+                    borderRadius: '8px',
+                    color: 'white',
+                    fontSize: '13px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
               </div>
               <button type="button" onClick={handleRazorpayRecharge} disabled={isPaying}
                 style={{

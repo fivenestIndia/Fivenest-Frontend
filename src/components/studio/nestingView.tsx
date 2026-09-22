@@ -3447,66 +3447,61 @@ export const NestingView: React.FC<NestingViewProps> = ({
                       <AlertTriangle size={14} /> Insufficient balance (₹{currentUser.balance.toFixed(2)}). Add funds below.
                     </div>
 
-                    {/* Custom topup input */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <div style={{ position: 'relative', flex: 1 }}>
-                          <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#E4572E', fontWeight: '700', fontSize: '13px' }}>₹</span>
-                          <input
-                            type="number"
-                            min="1"
-                            max="50000"
-                            placeholder="Enter amount (max ₹50,000)"
-                            value={customTopupAmount}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setCustomTopupAmount(val);
-                              const v = parseFloat(val);
-                              if (v > 50000) {
-                                setTopupMessage({ text: 'Maximum recharge limit is ₹50,000/-', ok: false });
-                              } else {
-                                setTopupMessage(null);
-                              }
-                            }}
-                            style={{
-                              width: '100%',
-                              padding: '9px 10px 9px 26px',
-                              background: '#FFFFFF',
-                              border: '1px solid #D1D5DB',
-                              borderRadius: '8px',
-                              color: '#111827',
-                              fontSize: '13px',
-                              outline: 'none',
-                              boxSizing: 'border-box'
-                            }}
-                          />
-                        </div>
-                        <button
-                          onClick={handleCustomTopup}
-                          disabled={topupLoading}
-                          style={{
-                            padding: '9px 14px',
-                            background: '#FFF0EB',
-                            border: '1px solid #FCD7C8',
-                            borderRadius: '8px',
-                            color: '#E4572E',
-                            fontSize: '11px',
-                            fontWeight: '800',
-                            cursor: topupLoading ? 'not-allowed' : 'pointer',
-                            whiteSpace: 'nowrap',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
+                    {/* Custom topup input - 5 digits max */}
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <div style={{ position: 'relative', flex: 1 }}>
+                        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#E4572E', fontWeight: '700', fontSize: '13px' }}>₹</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={5}
+                          placeholder="Enter amount"
+                          value={customTopupAmount}
+                          onChange={(e) => {
+                            const cleaned = e.target.value.replace(/[^0-9]/g, '').slice(0, 5);
+                            setCustomTopupAmount(cleaned);
+                            const v = parseInt(cleaned, 10);
+                            if (v > 50000) {
+                              setTopupMessage({ text: 'Maximum recharge limit is ₹50,000/-', ok: false });
+                            } else {
+                              setTopupMessage(null);
+                            }
                           }}
-                        >
-                          {topupLoading ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : null}
-                          Add to Wallet
-                        </button>
+                          style={{
+                            width: '100%',
+                            padding: '9px 10px 9px 26px',
+                            background: '#FFFFFF',
+                            border: '1px solid #D1D5DB',
+                            borderRadius: '8px',
+                            color: '#111827',
+                            fontSize: '13px',
+                            outline: 'none',
+                            boxSizing: 'border-box'
+                          }}
+                        />
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#6B7280', padding: '0 2px' }}>
-                        <span>Min: ₹1</span>
-                        <span style={{ color: '#E4572E', fontWeight: '600' }}>Max limit: ₹50,000/-</span>
-                      </div>
+                      <button
+                        onClick={handleCustomTopup}
+                        disabled={topupLoading}
+                        style={{
+                          padding: '9px 14px',
+                          background: '#FFF0EB',
+                          border: '1px solid #FCD7C8',
+                          borderRadius: '8px',
+                          color: '#E4572E',
+                          fontSize: '11px',
+                          fontWeight: '800',
+                          cursor: topupLoading ? 'not-allowed' : 'pointer',
+                          whiteSpace: 'nowrap',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        {topupLoading ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : null}
+                        Add to Wallet
+                      </button>
                     </div>
 
                     {topupMessage && (
