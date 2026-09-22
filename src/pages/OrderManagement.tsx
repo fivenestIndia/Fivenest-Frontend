@@ -90,32 +90,49 @@ function QuickNewMenu({ onMfgOrder, onDesignerBill, onPrintingOrder, onPayment, 
 }) {
   const [open, setOpen] = useState(false);
   const items = [
-    { label: 'Manufacturing Order', icon: Factory, color: 'text-[#E4572E]', action: onMfgOrder },
-    { label: 'Designer Bill', icon: Palette, color: 'text-purple-600', action: onDesignerBill },
-    { label: 'Printing Order', icon: Printer, color: 'text-blue-600', action: onPrintingOrder },
-    { label: 'Receive Payment', icon: CreditCard, color: 'text-emerald-600', action: onPayment },
-    { label: 'New Customer', icon: Users, color: 'text-zinc-600', action: onCustomer },
+    { label: 'Manufacturing Order', icon: Factory, color: 'text-[#E4572E]', desc: 'Fabric to sizing order', action: onMfgOrder },
+    { label: 'Designer Bill', icon: Palette, color: 'text-purple-600', desc: 'Syncs with Production Studio', action: onDesignerBill },
+    { label: 'Printing Order', icon: Printer, color: 'text-blue-600', desc: 'Sublimation & DTF order', action: onPrintingOrder },
+    { label: 'Receive Payment', icon: CreditCard, color: 'text-emerald-600', desc: 'Record incoming payment', action: onPayment },
+    { label: 'New Customer', icon: Users, color: 'text-zinc-600', desc: 'Add party to directory', action: onCustomer },
   ];
 
   return (
     <div className="relative">
-      <button onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#E4572E] text-white text-sm font-bold hover:bg-[#D4431B] shadow-sm">
-        <Plus size={16}/>New<ChevronDown size={14} className={cn('transition-transform', open && 'rotate-180')}/>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#FF6B35] via-[#E4572E] to-[#D4431B] text-white text-sm font-black shadow-lg shadow-[#E4572E]/25 hover:shadow-xl hover:shadow-[#E4572E]/35 ring-2 ring-[#E4572E]/40 hover:ring-[#E4572E]/70 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
+      >
+        <span className="w-5 h-5 rounded-lg bg-white/20 flex items-center justify-center">
+          <Plus size={14} className="stroke-[3]"/>
+        </span>
+        <span>+ New</span>
+        <ChevronDown size={14} className={cn('transition-transform duration-200 opacity-90', open && 'rotate-180')}/>
       </button>
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -4 }}
-            className="absolute right-0 top-full mt-2 w-56 bg-white border border-[#E8E4DE] rounded-2xl shadow-2xl z-30 overflow-hidden"
+            initial={{ opacity: 0, scale: 0.95, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -4 }}
+            className="absolute right-0 top-full mt-2 w-64 bg-white border border-[#E8E4DE] rounded-2xl shadow-2xl z-30 overflow-hidden py-1 divide-y divide-[#F5F3EF]"
             onMouseLeave={() => setOpen(false)}
           >
             {items.map(item => {
               const Icon = item.icon;
               return (
-                <button key={item.label} onClick={() => { item.action(); setOpen(false); }}
-                  className="flex items-center gap-3 w-full px-4 py-3 hover:bg-[#FAF8F5] text-sm text-[#171717] border-b border-[#F5F3EF] last:border-0">
-                  <Icon size={16} className={item.color}/>{item.label}
+                <button
+                  key={item.label}
+                  onClick={() => { item.action(); setOpen(false); }}
+                  className="flex items-center gap-3 w-full px-4 py-2.5 hover:bg-[#FAF8F5] text-left transition-colors group"
+                >
+                  <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-gray-50 group-hover:scale-110 transition-transform", item.color)}>
+                    <Icon size={16}/>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-[#171717] leading-tight">{item.label}</p>
+                    <p className="text-[11px] text-[#71717A] leading-tight truncate">{item.desc}</p>
+                  </div>
                 </button>
               );
             })}
@@ -126,12 +143,58 @@ function QuickNewMenu({ onMfgOrder, onDesignerBill, onPrintingOrder, onPayment, 
   );
 }
 
-// ─── Business Mode Switcher ───────────────────────────────────────────────────
-const MODE_CONFIG: Record<BusinessMode, { label: string; icon?: React.FC<{size?: number; className?: string}>; color: string; iconColor: string }> = {
-  all:          { label: 'All Business',    color: 'bg-[#171717] text-white border-[#171717]', iconColor: '' },
-  manufacturer: { label: 'Manufacturer',   icon: Factory, color: 'bg-orange-50 text-orange-800 border-orange-200', iconColor: 'text-[#E4572E]' },
-  designer:     { label: 'Designer',       icon: Palette, color: 'bg-purple-50 text-purple-800 border-purple-200', iconColor: 'text-purple-600' },
-  printing:     { label: 'Printing Owner', icon: Printer, color: 'bg-blue-50 text-blue-800 border-blue-200', iconColor: 'text-blue-600' },
+// ─── Business Mode Switcher Config ───────────────────────────────────────────
+interface ModeTabConfig {
+  label: string;
+  icon: React.FC<{size?: number; className?: string}>;
+  badge?: string;
+  activeClass: string;
+  inactiveClass: string;
+  iconColor: string;
+  activeIconColor: string;
+  badgeBg: string;
+}
+
+const MODE_CONFIG: Record<BusinessMode, ModeTabConfig> = {
+  all: {
+    label: 'All Business',
+    icon: LayoutDashboard,
+    activeClass: 'bg-[#18181B] text-white shadow-sm border-[#18181B]',
+    inactiveClass: 'bg-white text-[#71717A] border-[#E8E4DE] hover:border-[#18181B]/40 hover:text-[#171717]',
+    iconColor: 'text-[#71717A]',
+    activeIconColor: 'text-white',
+    badgeBg: 'bg-zinc-800 text-zinc-200',
+  },
+  manufacturer: {
+    label: 'Manufacturer',
+    icon: Factory,
+    badge: 'MFG',
+    activeClass: 'bg-gradient-to-r from-[#FF6B35] to-[#E4572E] text-white shadow-md shadow-[#E4572E]/25 border-transparent ring-2 ring-[#E4572E]/40 font-extrabold',
+    inactiveClass: 'bg-orange-50/70 text-orange-950 border-orange-200 hover:bg-orange-100 hover:border-orange-300 font-bold',
+    iconColor: 'text-[#E4572E]',
+    activeIconColor: 'text-white',
+    badgeBg: 'bg-[#E4572E] text-white',
+  },
+  designer: {
+    label: 'Designer',
+    icon: Palette,
+    badge: 'DSG',
+    activeClass: 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-600/25 border-transparent ring-2 ring-purple-500/40 font-extrabold',
+    inactiveClass: 'bg-purple-50/70 text-purple-950 border-purple-200 hover:bg-purple-100 hover:border-purple-300 font-bold',
+    iconColor: 'text-purple-600',
+    activeIconColor: 'text-white',
+    badgeBg: 'bg-purple-600 text-white',
+  },
+  printing: {
+    label: 'Printing Owner',
+    icon: Printer,
+    badge: 'PRINT',
+    activeClass: 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md shadow-blue-600/25 border-transparent ring-2 ring-blue-500/40 font-extrabold',
+    inactiveClass: 'bg-blue-50/70 text-blue-950 border-blue-200 hover:bg-blue-100 hover:border-blue-300 font-bold',
+    iconColor: 'text-blue-600',
+    activeIconColor: 'text-white',
+    badgeBg: 'bg-blue-600 text-white',
+  },
 };
 
 // ─── Manufacturer Orders Section ──────────────────────────────────────────────
@@ -418,10 +481,6 @@ export default function OrderManagement() {
               onPayment={() => openPayment()}
               onCustomer={() => { setSubView('customers'); }}
             />
-            <button onClick={() => openPayment()}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E8E4DE] text-sm font-semibold hover:bg-[#FAF8F5] whitespace-nowrap">
-              <CreditCard size={14} className="text-emerald-600"/> Receive Payment
-            </button>
             <button className="p-2 rounded-xl border border-[#E8E4DE] hover:bg-[#FAF8F5] relative">
               <Bell size={16} className="text-[#52525B]"/>
             </button>
@@ -431,8 +490,10 @@ export default function OrderManagement() {
 
       {/* ── Business Mode Switcher ───────────────────────────────────────────── */}
       <div className="bg-white border-b border-[#E8E4DE]">
-        <div className="max-w-[1600px] mx-auto px-6 py-3 flex items-center gap-2 overflow-x-auto">
-          {(['all','manufacturer','designer','printing'] as BusinessMode[]).map(mode => {
+        <div className="max-w-[1600px] mx-auto px-6 py-2.5 flex items-center gap-2 overflow-x-auto">
+          {/* All Business Mode */}
+          {(() => {
+            const mode: BusinessMode = 'all';
             const cfg = MODE_CONFIG[mode];
             const Icon = cfg.icon;
             const isActive = businessMode === mode;
@@ -440,32 +501,71 @@ export default function OrderManagement() {
               <button
                 key={mode}
                 onClick={() => {
+                  setBusinessMode('all');
+                  setSubView('overview');
+                }}
+                className={cn(
+                  'flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold border transition-all whitespace-nowrap',
+                  isActive ? cfg.activeClass : cfg.inactiveClass
+                )}
+              >
+                <Icon size={15} className={isActive ? cfg.activeIconColor : cfg.iconColor} />
+                <span>{cfg.label}</span>
+              </button>
+            );
+          })()}
+
+          {/* Visual Separator before Core Business Tabs */}
+          <div className="h-6 w-px bg-[#E8E4DE] mx-1 shrink-0 hidden sm:block" />
+
+          {/* 3 Main Core Business Tabs: Manufacture, Designer, Printing Owner */}
+          {(['manufacturer', 'designer', 'printing'] as BusinessMode[]).map(mode => {
+            const cfg = MODE_CONFIG[mode];
+            const Icon = cfg.icon;
+            const isActive = businessMode === mode;
+            const count = store.orders.filter(o => o.businessMode === mode).length;
+
+            return (
+              <button
+                key={mode}
+                onClick={() => {
                   setBusinessMode(mode);
-                  if (mode === 'all') {
-                    setSubView('overview');
-                  } else {
-                    if (subView === 'overview') {
-                      setSubView('orders');
-                    }
+                  if (subView === 'overview') {
+                    setSubView('orders');
                   }
                 }}
                 className={cn(
-                  'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border transition-all whitespace-nowrap',
-                  isActive ? cfg.color : 'bg-white text-[#52525B] border-[#E8E4DE] hover:border-[#E4572E]/30 hover:text-[#171717]'
+                  'flex items-center gap-2 px-4 py-2 rounded-xl text-sm border transition-all whitespace-nowrap shadow-xs',
+                  isActive
+                    ? cfg.activeClass
+                    : cn(cfg.inactiveClass, 'border')
                 )}
               >
-                {Icon && <Icon size={15} className={isActive ? '' : cfg.iconColor}/>}
-                {cfg.label}
+                <div className={cn(
+                  'w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors',
+                  isActive ? 'bg-white/20 text-white' : 'bg-white shadow-xs'
+                )}>
+                  <Icon size={13} className={isActive ? cfg.activeIconColor : cfg.iconColor} />
+                </div>
+                <span className="font-extrabold">{cfg.label}</span>
+                {count > 0 && (
+                  <span className={cn(
+                    'text-[10px] font-black px-1.5 py-0.5 rounded-full',
+                    isActive ? 'bg-white/25 text-white' : cfg.badgeBg + ' text-white'
+                  )}>
+                    {count}
+                  </span>
+                )}
               </button>
             );
           })}
 
           {/* Consolidated stats in switcher bar */}
-          <div className="ml-auto flex items-center gap-4 text-sm">
+          <div className="ml-auto flex items-center gap-4 text-xs sm:text-sm shrink-0">
             <span className="text-[#71717A]">
               Outstanding: <span className="font-black text-red-600">{fmt(stats.outstanding)}</span>
             </span>
-            <span className="text-[#71717A]">
+            <span className="text-[#71717A] hidden sm:inline">
               This Month: <span className="font-black text-[#E4572E]">{fmt(stats.thisMonth)}</span>
             </span>
           </div>
