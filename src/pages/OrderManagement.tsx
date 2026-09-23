@@ -523,7 +523,14 @@ export default function OrderManagement() {
             const cfg = MODE_CONFIG[mode];
             const Icon = cfg.icon;
             const isActive = businessMode === mode;
-            const count = store.orders.filter(o => o.businessMode === mode).length;
+            const count =
+              mode === 'manufacturer'
+                ? (store.state?.manufacturerOrders?.length || 0)
+                : mode === 'designer'
+                ? (store.state?.designerBills?.length || 0)
+                : mode === 'printing'
+                ? (store.state?.printingOrders?.length || 0)
+                : 0;
 
             return (
               <button
