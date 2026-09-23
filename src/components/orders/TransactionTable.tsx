@@ -28,14 +28,14 @@ interface Props<T extends { id: string }> {
 }
 
 const ACTION_CONFIG: Record<RowAction, { icon: React.FC<{size?: number}>, label: string, cls?: string }> = {
-  view:      { icon: Eye,          label: 'View'              },
-  edit:      { icon: FileText,     label: 'Edit'              },
-  payment:   { icon: CreditCard,   label: 'Receive Payment'   },
-  invoice:   { icon: FileText,     label: 'View Invoice'      },
-  whatsapp:  { icon: MoreHorizontal, label: 'Share WhatsApp'  },
+  view:      { icon: Eye,          label: 'View Tax Invoice', cls: 'text-slate-700 hover:text-[#E4572E] hover:bg-orange-50' },
+  edit:      { icon: FileText,     label: 'Edit Order', cls: 'text-blue-700 hover:bg-blue-50' },
+  payment:   { icon: CreditCard,   label: 'Receive Payment', cls: 'text-emerald-700 hover:bg-emerald-50' },
+  invoice:   { icon: FileText,     label: 'View Invoice', cls: 'text-purple-700 hover:bg-purple-50' },
+  whatsapp:  { icon: MoreHorizontal, label: 'Share WhatsApp' },
   delete:    { icon: Trash2,       label: 'Delete', cls: 'text-red-600 hover:bg-red-50' },
-  convert:   { icon: ChevronDown,  label: 'Convert to Order'  },
-  duplicate: { icon: Package,      label: 'Duplicate'         },
+  convert:   { icon: ChevronDown,  label: 'Convert to Order' },
+  duplicate: { icon: Package,      label: 'Duplicate' },
 };
 
 export default function TransactionTable<T extends { id: string }>({

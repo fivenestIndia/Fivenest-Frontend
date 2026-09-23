@@ -198,7 +198,6 @@ const MODE_CONFIG: Record<BusinessMode, ModeTabConfig> = {
 };
 
 // ─── Manufacturer Orders Section ──────────────────────────────────────────────
-// ─── Manufacturer Orders Section ──────────────────────────────────────────────
 function MfgOrdersView({ store, onEdit, onView, onReceivePayment, onViewLedger, onNewOrder }: {
   store: ReturnType<typeof useOrderStore>;
   onEdit: (order: ManufacturerOrder) => void;
@@ -207,13 +206,28 @@ function MfgOrdersView({ store, onEdit, onView, onReceivePayment, onViewLedger, 
   onViewLedger?: (customerId: string) => void;
   onNewOrder?: () => void;
 }) {
+  const [filter, setFilter] = useState<'all' | 'due' | 'production' | 'completed'>('all');
+
+  const orders = store.state.manufacturerOrders;
+  const dueCount = orders.filter(o => (o.balanceAmount !== undefined ? o.balanceAmount : o.outstanding) > 0).length;
+  const prodCount = orders.filter(o => o.status === 'production').length;
+  const compCount = orders.filter(o => o.status === 'completed' || o.status === 'dispatched' || o.status === 'ready').length;
+
+  const filteredOrders = orders.filter(o => {
+    const bal = o.balanceAmount !== undefined ? o.balanceAmount : o.outstanding;
+    if (filter === 'due') return bal > 0;
+    if (filter === 'production') return o.status === 'production';
+    if (filter === 'completed') return o.status === 'completed' || o.status === 'dispatched' || o.status === 'ready';
+    return true;
+  });
+
   const columns: Column<ManufacturerOrder>[] = [
-    { key: 'orderNumber', label: 'Order #', sortable: true, render: row => (
-      <button onClick={() => onView(row)} className="font-bold font-mono text-sm text-[#E4572E] hover:underline text-left">
-        {row.orderNumber}
+    { key: 'orderNumber', label: 'Invoice / Order #', sortable: true, render: row => (
+      <button onClick={() => onView(row)} className="font-bold font-mono text-sm text-[#E4572E] hover:underline text-left flex items-center gap-1.5">
+        <span>{row.orderNumber}</span>
       </button>
     )},
-    { key: 'customerId', label: 'Customer', render: row => {
+    { key: 'customerId', label: 'Customer / Party', render: row => {
       const c = store.state.customers.find(x => x.id === row.customerId);
       return (
         <div>
@@ -281,21 +295,60 @@ function MfgOrdersView({ store, onEdit, onView, onReceivePayment, onViewLedger, 
   ];
 
   return (
-    <TransactionTable<ManufacturerOrder>
-      columns={columns}
-      rows={store.state.manufacturerOrders}
-      actions={['view','edit','payment','delete']}
-      onAction={(action, row) => {
-        if (action === 'view') onView(row);
-        if (action === 'edit') onEdit(row);
-        if (action === 'payment') onReceivePayment(row.customerId);
-        if (action === 'delete') { if(confirm(`Delete ${row.orderNumber}?`)) store.dispatch({ type: 'DELETE_MFG_ORDER', payload: row.id }); }
-      }}
-      emptyTitle="No Manufacturing Orders"
-      emptyDesc="Start creating orders and factory job sheets for your jersey manufacturing business."
-      addLabel="+ New Manufacturing Order"
-      onAdd={onNewOrder}
-    />
+    <div className="space-y-3">
+      {/* Quick Filter Bar & Action Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-[#E8E4DE]">
+        <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
+          {[
+            { key: 'all', label: 'All Orders', count: orders.length },
+            { key: 'due', label: 'Payment Due', count: dueCount, badgeColor: 'bg-red-100 text-red-700' },
+            { key: 'production', label: 'In Factory', count: prodCount, badgeColor: 'bg-blue-100 text-blue-700' },
+            { key: 'completed', label: 'Ready / Done', count: compCount, badgeColor: 'bg-emerald-100 text-emerald-700' },
+          ].map(f => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key as typeof filter)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap',
+                filter === f.key
+                  ? 'bg-[#18181B] text-white border-[#18181B] shadow-2xs'
+                  : 'bg-[#FAF8F5] text-slate-600 border-[#E8E4DE] hover:border-slate-300 hover:bg-white'
+              )}
+            >
+              <span>{f.label}</span>
+              <span className={cn('px-1.5 py-0.2 rounded-full text-[10px] font-black', filter === f.key ? 'bg-white/20 text-white' : f.badgeColor || 'bg-slate-200 text-slate-700')}>
+                {f.count}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {onNewOrder && (
+          <button
+            onClick={onNewOrder}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#FF6B35] to-[#E4572E] text-white text-xs sm:text-sm font-bold hover:shadow-md transition-all shadow-xs cursor-pointer ml-auto"
+          >
+            <Plus size={15} /> New Manufacturing Order
+          </button>
+        )}
+      </div>
+
+      <TransactionTable<ManufacturerOrder>
+        columns={columns}
+        rows={filteredOrders}
+        actions={['view','edit','payment','delete']}
+        onAction={(action, row) => {
+          if (action === 'view') onView(row);
+          if (action === 'edit') onEdit(row);
+          if (action === 'payment') onReceivePayment(row.customerId);
+          if (action === 'delete') { if(confirm(`Delete ${row.orderNumber}?`)) store.dispatch({ type: 'DELETE_MFG_ORDER', payload: row.id }); }
+        }}
+        emptyTitle="No Manufacturing Orders Found"
+        emptyDesc={filter !== 'all' ? `No orders matching filter "${filter}".` : 'Start creating orders and factory job sheets for your jersey manufacturing business.'}
+        addLabel="+ New Manufacturing Order"
+        onAdd={onNewOrder}
+      />
+    </div>
   );
 }
 
@@ -307,23 +360,35 @@ function DesignerBillsView({ store, onReceivePayment, onView, onViewLedger, onNe
   onViewLedger?: (customerId: string) => void;
   onNewBill?: () => void;
 }) {
+  const [filter, setFilter] = useState<'all' | 'due' | 'paid'>('all');
+
+  const bills = store.state.designerBills;
+  const dueCount = bills.filter(b => b.outstanding > 0).length;
+  const paidCount = bills.filter(b => b.outstanding <= 0).length;
+
+  const filteredBills = bills.filter(b => {
+    if (filter === 'due') return b.outstanding > 0;
+    if (filter === 'paid') return b.outstanding <= 0;
+    return true;
+  });
+
   const columns: Column<DesignerBill>[] = [
     {
       key: 'billNumber',
-      label: 'Bill #',
+      label: 'Invoice / Bill #',
       sortable: true,
       render: row => (
         <button
           type="button"
           onClick={() => onView?.(row)}
-          className="font-mono text-xs font-bold text-purple-600 hover:text-purple-800 hover:underline text-left"
-          title="Click to view Designer Bill"
+          className="font-mono text-xs font-bold text-purple-600 hover:text-purple-800 hover:underline text-left flex items-center gap-1"
+          title="Click to view Designer Tax Invoice"
         >
-          {row.billNumber}
+          <span>{row.billNumber}</span>
         </button>
       ),
     },
-    { key: 'customerId', label: 'Customer', render: row => {
+    { key: 'customerId', label: 'Customer / Party', render: row => {
       const c = store.state.customers.find(x => x.id === row.customerId);
       return onViewLedger ? (
         <button
@@ -338,7 +403,7 @@ function DesignerBillsView({ store, onReceivePayment, onView, onViewLedger, onNe
         <span className="font-semibold">{c?.businessName||'—'}</span>
       );
     }},
-    { key: 'productionJobId', label: 'Job #', hideOnMobile: true, render: row => (
+    { key: 'productionJobId', label: 'Job Ref', hideOnMobile: true, render: row => (
       <span className="text-xs font-mono text-[#52525B]">{row.productionJobId || '—'}</span>
     )},
     { key: 'date', label: 'Date', sortable: true, render: row => {
@@ -350,7 +415,7 @@ function DesignerBillsView({ store, onReceivePayment, onView, onViewLedger, onNe
     }},
     { key: 'grandTotal', label: 'Amount', sortable: true, render: row => <span className="font-semibold">{fmt(row.grandTotal)}</span> },
     { key: 'totalPaid', label: 'Paid', render: row => <span className="text-emerald-600 font-semibold">{fmt(row.totalPaid)}</span> },
-    { key: 'outstanding', label: 'Outstanding', sortable: true, render: row => (
+    { key: 'outstanding', label: 'Balance Due', sortable: true, render: row => (
       <span className={cn('font-bold', row.outstanding > 0 ? 'text-red-600' : 'text-emerald-600')}>{fmt(row.outstanding)}</span>
     )},
     { key: 'paymentStatus', label: 'Status', render: row => (
@@ -377,9 +442,45 @@ function DesignerBillsView({ store, onReceivePayment, onView, onViewLedger, onNe
         </div>
       </div>
 
+      {/* Filter Chips & Action Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-[#E8E4DE]">
+        <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
+          {[
+            { key: 'all', label: 'All Bills', count: bills.length },
+            { key: 'due', label: 'Payment Due', count: dueCount, badgeColor: 'bg-red-100 text-red-700' },
+            { key: 'paid', label: 'Paid / Cleared', count: paidCount, badgeColor: 'bg-emerald-100 text-emerald-700' },
+          ].map(f => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key as typeof filter)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap',
+                filter === f.key
+                  ? 'bg-purple-900 text-white border-purple-900 shadow-2xs'
+                  : 'bg-[#FAF8F5] text-slate-600 border-[#E8E4DE] hover:border-slate-300 hover:bg-white'
+              )}
+            >
+              <span>{f.label}</span>
+              <span className={cn('px-1.5 py-0.2 rounded-full text-[10px] font-black', filter === f.key ? 'bg-white/20 text-white' : f.badgeColor || 'bg-slate-200 text-slate-700')}>
+                {f.count}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {onNewBill && (
+          <button
+            onClick={onNewBill}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 text-white text-xs sm:text-sm font-bold hover:bg-purple-700 shadow-xs cursor-pointer ml-auto"
+          >
+            <Plus size={15} /> New Designer Bill
+          </button>
+        )}
+      </div>
+
       <TransactionTable<DesignerBill>
         columns={columns}
-        rows={store.state.designerBills}
+        rows={filteredBills}
         actions={['view','payment','delete']}
         onAction={(action, row) => {
           if (action === 'view') onView?.(row);
@@ -387,7 +488,7 @@ function DesignerBillsView({ store, onReceivePayment, onView, onViewLedger, onNe
           if (action === 'delete') { if(confirm(`Delete ${row.billNumber}?`)) store.dispatch({ type: 'DELETE_DESIGNER_BILL', payload: row.id }); }
         }}
         emptyTitle="No Designer Bills"
-        emptyDesc="Invoices & bills created or exported in Production Studio (https://www.fivenest.in/production) will automatically appear here."
+        emptyDesc={filter !== 'all' ? `No bills matching filter "${filter}".` : "Invoices & bills created or exported in Production Studio (https://www.fivenest.in/production) will automatically appear here."}
         addLabel="Go to Production Studio"
         onAdd={() => window.open('/production', '_self')}
       />
@@ -579,27 +680,65 @@ export default function OrderManagement() {
         </div>
       </div>
 
-      {/* ── Main content ─────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex max-w-[1600px] mx-auto w-full">
-        {/* Left sidebar nav */}
-        <nav className="w-48 shrink-0 bg-white border-r border-[#E8E4DE] py-4 px-3 hidden lg:block">
-          <div className="space-y-0.5">
+      {/* ── Sub Navigation Pill Bar (Responsive: Mobile, Tablet, Desktop) ──────── */}
+      <div className="bg-[#FAF8F5] border-b border-[#E8E4DE] sticky top-[57px] z-20 shadow-2xs">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-2 flex items-center justify-between gap-4 overflow-x-auto">
+          {/* Sub Navigation Tabs */}
+          <div className="flex items-center gap-1.5 shrink-0 py-0.5">
             {nav.map(item => {
               const Icon = item.icon;
               const active = subView === item.key;
               return (
-                <button key={item.key} onClick={() => setSubView(item.key)}
-                  className={cn('flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition-all', active ? 'bg-[#E4572E]/10 text-[#E4572E]' : 'text-[#52525B] hover:bg-[#FAF8F5] hover:text-[#171717]')}>
-                  <Icon size={15} className={active ? 'text-[#E4572E]' : ''}/>
-                  {item.label}
+                <button
+                  key={item.key}
+                  onClick={() => setSubView(item.key)}
+                  className={cn(
+                    'flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap cursor-pointer',
+                    active
+                      ? 'bg-white text-[#171717] shadow-xs border border-[#E8E4DE]'
+                      : 'text-[#71717A] hover:text-[#171717] hover:bg-white/60'
+                  )}
+                >
+                  <Icon size={14} className={active ? 'text-[#E4572E]' : 'text-[#71717A]'} />
+                  <span>{item.label}</span>
                 </button>
               );
             })}
           </div>
-        </nav>
 
-        {/* Content area */}
-        <main className="flex-1 p-6 overflow-y-auto min-w-0">
+          {/* Quick Action Button for current active mode */}
+          <div className="shrink-0 hidden sm:flex items-center gap-2">
+            {businessMode === 'manufacturer' && (
+              <button
+                onClick={() => openMfgOrder()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#E4572E] text-white text-xs font-bold hover:bg-[#D4431B] shadow-2xs cursor-pointer"
+              >
+                <Plus size={14} /> New MFG Order
+              </button>
+            )}
+            {businessMode === 'designer' && (
+              <button
+                onClick={() => openDesignerBill()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 shadow-2xs cursor-pointer"
+              >
+                <Plus size={14} /> New Designer Bill
+              </button>
+            )}
+            {businessMode === 'printing' && (
+              <button
+                onClick={() => openPrintingOrder()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 shadow-2xs cursor-pointer"
+              >
+                <Plus size={14} /> New Printing Order
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Main content (Full Width & Spacious) ──────────────────────────────── */}
+      <div className="flex-1 w-full max-w-[1600px] mx-auto p-4 sm:p-6 overflow-y-auto min-w-0">
+        <main className="w-full min-w-0">
           <AnimatePresence mode="wait">
             <motion.div key={`${businessMode}-${subView}`}
               initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
@@ -1003,6 +1142,7 @@ export default function OrderManagement() {
               setEditOrder(ord);
               setShowMfgForm(true);
             }}
+            onReceivePayment={openPayment}
           />
         )}
         {viewingDesignerBill && (

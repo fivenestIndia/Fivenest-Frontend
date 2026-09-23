@@ -2,54 +2,30 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Printer, MessageSquare, CheckCircle2, Clock, AlertCircle,
-  Building2, Camera, Download, Check, Edit3, Loader2, Copy
+  Building2, Camera, Download, Check, Edit3, Loader2, Copy,
+  CreditCard, Landmark, FileText, Sparkles
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { ManufacturerOrder, Customer, CHEST_SIZES, fmt } from '../../hooks/useOrderStore';
+import {
+  CompanyProfile, getCompanyProfile, saveCompanyProfile, numberToWordsIndian
+} from '../../lib/companyProfile';
+import CompanyProfileModal from './CompanyProfileModal';
 
 interface Props {
   order: ManufacturerOrder;
   customer?: Customer;
   onClose: () => void;
   onEdit?: () => void;
+  onReceivePayment?: (customerId: string) => void;
 }
 
-export interface CompanyProfile {
-  companyName: string;
-  tagline: string;
-  address: string;
-  cityStatePin: string;
-  phone: string;
-  email: string;
-  gstin: string;
-}
-
-const DEFAULT_COMPANY: CompanyProfile = {
-  companyName: 'FiveNest Apparels',
-  tagline: 'Sportswear & Jersey Manufacturing Studio',
-  address: 'Textile Industrial Hub',
-  cityStatePin: 'Maharashtra, India',
-  phone: '+91 96640 90039',
-  email: 'orders@fivenest.in',
-  gstin: '',
-};
-
-export default function JobSheetModal({ order, customer, onClose, onEdit }: Props) {
+export default function JobSheetModal({ order, customer, onClose, onEdit, onReceivePayment }: Props) {
   const sheetRef = useRef<HTMLDivElement>(null);
 
   // Company Profile state (persisted to localStorage)
-  const [company, setCompany] = useState<CompanyProfile>(() => {
-    try {
-      const saved = localStorage.getItem('fn_company_profile');
-      if (saved) return { ...DEFAULT_COMPANY, ...JSON.parse(saved) };
-    } catch (e) {
-      console.error(e);
-    }
-    return DEFAULT_COMPANY;
-  });
-
+  const [company, setCompany] = useState<CompanyProfile>(getCompanyProfile);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
-  const [tempCompany, setTempCompany] = useState<CompanyProfile>(company);
 
   // Sharing states
   const [isGeneratingSS, setIsGeneratingSS] = useState(false);
@@ -93,11 +69,11 @@ export default function JobSheetModal({ order, customer, onClose, onEdit }: Prop
   const getStatusBadge = (st: string) => {
     switch (st) {
       case 'done':
-        return <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-xs"><CheckCircle2 size={13} /> Done</span>;
+        return <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-xs"><CheckCircle2 size={12} /> Done</span>;
       case 'in_progress':
-        return <span className="inline-flex items-center gap-1 text-blue-700 font-bold text-xs"><Clock size={13} /> In Progress</span>;
+        return <span className="inline-flex items-center gap-1 text-blue-700 font-bold text-xs"><Clock size={12} /> In Progress</span>;
       default:
-        return <span className="inline-flex items-center gap-1 text-amber-700 font-bold text-xs"><AlertCircle size={13} /> Pending</span>;
+        return <span className="inline-flex items-center gap-1 text-amber-700 font-bold text-xs"><AlertCircle size={12} /> Pending</span>;
     }
   };
 
@@ -109,17 +85,6 @@ export default function JobSheetModal({ order, customer, onClose, onEdit }: Prop
 
   const totalPaid = advances.reduce((s, a) => s + (a.amount || 0), 0) || order.totalPaid || 0;
   const balance = order.balanceAmount !== undefined ? order.balanceAmount : Math.max(0, order.grandTotal - totalPaid);
-
-  // Save company profile
-  const handleSaveCompany = () => {
-    setCompany(tempCompany);
-    try {
-      localStorage.setItem('fn_company_profile', JSON.stringify(tempCompany));
-    } catch (e) {
-      console.error(e);
-    }
-    setShowCompanyModal(false);
-  };
 
   // Print function
   const handlePrint = () => {
@@ -161,10 +126,10 @@ export default function JobSheetModal({ order, customer, onClose, onEdit }: Prop
     if (!result) return;
 
     const link = document.createElement('a');
-    link.download = `JobSheet-${order.orderNumber}.png`;
+    link.download = `Invoice-${order.orderNumber}.png`;
     link.href = result.dataUrl;
     link.click();
-    setShareSuccessToast('Screenshot downloaded successfully!');
+    setShareSuccessToast('Invoice image downloaded successfully!');
   };
 
   // Share Screenshot on WhatsApp
@@ -174,138 +139,179 @@ export default function JobSheetModal({ order, customer, onClose, onEdit }: Prop
     setIsGeneratingSS(false);
 
     if (!result) {
-      alert('Could not capture screenshot. Please try again.');
+      alert('Could not capture invoice image. Please try again.');
       return;
     }
 
     const { blob, dataUrl } = result;
-    const fileName = `JobSheet-${order.orderNumber}.png`;
+    const fileName = `Invoice-${order.orderNumber}.png`;
     const file = new File([blob], fileName, { type: 'image/png' });
     const phone = customer?.whatsapp || customer?.phone || '';
 
-    // 1. Check if native Web Share with files is supported (mobile phones, Chrome on Android, Safari on iOS)
+    // 1. Check if native Web Share with files is supported
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({
           files: [file],
-          title: `Job Sheet ${order.orderNumber}`,
-          text: `Manufacturing Job Sheet for ${customer?.businessName || customer?.name || 'Customer'}`,
+          title: `Tax Invoice - ${order.orderNumber}`,
+          text: `*${company.companyName}*\nTAX INVOICE: *${order.orderNumber}*\nCustomer: ${customer?.businessName || customer?.name || 'Customer'}\nTotal Qty: ${totalQty} pcs\nTotal: ${fmt(order.grandTotal)}\nBalance Due: ${fmt(balance)}`,
         });
+        setShareSuccessToast('Shared successfully!');
         return;
-      } catch (err: any) {
-        if (err.name !== 'AbortError') {
-          console.log('Native share failed or dismissed, falling back:', err);
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          console.warn('Share failed:', err);
         } else {
           return;
         }
       }
     }
 
-    // 2. Desktop fallback:
-    // Copy screenshot to clipboard
-    let copiedToClipboard = false;
+    // 2. Clipboard copy
     try {
       if (navigator.clipboard && window.ClipboardItem) {
-        await navigator.clipboard.write([
-          new ClipboardItem({ 'image/png': blob })
-        ]);
-        copiedToClipboard = true;
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        setShareSuccessToast('📋 Invoice image copied! Paste (Ctrl+V) in WhatsApp.');
       }
-    } catch (clipErr) {
-      console.log('Clipboard copy failed:', clipErr);
+    } catch (e) {
+      console.warn('Clipboard error:', e);
     }
 
-    // Automatically trigger download of PNG
+    // 3. Download file
     const link = document.createElement('a');
     link.download = fileName;
     link.href = dataUrl;
     link.click();
 
-    // Open WhatsApp Web or App
-    const textMsg = `*JOB SHEET #${order.orderNumber}*\nCustomer: ${customer?.businessName || customer?.name || 'Customer'}\nTotal Qty: ${totalQty} pcs\nTotal Amount: ₹${order.grandTotal.toLocaleString('en-IN')}\nBalance: ₹${balance.toLocaleString('en-IN')}\n\n(Screenshot downloaded & copied to clipboard - please paste Ctrl+V or attach image)`;
-    const waUrl = phone
-      ? `https://wa.me/91${phone}?text=${encodeURIComponent(textMsg)}`
-      : `https://wa.me/?text=${encodeURIComponent(textMsg)}`;
-    window.open(waUrl, '_blank');
+    // 4. Open WhatsApp
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    const targetPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+    const msg = `*${company.companyName}*\n` +
+      `📄 *TAX INVOICE / JOB CARD: ${order.orderNumber}*\n` +
+      `👤 Party: *${customer?.businessName || customer?.name || 'Valued Customer'}*\n` +
+      `📦 Total Qty: *${totalQty} pcs* (H: ${totalHalf} | F: ${totalFull})\n` +
+      `💰 Grand Total: *${fmt(order.grandTotal)}*\n` +
+      `✅ Paid: *${fmt(totalPaid)}*\n` +
+      `⚠️ Balance Due: *${fmt(balance)}*\n\n` +
+      `📸 _Invoice copy attached below._`;
 
-    setShareSuccessToast(
-      copiedToClipboard
-        ? '📸 Screenshot copied to Clipboard & Downloaded! Just press Ctrl+V in WhatsApp to send the image.'
-        : '📸 Screenshot Downloaded! Please attach the image in WhatsApp.'
-    );
+    const waUrl = targetPhone
+      ? `https://wa.me/${targetPhone}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+
+    window.open(waUrl, '_blank');
   };
+
+  const termsList = (company.terms || '')
+    .split('\n')
+    .map(t => t.trim())
+    .filter(Boolean);
 
   return (
     <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm print:hidden" onClick={onClose} />
-
-      {/* Modal Container */}
-      <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 sm:p-6 print:p-0">
+      <div
+        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white"
+        onClick={onClose}
+      >
         <motion.div
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.96 }}
-          className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[94vh] flex flex-col print:shadow-none print:w-full print:max-w-none print:max-h-none print:rounded-none"
+          transition={{ duration: 0.2 }}
+          className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col max-h-[94vh] print:max-h-none print:shadow-none print:w-full print:rounded-none"
+          onClick={e => e.stopPropagation()}
         >
-          {/* Action Bar (hidden on print) */}
-          <div className="flex flex-wrap items-center justify-between px-6 py-3 border-b border-[#E8E4DE] bg-[#FAF8F5] rounded-t-2xl print:hidden shrink-0 gap-3">
-            <div className="flex items-center gap-3">
-              <span className="px-2.5 py-1 rounded-lg bg-[#E4572E]/10 text-[#E4572E] font-black text-xs uppercase tracking-wider">
-                Manufacturing Job Card
+          {/* ── Top Action Bar (hidden on print) ─────────────────────────────── */}
+          <div className="flex flex-wrap items-center justify-between px-5 py-3 border-b border-[#E8E4DE] bg-[#FAF8F5] rounded-t-2xl print:hidden shrink-0 gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="w-8 h-8 rounded-xl bg-[#E4572E] text-white flex items-center justify-center font-black text-sm">
+                F
               </span>
-              <span className="text-sm font-bold text-[#171717]">{order.orderNumber}</span>
+              <div>
+                <h3 className="font-extrabold text-sm text-[#171717] flex items-center gap-2">
+                  <span>Manufacturing Invoice</span>
+                  <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-orange-100 text-orange-900 border border-orange-200">
+                    {order.orderNumber}
+                  </span>
+                </h3>
+                <p className="text-[11px] text-[#71717A]">
+                  Factory job sheet & professional tax invoice
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Company Info Button */}
+              {/* Company & Bank Profile Button */}
               <button
-                onClick={() => { setTempCompany(company); setShowCompanyModal(true); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E8E4DE] bg-white text-xs font-bold text-[#52525B] hover:text-[#171717] hover:border-[#E4572E]/40 transition-colors"
-                title="Edit your factory/company name & address"
+                type="button"
+                onClick={() => setShowCompanyModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E8E4DE] bg-white text-xs font-bold text-[#52525B] hover:text-[#171717] hover:border-[#E4572E]/50 transition-all shadow-2xs"
+                title="Edit Company Name, Address, GSTIN & Bank Details"
               >
-                <Building2 size={13} className="text-[#E4572E]" /> Company & Address
+                <Building2 size={13} className="text-[#E4572E]" />
+                <span>Company & Bank</span>
               </button>
+
+              {/* Receive Payment (if due) */}
+              {balance > 0 && onReceivePayment && (
+                <button
+                  type="button"
+                  onClick={() => onReceivePayment(order.customerId)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold hover:bg-emerald-100 transition-all shadow-2xs"
+                >
+                  <CreditCard size={13} className="text-emerald-600" />
+                  <span>Receive Payment</span>
+                </button>
+              )}
 
               {/* Print Button */}
               <button
+                type="button"
                 onClick={handlePrint}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E8E4DE] bg-white text-xs font-bold text-[#171717] hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E8E4DE] bg-white text-xs font-bold text-[#171717] hover:bg-gray-50 transition-all shadow-2xs"
               >
-                <Printer size={13} /> Print Sheet
+                <Printer size={13} />
+                <span>Print (A4)</span>
               </button>
 
               {/* Download Screenshot */}
               <button
+                type="button"
                 onClick={handleDownloadScreenshot}
                 disabled={isGeneratingSS}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E8E4DE] bg-white text-xs font-bold text-[#171717] hover:bg-gray-50 transition-colors"
-                title="Download screenshot as PNG image"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E8E4DE] bg-white text-xs font-bold text-[#171717] hover:bg-gray-50 transition-all shadow-2xs disabled:opacity-50"
+                title="Download invoice image"
               >
                 {isGeneratingSS ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}
-                Download SS
+                <span>Download SS</span>
               </button>
 
               {/* Share WhatsApp as Image */}
               <button
+                type="button"
                 onClick={handleWhatsAppImageShare}
                 disabled={isGeneratingSS}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-all shadow-sm disabled:opacity-50"
               >
                 {isGeneratingSS ? <Loader2 size={13} className="animate-spin" /> : <MessageSquare size={13} />}
-                Share WhatsApp (SS)
+                <span>Share WhatsApp</span>
               </button>
 
               {onEdit && (
                 <button
+                  type="button"
                   onClick={() => { onClose(); onEdit(); }}
-                  className="px-3 py-1.5 rounded-xl bg-[#E4572E] text-white text-xs font-bold hover:bg-[#D4431B] transition-colors"
+                  className="px-3 py-1.5 rounded-xl bg-[#E4572E] text-white text-xs font-bold hover:bg-[#D4431B] transition-all shadow-2xs"
                 >
                   Edit Order
                 </button>
               )}
 
-              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0EDE8] ml-1 text-[#71717A]">
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-1.5 rounded-xl hover:bg-[#F0EDE8] text-[#71717A] ml-1"
+              >
                 <X size={18} />
               </button>
             </div>
@@ -313,401 +319,340 @@ export default function JobSheetModal({ order, customer, onClose, onEdit }: Prop
 
           {/* Toast alert when screenshot shared/downloaded */}
           {shareSuccessToast && (
-            <div className="bg-emerald-50 border-b border-emerald-200 px-6 py-2.5 text-xs text-emerald-800 font-bold flex items-center justify-between print:hidden">
+            <div className="bg-emerald-50 border-b border-emerald-200 px-6 py-2 text-xs text-emerald-800 font-bold flex items-center justify-between print:hidden">
               <span className="flex items-center gap-2">
                 <CheckCircle2 size={15} className="text-emerald-600" />
                 {shareSuccessToast}
               </span>
-              <button onClick={() => setShareSuccessToast(null)} className="text-emerald-700 hover:text-emerald-900">
-                <X size={14} />
+              <button type="button" onClick={() => setShareSuccessToast(null)}>
+                <X size={13} />
               </button>
             </div>
           )}
 
-          {/* Printable & Screenshot Job Sheet Container */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-8 print:p-0 print:overflow-visible bg-[#FAF8F5]/50 print:bg-white">
+          {/* ── Printable Invoice Document Container ────────────────────────── */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 print:p-0 print:overflow-visible bg-[#F8F7F4] print:bg-white">
             
-            {/* The exact printable job sheet captured by html2canvas */}
+            {/* The A4 / Standard Professional Invoice Document */}
             <div
               ref={sheetRef}
               id="printable-job-sheet"
-              className="border-2 border-black max-w-3xl mx-auto bg-white font-sans text-xs sm:text-sm text-black shadow-md print:shadow-none print:border-2 print:border-black"
+              className="bg-white border-2 border-slate-900 max-w-[850px] mx-auto p-6 sm:p-8 font-sans text-slate-900 shadow-md print:shadow-none print:border-2 print:border-slate-900 print:p-6 print:m-0"
             >
-              {/* ── 0. COMPANY / USER HEADER (Company Name, Tagline, Address, Phone, GSTIN) ── */}
-              <div className="border-b-2 border-black p-3 bg-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-base sm:text-lg font-black tracking-tight uppercase text-black">
-                      {company.companyName}
+              {/* ── 1. TAX INVOICE HEADER: Company Profile & Document Title ──── */}
+              <div className="border-b-2 border-slate-900 pb-4 mb-4 flex flex-col sm:flex-row justify-between items-start gap-4">
+                {/* Company Info */}
+                <div className="flex-1">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-8 h-8 rounded-lg bg-[#E4572E] text-white font-black text-base flex items-center justify-center print:border print:border-black">
+                      F
                     </span>
+                    <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-slate-900 leading-none">
+                      {company.companyName}
+                    </h1>
+                    <button
+                      type="button"
+                      onClick={() => setShowCompanyModal(true)}
+                      className="print:hidden text-gray-400 hover:text-[#E4572E] p-1 rounded"
+                      title="Edit Company Details"
+                    >
+                      <Edit3 size={14} />
+                    </button>
                   </div>
                   {company.tagline && (
-                    <p className="text-[10px] sm:text-[11px] font-semibold text-gray-700 uppercase tracking-wider">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-600 mt-1">
                       {company.tagline}
                     </p>
                   )}
-                  <p className="text-[10px] text-gray-800 mt-0.5">
-                    <strong>Address:</strong> {company.address}{company.cityStatePin ? `, ${company.cityStatePin}` : ''}
+                  <p className="text-xs text-slate-700 mt-1 leading-snug">
+                    {company.address}{company.cityStatePin ? `, ${company.cityStatePin}` : ''}
+                  </p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-700 mt-1">
+                    <span>Phone: <strong className="text-slate-900">{company.phone}</strong></span>
+                    {company.email && <span>Email: <strong className="text-slate-900">{company.email}</strong></span>}
+                    {company.gstin && <span>GSTIN: <strong className="font-mono text-slate-900">{company.gstin}</strong></span>}
+                    {company.state && <span>State: <strong className="text-slate-900">{company.state} (Code: {company.stateCode || '27'})</strong></span>}
+                  </div>
+                </div>
+
+                {/* Tax Invoice Badge & Order Meta */}
+                <div className="text-right sm:self-center shrink-0 border-2 border-slate-900 bg-slate-50 px-4 py-2.5 rounded-sm min-w-[200px]">
+                  <span className="inline-block px-2 py-0.5 rounded bg-slate-900 text-white font-black text-[10px] tracking-widest uppercase mb-1">
+                    TAX INVOICE
+                  </span>
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                    Original for Recipient
+                  </p>
+                  <div className="mt-1.5 space-y-0.5 text-xs">
+                    <p className="font-bold text-slate-700">
+                      Invoice #: <strong className="font-mono text-slate-900 text-sm font-black">{order.orderNumber}</strong>
+                    </p>
+                    <p className="text-slate-700">
+                      Date: <strong className="text-slate-900">{order.orderDate || '—'}</strong>
+                    </p>
+                    <p className="text-slate-700">
+                      Due: <strong className="text-slate-900">{order.deliveryDate || 'On Delivery'}</strong>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── 2. PARTY (BILL TO) & JOB SPECIFICATIONS GRID ─────────────────── */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b-2 border-slate-900 pb-4 mb-4 text-xs">
+                {/* Bill To Card */}
+                <div className="border border-slate-300 rounded p-3 bg-slate-50/50 print:bg-transparent">
+                  <div className="flex items-center justify-between border-b border-slate-300 pb-1.5 mb-2">
+                    <span className="font-black uppercase tracking-wider text-slate-900 text-[11px]">
+                      Billed To (Customer Details)
+                    </span>
+                    {customer?.customerType && (
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-200 uppercase font-bold">
+                        {customer.customerType}
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-black text-sm text-slate-900">
+                      {customer?.businessName || customer?.name || 'Customer Name'}
+                    </p>
+                    {customer?.businessName && customer?.name && customer.name !== customer.businessName && (
+                      <p className="text-slate-700">Attn: <strong>{customer.name}</strong></p>
+                    )}
+                    {customer?.phone && (
+                      <p className="text-slate-700">Mobile: <strong className="text-slate-900">{customer.phone}</strong></p>
+                    )}
+                    {customer?.billingAddress && (
+                      <p className="text-slate-600 leading-snug">Address: {customer.billingAddress}</p>
+                    )}
+                    {customer?.gstin && (
+                      <p className="text-slate-700 font-mono">GSTIN: <strong className="text-slate-900">{customer.gstin}</strong></p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Job Specifications Card */}
+                <div className="border border-slate-300 rounded p-3 bg-slate-50/50 print:bg-transparent">
+                  <div className="flex items-center justify-between border-b border-slate-300 pb-1.5 mb-2">
+                    <span className="font-black uppercase tracking-wider text-slate-900 text-[11px]">
+                      Manufacturing Specifications
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">
+                      Delivery: {order.deliveryDate || 'Standard'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 text-xs">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">Fabric</span>
+                      <strong className="text-slate-900">{order.fabric || 'N. Net'}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">Print Type</span>
+                      <strong className="text-slate-900">{order.printDetails || 'Full Sublimation'}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">Collar</span>
+                      <strong className="text-slate-900">{order.collarType || 'Ready made'} ({order.collarColor || 'Black'})</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">Sleeve / Piping</span>
+                      <strong className="text-slate-900">{order.handColor || 'Printed'} ({order.handStripeOrPiping || 'Black'})</strong>
+                    </div>
+                    <div className="col-span-2 pt-1 border-t border-slate-200 flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-bold text-slate-500">Production Stage:</span>
+                      <div className="flex gap-2">
+                        {getStatusBadge(stages.fabric)}
+                        <span className="text-slate-300">|</span>
+                        {getStatusBadge(stages.stitch)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── 3. GARMENT SIZING BREAKDOWN TABLE ──────────────────────────── */}
+              <div className="border border-slate-900 rounded-xs overflow-hidden mb-4">
+                <div className="bg-slate-900 text-white px-3 py-1.5 flex items-center justify-between text-xs font-black uppercase tracking-wider">
+                  <span>Size-Wise Quantity & Rates</span>
+                  <span className="text-[11px] font-mono tracking-normal opacity-90">
+                    Half: ₹{halfRate} | Full: ₹{fullRate}
+                  </span>
+                </div>
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-100 border-b border-slate-300 text-slate-700 font-bold uppercase text-[10px]">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Chest Size</th>
+                      <th className="px-3 py-2 text-center">Half Sleeve</th>
+                      <th className="px-3 py-2 text-center">Full Sleeve</th>
+                      <th className="px-3 py-2 text-center">Total Qty</th>
+                      <th className="px-3 py-2 text-right">Rate (₹)</th>
+                      <th className="px-3 py-2 text-right">Amount (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {CHEST_SIZES.filter(sz => (sizeMap[sz]?.half || 0) + (sizeMap[sz]?.full || 0) > 0).map(sz => {
+                      const h = sizeMap[sz]?.half || 0;
+                      const f = sizeMap[sz]?.full || 0;
+                      const rowQty = h + f;
+                      const rowAmount = (h * halfRate) + (f * fullRate);
+                      return (
+                        <tr key={sz} className="hover:bg-slate-50/50">
+                          <td className="px-3 py-1.5 font-bold font-mono text-slate-900">{sz}"</td>
+                          <td className="px-3 py-1.5 text-center font-semibold">{h || '—'}</td>
+                          <td className="px-3 py-1.5 text-center font-semibold">{f || '—'}</td>
+                          <td className="px-3 py-1.5 text-center font-bold text-slate-900">{rowQty} pcs</td>
+                          <td className="px-3 py-1.5 text-right font-mono text-slate-600">
+                            {h > 0 && f > 0 ? `₹${halfRate} / ₹${fullRate}` : h > 0 ? `₹${halfRate}` : `₹${fullRate}`}
+                          </td>
+                          <td className="px-3 py-1.5 text-right font-black font-mono text-slate-900">
+                            {fmt(rowAmount)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {/* Fallback if no specific size map filled */}
+                    {CHEST_SIZES.filter(sz => (sizeMap[sz]?.half || 0) + (sizeMap[sz]?.full || 0) > 0).length === 0 && (
+                      <tr>
+                        <td className="px-3 py-2 font-bold text-slate-900">Custom Garments (Mixed)</td>
+                        <td className="px-3 py-2 text-center font-semibold">{totalHalf}</td>
+                        <td className="px-3 py-2 text-center font-semibold">{totalFull}</td>
+                        <td className="px-3 py-2 text-center font-black">{totalQty} pcs</td>
+                        <td className="px-3 py-2 text-right font-mono">₹{halfRate}</td>
+                        <td className="px-3 py-2 text-right font-black font-mono">{fmt(order.grandTotal)}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                  {/* Totals Row */}
+                  <tfoot className="bg-slate-100 border-t-2 border-slate-900 font-bold text-slate-900">
+                    <tr>
+                      <td className="px-3 py-2 uppercase tracking-wider font-black">Total Quantity</td>
+                      <td className="px-3 py-2 text-center font-black">{totalHalf}</td>
+                      <td className="px-3 py-2 text-center font-black">{totalFull}</td>
+                      <td className="px-3 py-2 text-center font-black text-sm text-[#E4572E]">{totalQty} pcs</td>
+                      <td className="px-3 py-2 text-right text-slate-600 font-normal">Total</td>
+                      <td className="px-3 py-2 text-right font-black text-sm font-mono text-slate-900">
+                        {fmt(order.grandTotal)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              {/* ── 4. TWO-COLUMN FINANCIAL & PAYMENT SUMMARY (myBillBook style) ── */}
+              <div className="border-2 border-slate-900 rounded p-4 text-xs mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {/* Left Column: Amount in Words + Bank Details + Terms */}
+                  <div className="space-y-3">
+                    {/* Amount in Words */}
+                    <div className="bg-slate-50 border border-slate-300 p-2.5 rounded">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block mb-0.5">
+                        Amount in Words:
+                      </span>
+                      <strong className="text-xs text-slate-900 font-semibold italic">
+                        {numberToWordsIndian(order.grandTotal)}
+                      </strong>
+                    </div>
+
+                    {/* Bank & UPI Details Box */}
+                    <div className="bg-slate-50 border border-slate-300 p-2.5 rounded">
+                      <div className="flex items-center gap-1.5 font-black uppercase text-[10px] text-slate-700 tracking-wider mb-1.5">
+                        <Landmark size={13} className="text-[#E4572E]" />
+                        <span>Bank & UPI Details for Payment</span>
+                      </div>
+                      <div className="space-y-0.5 text-xs text-slate-800">
+                        {company.bankName && <p>Bank Name: <strong className="text-slate-900">{company.bankName}</strong></p>}
+                        {company.accountNumber && <p>Account No: <strong className="font-mono text-slate-900">{company.accountNumber}</strong></p>}
+                        {company.ifscCode && <p>IFSC Code: <strong className="font-mono text-slate-900">{company.ifscCode}</strong></p>}
+                        {company.accountHolder && <p>A/c Name: <strong>{company.accountHolder}</strong></p>}
+                        {company.upiId && <p>UPI ID: <strong className="font-mono text-[#E4572E]">{company.upiId}</strong></p>}
+                        {!company.accountNumber && !company.upiId && (
+                          <p className="text-[11px] text-slate-500 italic">
+                            Click "Company & Bank" above to add your bank details.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Terms & Conditions */}
+                    {termsList.length > 0 && (
+                      <div className="text-[10px] text-slate-600 leading-tight">
+                        <span className="font-bold uppercase text-slate-700 block mb-1">Terms & Conditions:</span>
+                        <ul className="list-decimal pl-3 space-y-0.5">
+                          {termsList.map((term, i) => (
+                            <li key={i}>{term.replace(/^\d+\.\s*/, '')}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Column: Financial Breakdown Calculation */}
+                  <div className="bg-slate-50 p-4 rounded border border-slate-300 flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <div className="flex justify-between py-1 border-b border-slate-200 text-xs">
+                        <span className="text-slate-600">Subtotal ({totalQty} pcs):</span>
+                        <strong className="text-slate-900 font-mono">{fmt(order.grandTotal)}</strong>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-slate-200 text-xs text-emerald-700 font-bold">
+                        <span>Advance / Received:</span>
+                        <span className="font-mono">{fmt(totalPaid)}</span>
+                      </div>
+                      {advances.filter(a => (a.amount || 0) > 0).map((a, i) => (
+                        <div key={i} className="flex justify-between text-[11px] text-slate-500 pl-2">
+                          <span>{a.label}:</span>
+                          <span className="font-mono">{fmt(a.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="pt-3 border-t-2 border-slate-900 mt-4 space-y-2">
+                      <div className="flex justify-between items-center text-sm font-black">
+                        <span className="uppercase text-slate-900">Total Amount:</span>
+                        <span className="text-base text-slate-900 font-mono">{fmt(order.grandTotal)}</span>
+                      </div>
+
+                      <div className="flex justify-between items-center text-sm font-black p-2 rounded bg-white border border-slate-300">
+                        <span className="uppercase text-red-700">Balance Due:</span>
+                        <span className={`text-base font-mono ${balance > 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                          {balance > 0 ? fmt(balance) : 'CLEARED'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── 5. AUTHORIZED SIGNATORY FOOTER ────────────────────────────── */}
+              <div className="mt-6 pt-4 border-t-2 border-slate-900 grid grid-cols-2 gap-8 text-xs items-end">
+                <div>
+                  <p className="text-[11px] text-slate-500 font-semibold">
+                    Thank you for your business!
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    This is a computer generated invoice and requires no physical seal.
                   </p>
                 </div>
 
-                <div className="text-left sm:text-right text-[11px] text-gray-900 shrink-0 font-medium">
-                  {company.phone && (
-                    <p><strong>Phone:</strong> {company.phone}</p>
-                  )}
-                  {company.email && (
-                    <p><strong>Email:</strong> {company.email}</p>
-                  )}
-                  {company.gstin && (
-                    <p><strong>GSTIN:</strong> {company.gstin}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* ── 1. ORDER HEADER: Order NO | Customer Name & Address | Delivery Date | Rates ── */}
-              <div className="grid grid-cols-12 border-b-2 border-black">
-                {/* Order NO */}
-                <div className="col-span-2 border-r border-black p-2 bg-gray-50 flex flex-col justify-center text-center">
-                  <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Order NO</div>
-                  <div className="text-base sm:text-lg font-black mt-0.5">
-                    {order.orderNumber.replace(/MFG-\d{4}-0*/, '#') || order.orderNumber}
-                  </div>
-                </div>
-
-                {/* Customer Details & Address */}
-                <div className="col-span-5 border-r border-black p-2 flex flex-col justify-center">
-                  <div className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">CUSTOMER NAME</div>
-                  <div className="text-sm sm:text-base font-black truncate">
-                    {customer?.businessName || customer?.name || 'Customer Name'}
-                  </div>
-                  {customer?.name && customer?.businessName && customer.name !== customer.businessName && (
-                    <div className="text-[11px] text-gray-700 font-medium">Attn: {customer.name}</div>
-                  )}
-                  {customer?.phone && (
-                    <div className="text-[11px] text-gray-800">Mob: {customer.phone}</div>
-                  )}
-                  {customer?.billingAddress && (
-                    <div className="text-[10px] text-gray-600 truncate mt-0.5">
-                      Addr: {customer.billingAddress}
-                    </div>
-                  )}
-                </div>
-
-                {/* Delivery Date & Rate */}
-                <div className="col-span-5 grid grid-cols-2">
-                  <div className="border-r border-black p-2 flex flex-col justify-center bg-gray-50">
-                    <div className="text-[10px] font-bold uppercase tracking-wider">Delivery Date</div>
-                    <div className="text-xs sm:text-sm font-black mt-0.5">
-                      {order.deliveryDate || '—'}
-                    </div>
-                  </div>
-                  <div className="p-2 flex flex-col justify-center text-right">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-700">Rate</div>
-                    <div className="text-[11px] mt-0.5 font-bold">
-                      Half: <span className="font-black text-black">₹{halfRate}</span>
-                    </div>
-                    <div className="text-[11px] font-bold">
-                      Full: <span className="font-black text-black">₹{fullRate}</span>
-                    </div>
+                <div className="text-right">
+                  <p className="font-bold text-slate-800 text-xs mb-8">
+                    For {company.companyName}
+                  </p>
+                  <div className="border-t border-slate-400 pt-1 inline-block min-w-[160px] text-center">
+                    <span className="text-[11px] font-semibold text-slate-600">Authorized Signatory</span>
                   </div>
                 </div>
               </div>
-
-              {/* ── 2. MAIN BODY: Two Columns (Left Details & Status / Right Sizing Table) ── */}
-              <div className="grid grid-cols-12">
-                
-                {/* Left Column: Order Details + Status + Payments */}
-                <div className="col-span-7 border-r-2 border-black flex flex-col">
-                  
-                  {/* ORDER DETAILS Section */}
-                  <div className="border-b border-black">
-                    <div className="bg-gray-100 p-1.5 text-center font-black uppercase tracking-wider border-b border-black text-xs">
-                      ORDER DETAILS
-                    </div>
-                    <table className="w-full text-xs">
-                      <tbody>
-                        {[
-                          { no: 1, label: 'Fabric', val: order.fabric || 'N. Net' },
-                          { no: 2, label: 'Print details', val: order.printDetails || 'Full Sublimation' },
-                          { no: 3, label: 'Collar Type', val: order.collarType || 'Ready made' },
-                          { no: 4, label: 'Collar color', val: order.collarColor || 'Black' },
-                          { no: 5, label: 'Hand color', val: order.handColor || 'Printed' },
-                          { no: 6, label: 'Hand stripe or piping', val: order.handStripeOrPiping || 'Black' },
-                        ].map(row => (
-                          <tr key={row.no} className="border-b border-black last:border-0">
-                            <td className="w-8 p-1.5 text-center font-bold border-r border-black bg-gray-50">{row.no}</td>
-                            <td className="p-1.5 font-bold border-r border-black w-44">{row.label}</td>
-                            <td className="p-1.5 font-black text-gray-900">{row.val}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* ORDER STATUS Section */}
-                  <div className="border-b border-black">
-                    <div className="bg-gray-100 p-1.5 text-center font-black uppercase tracking-wider border-b border-black text-xs">
-                      ORDER STATUS
-                    </div>
-                    <table className="w-full text-xs">
-                      <tbody>
-                        {[
-                          { no: 1, label: 'Design', status: stages.design },
-                          { no: 2, label: 'Fabric', status: stages.fabric },
-                          { no: 3, label: 'Print', status: stages.print },
-                          { no: 4, label: 'Stitch', status: stages.stitch },
-                        ].map(row => (
-                          <tr key={row.no} className="border-b border-black last:border-0">
-                            <td className="w-8 p-1.5 text-center font-bold border-r border-black bg-gray-50">{row.no}</td>
-                            <td className="p-1.5 font-bold border-r border-black w-44">{row.label}</td>
-                            <td className="p-1.5 capitalize font-black">{getStatusBadge(row.status)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* PAYMENT DETAILS Section */}
-                  <div className="flex-1 flex flex-col justify-end">
-                    <div className="bg-gray-100 p-1.5 text-center font-black uppercase tracking-wider border-b border-black text-xs">
-                      PAYMENT DETAILS
-                    </div>
-                    <table className="w-full text-xs">
-                      <tbody>
-                        {advances.map((adv, idx) => (
-                          <tr key={idx} className="border-b border-black">
-                            <td className="w-8 p-1.5 text-center font-bold border-r border-black bg-gray-50">{idx + 1}</td>
-                            <td className="p-1.5 font-bold border-r border-black w-44">{adv.label}</td>
-                            <td className="p-1.5 font-black text-emerald-700 text-right pr-4">
-                              {adv.amount > 0 ? adv.amount : '—'}
-                            </td>
-                          </tr>
-                        ))}
-                        <tr className="border-b-2 border-black bg-gray-50">
-                          <td colSpan={2} className="p-1.5 font-black uppercase tracking-wider pl-3">
-                            TOTAL AMOUNT
-                          </td>
-                          <td className="p-1.5 font-black text-sm text-right pr-4">
-                            ₹{order.grandTotal.toLocaleString('en-IN')}
-                          </td>
-                        </tr>
-                        <tr className="bg-white">
-                          <td colSpan={2} className="p-1.5 font-black uppercase tracking-wider pl-3">
-                            Balance Amount
-                          </td>
-                          <td className={`p-1.5 font-black text-sm text-right pr-4 ${balance > 0 ? 'text-red-600' : 'text-emerald-700'}`}>
-                            ₹{balance.toLocaleString('en-IN')}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-
-                </div>
-
-                {/* Right Column: Quantity Details (Sizing 20-50) */}
-                <div className="col-span-5 flex flex-col">
-                  <div className="bg-gray-100 p-1.5 text-center font-black uppercase tracking-wider border-b border-black text-xs">
-                    Quantity Details
-                  </div>
-                  
-                  {/* Table Header: Size | Half | Full */}
-                  <div className="grid grid-cols-3 border-b border-black bg-gray-50 text-center font-black text-xs py-1">
-                    <div className="border-r border-black">Size</div>
-                    <div className="border-r border-black">Half</div>
-                    <div>Full</div>
-                  </div>
-
-                  {/* Sizing Rows: 20 to 50 */}
-                  <div className="flex-1 divide-y divide-black">
-                    {CHEST_SIZES.map(sz => {
-                      const q = sizeMap[sz];
-                      const half = q?.half || 0;
-                      const full = q?.full || 0;
-                      const hasQty = half > 0 || full > 0;
-
-                      return (
-                        <div
-                          key={sz}
-                          className={`grid grid-cols-3 text-center text-xs py-1 ${hasQty ? 'bg-amber-50/70 font-black' : ''}`}
-                        >
-                          <div className="border-r border-black font-bold">{sz}</div>
-                          <div className="border-r border-black text-gray-900">{half > 0 ? half : ''}</div>
-                          <div className="text-gray-900">{full > 0 ? full : ''}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Sizing Totals */}
-                  <div className="border-t-2 border-black bg-gray-100">
-                    <div className="grid grid-cols-3 text-center font-black text-xs py-1.5 border-b border-black">
-                      <div className="border-r border-black uppercase tracking-wider">Total</div>
-                      <div className="border-r border-black text-black">{totalHalf}</div>
-                      <div className="text-black">{totalFull}</div>
-                    </div>
-                    <div className="p-2 text-center bg-gray-200">
-                      <span className="font-black uppercase tracking-wider mr-2 text-xs">Total Quantity</span>
-                      <span className="text-base font-black text-black">{totalQty}</span>
-                    </div>
-                  </div>
-
-                </div>
-
-              </div>
-
-            </div>
-
-            {/* Print Footer Notice */}
-            <div className="text-center text-[10px] text-gray-400 mt-4 print:mt-2">
-              Generated by {company.companyName} · Powered by FiveNest Studio
             </div>
           </div>
         </motion.div>
       </div>
 
-      {/* ── COMPANY PROFILE EDIT MODAL ── */}
-      <AnimatePresence>
-        {showCompanyModal && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full space-y-4"
-            >
-              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <Building2 size={18} className="text-[#E4572E]" />
-                  <h3 className="font-black text-base text-[#171717]">Company / User Details</h3>
-                </div>
-                <button onClick={() => setShowCompanyModal(false)} className="p-1 rounded-lg hover:bg-gray-100">
-                  <X size={16} />
-                </button>
-              </div>
-
-              <p className="text-xs text-gray-500">
-                These company and address details will be printed on all Job Sheets and included in WhatsApp screenshots.
-              </p>
-
-              <div className="space-y-3 text-xs">
-                <div>
-                  <label className="font-bold text-gray-700 block mb-1">Company / User Name *</label>
-                  <input
-                    value={tempCompany.companyName}
-                    onChange={e => setTempCompany({ ...tempCompany, companyName: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-300 font-bold outline-none focus:border-[#E4572E]"
-                    placeholder="e.g. FiveNest Apparels"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-gray-700 block mb-1">Tagline / Subtitle</label>
-                  <input
-                    value={tempCompany.tagline}
-                    onChange={e => setTempCompany({ ...tempCompany, tagline: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-300 outline-none focus:border-[#E4572E]"
-                    placeholder="e.g. Custom Jersey & Sportswear Manufacturing"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-gray-700 block mb-1">Factory / Office Address *</label>
-                  <input
-                    value={tempCompany.address}
-                    onChange={e => setTempCompany({ ...tempCompany, address: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-300 outline-none focus:border-[#E4572E]"
-                    placeholder="e.g. Gala 4, Industrial Area, Textile Zone"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-gray-700 block mb-1">City, State & PIN</label>
-                  <input
-                    value={tempCompany.cityStatePin}
-                    onChange={e => setTempCompany({ ...tempCompany, cityStatePin: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-300 outline-none focus:border-[#E4572E]"
-                    placeholder="e.g. Mumbai, Maharashtra - 400014"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="font-bold text-gray-700 block mb-1">Phone / WhatsApp *</label>
-                    <input
-                      value={tempCompany.phone}
-                      onChange={e => setTempCompany({ ...tempCompany, phone: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 outline-none focus:border-[#E4572E]"
-                      placeholder="+91 96640 90039"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-bold text-gray-700 block mb-1">GSTIN (Optional)</label>
-                    <input
-                      value={tempCompany.gstin}
-                      onChange={e => setTempCompany({ ...tempCompany, gstin: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 outline-none focus:border-[#E4572E]"
-                      placeholder="27AAAAA0000A1Z5"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="font-bold text-gray-700 block mb-1">Email</label>
-                  <input
-                    value={tempCompany.email}
-                    onChange={e => setTempCompany({ ...tempCompany, email: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-300 outline-none focus:border-[#E4572E]"
-                    placeholder="orders@fivenest.in"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setShowCompanyModal(false)}
-                  className="px-4 py-2 rounded-xl border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveCompany}
-                  className="px-5 py-2 rounded-xl bg-[#E4572E] text-white text-xs font-bold hover:bg-[#D4431B]"
-                >
-                  Save Details
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Global CSS for clean A4 printing */}
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #printable-job-sheet, #printable-job-sheet * {
-            visibility: visible !important;
-          }
-          #printable-job-sheet {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            margin: 0 auto !important;
-            padding: 0 !important;
-            border: 2px solid black !important;
-          }
-          @page {
-            size: A4 portrait;
-            margin: 10mm;
-          }
-        }
-      `}</style>
+      {/* Company Profile Edit Modal */}
+      <CompanyProfileModal
+        isOpen={showCompanyModal}
+        onClose={() => setShowCompanyModal(false)}
+        profile={company}
+        onSave={updated => setCompany(updated)}
+      />
     </>
   );
 }

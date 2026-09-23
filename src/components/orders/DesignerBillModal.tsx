@@ -3,12 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Printer, CheckCircle2, AlertCircle,
   Building2, Camera, Download, Check, Edit3, Loader2,
-  CreditCard, BookOpen, FileText, Palette
+  CreditCard, BookOpen, FileText, Palette, Landmark, MessageSquare
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
+import { DesignerBill, Customer, fmt, STATUS_LABELS } from '../../hooks/useOrderStore';
 import {
-  DesignerBill, Customer, fmt, STATUS_LABELS
-} from '../../hooks/useOrderStore';
+  CompanyProfile, getCompanyProfile, saveCompanyProfile, numberToWordsIndian
+} from '../../lib/companyProfile';
+import CompanyProfileModal from './CompanyProfileModal';
 
 interface Props {
   bill: DesignerBill;
@@ -17,26 +19,6 @@ interface Props {
   onReceivePayment?: (customerId: string) => void;
   onViewCustomerLedger?: (customerId: string) => void;
 }
-
-export interface CompanyProfile {
-  companyName: string;
-  tagline: string;
-  address: string;
-  cityStatePin: string;
-  phone: string;
-  email: string;
-  gstin: string;
-}
-
-const DEFAULT_COMPANY: CompanyProfile = {
-  companyName: 'FiveNest Apparels',
-  tagline: 'Apparel Design & Mockup Studio',
-  address: 'Textile Industrial Hub',
-  cityStatePin: 'Maharashtra, India',
-  phone: '+91 96640 90039',
-  email: 'orders@fivenest.in',
-  gstin: '',
-};
 
 export default function DesignerBillModal({
   bill,
@@ -47,18 +29,11 @@ export default function DesignerBillModal({
 }: Props) {
   const sheetRef = useRef<HTMLDivElement>(null);
 
-  const [company, setCompany] = useState<CompanyProfile>(() => {
-    try {
-      const saved = localStorage.getItem('fn_company_profile');
-      if (saved) return { ...DEFAULT_COMPANY, ...JSON.parse(saved) };
-    } catch (e) {
-      console.error(e);
-    }
-    return DEFAULT_COMPANY;
-  });
-
+  // Company Profile state (persisted to localStorage)
+  const [company, setCompany] = useState<CompanyProfile>(getCompanyProfile);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
-  const [tempCompany, setTempCompany] = useState<CompanyProfile>(company);
+
+  // Sharing states
   const [isGeneratingSS, setIsGeneratingSS] = useState(false);
   const [shareSuccessToast, setShareSuccessToast] = useState<string | null>(null);
 
@@ -68,16 +43,6 @@ export default function DesignerBillModal({
       return () => clearTimeout(t);
     }
   }, [shareSuccessToast]);
-
-  const handleSaveCompany = () => {
-    setCompany(tempCompany);
-    try {
-      localStorage.setItem('fn_company_profile', JSON.stringify(tempCompany));
-    } catch (e) {
-      console.error(e);
-    }
-    setShowCompanyModal(false);
-  };
 
   const handlePrint = () => {
     window.print();
@@ -119,7 +84,7 @@ export default function DesignerBillModal({
     link.download = `DesignerBill-${bill.billNumber}.png`;
     link.href = result.dataUrl;
     link.click();
-    setShareSuccessToast('Screenshot downloaded successfully!');
+    setShareSuccessToast('Invoice image downloaded successfully!');
   };
 
   const handleWhatsAppImageShare = async () => {
@@ -128,7 +93,7 @@ export default function DesignerBillModal({
     setIsGeneratingSS(false);
 
     if (!result) {
-      alert('Could not capture screenshot. Please try again.');
+      alert('Could not capture invoice image. Please try again.');
       return;
     }
 
@@ -141,8 +106,8 @@ export default function DesignerBillModal({
       try {
         await navigator.share({
           files: [file],
-          title: `Designer Bill - ${bill.billNumber}`,
-          text: `*${company.companyName}*\nDesigner Bill: *${bill.billNumber}*\nClient: ${customer?.businessName || customer?.name}\nTotal: ${fmt(bill.grandTotal)}\nBalance Due: ${fmt(bill.outstanding)}`,
+          title: `Designer Tax Invoice - ${bill.billNumber}`,
+          text: `*${company.companyName}*\n🎨 *DESIGNER TAX INVOICE: ${bill.billNumber}*\nClient: ${customer?.businessName || customer?.name || 'Customer'}\nTotal: ${fmt(bill.grandTotal)}\nBalance Due: ${fmt(bill.outstanding)}`,
         });
         setShareSuccessToast('Shared successfully!');
         return;
@@ -158,7 +123,7 @@ export default function DesignerBillModal({
     try {
       if (navigator.clipboard && window.ClipboardItem) {
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-        setShareSuccessToast('📋 Image copied to clipboard! Paste (Ctrl+V) in WhatsApp chat.');
+        setShareSuccessToast('📋 Invoice image copied! Paste (Ctrl+V) in WhatsApp.');
       }
     } catch (e) {
       console.warn('Clipboard error:', e);
@@ -172,13 +137,13 @@ export default function DesignerBillModal({
     const cleanPhone = phone.replace(/[^0-9]/g, '');
     const targetPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
     const msg = `*${company.companyName}*\n` +
-      `🎨 *DESIGNER BILL: ${bill.billNumber}*\n` +
+      `🎨 *DESIGNER TAX INVOICE: ${bill.billNumber}*\n` +
       `👤 Client: *${customer?.businessName || customer?.name || 'Valued Customer'}*\n` +
-      `📦 Production Job: ${bill.productionJobId || 'Standard'}\n` +
+      `📦 Production Ref: ${bill.productionJobId || 'Direct'}\n` +
       `💰 Grand Total: *${fmt(bill.grandTotal)}*\n` +
       `✅ Total Paid: *${fmt(bill.totalPaid)}*\n` +
       `⚠️ Balance Due: *${fmt(bill.outstanding)}*\n\n` +
-      `📸 _Invoice image downloaded. Please attach to this chat._`;
+      `📸 _Invoice copy attached below._`;
 
     const waUrl = targetPhone
       ? `https://wa.me/${targetPhone}?text=${encodeURIComponent(msg)}`
@@ -187,12 +152,16 @@ export default function DesignerBillModal({
     window.open(waUrl, '_blank');
   };
 
-  const subtotal = bill.items.reduce((s, i) => s + i.amount, 0);
+  const subtotal = bill.items.reduce((s, i) => s + (i.amount || 0), 0);
+  const termsList = (company.terms || '')
+    .split('\n')
+    .map(t => t.trim())
+    .filter(Boolean);
 
   return (
     <>
       <div
-        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white"
+        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white"
         onClick={onClose}
       >
         <motion.div
@@ -200,19 +169,19 @@ export default function DesignerBillModal({
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.96 }}
           transition={{ duration: 0.2 }}
-          className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh] print:max-h-none print:shadow-none print:w-full print:rounded-none"
+          className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col max-h-[94vh] print:max-h-none print:shadow-none print:w-full print:rounded-none"
           onClick={e => e.stopPropagation()}
         >
           {/* Top toolbar */}
-          <div className="bg-[#FAF8F5] border-b border-[#E8E4DE] px-4 py-3 flex flex-wrap items-center justify-between gap-3 shrink-0 print:hidden">
-            <div className="flex items-center gap-2">
+          <div className="bg-[#FAF8F5] border-b border-[#E8E4DE] px-5 py-3 flex flex-wrap items-center justify-between gap-3 shrink-0 print:hidden">
+            <div className="flex items-center gap-2.5">
               <span className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center font-black text-sm">
                 D
               </span>
               <div>
-                <h3 className="font-bold text-sm text-[#171717] flex items-center gap-1.5">
-                  Designer Bill
-                  <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-purple-100 text-purple-800">
+                <h3 className="font-extrabold text-sm text-[#171717] flex items-center gap-2">
+                  <span>Designer Invoice</span>
+                  <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-900 border border-purple-200">
                     {bill.billNumber}
                   </span>
                 </h3>
@@ -225,18 +194,50 @@ export default function DesignerBillModal({
             <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
-                onClick={() => { setTempCompany(company); setShowCompanyModal(true); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E8E4DE] bg-white text-xs font-semibold text-[#52525B] hover:border-[#E4572E] hover:text-[#E4572E] transition-all shadow-sm"
+                onClick={() => setShowCompanyModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E8E4DE] bg-white text-xs font-bold text-[#52525B] hover:text-[#171717] hover:border-[#E4572E]/50 transition-all shadow-2xs"
+                title="Edit Company Name, Address, GSTIN & Bank Details"
               >
-                <Building2 size={13} />
-                <span>Company & Address</span>
+                <Building2 size={13} className="text-[#E4572E]" />
+                <span>Company & Bank</span>
+              </button>
+
+              {bill.outstanding > 0 && onReceivePayment && (
+                <button
+                  type="button"
+                  onClick={() => onReceivePayment(bill.customerId)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold hover:bg-emerald-100 transition-all shadow-2xs"
+                >
+                  <CreditCard size={13} className="text-emerald-600" />
+                  <span>Receive Payment</span>
+                </button>
+              )}
+
+              {onViewCustomerLedger && bill.customerId && (
+                <button
+                  type="button"
+                  onClick={() => { onClose(); onViewCustomerLedger(bill.customerId); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E8E4DE] bg-white text-xs font-bold text-[#171717] hover:bg-gray-50 transition-all shadow-2xs"
+                >
+                  <BookOpen size={13} />
+                  <span>Ledger</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E8E4DE] bg-white text-xs font-bold text-[#171717] hover:bg-gray-50 transition-all shadow-2xs"
+              >
+                <Printer size={13} />
+                <span>Print (A4)</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleDownloadScreenshot}
                 disabled={isGeneratingSS}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E8E4DE] bg-white text-xs font-semibold text-[#171717] hover:bg-[#F5F3EF] transition-all shadow-sm disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E8E4DE] bg-white text-xs font-bold text-[#171717] hover:bg-gray-50 transition-all shadow-2xs disabled:opacity-50"
               >
                 {isGeneratingSS ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}
                 <span>Download SS</span>
@@ -246,130 +247,142 @@ export default function DesignerBillModal({
                 type="button"
                 onClick={handleWhatsAppImageShare}
                 disabled={isGeneratingSS}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-all shadow-sm disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-all shadow-sm disabled:opacity-50"
               >
-                {isGeneratingSS ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}
-                <span>Share WhatsApp (SS)</span>
+                {isGeneratingSS ? <Loader2 size={13} className="animate-spin" /> : <MessageSquare size={13} />}
+                <span>Share WhatsApp</span>
               </button>
-
-              <button
-                type="button"
-                onClick={handlePrint}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#171717] text-white text-xs font-bold hover:bg-black transition-all shadow-sm"
-              >
-                <Printer size={13} />
-                <span>Print Bill</span>
-              </button>
-
-              {bill.outstanding > 0 && onReceivePayment && (
-                <button
-                  type="button"
-                  onClick={() => { onClose(); onReceivePayment(bill.customerId); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#E4572E] text-white text-xs font-bold hover:bg-[#D4431B] transition-all shadow-sm"
-                >
-                  <CreditCard size={13} />
-                  <span>Receive Payment</span>
-                </button>
-              )}
-
-              {onViewCustomerLedger && (
-                <button
-                  type="button"
-                  onClick={() => { onClose(); onViewCustomerLedger(bill.customerId); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-200 bg-purple-50 text-purple-700 text-xs font-bold hover:bg-purple-100 transition-all shadow-sm"
-                >
-                  <BookOpen size={13} />
-                  <span>Ledger</span>
-                </button>
-              )}
 
               <button
                 type="button"
                 onClick={onClose}
-                className="p-1.5 rounded-xl hover:bg-[#E8E4DE] text-[#71717A] hover:text-[#171717] transition-all ml-1"
+                className="p-1.5 rounded-xl hover:bg-[#F0EDE8] text-[#71717A] ml-1"
               >
                 <X size={18} />
               </button>
             </div>
           </div>
 
-          {/* Printable Designer Bill */}
+          {shareSuccessToast && (
+            <div className="bg-emerald-50 border-b border-emerald-200 px-6 py-2 text-xs text-emerald-800 font-bold flex items-center justify-between print:hidden">
+              <span className="flex items-center gap-2">
+                <CheckCircle2 size={15} className="text-emerald-600" />
+                {shareSuccessToast}
+              </span>
+              <button type="button" onClick={() => setShareSuccessToast(null)}>
+                <X size={13} />
+              </button>
+            </div>
+          )}
+
+          {/* Printable Bill Container */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#F8F7F4] print:p-0 print:bg-white print:overflow-visible">
             <div
               id="printable-designer-bill"
               ref={sheetRef}
-              className="bg-white border-2 border-black max-w-[750px] mx-auto p-6 sm:p-8 text-black shadow-sm print:border-2 print:border-black print:shadow-none print:p-6 print:m-0"
+              className="bg-white border-2 border-slate-900 max-w-[850px] mx-auto p-6 sm:p-8 font-sans text-slate-900 shadow-md print:shadow-none print:border-2 print:border-slate-900 print:p-6 print:m-0"
             >
               {/* Header */}
-              <div className="border-b-2 border-black pb-4 mb-4 flex flex-col sm:flex-row justify-between items-start gap-4">
+              <div className="border-b-2 border-slate-900 pb-4 mb-4 flex flex-col sm:flex-row justify-between items-start gap-4">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-black">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-8 h-8 rounded-lg bg-purple-600 text-white font-black text-base flex items-center justify-center print:border print:border-black">
+                      D
+                    </span>
+                    <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-slate-900 leading-none">
                       {company.companyName}
                     </h1>
                     <button
                       type="button"
-                      onClick={() => { setTempCompany(company); setShowCompanyModal(true); }}
-                      className="print:hidden text-gray-400 hover:text-[#E4572E] p-1 rounded"
+                      onClick={() => setShowCompanyModal(true)}
+                      className="print:hidden text-gray-400 hover:text-purple-600 p-1 rounded"
                     >
                       <Edit3 size={14} />
                     </button>
                   </div>
                   {company.tagline && (
-                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-700">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-600 mt-1">
                       {company.tagline}
                     </p>
                   )}
-                  <p className="text-xs text-gray-800 mt-1 leading-snug">
-                    {company.address}
-                    {company.cityStatePin && <span>, {company.cityStatePin}</span>}
+                  <p className="text-xs text-slate-700 mt-1 leading-snug">
+                    {company.address}{company.cityStatePin ? `, ${company.cityStatePin}` : ''}
                   </p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-800 mt-1">
-                    <span>Phone: <strong>{company.phone}</strong></span>
-                    {company.email && <span>Email: <strong>{company.email}</strong></span>}
-                    {company.gstin && <span>GSTIN: <strong>{company.gstin}</strong></span>}
+                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-700 mt-1">
+                    <span>Phone: <strong className="text-slate-900">{company.phone}</strong></span>
+                    {company.email && <span>Email: <strong className="text-slate-900">{company.email}</strong></span>}
+                    {company.gstin && <span>GSTIN: <strong className="font-mono text-slate-900">{company.gstin}</strong></span>}
+                    {company.state && <span>State: <strong className="text-slate-900">{company.state} (Code: {company.stateCode || '27'})</strong></span>}
                   </div>
                 </div>
 
-                <div className="text-right sm:self-center shrink-0 border-2 border-black px-4 py-2 bg-purple-50/50 print:bg-transparent">
-                  <p className="text-xs uppercase tracking-widest font-black text-gray-600">Invoice</p>
-                  <p className="text-base sm:text-lg font-black text-black">DESIGNER BILL</p>
-                  <p className="text-xs font-mono font-bold text-gray-800">NO: {bill.billNumber}</p>
+                <div className="text-right sm:self-center shrink-0 border-2 border-slate-900 bg-slate-50 px-4 py-2.5 rounded-sm min-w-[200px]">
+                  <span className="inline-block px-2 py-0.5 rounded bg-purple-700 text-white font-black text-[10px] tracking-widest uppercase mb-1">
+                    TAX INVOICE
+                  </span>
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                    Design & Artwork Services
+                  </p>
+                  <div className="mt-1.5 space-y-0.5 text-xs">
+                    <p className="font-bold text-slate-700">
+                      Invoice #: <strong className="font-mono text-slate-900 text-sm font-black">{bill.billNumber}</strong>
+                    </p>
+                    <p className="text-slate-700">
+                      Date: <strong className="text-slate-900">{bill.date || '—'}</strong>
+                    </p>
+                    <p className="text-slate-700">
+                      Due: <strong className="text-slate-900">{bill.dueDate || 'On Receipt'}</strong>
+                    </p>
+                  </div>
                 </div>
               </div>
 
               {/* Meta info */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b-2 border-black pb-4 mb-4 text-xs">
-                <div className="border border-black p-3 bg-gray-50/50 print:bg-transparent">
-                  <h4 className="font-black uppercase tracking-wider text-black border-b border-gray-300 pb-1 mb-2">
-                    Client Details
-                  </h4>
-                  <p className="font-black text-sm text-black">{customer?.businessName || customer?.name || '—'}</p>
-                  {customer?.businessName && customer?.name && <p className="text-gray-700">Contact: {customer.name}</p>}
-                  <p className="text-gray-800">Phone: <strong>{customer?.phone || '—'}</strong></p>
-                  {customer?.billingAddress && <p className="text-gray-700 leading-snug">Address: {customer.billingAddress}</p>}
-                  {customer?.gstin && <p className="text-gray-700 font-mono">GSTIN: {customer.gstin}</p>}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b-2 border-slate-900 pb-4 mb-4 text-xs">
+                <div className="border border-slate-300 rounded p-3 bg-slate-50/50 print:bg-transparent">
+                  <div className="flex items-center justify-between border-b border-slate-300 pb-1.5 mb-2">
+                    <span className="font-black uppercase tracking-wider text-slate-900 text-[11px]">
+                      Billed To (Customer Details)
+                    </span>
+                    {customer?.customerType && (
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-200 uppercase font-bold">
+                        {customer.customerType}
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-black text-sm text-slate-900">{customer?.businessName || customer?.name || '—'}</p>
+                    {customer?.businessName && customer?.name && <p className="text-slate-700">Contact: <strong>{customer.name}</strong></p>}
+                    <p className="text-slate-700">Phone: <strong className="text-slate-900">{customer?.phone || '—'}</strong></p>
+                    {customer?.billingAddress && <p className="text-slate-600 leading-snug">Address: {customer.billingAddress}</p>}
+                    {customer?.gstin && <p className="text-slate-700 font-mono">GSTIN: <strong className="text-slate-900">{customer.gstin}</strong></p>}
+                  </div>
                 </div>
 
-                <div className="border border-black p-3 bg-gray-50/50 print:bg-transparent">
-                  <h4 className="font-black uppercase tracking-wider text-black border-b border-gray-300 pb-1 mb-2">
-                    Bill Info
-                  </h4>
+                <div className="border border-slate-300 rounded p-3 bg-slate-50/50 print:bg-transparent">
+                  <div className="flex items-center justify-between border-b border-slate-300 pb-1.5 mb-2">
+                    <span className="font-black uppercase tracking-wider text-slate-900 text-[11px]">
+                      Job Reference Details
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">
+                      SAC: 998314
+                    </span>
+                  </div>
                   <div className="grid grid-cols-2 gap-y-1.5">
                     <div>
-                      <span className="text-gray-600 block text-[10px] uppercase font-bold">Bill Date:</span>
-                      <strong className="text-black">{bill.date}</strong>
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">Bill Date:</span>
+                      <strong className="text-slate-900">{bill.date || '—'}</strong>
                     </div>
                     <div>
-                      <span className="text-gray-600 block text-[10px] uppercase font-bold">Due Date:</span>
-                      <strong className="text-black">{bill.dueDate || 'On Receipt'}</strong>
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">Due Date:</span>
+                      <strong className="text-slate-900">{bill.dueDate || 'On Receipt'}</strong>
                     </div>
                     <div>
-                      <span className="text-gray-600 block text-[10px] uppercase font-bold">Job Reference:</span>
-                      <strong className="text-black font-mono">{bill.productionJobId || 'Direct'}</strong>
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">Job Reference:</span>
+                      <strong className="text-slate-900 font-mono">{bill.productionJobId || 'Direct Studio'}</strong>
                     </div>
                     <div>
-                      <span className="text-gray-600 block text-[10px] uppercase font-bold">Payment Status:</span>
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">Payment Status:</span>
                       <span className={`font-black text-xs uppercase ${bill.outstanding > 0 ? 'text-red-700' : 'text-emerald-700'}`}>
                         {bill.paymentStatus}
                       </span>
@@ -379,81 +392,144 @@ export default function DesignerBillModal({
               </div>
 
               {/* Items Table */}
-              <div className="border border-black mb-4">
+              <div className="border border-slate-900 rounded-xs overflow-hidden mb-4">
                 <table className="w-full text-xs">
-                  <thead className="bg-black text-white">
+                  <thead className="bg-slate-900 text-white">
                     <tr>
                       <th className="text-left px-3 py-2 uppercase font-black">#</th>
                       <th className="text-left px-3 py-2 uppercase font-black">Service Description</th>
-                      <th className="text-left px-3 py-2 uppercase font-black">Type</th>
+                      <th className="text-left px-3 py-2 uppercase font-black">Type / Scope</th>
                       <th className="text-right px-3 py-2 uppercase font-black">Amount (₹)</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-200">
                     {bill.items.map((item, idx) => (
-                      <tr key={item.id || idx} className="border-b border-gray-200">
-                        <td className="px-3 py-2 font-mono text-gray-500">{idx + 1}</td>
-                        <td className="px-3 py-2 font-bold text-black">{item.description}</td>
+                      <tr key={item.id || idx} className="hover:bg-slate-50/50">
+                        <td className="px-3 py-2 font-mono text-slate-500">{idx + 1}</td>
+                        <td className="px-3 py-2 font-bold text-slate-900">{item.description}</td>
                         <td className="px-3 py-2">
-                          <span className="px-2 py-0.5 rounded uppercase font-mono text-[10px] bg-gray-100 font-bold">
+                          <span className="px-2 py-0.5 rounded uppercase font-mono text-[10px] bg-slate-100 font-bold text-slate-700 border border-slate-200">
                             {item.type}
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-right font-black">{fmt(item.amount)}</td>
+                        <td className="px-3 py-2 text-right font-black font-mono text-slate-900">{fmt(item.amount)}</td>
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot className="bg-slate-100 border-t-2 border-slate-900 font-bold text-slate-900">
+                    <tr>
+                      <td colSpan={3} className="px-3 py-2 uppercase tracking-wider font-black">Subtotal</td>
+                      <td className="px-3 py-2 text-right font-black text-sm font-mono text-slate-900">{fmt(subtotal)}</td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
 
-              {/* Totals */}
-              <div className="border-2 border-black p-3 text-xs mb-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <div className="flex justify-between py-0.5 border-b border-gray-200">
-                      <span className="text-gray-600">Subtotal:</span>
-                      <strong>{fmt(subtotal)}</strong>
+              {/* Two Column Totals & Bank Summary */}
+              <div className="border-2 border-slate-900 rounded p-4 text-xs mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {/* Left Column: Words + Bank + Terms */}
+                  <div className="space-y-3">
+                    <div className="bg-slate-50 border border-slate-300 p-2.5 rounded">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block mb-0.5">
+                        Amount in Words:
+                      </span>
+                      <strong className="text-xs text-slate-900 font-semibold italic">
+                        {numberToWordsIndian(bill.grandTotal)}
+                      </strong>
                     </div>
-                    {bill.discount > 0 && (
-                      <div className="flex justify-between py-0.5 border-b border-gray-200 text-emerald-700">
-                        <span>Discount:</span>
-                        <strong>- {fmt(bill.discount)}</strong>
+
+                    <div className="bg-slate-50 border border-slate-300 p-2.5 rounded">
+                      <div className="flex items-center gap-1.5 font-black uppercase text-[10px] text-slate-700 tracking-wider mb-1.5">
+                        <Landmark size={13} className="text-purple-600" />
+                        <span>Bank & UPI Details for Payment</span>
+                      </div>
+                      <div className="space-y-0.5 text-xs text-slate-800">
+                        {company.bankName && <p>Bank Name: <strong className="text-slate-900">{company.bankName}</strong></p>}
+                        {company.accountNumber && <p>Account No: <strong className="font-mono text-slate-900">{company.accountNumber}</strong></p>}
+                        {company.ifscCode && <p>IFSC Code: <strong className="font-mono text-slate-900">{company.ifscCode}</strong></p>}
+                        {company.accountHolder && <p>A/c Name: <strong>{company.accountHolder}</strong></p>}
+                        {company.upiId && <p>UPI ID: <strong className="font-mono text-purple-700">{company.upiId}</strong></p>}
+                        {!company.accountNumber && !company.upiId && (
+                          <p className="text-[11px] text-slate-500 italic">
+                            Click "Company & Bank" above to add your bank details.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {termsList.length > 0 && (
+                      <div className="text-[10px] text-slate-600 leading-tight">
+                        <span className="font-bold uppercase text-slate-700 block mb-1">Terms & Conditions:</span>
+                        <ul className="list-decimal pl-3 space-y-0.5">
+                          {termsList.map((term, i) => (
+                            <li key={i}>{term.replace(/^\d+\.\s*/, '')}</li>
+                          ))}
+                        </ul>
                       </div>
                     )}
-                    <div className="flex justify-between py-0.5 border-b border-gray-200">
-                      <span className="text-gray-600">GST ({bill.gstPct}%):</span>
-                      <strong>{fmt(bill.gstAmount)}</strong>
-                    </div>
                   </div>
 
-                  <div className="bg-gray-50 p-3 rounded border border-gray-300 space-y-1.5">
-                    <div className="flex justify-between text-sm font-black border-b border-gray-300 pb-1">
-                      <span>Total Amount:</span>
-                      <span>{fmt(bill.grandTotal)}</span>
+                  {/* Right Column: Calculations */}
+                  <div className="bg-slate-50 p-4 rounded border border-slate-300 flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <div className="flex justify-between py-1 border-b border-slate-200 text-xs">
+                        <span className="text-slate-600">Subtotal:</span>
+                        <strong className="text-slate-900 font-mono">{fmt(subtotal)}</strong>
+                      </div>
+                      {bill.discount > 0 && (
+                        <div className="flex justify-between py-1 border-b border-slate-200 text-xs text-emerald-700">
+                          <span>Discount:</span>
+                          <strong className="font-mono">- {fmt(bill.discount)}</strong>
+                        </div>
+                      )}
+                      {bill.gstAmount > 0 && (
+                        <div className="flex justify-between py-1 border-b border-slate-200 text-xs">
+                          <span className="text-slate-600">GST ({bill.gstPct}%):</span>
+                          <strong className="text-slate-900 font-mono">{fmt(bill.gstAmount)}</strong>
+                        </div>
+                      )}
+                      <div className="flex justify-between py-1 border-b border-slate-200 text-xs text-emerald-700 font-bold">
+                        <span>Amount Paid:</span>
+                        <strong className="font-mono">{fmt(bill.totalPaid)}</strong>
+                      </div>
                     </div>
-                    <div className="flex justify-between font-bold text-emerald-700">
-                      <span>Amount Paid:</span>
-                      <span>{fmt(bill.totalPaid)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm font-black pt-1 border-t-2 border-black">
-                      <span className="uppercase text-red-700">Balance Due:</span>
-                      <span className={bill.outstanding > 0 ? 'text-red-700' : 'text-emerald-700'}>
-                        {fmt(bill.outstanding)}
-                      </span>
+
+                    <div className="pt-3 border-t-2 border-slate-900 mt-4 space-y-2">
+                      <div className="flex justify-between items-center text-sm font-black">
+                        <span className="uppercase text-slate-900">Total Amount:</span>
+                        <span className="text-base text-slate-900 font-mono">{fmt(bill.grandTotal)}</span>
+                      </div>
+
+                      <div className="flex justify-between items-center text-sm font-black p-2 rounded bg-white border border-slate-300">
+                        <span className="uppercase text-red-700">Balance Due:</span>
+                        <span className={`text-base font-mono ${bill.outstanding > 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                          {bill.outstanding > 0 ? fmt(bill.outstanding) : 'CLEARED'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Footer */}
-              <div className="mt-8 pt-4 border-t-2 border-black grid grid-cols-2 gap-8 text-center text-xs">
+              {/* Signatory Footer */}
+              <div className="mt-6 pt-4 border-t-2 border-slate-900 grid grid-cols-2 gap-8 text-xs items-end">
                 <div>
-                  <div className="h-12 border-b border-dashed border-gray-400 mb-1" />
-                  <p className="font-bold text-gray-700">Customer Acceptance</p>
+                  <p className="text-[11px] text-slate-500 font-semibold">
+                    Thank you for your business!
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    This is a computer generated invoice and requires no physical seal.
+                  </p>
                 </div>
-                <div>
-                  <div className="h-12 border-b border-dashed border-gray-400 mb-1" />
-                  <p className="font-bold text-black">For {company.companyName}</p>
+
+                <div className="text-right">
+                  <p className="font-bold text-slate-800 text-xs mb-8">
+                    For {company.companyName}
+                  </p>
+                  <div className="border-t border-slate-400 pt-1 inline-block min-w-[160px] text-center">
+                    <span className="text-[11px] font-semibold text-slate-600">Authorized Signatory</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -461,124 +537,12 @@ export default function DesignerBillModal({
         </motion.div>
       </div>
 
-      {/* Modal: Edit Company Profile */}
-      <AnimatePresence>
-        {showCompanyModal && (
-          <div
-            className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4"
-            onClick={() => setShowCompanyModal(false)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between border-b border-gray-200 pb-3">
-                <h3 className="text-base font-bold text-[#171717] flex items-center gap-2">
-                  <Building2 size={18} className="text-[#E4572E]" />
-                  Edit Company Profile
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setShowCompanyModal(false)}
-                  className="p-1 rounded-lg hover:bg-gray-100 text-gray-500"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <div className="space-y-3 text-xs">
-                <div>
-                  <label className="font-bold text-gray-700 block mb-1">Company Name *</label>
-                  <input
-                    value={tempCompany.companyName}
-                    onChange={e => setTempCompany({ ...tempCompany, companyName: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-300 outline-none focus:border-[#E4572E]"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-gray-700 block mb-1">Tagline</label>
-                  <input
-                    value={tempCompany.tagline}
-                    onChange={e => setTempCompany({ ...tempCompany, tagline: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-300 outline-none focus:border-[#E4572E]"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-gray-700 block mb-1">Address</label>
-                  <textarea
-                    rows={2}
-                    value={tempCompany.address}
-                    onChange={e => setTempCompany({ ...tempCompany, address: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-300 outline-none focus:border-[#E4572E]"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="font-bold text-gray-700 block mb-1">Phone</label>
-                    <input
-                      value={tempCompany.phone}
-                      onChange={e => setTempCompany({ ...tempCompany, phone: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 outline-none focus:border-[#E4572E]"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-bold text-gray-700 block mb-1">GSTIN</label>
-                    <input
-                      value={tempCompany.gstin}
-                      onChange={e => setTempCompany({ ...tempCompany, gstin: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 outline-none focus:border-[#E4572E]"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setShowCompanyModal(false)}
-                  className="px-4 py-2 rounded-xl border border-gray-300 text-xs font-semibold text-gray-700"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveCompany}
-                  className="px-5 py-2 rounded-xl bg-[#E4572E] text-white text-xs font-bold"
-                >
-                  Save Details
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #printable-designer-bill, #printable-designer-bill * {
-            visibility: visible !important;
-          }
-          #printable-designer-bill {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            margin: 0 auto !important;
-            padding: 0 !important;
-            border: 2px solid black !important;
-          }
-          @page {
-            size: A4 portrait;
-            margin: 10mm;
-          }
-        }
-      `}</style>
+      <CompanyProfileModal
+        isOpen={showCompanyModal}
+        onClose={() => setShowCompanyModal(false)}
+        profile={company}
+        onSave={updated => setCompany(updated)}
+      />
     </>
   );
 }
