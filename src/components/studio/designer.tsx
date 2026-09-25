@@ -128,6 +128,56 @@ export interface ArtDesignConfig {
   trim?: TrimConfig;
 }
 
+/**
+ * Samples border pixels of an image to automatically extract its dominant edge/background color.
+ */
+export const sampleImageEdgeColor = (img: HTMLImageElement): string => {
+  try {
+    const canvas = document.createElement('canvas');
+    const w = Math.min(120, img.naturalWidth || img.width || 120);
+    const h = Math.min(120, img.naturalHeight || img.height || 120);
+    if (w <= 0 || h <= 0) return '#0A192F';
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return '#0A192F';
+    ctx.drawImage(img, 0, 0, w, h);
+
+    const edgePixels: [number, number, number][] = [];
+    const step = Math.max(1, Math.floor(w / 12));
+    const stepY = Math.max(1, Math.floor(h / 12));
+
+    for (let x = 0; x < w; x += step) {
+      const pTop = ctx.getImageData(x, 0, 1, 1).data;
+      if (pTop[3] > 40) edgePixels.push([pTop[0], pTop[1], pTop[2]]);
+      const pBottom = ctx.getImageData(x, h - 1, 1, 1).data;
+      if (pBottom[3] > 40) edgePixels.push([pBottom[0], pBottom[1], pBottom[2]]);
+    }
+    for (let y = 0; y < h; y += stepY) {
+      const pLeft = ctx.getImageData(0, y, 1, 1).data;
+      if (pLeft[3] > 40) edgePixels.push([pLeft[0], pLeft[1], pLeft[2]]);
+      const pRight = ctx.getImageData(w - 1, y, 1, 1).data;
+      if (pRight[3] > 40) edgePixels.push([pRight[0], pRight[1], pRight[2]]);
+    }
+
+    if (edgePixels.length > 0) {
+      let rTotal = 0, gTotal = 0, bTotal = 0;
+      edgePixels.forEach(([r, g, b]) => {
+        rTotal += r;
+        gTotal += g;
+        bTotal += b;
+      });
+      const avgR = Math.round(rTotal / edgePixels.length).toString(16).padStart(2, '0');
+      const avgG = Math.round(gTotal / edgePixels.length).toString(16).padStart(2, '0');
+      const avgB = Math.round(bTotal / edgePixels.length).toString(16).padStart(2, '0');
+      return `#${avgR}${avgG}${avgB}`;
+    }
+  } catch (e) {
+    console.warn('[Collar] Failed to sample edge color:', e);
+  }
+  return '#0A192F';
+};
+
 interface DesignerProps {
   designConfig: ArtDesignConfig;
   onDesignConfigChange: (config: ArtDesignConfig) => void;
@@ -758,11 +808,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const sleeveSpreadWidth = Math.round(sleeveSpreadPhysicalW * scale);
   const sleeveSpreadHeight = Math.round(sleeveSpreadPhysicalH * scale);
 
-  // Collar dimensions for spread layout (18" x 4.5")
+  // Collar dimensions for spread layout (18" x 4.5" - slightly smaller & proportional to jersey panels)
   const collarSpreadPhysicalW = 18;
   const collarSpreadPhysicalH = 4.5;
-  const collarSpreadWidth = Math.round(collarSpreadPhysicalW * scale * 1.5);
-  const collarSpreadHeight = Math.round(collarSpreadPhysicalH * scale * 1.5);
+  const collarSpreadWidth = Math.round(collarSpreadPhysicalW * scale);
+  const collarSpreadHeight = Math.round(collarSpreadPhysicalH * scale);
 
   const activePanel = activeTab === 'threeD'
     ? designConfig.front
@@ -1646,65 +1696,86 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         const collarConf = designConfig.collar || defaultDesignConfig.collar!;
         const collarPhysicalH = 4.5;
 
-        // Render on offscreen canvas
+        // 1. Determine background fill color or sample edge color from uploaded image
+        let collarBgColor = collarConf.generatedColor1 || '#0A192F';
+
+        if (collarConf.backgroundType === 'upload' && collarConf.uploadedFileUrl) {
+          const cachedImg = logoImagesRef.current[collarConf.uploadedFileUrl];
+          if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
+            const sampled = sampleImageEdgeColor(cachedImg);
+            if (sampled) {
+              collarBgColor = sampled;
+            }
+          } else {
+            const img = new Image();
+            img.onload = () => {
+              logoImagesRef.current[collarConf.uploadedFileUrl!] = img;
+              const sampled = sampleImageEdgeColor(img);
+              if (sampled && (!collarConf.generatedColor1 || collarConf.generatedColor1 === '#0A192F')) {
+                updateActivePanel({ generatedColor1: sampled });
+              }
+              setPrefTrigger(prev => prev + 1);
+            };
+            img.src = collarConf.uploadedFileUrl;
+          }
+        }
+
+        // Fill the WHOLE box with background colour (guarantees entire box is filled!)
+        ctx.fillStyle = collarBgColor;
+        ctx.fillRect(0, 0, width, height);
+
+        // If gradient fill is selected and not in upload mode, fill the whole box with the gradient
+        if (collarConf.backgroundType !== 'upload') {
+          const c1 = collarConf.generatedColor1 || '#0A192F';
+          const c2 = collarConf.generatedColor2 || '#162A45';
+          const style = collarConf.generatedStyle || 'solid';
+
+          if (style === 'solid') {
+            ctx.fillStyle = c1;
+            ctx.fillRect(0, 0, width, height);
+          } else if (style.includes('gradient')) {
+            let grad: CanvasGradient;
+            if (style === 'gradient-linear-lr') {
+              grad = ctx.createLinearGradient(0, 0, width, 0);
+            } else if (style === 'gradient-linear-tb') {
+              grad = ctx.createLinearGradient(0, 0, 0, height);
+            } else if (style === 'gradient-linear-diag') {
+              grad = ctx.createLinearGradient(0, 0, width, height);
+            } else {
+              grad = ctx.createRadialGradient(width / 2, height / 2, 10, width / 2, height / 2, width * 0.6);
+            }
+
+            if (collarConf.gradientStops && collarConf.gradientStops.length >= 2) {
+              const sortedStops = [...collarConf.gradientStops].sort((a, b) => a.offset - b.offset);
+              sortedStops.forEach(s => {
+                grad.addColorStop(Math.max(0, Math.min(1, s.offset / 100)), s.color);
+              });
+            } else {
+              grad.addColorStop(0, c1);
+              grad.addColorStop(1, c2);
+            }
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, width, height);
+          }
+        }
+
+        // 2. Render stripes and/or uploaded graphic on a transparent offscreen canvas
         const offscreen = document.createElement('canvas');
         offscreen.width = width;
         offscreen.height = height;
         const offCtx = offscreen.getContext('2d');
         if (offCtx) {
-          // 1. Background fill or upload
+          offCtx.clearRect(0, 0, width, height);
+
+          // If uploaded image exists, draw it onto the offscreen canvas
           if (collarConf.backgroundType === 'upload' && collarConf.uploadedFileUrl) {
             const cachedImg = logoImagesRef.current[collarConf.uploadedFileUrl];
-            if (cachedImg && cachedImg.complete) {
+            if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
               offCtx.drawImage(cachedImg, 0, 0, width, height);
-            } else {
-              const img = new Image();
-              img.onload = () => {
-                logoImagesRef.current[collarConf.uploadedFileUrl!] = img;
-                setPrefTrigger(prev => prev + 1);
-              };
-              img.src = collarConf.uploadedFileUrl;
-              offCtx.fillStyle = collarConf.generatedColor1 || '#0A192F';
-              offCtx.fillRect(0, 0, width, height);
-            }
-          } else {
-            const c1 = collarConf.generatedColor1 || '#0A192F';
-            const c2 = collarConf.generatedColor2 || '#162A45';
-            const style = collarConf.generatedStyle || 'solid';
-
-            if (style === 'solid') {
-              offCtx.fillStyle = c1;
-              offCtx.fillRect(0, 0, width, height);
-            } else if (style.includes('gradient')) {
-              let grad: CanvasGradient;
-              if (style === 'gradient-linear-lr') {
-                grad = offCtx.createLinearGradient(0, 0, width, 0);
-              } else if (style === 'gradient-linear-tb') {
-                grad = offCtx.createLinearGradient(0, 0, 0, height);
-              } else if (style === 'gradient-linear-diag') {
-                grad = offCtx.createLinearGradient(0, 0, width, height);
-              } else {
-                grad = offCtx.createRadialGradient(width / 2, height / 2, 10, width / 2, height / 2, width * 0.6);
-              }
-
-              if (collarConf.gradientStops && collarConf.gradientStops.length >= 2) {
-                const sortedStops = [...collarConf.gradientStops].sort((a, b) => a.offset - b.offset);
-                sortedStops.forEach(s => {
-                  grad.addColorStop(Math.max(0, Math.min(1, s.offset / 100)), s.color);
-                });
-              } else {
-                grad.addColorStop(0, c1);
-                grad.addColorStop(1, c2);
-              }
-              offCtx.fillStyle = grad;
-              offCtx.fillRect(0, 0, width, height);
-            } else {
-              offCtx.fillStyle = c1;
-              offCtx.fillRect(0, 0, width, height);
             }
           }
 
-          // 2. Horizontal Collar Stripes
+          // Horizontal Collar Stripes
           if (collarConf.stripes && collarConf.stripes.length > 0) {
             collarConf.stripes.forEach(st => {
               const stripeY = Math.round((st.yOffset / collarPhysicalH) * height);
@@ -1714,15 +1785,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             });
           }
 
-          // 3. Render onto main canvas (Flat vs Curved Arch)
+          // 3. Render onto main canvas (Curve ONLY the stripes/artwork! The background remains 100% filled!)
           if (collarConf.curved) {
             const archAmountInches = collarConf.curveAmount ?? 0.8;
             const archH = Math.round(archAmountInches * (height / collarPhysicalH));
-            const baseY = Math.round(archH * 0.65);
+            const baseY = Math.round(archH * 0.5);
 
-            ctx.clearRect(0, 0, width, height);
-
-            // Arc warp vertical slices
+            // Arc warp only the stripes/artwork offscreen canvas
             for (let x = 0; x < width; x++) {
               const u = (x - width / 2) / (width / 2); // -1 to +1
               const dy = -archH * (1 - u * u);
@@ -1748,9 +1817,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             // Size badge watermark in corner
             ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
             ctx.font = 'bold 10px system-ui, sans-serif';
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'top';
-            ctx.fillText(collarConf.curved ? '18" × 4.5" (Curved Collar)' : '18" × 4.5" (Flat Collar)', 8, 6);
+            ctx.fillText(
+              `18" × 4.5" ${collarConf.curved ? '(Curved Collar)' : '(Flat Collar)'}`,
+              10,
+              18
+            );
             ctx.restore();
           }
         }
@@ -2229,7 +2300,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           collarCanvasRef.current.width = (collarSpreadWidth + rulerOffset) * zoom;
           collarCanvasRef.current.height = (collarSpreadHeight + rulerOffset) * zoom;
           cCtx.scale(zoom, zoom);
-          renderPanelToCanvas('collar', cCtx, collarSpreadWidth, collarSpreadHeight, scale * 1.5, false);
+          renderPanelToCanvas('collar', cCtx, collarSpreadWidth, collarSpreadHeight, scale, false);
         }
       }
       // 1. Left Sleeve
@@ -2320,6 +2391,19 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               bgY: 0,
               bgLockAspectRatio: true
             });
+          };
+          img.src = url;
+        } else if (targetUpload === 'collar') {
+          const img = new Image();
+          img.onload = () => {
+            logoImagesRef.current[url] = img;
+            const edgeColor = sampleImageEdgeColor(img);
+            updateActivePanel({
+              backgroundType: 'upload',
+              uploadedFileUrl: url,
+              generatedColor1: edgeColor
+            });
+            setPrefTrigger(prev => prev + 1);
           };
           img.src = url;
         } else {
@@ -2576,7 +2660,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
   const handleCanvasDoubleClick = (
     e: React.MouseEvent<HTMLCanvasElement>, 
-    specificPanel?: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print'
+    specificPanel?: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'collar'
   ) => {
     e.stopPropagation();
     const targetCanvas = e.currentTarget;
@@ -2585,7 +2669,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const targetPanelKey = specificPanel || (activeTab === 'dual' ? dualActivePanel : activeTab);
     if (specificPanel && activeTab === 'dual' && dualActivePanel !== specificPanel) {
       if (specificPanel !== 'a4Print') {
-        setDualActivePanel(specificPanel as 'front' | 'back' | 'sleeveLeft' | 'sleeveRight');
+        setDualActivePanel(specificPanel as 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'collar');
       }
     }
 
@@ -2648,7 +2732,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   // Triple-click gesture listener to open Artboard Fill Colors & Gradients popup
   const handleArtboardGestureClick = (
     e: React.MouseEvent,
-    specificPanel?: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print'
+    specificPanel?: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'collar'
   ) => {
     const targetPanelKey = specificPanel || (activeTab === 'dual' ? dualActivePanel : activeTab);
     const now = Date.now();
@@ -2678,7 +2762,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       e.preventDefault();
       e.stopPropagation();
       if (specificPanel && activeTab === 'dual' && dualActivePanel !== specificPanel && specificPanel !== 'a4Print') {
-        setDualActivePanel(specificPanel as 'front' | 'back' | 'sleeveLeft' | 'sleeveRight');
+        setDualActivePanel(specificPanel as 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'collar');
       }
       setArtboardFillModal({
         isOpen: true,

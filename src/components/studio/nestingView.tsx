@@ -352,7 +352,7 @@ const getCachedImage = async (url: string): Promise<HTMLImageElement | null> => 
 
 import type { SizeDatabase } from './sizesDb';
 import type { PlayerRecord, OrderMetadata } from './orderEntry';
-import type { ArtDesignConfig, TextConfig } from './designer';
+import { sampleImageEdgeColor, type ArtDesignConfig, type TextConfig } from './designer';
 
 /** Helper to determine if a size falls into Youth range (18 to 30) for Collar sizing */
 export const isYouthCollarSize = (sizeStr: string): boolean => {
@@ -1338,27 +1338,36 @@ export const NestingView: React.FC<NestingViewProps> = ({
         const offCtx = offscreen.getContext('2d')!;
 
         const renderCollarContent = (bgImg?: HTMLImageElement) => {
-          // 1. Background fill or uploaded artwork
+          // 1. Determine background color, sampling image edge color if image is uploaded
+          let collarBgColor = collarConf.generatedColor1 || '#0A192F';
           if (bgImg) {
-            offCtx.drawImage(bgImg, 0, 0, widthPx, heightPx);
-          } else {
+            const sampled = sampleImageEdgeColor(bgImg);
+            if (sampled) collarBgColor = sampled;
+          }
+
+          // Fill the WHOLE box with background colour (guarantees entire box is filled!)
+          ctx.fillStyle = collarBgColor;
+          ctx.fillRect(0, 0, widthPx, heightPx);
+
+          // If gradient is used (and not upload mode), apply gradient to whole box
+          if (collarConf.backgroundType !== 'upload') {
             const c1 = collarConf.generatedColor1 || '#0A192F';
             const c2 = collarConf.generatedColor2 || '#162A45';
             const style = collarConf.generatedStyle || 'solid';
 
             if (style === 'solid') {
-              offCtx.fillStyle = c1;
-              offCtx.fillRect(0, 0, widthPx, heightPx);
+              ctx.fillStyle = c1;
+              ctx.fillRect(0, 0, widthPx, heightPx);
             } else if (style.includes('gradient')) {
               let grad: CanvasGradient;
               if (style === 'gradient-linear-lr') {
-                grad = offCtx.createLinearGradient(0, 0, widthPx, 0);
+                grad = ctx.createLinearGradient(0, 0, widthPx, 0);
               } else if (style === 'gradient-linear-tb') {
-                grad = offCtx.createLinearGradient(0, 0, 0, heightPx);
+                grad = ctx.createLinearGradient(0, 0, 0, heightPx);
               } else if (style === 'gradient-linear-diag') {
-                grad = offCtx.createLinearGradient(0, 0, widthPx, heightPx);
+                grad = ctx.createLinearGradient(0, 0, widthPx, heightPx);
               } else {
-                grad = offCtx.createRadialGradient(widthPx / 2, heightPx / 2, 10, widthPx / 2, heightPx / 2, widthPx * 0.6);
+                grad = ctx.createRadialGradient(widthPx / 2, heightPx / 2, 10, widthPx / 2, heightPx / 2, widthPx * 0.6);
               }
 
               if (collarConf.gradientStops && collarConf.gradientStops.length >= 2) {
@@ -1370,15 +1379,18 @@ export const NestingView: React.FC<NestingViewProps> = ({
                 grad.addColorStop(0, c1);
                 grad.addColorStop(1, c2);
               }
-              offCtx.fillStyle = grad;
-              offCtx.fillRect(0, 0, widthPx, heightPx);
-            } else {
-              offCtx.fillStyle = c1;
-              offCtx.fillRect(0, 0, widthPx, heightPx);
+              ctx.fillStyle = grad;
+              ctx.fillRect(0, 0, widthPx, heightPx);
             }
           }
 
-          // 2. Horizontal Collar Stripes
+          // 2. Offscreen transparent canvas for stripes & uploaded graphic
+          offCtx.clearRect(0, 0, widthPx, heightPx);
+
+          if (bgImg) {
+            offCtx.drawImage(bgImg, 0, 0, widthPx, heightPx);
+          }
+
           if (collarConf.stripes && collarConf.stripes.length > 0) {
             collarConf.stripes.forEach(st => {
               const stripeY = Math.round((st.yOffset / collarPhysicalH) * heightPx);
@@ -1388,14 +1400,11 @@ export const NestingView: React.FC<NestingViewProps> = ({
             });
           }
 
-          // 3. Render onto main canvas (Flat vs Curved Arch) with clean white background outside arch
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, widthPx, heightPx);
-
+          // 3. Render onto main canvas (Curve ONLY the stripes/artwork! The background remains 100% filled!)
           if (collarConf.curved) {
             const archAmountInches = collarConf.curveAmount ?? 0.8;
             const archH = Math.round(archAmountInches * (heightPx / collarPhysicalH));
-            const baseY = Math.round(archH * 0.65);
+            const baseY = Math.round(archH * 0.5);
 
             // Arc warp vertical slices
             for (let x = 0; x < widthPx; x++) {
