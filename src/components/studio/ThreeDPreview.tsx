@@ -186,10 +186,15 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
     }
 
     // Component 11: Sleeve cuff (X=[490, 1557], Y=[1429, 1536])
-    if (loadedTrimImages.sleeveStripe) {
-      mainCtx.drawImage(loadedTrimImages.sleeveStripe, 490, 1429, 1067, 107);
+    if (trim.sleeveStripe?.enabled === true) {
+      if (loadedTrimImages.sleeveStripe) {
+        mainCtx.drawImage(loadedTrimImages.sleeveStripe, 490, 1429, 1067, 107);
+      } else {
+        mainCtx.fillStyle = trim.sleeveStripe.color || c1;
+        mainCtx.fillRect(490, 1429, 1067, 107);
+      }
     } else {
-      mainCtx.fillStyle = trim.sleeveStripe.color || c1;
+      mainCtx.fillStyle = c1;
       mainCtx.fillRect(490, 1429, 1067, 107);
     }
 
@@ -234,7 +239,7 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
               matName.toLowerCase().includes('sleeve end') || 
               matName.toLowerCase().includes('material 2')
             ) {
-              mat.color.set(trim.sleeveStripe.color || '#ffffff');
+              mat.color.set(trim.sleeveStripe?.enabled ? (trim.sleeveStripe.color || '#ffffff') : (c1 || '#ffffff'));
             }
           }
         }
@@ -482,7 +487,7 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
               matName.toLowerCase().includes('material 2')
             ) {
               console.log(`-> Mapping solid color (sleeve end) to mesh: "${mesh.name}"`);
-              mat.color.set(trim.sleeveStripe.color || '#ffffff');
+              mat.color.set(trim.sleeveStripe?.enabled ? (trim.sleeveStripe.color || '#ffffff') : (c1 || '#ffffff'));
               mesh.material = mat;
             } else if (
               matName.toLowerCase().includes('main design') || 

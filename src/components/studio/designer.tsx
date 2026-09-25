@@ -52,11 +52,18 @@ export interface LogoConfig {
   text?: string;
 }
 
+export interface GradientStopItem {
+  id?: string;
+  color: string;
+  offset: number; // 0 to 100 (%)
+}
+
 export interface PanelConfig {
   backgroundType: 'generate' | 'upload';
   generatedStyle: 'neon-gradient' | 'classic-stripes' | 'camo-glow' | 'blank' | 'solid' | 'gradient-linear-tb' | 'gradient-linear-lr' | 'gradient-linear-diag' | 'gradient-radial';
   generatedColor1: string;
   generatedColor2: string;
+  gradientStops?: GradientStopItem[];
   uploadedFileUrl: string | null;
   uploadedFileHalfUrl?: string | null;
   uploadedFileFullUrl?: string | null;
@@ -186,7 +193,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
   trim: {
     collar: { enabled: true, color: '#9b4dff', uploadedUrl: null },
     placket: { enabled: true, color: '#9b4dff', uploadedUrl: null },
-    sleeveStripe: { enabled: true, color: '#171717', uploadedUrl: null, height: 2.3 }
+    sleeveStripe: { enabled: false, color: '#171717', uploadedUrl: null, height: 2.3 }
   }
 };
 
@@ -725,7 +732,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const currentTrim = designConfig.trim || {
       collar: { color: designConfig.front.generatedColor1, uploadedUrl: null },
       placket: { color: designConfig.front.generatedColor1, uploadedUrl: null },
-      sleeveStripe: { color: designConfig.front.generatedColor1, uploadedUrl: null }
+      sleeveStripe: { enabled: false, color: designConfig.front.generatedColor1, uploadedUrl: null, height: 2.3 }
     };
     const updated = {
       ...designConfig,
@@ -1650,28 +1657,28 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         if (style === 'solid') {
           ctx.fillStyle = c1;
           ctx.fillRect(0, 0, width, height);
-        } else if (style === 'gradient-linear-tb') {
-          const gradient = ctx.createLinearGradient(0, 0, 0, height);
-          gradient.addColorStop(0, c1);
-          gradient.addColorStop(1, c2);
-          ctx.fillStyle = gradient;
-          ctx.fillRect(0, 0, width, height);
-        } else if (style === 'gradient-linear-lr') {
-          const gradient = ctx.createLinearGradient(0, 0, width, 0);
-          gradient.addColorStop(0, c1);
-          gradient.addColorStop(1, c2);
-          ctx.fillStyle = gradient;
-          ctx.fillRect(0, 0, width, height);
-        } else if (style === 'gradient-linear-diag') {
-          const gradient = ctx.createLinearGradient(0, 0, width, height);
-          gradient.addColorStop(0, c1);
-          gradient.addColorStop(1, c2);
-          ctx.fillStyle = gradient;
-          ctx.fillRect(0, 0, width, height);
-        } else if (style === 'gradient-radial' || style === 'neon-gradient') {
-          const gradient = ctx.createRadialGradient(width/2, height/2, 20, width/2, height/2, Math.max(width, height) * 0.7);
-          gradient.addColorStop(0, c1);
-          gradient.addColorStop(1, c2);
+        } else if (style === 'gradient-linear-tb' || style === 'gradient-linear-lr' || style === 'gradient-linear-diag' || style === 'gradient-radial' || style === 'neon-gradient') {
+          let gradient: CanvasGradient;
+          if (style === 'gradient-linear-tb') {
+            gradient = ctx.createLinearGradient(0, 0, 0, height);
+          } else if (style === 'gradient-linear-lr') {
+            gradient = ctx.createLinearGradient(0, 0, width, 0);
+          } else if (style === 'gradient-linear-diag') {
+            gradient = ctx.createLinearGradient(0, 0, width, height);
+          } else {
+            gradient = ctx.createRadialGradient(width / 2, height / 2, 20, width / 2, height / 2, Math.max(width, height) * 0.7);
+          }
+
+          if (panel.gradientStops && panel.gradientStops.length >= 2) {
+            const sortedStops = [...panel.gradientStops].sort((a, b) => a.offset - b.offset);
+            sortedStops.forEach(s => {
+              const clamped = Math.max(0, Math.min(1, s.offset / 100));
+              gradient.addColorStop(clamped, s.color);
+            });
+          } else {
+            gradient.addColorStop(0, c1);
+            gradient.addColorStop(1, c2);
+          }
           ctx.fillStyle = gradient;
           ctx.fillRect(0, 0, width, height);
         } else if (style === 'classic-stripes') {
@@ -1722,7 +1729,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       // ── SLEEVE STRIPE AT BOTTOM (Height: 2.3 inches fixed, Width: fits sleeve panel) ──
       if (panelKey === 'sleeveLeft' || panelKey === 'sleeveRight') {
         const stripeConf = designConfig.trim?.sleeveStripe;
-        if (stripeConf && stripeConf.enabled !== false && (stripeConf.color || stripeConf.uploadedUrl)) {
+        if (stripeConf && stripeConf.enabled === true && (stripeConf.color || stripeConf.uploadedUrl)) {
           const stripeHInches = stripeConf.height || 2.3;
           const stripeHPx = Math.round(stripeHInches * scale);
           const stripeYPx = height - stripeHPx;
@@ -2987,6 +2994,23 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       >
                         🎨 Fill
                       </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const currentEnabled = designConfig.trim?.sleeveStripe?.enabled === true;
+                          updateTrimConfig('sleeveStripe', { enabled: !currentEnabled });
+                        }}
+                        className={`ml-1 px-2 py-0.5 rounded text-[10px] font-bold transition-all flex items-center gap-1 ${
+                          designConfig.trim?.sleeveStripe?.enabled === true
+                            ? 'bg-emerald-500/90 text-white shadow-sm hover:bg-emerald-600'
+                            : 'bg-black/10 hover:bg-black/20 text-[#4B5563]'
+                        }`}
+                        title="Toggle 2.3-inch Sleeve Bottom Stripe (Default: OFF)"
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${designConfig.trim?.sleeveStripe?.enabled === true ? 'bg-white' : 'bg-gray-400'}`} />
+                        {designConfig.trim?.sleeveStripe?.enabled === true ? 'Stripe ON' : 'Stripe OFF'}
+                      </button>
                     </div>
 
                     <div style={{ position: 'relative', display: 'inline-block' }}>
@@ -3180,6 +3204,23 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         title="Open Fill Colors, Gradients & Sleeve Stripe"
                       >
                         🎨 Fill
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const currentEnabled = designConfig.trim?.sleeveStripe?.enabled === true;
+                          updateTrimConfig('sleeveStripe', { enabled: !currentEnabled });
+                        }}
+                        className={`ml-1 px-2 py-0.5 rounded text-[10px] font-bold transition-all flex items-center gap-1 ${
+                          designConfig.trim?.sleeveStripe?.enabled === true
+                            ? 'bg-emerald-500/90 text-white shadow-sm hover:bg-emerald-600'
+                            : 'bg-black/10 hover:bg-black/20 text-[#4B5563]'
+                        }`}
+                        title="Toggle 2.3-inch Sleeve Bottom Stripe (Default: OFF)"
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${designConfig.trim?.sleeveStripe?.enabled === true ? 'bg-white' : 'bg-gray-400'}`} />
+                        {designConfig.trim?.sleeveStripe?.enabled === true ? 'Stripe ON' : 'Stripe OFF'}
                       </button>
                     </div>
 

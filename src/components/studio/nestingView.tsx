@@ -387,7 +387,7 @@ export const checkArtworkUploadStatus = (
     designConfig?.sleeveRight?.uploadedFileFullUrl ||
     (designConfig?.sleeveLeft?.backgroundType === 'generate' && designConfig?.sleeveLeft?.generatedColor1) ||
     (designConfig?.sleeveRight?.backgroundType === 'generate' && designConfig?.sleeveRight?.generatedColor1) ||
-    (designConfig?.trim?.sleeveStripe?.enabled !== false && designConfig?.trim?.sleeveStripe?.color)
+    (designConfig?.trim?.sleeveStripe?.enabled === true && (designConfig?.trim?.sleeveStripe?.color || designConfig?.trim?.sleeveStripe?.uploadedUrl))
   );
 
   const a4HasArtwork = Boolean(
@@ -397,8 +397,7 @@ export const checkArtworkUploadStatus = (
   const trimHasArtwork = Boolean(
     designConfig?.trim?.collar?.uploadedUrl ||
     designConfig?.trim?.placket?.uploadedUrl ||
-    designConfig?.trim?.sleeveStripe?.uploadedUrl ||
-    (designConfig?.trim?.sleeveStripe?.enabled !== false && designConfig?.trim?.sleeveStripe?.color)
+    (designConfig?.trim?.sleeveStripe?.enabled === true && (designConfig?.trim?.sleeveStripe?.uploadedUrl || designConfig?.trim?.sleeveStripe?.color))
   );
 
   const anyArtworkUploaded = frontHasArtwork || backHasArtwork || sleeveHasArtwork || a4HasArtwork || trimHasArtwork;
@@ -1677,7 +1676,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
           );
         }
 
-        if ((item.panelType === 'sleeve-left' || item.panelType === 'sleeve-right') && designConfig?.trim?.sleeveStripe?.uploadedUrl) {
+        if ((item.panelType === 'sleeve-left' || item.panelType === 'sleeve-right') && designConfig?.trim?.sleeveStripe?.enabled === true && designConfig?.trim?.sleeveStripe?.uploadedUrl) {
           promises.push(
             getCachedImage(designConfig.trim.sleeveStripe.uploadedUrl).then(img => { if (img) images.sleeveStripe = img; })
           );
@@ -1718,28 +1717,28 @@ export const NestingView: React.FC<NestingViewProps> = ({
           if (style === 'solid') {
             ctx.fillStyle = c1;
             ctx.fillRect(0, 0, widthPx, heightPx);
-          } else if (style === 'gradient-linear-tb') {
-            const gradient = ctx.createLinearGradient(0, 0, 0, heightPx);
-            gradient.addColorStop(0, c1);
-            gradient.addColorStop(1, c2);
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, widthPx, heightPx);
-          } else if (style === 'gradient-linear-lr') {
-            const gradient = ctx.createLinearGradient(0, 0, widthPx, 0);
-            gradient.addColorStop(0, c1);
-            gradient.addColorStop(1, c2);
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, widthPx, heightPx);
-          } else if (style === 'gradient-linear-diag') {
-            const gradient = ctx.createLinearGradient(0, 0, widthPx, heightPx);
-            gradient.addColorStop(0, c1);
-            gradient.addColorStop(1, c2);
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, widthPx, heightPx);
-          } else if (style === 'gradient-radial' || style === 'neon-gradient') {
-            const gradient = ctx.createRadialGradient(widthPx/2, heightPx/2, 20, widthPx/2, heightPx/2, Math.max(widthPx, heightPx)*0.7);
-            gradient.addColorStop(0, c1);
-            gradient.addColorStop(1, c2);
+          } else if (style === 'gradient-linear-tb' || style === 'gradient-linear-lr' || style === 'gradient-linear-diag' || style === 'gradient-radial' || style === 'neon-gradient') {
+            let gradient: CanvasGradient;
+            if (style === 'gradient-linear-tb') {
+              gradient = ctx.createLinearGradient(0, 0, 0, heightPx);
+            } else if (style === 'gradient-linear-lr') {
+              gradient = ctx.createLinearGradient(0, 0, widthPx, 0);
+            } else if (style === 'gradient-linear-diag') {
+              gradient = ctx.createLinearGradient(0, 0, widthPx, heightPx);
+            } else {
+              gradient = ctx.createRadialGradient(widthPx / 2, heightPx / 2, 20, widthPx / 2, heightPx / 2, Math.max(widthPx, heightPx) * 0.7);
+            }
+
+            if (conf.gradientStops && conf.gradientStops.length >= 2) {
+              const sortedStops = [...conf.gradientStops].sort((a: any, b: any) => a.offset - b.offset);
+              sortedStops.forEach((s: any) => {
+                const clamped = Math.max(0, Math.min(1, s.offset / 100));
+                gradient.addColorStop(clamped, s.color);
+              });
+            } else {
+              gradient.addColorStop(0, c1);
+              gradient.addColorStop(1, c2);
+            }
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, widthPx, heightPx);
           } else if (style === 'classic-stripes') {
@@ -1780,7 +1779,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
         // ── SLEEVE STRIPE AT BOTTOM (Height: 2.3 inches fixed, Width: fits sleeve panel) ──
         if (item.panelType === 'sleeve-left' || item.panelType === 'sleeve-right') {
           const stripeConf = designConfig?.trim?.sleeveStripe;
-          if (stripeConf && stripeConf.enabled !== false && (stripeConf.color || stripeConf.uploadedUrl)) {
+          if (stripeConf && stripeConf.enabled === true && (stripeConf.color || stripeConf.uploadedUrl)) {
             // Exactly 2.3 inches fixed height across ALL sizes 18 to 60!
             const stripeHInches = stripeConf.height || 2.3;
             const stripeHPx = Math.round(stripeHInches * scaleDpi);
