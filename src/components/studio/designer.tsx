@@ -321,6 +321,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     panelKey: 'front'
   });
   const clickTrackerRef = useRef<{ panel: string; count: number; time: number }>({ panel: '', count: 0, time: 0 });
+  const rightClickTrackerRef = useRef<{ panel: string; time: number }>({ panel: '', time: 0 });
+  const lastRightClickActionTimeRef = useRef<number>(0);
   const doubleClickTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Undo/Redo history stacks
@@ -2841,7 +2843,54 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     });
   };
 
-  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>, specificPanel?: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print') => {
+  // Helper to handle double right-click image import across mouse events
+  const handleRightClickGesture = (
+    e: React.MouseEvent,
+    specificPanel?: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'collar'
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const targetPanelKey = specificPanel || (activeTab === 'dual' ? dualActivePanel : activeTab);
+    const now = Date.now();
+
+    // Guard against duplicate triggers from mousedown + contextmenu within 400ms
+    if (now - lastRightClickActionTimeRef.current < 400) return;
+
+    const prev = rightClickTrackerRef.current;
+    if (prev.panel === targetPanelKey && now - prev.time < 500) {
+      // Double Right Click detected -> Import image!
+      rightClickTrackerRef.current = { panel: '', time: 0 };
+      lastRightClickActionTimeRef.current = now;
+
+      if (specificPanel && activeTab === 'dual' && dualActivePanel !== specificPanel) {
+        if (specificPanel !== 'a4Print') {
+          setDualActivePanel(specificPanel as 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'collar');
+        }
+      }
+
+      fileInputRef.current?.click();
+    } else {
+      rightClickTrackerRef.current = { panel: targetPanelKey, time: now };
+    }
+  };
+
+  const handleCanvasContextMenu = (
+    e: React.MouseEvent<HTMLCanvasElement>,
+    specificPanel?: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'collar'
+  ) => {
+    handleRightClickGesture(e, specificPanel);
+  };
+
+  const handleCanvasMouseDown = (
+    e: React.MouseEvent<HTMLCanvasElement>, 
+    specificPanel?: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'collar'
+  ) => {
+    // Intercept Right Click (button === 2) for Double Right Click Image Upload
+    if (e.button === 2) {
+      handleRightClickGesture(e, specificPanel);
+      return;
+    }
+
     if (spaceKeyPressed || activeTool === 'pan' || e.button === 1) {
       e.preventDefault();
       setIsPanning(true);
@@ -2871,12 +2920,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
     if (activeTab === 'dual' && specificPanel && dualActivePanel !== specificPanel) {
       if (specificPanel !== 'a4Print') {
-        setDualActivePanel(specificPanel as 'front' | 'back' | 'sleeveLeft' | 'sleeveRight');
+        setDualActivePanel(specificPanel as 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'collar');
       }
     }
 
     const rect = targetCanvas.getBoundingClientRect();
-    const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
+    const currentRulerOffset = (rulersEnabled && targetPanelKey !== 'collar') ? Math.round(0.55 * scale) : 0;
     const canvasX = (e.clientX - rect.left) / zoom - currentRulerOffset;
     const canvasY = (e.clientY - rect.top) / zoom - currentRulerOffset;
 
@@ -2951,6 +3000,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     specificPanel?: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'collar'
   ) => {
     e.stopPropagation();
+    e.preventDefault();
     const targetCanvas = e.currentTarget;
     if (!targetCanvas) return;
 
@@ -2963,7 +3013,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
     const panelConfig = (designConfig[targetPanelKey as keyof ArtDesignConfig] || activePanel) as PanelConfig;
     const rect = targetCanvas.getBoundingClientRect();
-    const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
+    const currentRulerOffset = (rulersEnabled && targetPanelKey !== 'collar') ? Math.round(0.55 * scale) : 0;
     const canvasX = (e.clientX - rect.left) / zoom - currentRulerOffset;
     const canvasY = (e.clientY - rect.top) / zoom - currentRulerOffset;
     const pad = 16;
@@ -3008,13 +3058,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
     }
 
-    // 3. Fallback: double clicking on background opens graphic upload (debounced so triple click gesture isn't blocked by OS file dialog)
-    if (doubleClickTimerRef.current) {
-      clearTimeout(doubleClickTimerRef.current);
-    }
-    doubleClickTimerRef.current = setTimeout(() => {
-      fileInputRef.current?.click();
-    }, 280);
+    // 3. Double Left-Click on canvas opens Popup Editor (ArtboardFillModal)
+    setArtboardFillModal({
+      isOpen: true,
+      panelKey: targetPanelKey as any
+    });
   };
 
   // Triple-click gesture listener to open Artboard Fill Colors & Gradients popup
@@ -3563,9 +3611,15 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             {/* Transform Layer for Locked Panels */}
             <div 
               onDoubleClick={() => {
-                if (!spaceKeyPressed) fileInputRef.current?.click();
+                if (!spaceKeyPressed) {
+                  setArtboardFillModal({
+                    isOpen: true,
+                    panelKey: (activeTab === 'dual' ? dualActivePanel : activeTab) as any
+                  });
+                }
               }}
-              title="Double-click canvas to upload artwork background image"
+              onContextMenu={(e) => e.preventDefault()}
+              title="Double left-click to open Popup Editor, double right-click to import image"
               style={{
                 position: 'absolute',
                 left: 0,
@@ -3593,7 +3647,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           ? 'bg-[#E4572E] text-white shadow-md shadow-orange-500/30 ring-2 ring-orange-400/40' 
                           : 'bg-white border border-[#D8D5CF] text-[#4B5563] shadow-sm hover:border-[#E4572E] hover:text-[#E4572E]'
                       }`}
-                      title="Collar Panel (18&quot; × 4.5&quot;) • Triple-click artboard to customize colors, curve & stripes"
+                      title="Collar Panel (18&quot; × 4.5&quot;) • Double left-click to open editor, double right-click to import"
                     >
                       <span>🏷️ COLLAR (18" × 4.5")</span>
                       {dualActivePanel === 'collar' && <span className="text-[10px] text-orange-200 font-semibold">• Active</span>}
@@ -3641,20 +3695,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       <canvas 
                         ref={collarCanvasRef} 
                         onClick={(e) => handleArtboardGestureClick(e, 'collar')}
-                        onMouseDown={(e) => {
-                          if (spaceKeyPressed || activeTool === 'pan' || e.button === 1) {
-                            e.preventDefault();
-                            setIsPanning(true);
-                            panStartRef.current = {
-                              startX: e.clientX,
-                              startY: e.clientY,
-                              initialPanX: panOffset.x,
-                              initialPanY: panOffset.y
-                            };
-                          }
-                        }}
+                        onMouseDown={(e) => handleCanvasMouseDown(e, 'collar')}
+                        onContextMenu={(e) => handleCanvasContextMenu(e, 'collar')}
                         onDoubleClick={(e) => handleCanvasDoubleClick(e, 'collar')}
-                        title="Collar Panel (18&quot; × 4.5&quot;) - Triple-click for Colors, Curve & Stripes, double-click to upload artwork"
+                        title="Collar Panel (18&quot; × 4.5&quot;) - Double left-click to open Popup Editor, double right-click to import image"
                         style={{ 
                           borderRadius: '8px', 
                           border: dualActivePanel === 'collar' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
@@ -3727,20 +3771,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       <canvas 
                         ref={leftSleeveCanvasRef} 
                         onClick={(e) => handleArtboardGestureClick(e, 'sleeveLeft')}
-                        onMouseDown={(e) => {
-                          if (spaceKeyPressed || activeTool === 'pan' || e.button === 1) {
-                            e.preventDefault();
-                            setIsPanning(true);
-                            panStartRef.current = {
-                              startX: e.clientX,
-                              startY: e.clientY,
-                              initialPanX: panOffset.x,
-                              initialPanY: panOffset.y
-                            };
-                          }
-                        }}
+                        onMouseDown={(e) => handleCanvasMouseDown(e, 'sleeveLeft')}
+                        onContextMenu={(e) => handleCanvasContextMenu(e, 'sleeveLeft')}
                         onDoubleClick={(e) => handleCanvasDoubleClick(e, 'sleeveLeft')}
-                        title="Left Sleeve - Triple-click for Colors & Gradients, double-click to edit text or upload artwork"
+                        title="Left Sleeve - Double left-click to open Popup Editor, double right-click to import image"
                         style={{ 
                           borderRadius: '8px', 
                           border: dualActivePanel === 'sleeveLeft' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
@@ -3802,8 +3836,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           setCursorPos(null);
                           isDraggingTextRef.current = false;
                         }}
+                        onContextMenu={(e) => handleCanvasContextMenu(e, 'front')}
                         onDoubleClick={(e) => handleCanvasDoubleClick(e, 'front')}
-                        title="Front Panel - Triple-click for Colors & Gradients, double-click text to edit, or double-click to upload artwork"
+                        title="Front Panel - Double left-click to open Popup Editor, double right-click to import image"
                         style={{ 
                           borderRadius: '8px', 
                           border: dualActivePanel === 'front' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
@@ -3836,7 +3871,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           ? 'bg-[#E4572E] text-white shadow-md shadow-orange-500/30 ring-2 ring-orange-400/40' 
                           : 'bg-white border border-[#D8D5CF] text-[#4B5563] shadow-sm hover:border-[#E4572E] hover:text-[#E4572E]'
                       }`}
-                      title="Back Panel • Triple-click artboard to fill colors & gradients"
+                      title="Back Panel • Double left-click to open editor, double right-click to import"
                     >
                       <span>👕 BACK PANEL ({designConfig.back.customWidth || 22}" × {designConfig.back.customHeight || 30}")</span>
                       {dualActivePanel === 'back' && <span className="text-[10px] text-orange-200 font-semibold">• Active</span>}
@@ -3865,8 +3900,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           setCursorPos(null);
                           isDraggingTextRef.current = false;
                         }}
+                        onContextMenu={(e) => handleCanvasContextMenu(e, 'back')}
                         onDoubleClick={(e) => handleCanvasDoubleClick(e, 'back')}
-                        title="Back Panel - Triple-click for Colors & Gradients, double-click text to edit, or double-click to upload artwork"
+                        title="Back Panel - Double left-click to open Popup Editor, double right-click to import image"
                         style={{ 
                           borderRadius: '8px', 
                           border: dualActivePanel === 'back' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
@@ -3899,7 +3935,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           ? 'bg-[#E4572E] text-white shadow-md shadow-orange-500/30 ring-2 ring-orange-400/40' 
                           : 'bg-white border border-[#D8D5CF] text-[#4B5563] shadow-sm hover:border-[#E4572E] hover:text-[#E4572E]'
                       }`}
-                      title="Right Sleeve • Triple-click artboard to fill colors & gradients"
+                      title="Right Sleeve • Double left-click to open editor, double right-click to import"
                     >
                       <span>🧤 RIGHT SLEEVE ({sleeveSpreadPhysicalW}" × {sleeveSpreadPhysicalH}")</span>
                       {dualActivePanel === 'sleeveRight' && <span className="text-[10px] text-orange-200 font-semibold">• Active</span>}
@@ -3938,25 +3974,21 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       <canvas 
                         ref={rightSleeveCanvasRef} 
                         onClick={(e) => handleArtboardGestureClick(e, 'sleeveRight')}
-                        onMouseDown={(e) => {
-                          if (spaceKeyPressed || activeTool === 'pan' || e.button === 1) {
-                            e.preventDefault();
-                            setIsPanning(true);
-                            panStartRef.current = {
-                              startX: e.clientX,
-                              startY: e.clientY,
-                              initialPanX: panOffset.x,
-                              initialPanY: panOffset.y
-                            };
-                          }
-                        }} 
+                        onMouseDown={(e) => handleCanvasMouseDown(e, 'sleeveRight')}
+                        onMouseMove={(e) => handleCanvasMouseMove(e, 'sleeveRight')}
+                        onMouseUp={handleCanvasMouseUp}
+                        onMouseLeave={() => {
+                          setCursorPos(null);
+                          isDraggingTextRef.current = false;
+                        }}
+                        onContextMenu={(e) => handleCanvasContextMenu(e, 'sleeveRight')}
                         onDoubleClick={(e) => handleCanvasDoubleClick(e, 'sleeveRight')}
-                        title="Right Sleeve - Triple-click for Colors & Gradients, double-click text to edit, or double-click to upload artwork"
+                        title="Right Sleeve - Double left-click to open Popup Editor, double right-click to import image"
                         style={{ 
                           borderRadius: '8px', 
                           border: dualActivePanel === 'sleeveRight' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
                           boxShadow: dualActivePanel === 'sleeveRight' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
-                          cursor: 'pointer',
+                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer',
                           width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
@@ -3971,13 +4003,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               </div>
               ) : (
                 <div style={{ position: 'relative', display: 'inline-block' }}>
-                  {/* Double click & triple click helper badge */}
+                  {/* Double click helper badge */}
                   <div 
                     className="absolute -top-9 left-1/2 -translate-x-1/2 z-20 pointer-events-none px-3.5 py-1 rounded-full bg-white/95 border border-[#E8E4DE] text-[#E4572E] text-[11px] font-bold shadow-md backdrop-blur-md flex items-center gap-2 whitespace-nowrap cursor-pointer hover:border-[#E4572E]"
                     style={{ pointerEvents: 'auto' }}
                   >
-                    <span onClick={() => fileInputRef.current?.click()} className="hover:underline">
-                      💡 Double-click text to edit • Double-click canvas to upload image
+                    <span>
+                      💡 Double Left-Click: Popup Editor • Double Right-Click: Upload Image
                     </span>
                     <span className="text-[#D8D5CF]">•</span>
                     <button
@@ -3987,9 +4019,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         setArtboardFillModal({ isOpen: true, panelKey: (activeTab === 'dual' ? dualActivePanel : activeTab) as any });
                       }}
                       className="px-2 py-0.5 rounded bg-orange-500 text-white text-[10px] font-bold hover:bg-orange-600 transition-colors"
-                      title="Triple-click canvas to open fill colors & gradients"
+                      title="Open popup editor for colors, gradients & presets"
                     >
-                      🎨 Fill (Triple-Click)
+                      🎨 Popup Editor
                     </button>
                   </div>
 
@@ -4003,8 +4035,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       setCursorPos(null);
                       isDraggingTextRef.current = false;
                     }}
+                    onContextMenu={handleCanvasContextMenu}
                     onDoubleClick={(e) => handleCanvasDoubleClick(e)}
-                    title="Triple-click for Colors & Gradients, double-click text to edit, or double-click to upload artwork"
+                    title="Double left-click to open Popup Editor, double right-click to import image"
                     style={{ 
                       borderRadius: '8px', 
                       border: '2px solid rgba(0, 240, 255, 0.5)', 
