@@ -269,13 +269,13 @@ export const defaultDesignConfig: ArtDesignConfig = {
     curved: false,
     curveAmount: 0.8,
     stripes: [
-      { id: 'cs-1', color: '#FFFFFF', height: 0.15, yOffset: 1.8 },
-      { id: 'cs-2', color: '#EA580C', height: 0.18, yOffset: 2.1 }
+      { id: 'cs-1', color: '#FFFFFF', height: 0.15, yOffset: 0.50 },
+      { id: 'cs-2', color: '#EA580C', height: 0.18, yOffset: 0.72 }
     ],
     nameConfig: { enabled: false, yPos: 50, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     numberConfig: { enabled: false, yPos: 50, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     sizeTagConfig: { enabled: false, yPos: 4, fontSize: 18, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 6, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
-    guidelines: { vertical: [9.0], horizontal: [2.25] },
+    guidelines: { vertical: [9.0], horizontal: [0.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 2, height: 2, xPos: 4.5, yPos: 2.25, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 2, height: 2, xPos: 13.5, yPos: 2.25, lockAspectRatio: true },
     torsoLogo: { enabled: false, uploadedUrl: null, width: 4, height: 1.5, xPos: 9.0, yPos: 2.25, text: '', lockAspectRatio: true }
@@ -1789,19 +1789,19 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           if (collarConf.curved) {
             const archAmountInches = collarConf.curveAmount ?? 0.8;
             const archH = Math.round(archAmountInches * (height / collarPhysicalH));
-            const baseY = Math.round(archH * 0.5);
 
             // Arc warp only the stripes/artwork offscreen canvas
+            // Preserves 0.5" bleed space at the top apex (dy = 0 at center u = 0)
             for (let x = 0; x < width; x++) {
               const u = (x - width / 2) / (width / 2); // -1 to +1
-              const dy = -archH * (1 - u * u);
-              ctx.drawImage(offscreen, x, 0, 1, height, x, baseY + dy, 1, height);
+              const dy = Math.round(archH * (u * u));
+              ctx.drawImage(offscreen, x, 0, 1, height, x, dy, 1, height);
             }
           } else {
             ctx.drawImage(offscreen, 0, 0);
           }
 
-          // 4. Border outline
+          // 4. Border outline & 0.5" Bleed Space Guide Line
           if (!is3DPreview) {
             ctx.save();
             ctx.strokeStyle = collarConf.curved ? 'rgba(255, 255, 255, 0.35)' : '#1a1a1a';
@@ -1814,13 +1814,31 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               ctx.strokeRect(0, 0, width, height);
             }
 
+            // 0.5" Bleed Space Guide Line (top margin for sewing / fold seam)
+            const bleedY = Math.round((0.5 / collarPhysicalH) * height);
+            ctx.strokeStyle = 'rgba(234, 88, 12, 0.7)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(0, bleedY);
+            ctx.lineTo(width, bleedY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 0.5" Bleed Label
+            ctx.fillStyle = 'rgba(234, 88, 12, 0.9)';
+            ctx.font = 'bold 9px system-ui, sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('0.5" BLEED LINE', width - 8, Math.max(11, bleedY - 3));
+
             // Size badge watermark in corner
             ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
             ctx.font = 'bold 10px system-ui, sans-serif';
+            ctx.textAlign = 'left';
             ctx.fillText(
               `18" × 4.5" ${collarConf.curved ? '(Curved Collar)' : '(Flat Collar)'}`,
               10,
-              18
+              Math.max(22, bleedY + 14)
             );
             ctx.restore();
           }
@@ -5890,6 +5908,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             back: { ...designConfig.back, ...config.panelUpdates },
             sleeveLeft: { ...designConfig.sleeveLeft, ...config.panelUpdates },
             sleeveRight: { ...designConfig.sleeveRight, ...config.panelUpdates },
+            collar: {
+              ...(designConfig.collar || defaultDesignConfig.collar!),
+              generatedColor1: config.collarColor || designConfig.collar?.generatedColor1 || '#0A192F',
+              stripes: [
+                { id: `cs-preset-1`, color: '#FFFFFF', height: 0.15, yOffset: 0.50 },
+                { id: `cs-preset-2`, color: config.stripeUpdates?.color || '#EA580C', height: 0.18, yOffset: 0.72 }
+              ]
+            },
             trim: {
               collar: {
                 ...(designConfig.trim?.collar || { color: '#9b4dff', uploadedUrl: null }),

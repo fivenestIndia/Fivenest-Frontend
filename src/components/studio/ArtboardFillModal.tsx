@@ -1638,19 +1638,39 @@ export default function ArtboardFillModal({
                         Collar Stripes ({collarStripes.length})
                       </h4>
                       <p className="text-[10px] text-gray-400 mt-0.5">
-                        Add 1, 2, 3 or more customizable stripes across the 18" × 4.5" collar.
+                        Collar stripes shifted to top edge with 0.5" bleed margin for seam allowance.
                       </p>
                     </div>
 
-                    {collarStripes.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateCollar(collarCurved, collarCurveAmount, [])}
-                        className="text-[10px] text-red-400 hover:text-red-300 font-semibold flex items-center gap-1"
-                      >
-                        <Trash2 size={11} /> Clear All
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {collarStripes.length > 0 && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              let currentY = 0.50;
+                              const shifted = collarStripes.map((st) => {
+                                const y = currentY;
+                                currentY = parseFloat((currentY + st.height + 0.07).toFixed(2));
+                                return { ...st, yOffset: y };
+                              });
+                              handleUpdateCollar(collarCurved, collarCurveAmount, shifted);
+                            }}
+                            className="text-[10px] text-orange-400 hover:text-orange-300 font-semibold flex items-center gap-1 bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/20"
+                            title="Shift all stripes to top starting at 0.5&quot; bleed line"
+                          >
+                            Shift to Top (0.5" Bleed)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateCollar(collarCurved, collarCurveAmount, [])}
+                            className="text-[10px] text-red-400 hover:text-red-300 font-semibold flex items-center gap-1"
+                          >
+                            <Trash2 size={11} /> Clear All
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
 
                   {/* Quick Preset Buttons */}
@@ -1659,11 +1679,12 @@ export default function ArtboardFillModal({
                       type="button"
                       onClick={() => {
                         const newSt = [
-                          { id: `cs-${Date.now()}-1`, color: '#FFFFFF', height: 0.20, yOffset: 2.15 }
+                          { id: `cs-${Date.now()}-1`, color: '#FFFFFF', height: 0.18, yOffset: 0.50 }
                         ];
                         handleUpdateCollar(collarCurved, collarCurveAmount, newSt);
                       }}
                       className="px-2 py-1.5 rounded-lg bg-[#181B22] border border-[#2E3544] hover:border-orange-500 text-[11px] font-bold text-gray-200 hover:text-white transition-all text-center flex items-center justify-center gap-1"
+                      title="1 Top Stripe at 0.5&quot; Bleed"
                     >
                       <Plus size={11} className="text-orange-400" /> 1 Stripe
                     </button>
@@ -1672,13 +1693,13 @@ export default function ArtboardFillModal({
                       type="button"
                       onClick={() => {
                         const newSt = [
-                          { id: `cs-${Date.now()}-1`, color: '#FFFFFF', height: 0.15, yOffset: 1.80 },
-                          { id: `cs-${Date.now()}-2`, color: '#EA580C', height: 0.18, yOffset: 2.10 }
+                          { id: `cs-${Date.now()}-1`, color: '#FFFFFF', height: 0.15, yOffset: 0.50 },
+                          { id: `cs-${Date.now()}-2`, color: '#EA580C', height: 0.18, yOffset: 0.72 }
                         ];
                         handleUpdateCollar(collarCurved, collarCurveAmount, newSt);
                       }}
                       className="px-2 py-1.5 rounded-lg bg-[#181B22] border border-[#2E3544] hover:border-orange-500 text-[11px] font-bold text-gray-200 hover:text-white transition-all text-center flex items-center justify-center gap-1"
-                      title="Classic Dual Stripes (White + Orange)"
+                      title="Dual Top Stripes starting at 0.5&quot; Bleed (White + Orange)"
                     >
                       <Plus size={11} className="text-orange-400" /> 2 Stripes
                     </button>
@@ -1687,14 +1708,14 @@ export default function ArtboardFillModal({
                       type="button"
                       onClick={() => {
                         const newSt = [
-                          { id: `cs-${Date.now()}-1`, color: '#16A34A', height: 0.14, yOffset: 1.60 },
-                          { id: `cs-${Date.now()}-2`, color: '#FFFFFF', height: 0.14, yOffset: 2.00 },
-                          { id: `cs-${Date.now()}-3`, color: '#EA580C', height: 0.14, yOffset: 2.40 }
+                          { id: `cs-${Date.now()}-1`, color: '#16A34A', height: 0.14, yOffset: 0.50 },
+                          { id: `cs-${Date.now()}-2`, color: '#FFFFFF', height: 0.14, yOffset: 0.70 },
+                          { id: `cs-${Date.now()}-3`, color: '#EA580C', height: 0.14, yOffset: 0.90 }
                         ];
                         handleUpdateCollar(collarCurved, collarCurveAmount, newSt);
                       }}
                       className="px-2 py-1.5 rounded-lg bg-[#181B22] border border-[#2E3544] hover:border-orange-500 text-[11px] font-bold text-gray-200 hover:text-white transition-all text-center flex items-center justify-center gap-1"
-                      title="Tri-color / Varsity 3 Stripes"
+                      title="Tri-color 3 Stripes starting at 0.5&quot; Bleed"
                     >
                       <Plus size={11} className="text-orange-400" /> 3 Stripes
                     </button>
@@ -1702,7 +1723,7 @@ export default function ArtboardFillModal({
                     <button
                       type="button"
                       onClick={() => {
-                        const nextY = Math.min(4.0, (collarStripes.length > 0 ? (collarStripes[collarStripes.length - 1].yOffset + 0.35) : 2.0));
+                        const nextY = Math.min(4.0, (collarStripes.length > 0 ? (collarStripes[collarStripes.length - 1].yOffset + (collarStripes[collarStripes.length - 1].height || 0.15) + 0.08) : 0.50));
                         const newSt = [
                           ...collarStripes,
                           { id: `cs-${Date.now()}-${collarStripes.length}`, color: '#FFFFFF', height: 0.18, yOffset: parseFloat(nextY.toFixed(2)) }
@@ -1807,21 +1828,39 @@ export default function ArtboardFillModal({
                             <div>
                               <div className="flex items-center justify-between text-[11px] text-gray-400 mb-1">
                                 <span>Position Y:</span>
-                                <span className="font-mono font-bold text-gray-200">{st.yOffset.toFixed(2)}"</span>
+                                <span className="font-mono font-bold text-gray-200">
+                                  {st.yOffset.toFixed(2)}"
+                                  {Math.abs(st.yOffset - 0.50) < 0.03 && (
+                                    <span className="ml-1 text-[9px] text-orange-400 font-semibold">(0.5" Bleed)</span>
+                                  )}
+                                </span>
                               </div>
-                              <input
-                                type="range"
-                                min="0.10"
-                                max="4.30"
-                                step="0.05"
-                                value={st.yOffset}
-                                onChange={(e) => {
-                                  const val = parseFloat(e.target.value) || 2.0;
-                                  const updated = collarStripes.map((s, i) => i === idx ? { ...s, yOffset: val } : s);
-                                  handleUpdateCollar(collarCurved, collarCurveAmount, updated);
-                                }}
-                                className="w-full accent-orange-500 cursor-pointer"
-                              />
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="range"
+                                  min="0.10"
+                                  max="4.00"
+                                  step="0.02"
+                                  value={st.yOffset}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value) || 0.50;
+                                    const updated = collarStripes.map((s, i) => i === idx ? { ...s, yOffset: val } : s);
+                                    handleUpdateCollar(collarCurved, collarCurveAmount, updated);
+                                  }}
+                                  className="w-full accent-orange-500 cursor-pointer"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = collarStripes.map((s, i) => i === idx ? { ...s, yOffset: 0.50 } : s);
+                                    handleUpdateCollar(collarCurved, collarCurveAmount, updated);
+                                  }}
+                                  className="px-1.5 py-0.5 rounded bg-[#181B22] border border-[#2E3544] hover:border-orange-500 text-[9px] font-bold text-gray-300 hover:text-white transition-all whitespace-nowrap"
+                                  title="Snap to 0.50&quot; Bleed Line"
+                                >
+                                  0.5" Bleed
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>

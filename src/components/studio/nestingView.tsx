@@ -1326,8 +1326,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
           curved: false,
           curveAmount: 0.8,
           stripes: [
-            { id: 'cs-1', color: '#FFFFFF', height: 0.15, yOffset: 1.8 },
-            { id: 'cs-2', color: '#EA580C', height: 0.18, yOffset: 2.1 }
+            { id: 'cs-1', color: '#FFFFFF', height: 0.15, yOffset: 0.50 },
+            { id: 'cs-2', color: '#EA580C', height: 0.18, yOffset: 0.72 }
           ]
         };
 
@@ -1401,16 +1401,16 @@ export const NestingView: React.FC<NestingViewProps> = ({
           }
 
           // 3. Render onto main canvas (Curve ONLY the stripes/artwork! The background remains 100% filled!)
+          // Preserves 0.5" bleed space at the top apex (dy = 0 at center u = 0)
           if (collarConf.curved) {
             const archAmountInches = collarConf.curveAmount ?? 0.8;
             const archH = Math.round(archAmountInches * (heightPx / collarPhysicalH));
-            const baseY = Math.round(archH * 0.5);
 
             // Arc warp vertical slices
             for (let x = 0; x < widthPx; x++) {
               const u = (x - widthPx / 2) / (widthPx / 2); // -1 to +1
-              const dy = -archH * (1 - u * u);
-              ctx.drawImage(offscreen, x, 0, 1, heightPx, x, baseY + dy, 1, heightPx);
+              const dy = Math.round(archH * (u * u));
+              ctx.drawImage(offscreen, x, 0, 1, heightPx, x, dy, 1, heightPx);
             }
           } else {
             ctx.drawImage(offscreen, 0, 0);
