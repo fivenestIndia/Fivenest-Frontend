@@ -631,12 +631,12 @@ export default function ArtboardFillModal({
   if (!isOpen) return null;
 
   const panelNames: Record<string, string> = {
-    collar: '🏷️ Collar Panel (18" × 4.5")',
-    front: '👕 Front Panel',
-    back: '👕 Back Panel',
-    sleeveLeft: '🧤 Left Sleeve',
-    sleeveRight: '🧤 Right Sleeve',
-    a4Print: '📄 A4 Back Print'
+    collar: 'Collar Panel (18" × 4.5")',
+    front: 'Front Panel',
+    back: 'Back Panel',
+    sleeveLeft: 'Left Sleeve',
+    sleeveRight: 'Right Sleeve',
+    a4Print: 'A4 Back Print'
   };
 
   // Selected stop object for Panel Gradient

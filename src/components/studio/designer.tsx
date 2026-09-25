@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, RotateCcw, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus, Maximize2 } from 'lucide-react';
+import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus, Maximize2 } from 'lucide-react';
 import type { OrderMetadata } from './orderEntry';
 import { ThreeDPreview } from './ThreeDPreview';
 import { defaultSizes } from './sizesDb';
@@ -261,17 +261,14 @@ export const defaultDesignConfig: ArtDesignConfig = {
     torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '', lockAspectRatio: true }
   },
   collar: {
-    backgroundType: 'generate',
-    generatedStyle: 'solid',
-    generatedColor1: '#0A192F',
-    generatedColor2: '#162A45',
+    backgroundType: 'upload',
+    generatedStyle: 'blank',
+    generatedColor1: '#ffffff',
+    generatedColor2: '#ffffff',
     uploadedFileUrl: null,
     curved: false,
     curveAmount: 0.8,
-    stripes: [
-      { id: 'cs-1', color: '#FFFFFF', height: 0.15, yOffset: 0.50 },
-      { id: 'cs-2', color: '#EA580C', height: 0.18, yOffset: 0.72 }
-    ],
+    stripes: [],
     nameConfig: { enabled: false, yPos: 50, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     numberConfig: { enabled: false, yPos: 50, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
     sizeTagConfig: { enabled: false, yPos: 4, fontSize: 18, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 6, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
@@ -1697,6 +1694,52 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       if (panelKey === 'collar') {
         const collarConf = designConfig.collar || defaultDesignConfig.collar!;
         const collarPhysicalH = 4.5;
+
+        // If collar is empty/blank (default state or no uploaded file & style is blank), render transparency checkerboard like other panels
+        const isCollarEmpty = (collarConf.backgroundType === 'upload' && !collarConf.uploadedFileUrl) || collarConf.generatedStyle === 'blank';
+        if (isCollarEmpty) {
+          const checkSize = Math.max(12, Math.round(14 * (scale / 20)));
+          for (let cy = 0; cy < height; cy += checkSize) {
+            for (let cx = 0; cx < width; cx += checkSize) {
+              const isEven = (Math.floor(cx / checkSize) + Math.floor(cy / checkSize)) % 2 === 0;
+              ctx.fillStyle = isEven ? '#1e222d' : '#141720';
+              ctx.fillRect(cx, cy, checkSize, checkSize);
+            }
+          }
+
+          ctx.save();
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+          ctx.font = `600 ${Math.max(11, Math.round(12 * (scale / 20)))}px system-ui, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`— Empty (Triple-Click for Color) —`, width / 2, height / 2);
+          ctx.restore();
+
+          if (!is3DPreview) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(0, 0, width, height);
+
+            // 0.5" Bleed Space Guide Line
+            const bleedY = Math.round((0.5 / collarPhysicalH) * height);
+            ctx.strokeStyle = 'rgba(234, 88, 12, 0.55)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(0, bleedY);
+            ctx.lineTo(width, bleedY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+          }
+
+          drawLogos(ctx);
+          drawTexts(ctx);
+          drawTechnicalMarks(ctx);
+          ctx.restore();
+          return;
+        }
 
         // 1. Determine background fill color or sample edge color from uploaded image
         let collarBgColor = collarConf.generatedColor1 || '#0A192F';
@@ -3430,35 +3473,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                 3D View
               </button>
-              <button 
-                className="btn btn-secondary"
-                style={{
-                  padding: '5px 12px',
-                  fontSize: '11px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  borderRadius: '9999px',
-                  background: activeTab === 'collar' ? '#E4572E' : '#FAF8F5',
-                  borderColor: activeTab === 'collar' ? '#E4572E' : '#E2DED7',
-                  color: activeTab === 'collar' ? '#FFFFFF' : '#374151',
-                  fontWeight: '700'
-                }}
-                onClick={() => setActiveTab(activeTab === 'collar' ? 'dual' : 'collar')}
-                title="Focus on Collar Panel (18&quot; × 4.5&quot;)"
-              >
-                🏷️ Collar
-              </button>
-              {zoom !== 1 && (
-                <button 
-                  className="btn btn-secondary" 
-                  style={{ padding: '5px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', color: '#6B7280', borderRadius: '9999px', background: '#FAF8F5', border: '1px solid #E2DED7' }}
-                  onClick={() => handleZoomChange(1)}
-                  title="Reset Zoom to 100%"
-                >
-                  <RotateCcw size={12} /> 100%
-                </button>
-              )}
 
               {/* Divider */}
               <div style={{ width: '1px', height: '18px', background: '#E2DED7', margin: '0 2px' }} />
@@ -3649,7 +3663,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       }`}
                       title="Collar Panel (18&quot; × 4.5&quot;) • Double left-click to open editor, double right-click to import"
                     >
-                      <span>🏷️ COLLAR (18" × 4.5")</span>
+                      <span>COLLAR (18" × 4.5")</span>
                       {dualActivePanel === 'collar' && <span className="text-[10px] text-orange-200 font-semibold">• Active</span>}
                       
                       <button
@@ -3662,7 +3676,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         className="ml-1 px-2 py-0.5 rounded text-[10px] font-bold bg-white/20 hover:bg-white/30 text-white transition-colors"
                         title="Open Collar Fill, Curved Arc & Stripe Editor"
                       >
-                        🎨 Fill & Stripes
+                        Fill & Stripes
                       </button>
 
                       <button
@@ -3734,7 +3748,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       }`}
                       title="Left Sleeve • Triple-click artboard to fill colors & gradients"
                     >
-                      <span>🧤 LEFT SLEEVE ({sleeveSpreadPhysicalW}" × {sleeveSpreadPhysicalH}")</span>
+                      <span>LEFT SLEEVE ({sleeveSpreadPhysicalW}" × {sleeveSpreadPhysicalH}")</span>
                       {dualActivePanel === 'sleeveLeft' && <span className="text-[10px] text-orange-200 font-semibold">• Active</span>}
                       <button
                         type="button"
@@ -3746,7 +3760,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/20 hover:bg-white/30 text-white transition-colors"
                         title="Open Fill Colors, Gradients & Sleeve Stripe"
                       >
-                        🎨 Fill
+                        Fill
                       </button>
                       <button
                         type="button"
@@ -3809,7 +3823,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       }`}
                       title="Front Panel • Triple-click artboard to fill colors & gradients"
                     >
-                      <span>👕 FRONT PANEL ({designConfig.front.customWidth || 22}" × {designConfig.front.customHeight || 30}")</span>
+                      <span>FRONT PANEL ({designConfig.front.customWidth || 22}" × {designConfig.front.customHeight || 30}")</span>
                       {dualActivePanel === 'front' && <span className="text-[10px] text-orange-200 font-semibold">• Active</span>}
                       <button
                         type="button"
@@ -3821,7 +3835,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/20 hover:bg-white/30 text-white transition-colors"
                         title="Open Fill Colors & Gradients"
                       >
-                        🎨 Fill
+                        Fill
                       </button>
                     </div>
 
@@ -3873,7 +3887,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       }`}
                       title="Back Panel • Double left-click to open editor, double right-click to import"
                     >
-                      <span>👕 BACK PANEL ({designConfig.back.customWidth || 22}" × {designConfig.back.customHeight || 30}")</span>
+                      <span>BACK PANEL ({designConfig.back.customWidth || 22}" × {designConfig.back.customHeight || 30}")</span>
                       {dualActivePanel === 'back' && <span className="text-[10px] text-orange-200 font-semibold">• Active</span>}
                       <button
                         type="button"
@@ -3885,7 +3899,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/20 hover:bg-white/30 text-white transition-colors"
                         title="Open Fill Colors & Gradients"
                       >
-                        🎨 Fill
+                        Fill
                       </button>
                     </div>
 
@@ -3937,7 +3951,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       }`}
                       title="Right Sleeve • Double left-click to open editor, double right-click to import"
                     >
-                      <span>🧤 RIGHT SLEEVE ({sleeveSpreadPhysicalW}" × {sleeveSpreadPhysicalH}")</span>
+                      <span>RIGHT SLEEVE ({sleeveSpreadPhysicalW}" × {sleeveSpreadPhysicalH}")</span>
                       {dualActivePanel === 'sleeveRight' && <span className="text-[10px] text-orange-200 font-semibold">• Active</span>}
                       <button
                         type="button"
@@ -3949,7 +3963,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/20 hover:bg-white/30 text-white transition-colors"
                         title="Open Fill Colors, Gradients & Sleeve Stripe"
                       >
-                        🎨 Fill
+                        Fill
                       </button>
                       <button
                         type="button"
@@ -4009,7 +4023,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     style={{ pointerEvents: 'auto' }}
                   >
                     <span>
-                      💡 Double Left-Click: Popup Editor • Double Right-Click: Upload Image
+                      Double Left-Click: Popup Editor • Double Right-Click: Upload Image
                     </span>
                     <span className="text-[#D8D5CF]">•</span>
                     <button
@@ -4021,7 +4035,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       className="px-2 py-0.5 rounded bg-orange-500 text-white text-[10px] font-bold hover:bg-orange-600 transition-colors"
                       title="Open popup editor for colors, gradients & presets"
                     >
-                      🎨 Popup Editor
+                      Popup Editor
                     </button>
                   </div>
 
@@ -4230,7 +4244,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     transition: 'all 0.15s ease'
                   }}
                 >
-                  <span>👕 FRONT</span>
+                  <span>FRONT</span>
                   {(activeTab === 'dual' ? dualActivePanel === 'front' : activeTab === 'front') && <span style={{ fontSize: '9px', background: 'rgba(255,255,255,0.25)', color: '#fff', padding: '1px 5px', borderRadius: '3px' }}>EDITING</span>}
                 </button>
 
@@ -4258,7 +4272,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     transition: 'all 0.15s ease'
                   }}
                 >
-                  <span>👕 BACK</span>
+                  <span>BACK</span>
                   {(activeTab === 'dual' ? dualActivePanel === 'back' : activeTab === 'back') && <span style={{ fontSize: '9px', background: 'rgba(255,255,255,0.25)', color: '#fff', padding: '1px 5px', borderRadius: '3px' }}>EDITING</span>}
                 </button>
 
