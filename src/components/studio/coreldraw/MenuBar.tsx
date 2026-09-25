@@ -6,8 +6,8 @@ import {
 import { exportAllLocalData } from '../localDataManager';
 
 interface MenuBarProps {
-  activeTab: 'front' | 'back' | 'dual' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD';
-  onSelectTab: (tab: 'front' | 'back' | 'dual' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD') => void;
+  activeTab: 'front' | 'back' | 'dual' | 'collar' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD';
+  onSelectTab: (tab: 'front' | 'back' | 'dual' | 'collar' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD') => void;
   zoom: number;
   onSetZoom: (zoom: number) => void;
   showGuidelines: boolean;
@@ -53,9 +53,10 @@ export const MenuBar: React.FC<MenuBarProps> = ({
 
   const close = () => setOpenMenu(null);
 
-  const panels: { id: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD'; label: string }[] = [
+  const panels: { id: 'front' | 'back' | 'collar' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD'; label: string }[] = [
     { id: 'front', label: 'Front Panel' },
     { id: 'back', label: 'Back Panel' },
+    { id: 'collar', label: 'Collar (18"×4.5")' },
     { id: 'sleeveLeft', label: 'Left Sleeve' },
     { id: 'sleeveRight', label: 'Right Sleeve' },
     { id: 'a4Print', label: 'A4 Print' },

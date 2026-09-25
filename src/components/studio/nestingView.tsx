@@ -354,6 +354,23 @@ import type { SizeDatabase } from './sizesDb';
 import type { PlayerRecord, OrderMetadata } from './orderEntry';
 import type { ArtDesignConfig, TextConfig } from './designer';
 
+/** Helper to determine if a size falls into Youth range (18 to 30) for Collar sizing */
+export const isYouthCollarSize = (sizeStr: string): boolean => {
+  if (!sizeStr) return false;
+  const clean = sizeStr.trim().toUpperCase();
+  const digitsOnly = clean.replace(/[^0-9]/g, '');
+  if (digitsOnly.length > 0) {
+    const num = parseInt(digitsOnly, 10);
+    if (!isNaN(num) && num >= 18 && num <= 30) {
+      return true;
+    }
+    if (!isNaN(num) && num >= 32) {
+      return false;
+    }
+  }
+  return ['YS', 'YM', 'YL', 'YXL', 'YOUTH', 'KIDS', 'BOY', 'GIRL'].some(k => clean.includes(k));
+};
+
 /**
  * Global helper to strictly check whether any artwork / graphic images were uploaded in Step 1: Artwork.
  * System requires an uploaded image in at least one panel before allowing export.
@@ -400,7 +417,14 @@ export const checkArtworkUploadStatus = (
     (designConfig?.trim?.sleeveStripe?.enabled === true && (designConfig?.trim?.sleeveStripe?.uploadedUrl || designConfig?.trim?.sleeveStripe?.color || designConfig?.trim?.sleeveStripe?.gradientStops))
   );
 
-  const anyArtworkUploaded = frontHasArtwork || backHasArtwork || sleeveHasArtwork || a4HasArtwork || trimHasArtwork;
+  const collarHasArtwork = Boolean(
+    designConfig?.collar?.uploadedFileUrl ||
+    (designConfig?.collar?.backgroundType === 'generate' && designConfig?.collar?.generatedColor1) ||
+    (designConfig?.collar?.stripes && designConfig?.collar?.stripes.length > 0) ||
+    designConfig?.collar?.curved
+  );
+
+  const anyArtworkUploaded = frontHasArtwork || backHasArtwork || sleeveHasArtwork || a4HasArtwork || trimHasArtwork || collarHasArtwork;
 
   return {
     frontHasArtwork,
@@ -408,6 +432,7 @@ export const checkArtworkUploadStatus = (
     sleeveHasArtwork,
     a4HasArtwork,
     trimHasArtwork,
+    collarHasArtwork,
     anyArtworkUploaded,
   };
 };
@@ -428,7 +453,7 @@ interface PlacedItem {
   recordId: string;
   playerName: string;
   playerNum: string;
-  panelType: 'front' | 'back' | 'sleeve-left' | 'sleeve-right' | 'sleeve-merged' | 'a4-print';
+  panelType: 'front' | 'back' | 'sleeve-left' | 'sleeve-right' | 'sleeve-merged' | 'a4-print' | 'collar';
   size: string;
   w: number; // inches
   h: number; // inches
@@ -728,6 +753,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
       backHasArtwork: bHas, 
       sleeveHasArtwork: sHas, 
       a4HasArtwork: a4Has, 
+      collarHasArtwork: cHas,
       anyArtworkUploaded: hasArt 
     } = checkArtworkUploadStatus(designConfig, metadata);
 
@@ -855,6 +881,24 @@ export const NestingView: React.FC<NestingViewProps> = ({
             size: player.size,
             w: 10,
             h: 11,
+            x: 0,
+            y: 0,
+            rotated: false
+          });
+        }
+
+        // Collar panel: 18x4.5 (Youth 18-30 -> 16x4.5)
+        const includeCollar = cHas && !isSleeveOnly;
+        if (includeCollar) {
+          const isYouth = isYouthCollarSize(player.size);
+          items.push({
+            recordId: itemIndex,
+            playerName: player.name,
+            playerNum: player.number,
+            panelType: 'collar',
+            size: player.size,
+            w: isYouth ? 16 : 18,
+            h: 4.5,
             x: 0,
             y: 0,
             rotated: false
@@ -1191,7 +1235,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
       'sleeve-left': 'rgba(0, 230, 118, 0.25)', // Green
       'sleeve-right': 'rgba(0, 230, 118, 0.25)',
       'sleeve-merged': 'rgba(0, 150, 136, 0.25)', // Teal
-      'a4-print': 'rgba(255, 23, 68, 0.25)' // Red
+      'a4-print': 'rgba(255, 23, 68, 0.25)', // Red
+      'collar': 'rgba(14, 165, 233, 0.25)' // Sky blue
     };
 
     const strokeColors = {
@@ -1200,7 +1245,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
       'sleeve-left': '#00e676',
       'sleeve-right': '#00e676',
       'sleeve-merged': '#009688',
-      'a4-print': '#ff1744'
+      'a4-print': '#ff1744',
+      'collar': '#0ea5e9'
     };
 
     // Draw nested blocks
@@ -1257,6 +1303,136 @@ export const NestingView: React.FC<NestingViewProps> = ({
         ctx.drawImage(rightCanvas, 0, Math.round((singleH + 0.2) * scaleDpi));
         
         return canvas;
+      });
+    }
+
+    // Specialized Collar Panel Rendering (18"x4.5" or 16"x4.5" Youth, Flat or Curved Arch)
+    if (item.panelType === 'collar') {
+      return new Promise((resolve) => {
+        const widthPx = Math.round(item.w * scaleDpi);
+        const heightPx = Math.round(item.h * scaleDpi);
+        const canvas = document.createElement('canvas');
+        canvas.width = widthPx;
+        canvas.height = heightPx;
+        const ctx = canvas.getContext('2d')!;
+
+        const collarConf = designConfig?.collar || {
+          physicalWidth: 18,
+          physicalHeight: 4.5,
+          backgroundType: 'generate',
+          generatedColor1: '#0A192F',
+          generatedColor2: '#162A45',
+          generatedStyle: 'solid',
+          curved: false,
+          curveAmount: 0.8,
+          stripes: [
+            { id: 'cs-1', color: '#FFFFFF', height: 0.15, yOffset: 1.8 },
+            { id: 'cs-2', color: '#EA580C', height: 0.18, yOffset: 2.1 }
+          ]
+        };
+
+        const collarPhysicalH = item.h || 4.5;
+        const offscreen = document.createElement('canvas');
+        offscreen.width = widthPx;
+        offscreen.height = heightPx;
+        const offCtx = offscreen.getContext('2d')!;
+
+        const renderCollarContent = (bgImg?: HTMLImageElement) => {
+          // 1. Background fill or uploaded artwork
+          if (bgImg) {
+            offCtx.drawImage(bgImg, 0, 0, widthPx, heightPx);
+          } else {
+            const c1 = collarConf.generatedColor1 || '#0A192F';
+            const c2 = collarConf.generatedColor2 || '#162A45';
+            const style = collarConf.generatedStyle || 'solid';
+
+            if (style === 'solid') {
+              offCtx.fillStyle = c1;
+              offCtx.fillRect(0, 0, widthPx, heightPx);
+            } else if (style.includes('gradient')) {
+              let grad: CanvasGradient;
+              if (style === 'gradient-linear-lr') {
+                grad = offCtx.createLinearGradient(0, 0, widthPx, 0);
+              } else if (style === 'gradient-linear-tb') {
+                grad = offCtx.createLinearGradient(0, 0, 0, heightPx);
+              } else if (style === 'gradient-linear-diag') {
+                grad = offCtx.createLinearGradient(0, 0, widthPx, heightPx);
+              } else {
+                grad = offCtx.createRadialGradient(widthPx / 2, heightPx / 2, 10, widthPx / 2, heightPx / 2, widthPx * 0.6);
+              }
+
+              if (collarConf.gradientStops && collarConf.gradientStops.length >= 2) {
+                const sortedStops = [...collarConf.gradientStops].sort((a: any, b: any) => a.offset - b.offset);
+                sortedStops.forEach((s: any) => {
+                  grad.addColorStop(Math.max(0, Math.min(1, s.offset / 100)), s.color);
+                });
+              } else {
+                grad.addColorStop(0, c1);
+                grad.addColorStop(1, c2);
+              }
+              offCtx.fillStyle = grad;
+              offCtx.fillRect(0, 0, widthPx, heightPx);
+            } else {
+              offCtx.fillStyle = c1;
+              offCtx.fillRect(0, 0, widthPx, heightPx);
+            }
+          }
+
+          // 2. Horizontal Collar Stripes
+          if (collarConf.stripes && collarConf.stripes.length > 0) {
+            collarConf.stripes.forEach(st => {
+              const stripeY = Math.round((st.yOffset / collarPhysicalH) * heightPx);
+              const stripeH = Math.max(2, Math.round((st.height / collarPhysicalH) * heightPx));
+              offCtx.fillStyle = st.color;
+              offCtx.fillRect(0, stripeY, widthPx, stripeH);
+            });
+          }
+
+          // 3. Render onto main canvas (Flat vs Curved Arch) with clean white background outside arch
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, widthPx, heightPx);
+
+          if (collarConf.curved) {
+            const archAmountInches = collarConf.curveAmount ?? 0.8;
+            const archH = Math.round(archAmountInches * (heightPx / collarPhysicalH));
+            const baseY = Math.round(archH * 0.65);
+
+            // Arc warp vertical slices
+            for (let x = 0; x < widthPx; x++) {
+              const u = (x - widthPx / 2) / (widthPx / 2); // -1 to +1
+              const dy = -archH * (1 - u * u);
+              ctx.drawImage(offscreen, x, 0, 1, heightPx, x, baseY + dy, 1, heightPx);
+            }
+          } else {
+            ctx.drawImage(offscreen, 0, 0);
+          }
+
+          // 4. Test mode watermark if active
+          if (testMode) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 23, 68, 0.18)';
+            ctx.fillStyle = 'rgba(255, 23, 68, 0.12)';
+            ctx.lineWidth = Math.round(3 * (scaleDpi / 100));
+            ctx.font = `bold ${Math.round(28 * (scaleDpi / 100))}px system-ui`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.translate(widthPx / 2, heightPx / 2);
+            ctx.fillText("TEST COPY - 72 DPI ONLY", 0, 0);
+            ctx.restore();
+          }
+
+          resolve(canvas);
+        };
+
+        if (collarConf.backgroundType === 'upload' && collarConf.uploadedFileUrl) {
+          getCachedImage(collarConf.uploadedFileUrl).then(img => {
+            renderCollarContent(img || undefined);
+          }).catch(() => {
+            renderCollarContent();
+          });
+        } else {
+          renderCollarContent();
+        }
       });
     }
 
@@ -2070,6 +2246,25 @@ export const NestingView: React.FC<NestingViewProps> = ({
             });
           }
 
+          // 5. Group / Format Collar
+          const collarItems = items.filter(it => it.panelType === 'collar');
+          if (collarItems.length > 0) {
+            const youthCollars = collarItems.filter(it => isYouthCollarSize(it.size));
+            const adultCollars = collarItems.filter(it => !isYouthCollarSize(it.size));
+            if (youthCollars.length > 0) {
+              testPdfPages.push({
+                item: { ...youthCollars[0], w: 16, h: 4.5, qty: youthCollars.length },
+                label: `[Collar] 16"x4.5" Youth (18-30) Qty ${youthCollars.length}`
+              });
+            }
+            if (adultCollars.length > 0) {
+              testPdfPages.push({
+                item: { ...adultCollars[0], w: 18, h: 4.5, qty: adultCollars.length },
+                label: `[Collar] 18"x4.5" Adult (32-60) Qty ${adultCollars.length}`
+              });
+            }
+          }
+
           if (testPdfPages.length > 0) {
             const firstPage = testPdfPages[0];
             const maxItemHeight = testPdfPages.reduce((max, pg) => Math.max(max, pg.item.h), 0);
@@ -2195,7 +2390,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
           interface RenderAction {
             representativeItem: PlacedItem;
             fileName: string;
-            folder: 'Front' | 'Back' | 'Sleeve' | 'A4' | '';
+            folder: 'Front' | 'Back' | 'Sleeve' | 'A4' | 'Collar' | '';
           }
 
           const renderActions: RenderAction[] = [];
@@ -2205,6 +2400,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
           const backSizeMap: Record<string, PlacedItem[]> = {};
           const sleeveSizeMap: Record<string, PlacedItem[]> = {}; // Key: `${size}-${panelType}-${sleeveType}`
           const a4SizeMap: Record<string, PlacedItem[]> = {};
+          const collarItems: PlacedItem[] = [];
 
           items.forEach(item => {
             if (item.panelType === 'front') {
@@ -2231,6 +2427,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
               const key = `${item.size}-${item.panelType}-${item.sleeveType || ''}`;
               if (!sleeveSizeMap[key]) sleeveSizeMap[key] = [];
               sleeveSizeMap[key].push(item);
+            } else if (item.panelType === 'collar') {
+              collarItems.push(item);
             } else {
               const safeName = (item.playerName || 'BLANK').replace(/[\/\\:*?"<>|]/g, "_").trim();
               const safeNum = (item.playerNum || '').replace(/[\/\\:*?"<>|]/g, "_").trim();
@@ -2336,6 +2534,40 @@ export const NestingView: React.FC<NestingViewProps> = ({
             });
           });
 
+          // Group Collars (Youth: 18-30 -> 16"x4.5", Adult: 32-60 -> 18"x4.5")
+          if (collarItems.length > 0) {
+            const youthCollars = collarItems.filter(it => isYouthCollarSize(it.size));
+            const adultCollars = collarItems.filter(it => !isYouthCollarSize(it.size));
+
+            if (youthCollars.length > 0) {
+              const youthQty = youthCollars.length;
+              renderActions.push({
+                representativeItem: {
+                  ...youthCollars[0],
+                  w: 16,
+                  h: 4.5,
+                  qty: youthQty
+                },
+                fileName: `Collar_Sizes_18-30_16x4.5_Qty_${youthQty}.jpg`,
+                folder: 'Collar'
+              });
+            }
+
+            if (adultCollars.length > 0) {
+              const adultQty = adultCollars.length;
+              renderActions.push({
+                representativeItem: {
+                  ...adultCollars[0],
+                  w: 18,
+                  h: 4.5,
+                  qty: adultQty
+                },
+                fileName: `Collar_Sizes_32-60_18x4.5_Qty_${adultQty}.jpg`,
+                folder: 'Collar'
+              });
+            }
+          }
+
           const zip = new JSZip();
           const fileExt = exportFormat === 'png' ? '.png' : exportFormat === 'tiff' ? '.tif' : '.jpg';
 
@@ -2418,7 +2650,27 @@ export const NestingView: React.FC<NestingViewProps> = ({
               }
             });
 
-            // 2. Add any other items (unpaired fronts, sleeves, A4 prints)
+            // 2. Add collar representative preview pages (Youth & Adult)
+            const collarPreviewList = items.filter(it => it.panelType === 'collar');
+            if (collarPreviewList.length > 0) {
+              const youthCollars = collarPreviewList.filter(it => isYouthCollarSize(it.size));
+              const adultCollars = collarPreviewList.filter(it => !isYouthCollarSize(it.size));
+              if (youthCollars.length > 0) {
+                previewPages.push({
+                  item: { ...youthCollars[0], w: 16, h: 4.5, qty: youthCollars.length },
+                  label: `[Collar] Youth 16"×4.5" (Sizes 18-30) Qty ${youthCollars.length}`
+                });
+              }
+              if (adultCollars.length > 0) {
+                previewPages.push({
+                  item: { ...adultCollars[0], w: 18, h: 4.5, qty: adultCollars.length },
+                  label: `[Collar] Adult 18"×4.5" (Sizes 32-60) Qty ${adultCollars.length}`
+                });
+              }
+              collarPreviewList.forEach(it => processedItemIds.add(it.recordId));
+            }
+
+            // 3. Add any other items (unpaired fronts, sleeves, A4 prints)
             items.forEach(item => {
               if (!processedItemIds.has(item.recordId)) {
                 let label = `[${item.panelType.toUpperCase()}] ${item.size}`;
@@ -2428,6 +2680,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
                   label = `[Sleeve] ${item.size}`;
                 } else if (item.panelType === 'a4-print') {
                   label = `[A4] ${item.size}`;
+                } else if (item.panelType === 'collar') {
+                  label = `[Collar] ${item.size}`;
                 }
                 previewPages.push({
                   item,

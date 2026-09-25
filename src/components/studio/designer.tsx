@@ -102,11 +102,28 @@ export interface TrimConfig {
   sleeveStripe: TrimPartConfig;
 }
 
+export interface CollarStripe {
+  id: string;
+  color: string;
+  height: number; // Height in inches (e.g. 0.15)
+  yOffset: number; // Vertical position in inches from top (0 to 4.5)
+  fillType?: 'solid' | 'gradient';
+  gradientStyle?: 'gradient-linear-lr' | 'gradient-linear-tb';
+  gradientStops?: GradientStopItem[];
+}
+
+export interface CollarConfig extends PanelConfig {
+  curved?: boolean;
+  curveAmount?: number; // Arch height in inches (default 0.8)
+  stripes?: CollarStripe[];
+}
+
 export interface ArtDesignConfig {
   front: PanelConfig;
   back: PanelConfig;
   sleeveLeft: PanelConfig;
   sleeveRight: PanelConfig;
+  collar?: CollarConfig;
   a4Print: PanelConfig;
   trim?: TrimConfig;
 }
@@ -193,6 +210,26 @@ export const defaultDesignConfig: ArtDesignConfig = {
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 8.5, yPos: 7.5, lockAspectRatio: true },
     torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '', lockAspectRatio: true }
   },
+  collar: {
+    backgroundType: 'generate',
+    generatedStyle: 'solid',
+    generatedColor1: '#0A192F',
+    generatedColor2: '#162A45',
+    uploadedFileUrl: null,
+    curved: false,
+    curveAmount: 0.8,
+    stripes: [
+      { id: 'cs-1', color: '#FFFFFF', height: 0.15, yOffset: 1.8 },
+      { id: 'cs-2', color: '#EA580C', height: 0.18, yOffset: 2.1 }
+    ],
+    nameConfig: { enabled: false, yPos: 50, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    numberConfig: { enabled: false, yPos: 50, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    sizeTagConfig: { enabled: false, yPos: 4, fontSize: 18, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 2, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 6, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
+    guidelines: { vertical: [9.0], horizontal: [2.25] },
+    leftChestLogo: { enabled: false, uploadedUrl: null, width: 2, height: 2, xPos: 4.5, yPos: 2.25, lockAspectRatio: true },
+    rightChestLogo: { enabled: false, uploadedUrl: null, width: 2, height: 2, xPos: 13.5, yPos: 2.25, lockAspectRatio: true },
+    torsoLogo: { enabled: false, uploadedUrl: null, width: 4, height: 1.5, xPos: 9.0, yPos: 2.25, text: '', lockAspectRatio: true }
+  },
   trim: {
     collar: { enabled: true, color: '#9b4dff', uploadedUrl: null },
     placket: { enabled: true, color: '#9b4dff', uploadedUrl: null },
@@ -201,8 +238,8 @@ export const defaultDesignConfig: ArtDesignConfig = {
 };
 
 export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfigChange, metadata }) => {
-  const [activeTab, setActiveTab] = useState<'front' | 'back' | 'dual' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD'>('dual');
-  const [dualActivePanel, setDualActivePanel] = useState<'front' | 'back' | 'sleeveLeft' | 'sleeveRight'>('front');
+  const [activeTab, setActiveTab] = useState<'front' | 'back' | 'dual' | 'collar' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD'>('dual');
+  const [dualActivePanel, setDualActivePanel] = useState<'front' | 'back' | 'collar' | 'sleeveLeft' | 'sleeveRight'>('front');
   const [previewName, setPreviewName] = useState<string>("FIVENEST");
   const [previewNumber, setPreviewNumber] = useState<string>("23");
   const [overlaySubTab, setOverlaySubTab] = useState<'name' | 'number' | 'logos' | 'sizeTag'>('name');
@@ -228,7 +265,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   // Triple-click Artboard Fill & Gradients Modal State
   const [artboardFillModal, setArtboardFillModal] = useState<{
     isOpen: boolean;
-    panelKey: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print';
+    panelKey: 'front' | 'back' | 'collar' | 'sleeveLeft' | 'sleeveRight' | 'a4Print';
   }>({
     isOpen: false,
     panelKey: 'front'
@@ -317,7 +354,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [textEditorModal, setTextEditorModal] = useState<{
     isOpen: boolean;
     targetLayer: 'name' | 'number';
-    panelKey: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print';
+    panelKey: 'front' | 'back' | 'collar' | 'sleeveLeft' | 'sleeveRight' | 'a4Print';
   }>({
     isOpen: false,
     targetLayer: 'name',
@@ -351,8 +388,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const urls: string[] = [];
 
     // Collect all backgrounds and logos across all panels
-    const panelKeys: ('front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print')[] = [
-      'front', 'back', 'sleeveLeft', 'sleeveRight', 'a4Print'
+    const panelKeys: ('front' | 'back' | 'collar' | 'sleeveLeft' | 'sleeveRight' | 'a4Print')[] = [
+      'front', 'back', 'collar', 'sleeveLeft', 'sleeveRight', 'a4Print'
     ];
 
     panelKeys.forEach((key) => {
@@ -473,6 +510,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const backCanvasRef = useRef<HTMLCanvasElement>(null);
   const leftSleeveCanvasRef = useRef<HTMLCanvasElement>(null);
   const rightSleeveCanvasRef = useRef<HTMLCanvasElement>(null);
+  const collarCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
   const scrollWrapperRef = useRef<HTMLDivElement>(null);
@@ -613,7 +651,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const rightW = sleeveSpreadWidth + currentRulerOffset;
       const gap = 24;
       contentW = leftW + frontW + backW + rightW + (gap * 3) + 24;
-      contentH = Math.max(height + currentRulerOffset, sleeveSpreadHeight + currentRulerOffset) + 40;
+      const collarH = collarSpreadHeight + currentRulerOffset + 24;
+      contentH = Math.max(height + currentRulerOffset, sleeveSpreadHeight + currentRulerOffset) + collarH + 40;
     } else {
       contentW = width + currentRulerOffset + 24;
       contentH = height + currentRulerOffset + 40;
@@ -687,6 +726,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   } else if (activeTab === 'a4Print') {
     physicalHeight = 11;
     physicalWidth = 10;
+  } else if (activeTab === 'collar') {
+    physicalHeight = 4.5;
+    physicalWidth = 18;
   }
 
   // Display canvas pixel dimensions dynamically based on physical aspect ratio (rounded to even integers)
@@ -716,19 +758,32 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const sleeveSpreadWidth = Math.round(sleeveSpreadPhysicalW * scale);
   const sleeveSpreadHeight = Math.round(sleeveSpreadPhysicalH * scale);
 
-  const activePanel = activeTab === 'threeD' ? designConfig.front : activeTab === 'dual' ? designConfig[dualActivePanel] : designConfig[activeTab];
+  // Collar dimensions for spread layout (18" x 4.5")
+  const collarSpreadPhysicalW = 18;
+  const collarSpreadPhysicalH = 4.5;
+  const collarSpreadWidth = Math.round(collarSpreadPhysicalW * scale * 1.5);
+  const collarSpreadHeight = Math.round(collarSpreadPhysicalH * scale * 1.5);
+
+  const activePanel = activeTab === 'threeD'
+    ? designConfig.front
+    : activeTab === 'dual'
+      ? ((dualActivePanel === 'collar' ? (designConfig.collar || defaultDesignConfig.collar!) : designConfig[dualActivePanel]) as PanelConfig)
+      : ((activeTab === 'collar' ? (designConfig.collar || defaultDesignConfig.collar!) : designConfig[activeTab]) as PanelConfig);
 
   // Helper to trigger parent update
-  const updateActivePanel = (updatedFields: Partial<PanelConfig>) => {
+  const updateActivePanel = (updatedFields: Partial<PanelConfig | CollarConfig>) => {
     const targetTab = activeTab === 'threeD' ? 'front' : activeTab === 'dual' ? dualActivePanel : activeTab;
+    const currentTargetPanel = targetTab === 'collar' 
+      ? (designConfig.collar || defaultDesignConfig.collar!) 
+      : designConfig[targetTab as keyof ArtDesignConfig];
     const updated = {
       ...designConfig,
       [targetTab]: {
-        ...activePanel,
+        ...currentTargetPanel,
         ...updatedFields
       }
     };
-    undoableConfigChange(updated);
+    undoableConfigChange(updated as ArtDesignConfig);
   };
 
   const updateTrimConfig = (partKey: 'collar' | 'placket' | 'sleeveStripe', updatedFields: Partial<TrimPartConfig>) => {
@@ -1586,6 +1641,124 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.translate(rulerOffset, rulerOffset);
       }
 
+      // ── SPECIAL COLLAR PANEL RENDERING (18" x 4.5", Flat or Curved Arc with Stripes) ──
+      if (panelKey === 'collar') {
+        const collarConf = designConfig.collar || defaultDesignConfig.collar!;
+        const collarPhysicalH = 4.5;
+
+        // Render on offscreen canvas
+        const offscreen = document.createElement('canvas');
+        offscreen.width = width;
+        offscreen.height = height;
+        const offCtx = offscreen.getContext('2d');
+        if (offCtx) {
+          // 1. Background fill or upload
+          if (collarConf.backgroundType === 'upload' && collarConf.uploadedFileUrl) {
+            const cachedImg = logoImagesRef.current[collarConf.uploadedFileUrl];
+            if (cachedImg && cachedImg.complete) {
+              offCtx.drawImage(cachedImg, 0, 0, width, height);
+            } else {
+              const img = new Image();
+              img.onload = () => {
+                logoImagesRef.current[collarConf.uploadedFileUrl!] = img;
+                setPrefTrigger(prev => prev + 1);
+              };
+              img.src = collarConf.uploadedFileUrl;
+              offCtx.fillStyle = collarConf.generatedColor1 || '#0A192F';
+              offCtx.fillRect(0, 0, width, height);
+            }
+          } else {
+            const c1 = collarConf.generatedColor1 || '#0A192F';
+            const c2 = collarConf.generatedColor2 || '#162A45';
+            const style = collarConf.generatedStyle || 'solid';
+
+            if (style === 'solid') {
+              offCtx.fillStyle = c1;
+              offCtx.fillRect(0, 0, width, height);
+            } else if (style.includes('gradient')) {
+              let grad: CanvasGradient;
+              if (style === 'gradient-linear-lr') {
+                grad = offCtx.createLinearGradient(0, 0, width, 0);
+              } else if (style === 'gradient-linear-tb') {
+                grad = offCtx.createLinearGradient(0, 0, 0, height);
+              } else if (style === 'gradient-linear-diag') {
+                grad = offCtx.createLinearGradient(0, 0, width, height);
+              } else {
+                grad = offCtx.createRadialGradient(width / 2, height / 2, 10, width / 2, height / 2, width * 0.6);
+              }
+
+              if (collarConf.gradientStops && collarConf.gradientStops.length >= 2) {
+                const sortedStops = [...collarConf.gradientStops].sort((a, b) => a.offset - b.offset);
+                sortedStops.forEach(s => {
+                  grad.addColorStop(Math.max(0, Math.min(1, s.offset / 100)), s.color);
+                });
+              } else {
+                grad.addColorStop(0, c1);
+                grad.addColorStop(1, c2);
+              }
+              offCtx.fillStyle = grad;
+              offCtx.fillRect(0, 0, width, height);
+            } else {
+              offCtx.fillStyle = c1;
+              offCtx.fillRect(0, 0, width, height);
+            }
+          }
+
+          // 2. Horizontal Collar Stripes
+          if (collarConf.stripes && collarConf.stripes.length > 0) {
+            collarConf.stripes.forEach(st => {
+              const stripeY = Math.round((st.yOffset / collarPhysicalH) * height);
+              const stripeH = Math.max(2, Math.round((st.height / collarPhysicalH) * height));
+              offCtx.fillStyle = st.color;
+              offCtx.fillRect(0, stripeY, width, stripeH);
+            });
+          }
+
+          // 3. Render onto main canvas (Flat vs Curved Arch)
+          if (collarConf.curved) {
+            const archAmountInches = collarConf.curveAmount ?? 0.8;
+            const archH = Math.round(archAmountInches * (height / collarPhysicalH));
+            const baseY = Math.round(archH * 0.65);
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Arc warp vertical slices
+            for (let x = 0; x < width; x++) {
+              const u = (x - width / 2) / (width / 2); // -1 to +1
+              const dy = -archH * (1 - u * u);
+              ctx.drawImage(offscreen, x, 0, 1, height, x, baseY + dy, 1, height);
+            }
+          } else {
+            ctx.drawImage(offscreen, 0, 0);
+          }
+
+          // 4. Border outline
+          if (!is3DPreview) {
+            ctx.save();
+            ctx.strokeStyle = collarConf.curved ? 'rgba(255, 255, 255, 0.35)' : '#1a1a1a';
+            ctx.lineWidth = 1;
+            if (collarConf.curved) {
+              ctx.setLineDash([4, 4]);
+              ctx.strokeRect(0, 0, width, height);
+              ctx.setLineDash([]);
+            } else {
+              ctx.strokeRect(0, 0, width, height);
+            }
+
+            // Size badge watermark in corner
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.font = 'bold 10px system-ui, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(collarConf.curved ? '18" × 4.5" (Curved Collar)' : '18" × 4.5" (Flat Collar)', 8, 6);
+            ctx.restore();
+          }
+        }
+
+        ctx.restore();
+        return;
+      }
+
       let bgUrl = panel.uploadedFileUrl;
       if (panelKey.startsWith('sleeve')) {
         bgUrl = previewSleeveType === 'full' 
@@ -2049,6 +2222,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const rulerOffset = rulersPref ? Math.round(0.55 * scale) : 0;
 
     if (activeTab === 'dual') {
+      // 0. Collar Panel (18" x 4.5" at top)
+      if (collarCanvasRef.current) {
+        const cCtx = collarCanvasRef.current.getContext('2d');
+        if (cCtx) {
+          collarCanvasRef.current.width = (collarSpreadWidth + rulerOffset) * zoom;
+          collarCanvasRef.current.height = (collarSpreadHeight + rulerOffset) * zoom;
+          cCtx.scale(zoom, zoom);
+          renderPanelToCanvas('collar', cCtx, collarSpreadWidth, collarSpreadHeight, scale * 1.5, false);
+        }
+      }
       // 1. Left Sleeve
       if (leftSleeveCanvasRef.current) {
         const lsCtx = leftSleeveCanvasRef.current.getContext('2d');
@@ -2827,6 +3010,25 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                 3D View
               </button>
+              <button 
+                className="btn btn-secondary"
+                style={{
+                  padding: '5px 12px',
+                  fontSize: '11px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  borderRadius: '9999px',
+                  background: activeTab === 'collar' ? '#E4572E' : '#FAF8F5',
+                  borderColor: activeTab === 'collar' ? '#E4572E' : '#E2DED7',
+                  color: activeTab === 'collar' ? '#FFFFFF' : '#374151',
+                  fontWeight: '700'
+                }}
+                onClick={() => setActiveTab(activeTab === 'collar' ? 'dual' : 'collar')}
+                title="Focus on Collar Panel (18&quot; × 4.5&quot;)"
+              >
+                🏷️ Collar
+              </button>
               {zoom !== 1 && (
                 <button 
                   className="btn btn-secondary" 
@@ -2992,15 +3194,109 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               }}
             >
               {activeTab === 'dual' ? (
-                <div style={{ display: 'flex', flexDirection: 'row', gap: '24px', alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'nowrap', padding: '0 20px' }}>
-                  {/* 1. LEFT SLEEVE CANVAS */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                  {/* ── TOP: COLLAR ARTBOARD (18" × 4.5") ── */}
                   <div 
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '22px' }}
                     onClick={(e) => {
-                      setDualActivePanel('sleeveLeft');
-                      handleArtboardGestureClick(e, 'sleeveLeft');
+                      setDualActivePanel('collar');
+                      handleArtboardGestureClick(e, 'collar');
                     }}
                   >
+                    <div 
+                      className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                        dualActivePanel === 'collar' 
+                          ? 'bg-[#E4572E] text-white shadow-md shadow-orange-500/30 ring-2 ring-orange-400/40' 
+                          : 'bg-white border border-[#D8D5CF] text-[#4B5563] shadow-sm hover:border-[#E4572E] hover:text-[#E4572E]'
+                      }`}
+                      title="Collar Panel (18&quot; × 4.5&quot;) • Triple-click artboard to customize colors, curve & stripes"
+                    >
+                      <span>🏷️ COLLAR (18" × 4.5")</span>
+                      {dualActivePanel === 'collar' && <span className="text-[10px] text-orange-200 font-semibold">• Active</span>}
+                      
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDualActivePanel('collar');
+                          setArtboardFillModal({ isOpen: true, panelKey: 'collar' });
+                        }}
+                        className="ml-1 px-2 py-0.5 rounded text-[10px] font-bold bg-white/20 hover:bg-white/30 text-white transition-colors"
+                        title="Open Collar Fill, Curved Arc & Stripe Editor"
+                      >
+                        🎨 Fill & Stripes
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const currentCurved = (designConfig.collar || defaultDesignConfig.collar)?.curved === true;
+                          const cur = designConfig.collar || defaultDesignConfig.collar!;
+                          undoableConfigChange({
+                            ...designConfig,
+                            collar: {
+                              ...cur,
+                              curved: !currentCurved
+                            }
+                          });
+                        }}
+                        className={`ml-1 px-2 py-0.5 rounded text-[10px] font-bold transition-all flex items-center gap-1 ${
+                          (designConfig.collar || defaultDesignConfig.collar)?.curved === true
+                            ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'
+                            : 'bg-black/10 hover:bg-black/20 text-[#4B5563]'
+                        }`}
+                        title="Toggle Curved Collar Arc (Curved vs Flat)"
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${(designConfig.collar || defaultDesignConfig.collar)?.curved === true ? 'bg-white' : 'bg-gray-400'}`} />
+                        {(designConfig.collar || defaultDesignConfig.collar)?.curved === true ? 'Curved Arc: ON' : 'Curved Arc: OFF'}
+                      </button>
+                    </div>
+
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <canvas 
+                        ref={collarCanvasRef} 
+                        onClick={(e) => handleArtboardGestureClick(e, 'collar')}
+                        onMouseDown={(e) => {
+                          if (spaceKeyPressed || activeTool === 'pan' || e.button === 1) {
+                            e.preventDefault();
+                            setIsPanning(true);
+                            panStartRef.current = {
+                              startX: e.clientX,
+                              startY: e.clientY,
+                              initialPanX: panOffset.x,
+                              initialPanY: panOffset.y
+                            };
+                          }
+                        }}
+                        onDoubleClick={(e) => handleCanvasDoubleClick(e, 'collar')}
+                        title="Collar Panel (18&quot; × 4.5&quot;) - Triple-click for Colors, Curve & Stripes, double-click to upload artwork"
+                        style={{ 
+                          borderRadius: '8px', 
+                          border: dualActivePanel === 'collar' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
+                          boxShadow: dualActivePanel === 'collar' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
+                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer',
+                          width: `${Math.round((collarSpreadWidth + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((collarSpreadHeight + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                          maxWidth: 'none',
+                          maxHeight: 'none',
+                          objectFit: 'contain',
+                          flexShrink: 0
+                        }} 
+                      />
+                    </div>
+                  </div>
+
+                  {/* ── LOWER 4 PANELS ROW ── */}
+                  <div style={{ display: 'flex', flexDirection: 'row', gap: '24px', alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'nowrap', padding: '0 20px' }}>
+                    {/* 1. LEFT SLEEVE CANVAS */}
+                    <div 
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                      onClick={(e) => {
+                        setDualActivePanel('sleeveLeft');
+                        handleArtboardGestureClick(e, 'sleeveLeft');
+                      }}
+                    >
                     <div 
                       className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 ${
                         dualActivePanel === 'sleeveLeft' 
@@ -3286,8 +3582,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       />
                     </div>
                   </div>
-
                 </div>
+              </div>
               ) : (
                 <div style={{ position: 'relative', display: 'inline-block' }}>
                   {/* Double click & triple click helper badge */}

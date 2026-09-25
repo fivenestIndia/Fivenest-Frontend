@@ -5,13 +5,14 @@ import {
   RotateCcw, Sliders, CheckCheck, Shirt, Layers, 
   GripHorizontal, Trash2, Plus, Edit3, Wand2
 } from 'lucide-react';
-import type { ArtDesignConfig, PanelConfig, TrimPartConfig, GradientStopItem } from './designer';
+import type { ArtDesignConfig, PanelConfig, TrimPartConfig, GradientStopItem, CollarConfig, CollarStripe } from './designer';
+import { defaultDesignConfig } from './designer';
 
 interface ArtboardFillModalProps {
   isOpen: boolean;
-  panelKey: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print';
+  panelKey: 'front' | 'back' | 'collar' | 'sleeveLeft' | 'sleeveRight' | 'a4Print';
   designConfig: ArtDesignConfig;
-  onUpdatePanel: (panelKey: string, updates: Partial<PanelConfig>) => void;
+  onUpdatePanel: (panelKey: string, updates: Partial<PanelConfig | CollarConfig>) => void;
   onApplyAllPanels: (updates: Partial<PanelConfig>) => void;
   onUpdateSleeveStripe: (updates: Partial<TrimPartConfig>) => void;
   onApplyFullJerseyPreset?: (config: {
@@ -336,7 +337,8 @@ export default function ArtboardFillModal({
   onApplyFullJerseyPreset,
   onClose
 }: ArtboardFillModalProps) {
-  const panel = designConfig[panelKey] || designConfig.front;
+  const isCollar = panelKey === 'collar';
+  const panel = (isCollar ? (designConfig.collar || defaultDesignConfig.collar) : (designConfig[panelKey] || designConfig.front)) as PanelConfig;
   const isSleeve = panelKey === 'sleeveLeft' || panelKey === 'sleeveRight';
 
   const dragControls = useDragControls();
@@ -344,7 +346,8 @@ export default function ArtboardFillModal({
   const stripeSpectrumRef = useRef<HTMLDivElement>(null);
 
   // Active tab inside modal
-  const [tab, setTab] = useState<'solid' | 'gradient' | 'sleeveStripe' | 'presets'>(() => {
+  const [tab, setTab] = useState<'solid' | 'gradient' | 'sleeveStripe' | 'collarStripe' | 'presets'>(() => {
+    if (panelKey === 'collar') return 'collarStripe';
     if (panel.generatedStyle && panel.generatedStyle.includes('gradient')) return 'gradient';
     return 'solid';
   });
@@ -354,6 +357,23 @@ export default function ArtboardFillModal({
 
   // Solid Color State
   const [solidColor, setSolidColor] = useState<string>(panel.generatedColor1 || '#FFFFFF');
+
+  // Collar Stripe & Curve State
+  const collarConf = (designConfig.collar || defaultDesignConfig.collar) as CollarConfig;
+  const [collarCurved, setCollarCurved] = useState<boolean>(Boolean(collarConf?.curved));
+  const [collarCurveAmount, setCollarCurveAmount] = useState<number>(collarConf?.curveAmount ?? 0.8);
+  const [collarStripes, setCollarStripes] = useState<CollarStripe[]>(() => collarConf?.stripes || []);
+
+  const handleUpdateCollar = (newCurved: boolean, newAmount: number, newStripes: CollarStripe[]) => {
+    setCollarCurved(newCurved);
+    setCollarCurveAmount(newAmount);
+    setCollarStripes(newStripes);
+    onUpdatePanel('collar', {
+      curved: newCurved,
+      curveAmount: newAmount,
+      stripes: newStripes
+    } as any);
+  };
 
   // Multi-stop Photoshop Gradient State for Panel
   const [stops, setStops] = useState<GradientStopItem[]>(() => {
@@ -403,6 +423,14 @@ export default function ArtboardFillModal({
   // Sync state when panel changes or modal reopens
   useEffect(() => {
     if (isOpen) {
+      if (panelKey === 'collar') {
+        const curC = (designConfig.collar || defaultDesignConfig.collar) as CollarConfig;
+        setCollarCurved(Boolean(curC?.curved));
+        setCollarCurveAmount(curC?.curveAmount ?? 0.8);
+        setCollarStripes(curC?.stripes || []);
+        setTab('collarStripe');
+      }
+
       setSolidColor(panel.generatedColor1 || '#FFFFFF');
       if (panel.gradientStops && panel.gradientStops.length >= 2) {
         const sorted = [...panel.gradientStops].sort((a, b) => a.offset - b.offset);
@@ -441,6 +469,7 @@ export default function ArtboardFillModal({
   if (!isOpen) return null;
 
   const panelNames: Record<string, string> = {
+    collar: '🏷️ Collar Panel (18" × 4.5")',
     front: '👕 Front Panel',
     back: '👕 Back Panel',
     sleeveLeft: '🧤 Left Sleeve',
@@ -909,6 +938,23 @@ export default function ArtboardFillModal({
                   }`}
                 >
                   {stripeEnabled ? 'ON' : 'OFF'}
+                </span>
+              </button>
+            )}
+
+            {isCollar && (
+              <button
+                onClick={() => setTab('collarStripe')}
+                className={`px-2.5 py-2 font-bold transition-all border-b-2 flex items-center gap-1.5 ${
+                  tab === 'collarStripe'
+                    ? 'border-[#E4572E] text-[#E4572E]'
+                    : 'border-transparent text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                <Sliders size={13} />
+                Collar Stripes & Curve
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                  {collarStripes.length} {collarStripes.length === 1 ? 'Stripe' : 'Stripes'} {collarCurved ? '• Curved' : ''}
                 </span>
               </button>
             )}
@@ -1492,7 +1538,299 @@ export default function ArtboardFillModal({
               </div>
             )}
 
-            {/* 4. COMPLETE TEAM MATCHING PRESETS (ALL PANELS + 2" STRIPE + EDITABLE) */}
+            {/* 3B. COLLAR STRIPES & CURVE EDITOR (18" x 4.5" Panel) */}
+            {tab === 'collarStripe' && isCollar && (
+              <div className="space-y-4">
+                {/* 1. CURVED COLLAR ARC SECTION */}
+                <div className="bg-[#111319] p-3.5 rounded-xl border border-[#2E3544] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                          <Sparkles size={14} className="text-[#E4572E]" />
+                          Curved Collar Arc (Arch Warp)
+                        </h4>
+                        <span
+                          className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                            collarCurved
+                              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                              : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                          }`}
+                        >
+                          {collarCurved ? 'Curved Arc: ON' : 'Flat Collar: OFF'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-1">
+                        Curves background fills, gradients, uploaded graphic artwork, and all horizontal stripes into an athletic collar arch.
+                      </p>
+                    </div>
+
+                    {/* Toggle Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateCollar(!collarCurved, collarCurveAmount, collarStripes)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 ${
+                        collarCurved
+                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                          : 'bg-zinc-800 hover:bg-zinc-700 text-gray-300 border border-zinc-700'
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${collarCurved ? 'bg-white animate-pulse' : 'bg-gray-500'}`} />
+                      {collarCurved ? 'Curved: ON' : 'Turn Curved ON'}
+                    </button>
+                  </div>
+
+                  {collarCurved && (
+                    <div className="pt-2 border-t border-[#232732] space-y-2.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <label className="text-gray-300 font-semibold flex items-center gap-1.5">
+                          <span>Arch Depth (Inches):</span>
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-orange-400 bg-black/40 px-2 py-0.5 rounded border border-[#2E3544]">
+                            {collarCurveAmount.toFixed(2)}"
+                          </span>
+                        </div>
+                      </div>
+
+                      <input
+                        type="range"
+                        min="0.10"
+                        max="2.00"
+                        step="0.05"
+                        value={collarCurveAmount}
+                        onChange={(e) => handleUpdateCollar(collarCurved, parseFloat(e.target.value) || 0.8, collarStripes)}
+                        className="w-full accent-[#E4572E] cursor-pointer"
+                      />
+
+                      {/* Quick Presets for Arch */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-gray-500 font-semibold">Quick Arch:</span>
+                        {[
+                          { label: 'Subtle (0.5")', val: 0.5 },
+                          { label: 'Standard (0.8")', val: 0.8 },
+                          { label: 'Deep (1.2")', val: 1.2 }
+                        ].map(q => (
+                          <button
+                            key={q.label}
+                            type="button"
+                            onClick={() => handleUpdateCollar(collarCurved, q.val, collarStripes)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all ${
+                              Math.abs(collarCurveAmount - q.val) < 0.05
+                                ? 'bg-orange-500/20 text-orange-400 border-orange-500/40'
+                                : 'bg-[#181B22] text-gray-400 border-[#2E3544] hover:text-white'
+                            }`}
+                          >
+                            {q.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. STRIPE EDITOR SECTION */}
+                <div className="bg-[#111319] p-3.5 rounded-xl border border-[#2E3544] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <Sliders size={14} className="text-[#E4572E]" />
+                        Collar Stripes ({collarStripes.length})
+                      </h4>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        Add 1, 2, 3 or more customizable stripes across the 18" × 4.5" collar.
+                      </p>
+                    </div>
+
+                    {collarStripes.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateCollar(collarCurved, collarCurveAmount, [])}
+                        className="text-[10px] text-red-400 hover:text-red-300 font-semibold flex items-center gap-1"
+                      >
+                        <Trash2 size={11} /> Clear All
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Quick Preset Buttons */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newSt = [
+                          { id: `cs-${Date.now()}-1`, color: '#FFFFFF', height: 0.20, yOffset: 2.15 }
+                        ];
+                        handleUpdateCollar(collarCurved, collarCurveAmount, newSt);
+                      }}
+                      className="px-2 py-1.5 rounded-lg bg-[#181B22] border border-[#2E3544] hover:border-orange-500 text-[11px] font-bold text-gray-200 hover:text-white transition-all text-center flex items-center justify-center gap-1"
+                    >
+                      <Plus size={11} className="text-orange-400" /> 1 Stripe
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newSt = [
+                          { id: `cs-${Date.now()}-1`, color: '#FFFFFF', height: 0.15, yOffset: 1.80 },
+                          { id: `cs-${Date.now()}-2`, color: '#EA580C', height: 0.18, yOffset: 2.10 }
+                        ];
+                        handleUpdateCollar(collarCurved, collarCurveAmount, newSt);
+                      }}
+                      className="px-2 py-1.5 rounded-lg bg-[#181B22] border border-[#2E3544] hover:border-orange-500 text-[11px] font-bold text-gray-200 hover:text-white transition-all text-center flex items-center justify-center gap-1"
+                      title="Classic Dual Stripes (White + Orange)"
+                    >
+                      <Plus size={11} className="text-orange-400" /> 2 Stripes
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newSt = [
+                          { id: `cs-${Date.now()}-1`, color: '#16A34A', height: 0.14, yOffset: 1.60 },
+                          { id: `cs-${Date.now()}-2`, color: '#FFFFFF', height: 0.14, yOffset: 2.00 },
+                          { id: `cs-${Date.now()}-3`, color: '#EA580C', height: 0.14, yOffset: 2.40 }
+                        ];
+                        handleUpdateCollar(collarCurved, collarCurveAmount, newSt);
+                      }}
+                      className="px-2 py-1.5 rounded-lg bg-[#181B22] border border-[#2E3544] hover:border-orange-500 text-[11px] font-bold text-gray-200 hover:text-white transition-all text-center flex items-center justify-center gap-1"
+                      title="Tri-color / Varsity 3 Stripes"
+                    >
+                      <Plus size={11} className="text-orange-400" /> 3 Stripes
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextY = Math.min(4.0, (collarStripes.length > 0 ? (collarStripes[collarStripes.length - 1].yOffset + 0.35) : 2.0));
+                        const newSt = [
+                          ...collarStripes,
+                          { id: `cs-${Date.now()}-${collarStripes.length}`, color: '#FFFFFF', height: 0.18, yOffset: parseFloat(nextY.toFixed(2)) }
+                        ];
+                        handleUpdateCollar(collarCurved, collarCurveAmount, newSt);
+                      }}
+                      className="px-2 py-1.5 rounded-lg bg-orange-500/15 border border-orange-500/30 hover:bg-orange-500/25 text-[11px] font-bold text-orange-400 transition-all text-center flex items-center justify-center gap-1"
+                    >
+                      <Plus size={11} /> Custom
+                    </button>
+                  </div>
+
+                  {/* List of Stripe Items */}
+                  {collarStripes.length === 0 ? (
+                    <div className="p-4 rounded-xl border border-dashed border-[#2E3544] text-center text-gray-400 text-xs">
+                      No stripes added yet. Click <strong>+ 1 Stripe</strong>, <strong>+ 2 Stripes</strong>, or <strong>+ 3 Stripes</strong> above to add!
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5 max-h-[36vh] overflow-y-auto pr-1">
+                      {collarStripes.map((st, idx) => (
+                        <div key={st.id || idx} className="p-3 rounded-xl bg-[#171B24] border border-[#2E3544] space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                              <span className="w-4 h-4 rounded-full bg-orange-500/20 text-orange-400 text-[10px] font-extrabold flex items-center justify-center">
+                                {idx + 1}
+                              </span>
+                              Stripe #{idx + 1}
+                            </span>
+
+                            <div className="flex items-center gap-2">
+                              {/* Color Swatch / Native Picker */}
+                              <div className="flex items-center gap-1.5 bg-[#101217] px-2 py-0.5 rounded-lg border border-[#2E3544]">
+                                <input
+                                  type="color"
+                                  value={st.color}
+                                  onChange={(e) => {
+                                    const updated = collarStripes.map((s, i) => i === idx ? { ...s, color: e.target.value } : s);
+                                    handleUpdateCollar(collarCurved, collarCurveAmount, updated);
+                                  }}
+                                  className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0"
+                                />
+                                <span className="font-mono text-[11px] text-gray-300 font-bold">{st.color.toUpperCase()}</span>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = collarStripes.filter((_, i) => i !== idx);
+                                  handleUpdateCollar(collarCurved, collarCurveAmount, updated);
+                                }}
+                                className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                                title="Delete this stripe"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Quick Swatches for Stripe */}
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {['#FFFFFF', '#EA580C', '#0047AB', '#EAB308', '#DC2626', '#16A34A', '#0B0D11'].map(swatch => (
+                              <button
+                                key={swatch}
+                                type="button"
+                                onClick={() => {
+                                  const updated = collarStripes.map((s, i) => i === idx ? { ...s, color: swatch } : s);
+                                  handleUpdateCollar(collarCurved, collarCurveAmount, updated);
+                                }}
+                                className={`w-4 h-4 rounded-full border transition-all ${
+                                  st.color.toUpperCase() === swatch.toUpperCase()
+                                    ? 'ring-2 ring-orange-500 scale-110'
+                                    : 'border-white/20 hover:scale-105'
+                                }`}
+                                style={{ background: swatch }}
+                              />
+                            ))}
+                          </div>
+
+                          {/* Height / Thickness Slider */}
+                          <div className="grid grid-cols-2 gap-3 text-xs pt-1">
+                            <div>
+                              <div className="flex items-center justify-between text-[11px] text-gray-400 mb-1">
+                                <span>Thickness:</span>
+                                <span className="font-mono font-bold text-gray-200">{st.height.toFixed(2)}"</span>
+                              </div>
+                              <input
+                                type="range"
+                                min="0.05"
+                                max="0.80"
+                                step="0.01"
+                                value={st.height}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0.15;
+                                  const updated = collarStripes.map((s, i) => i === idx ? { ...s, height: val } : s);
+                                  handleUpdateCollar(collarCurved, collarCurveAmount, updated);
+                                }}
+                                className="w-full accent-orange-500 cursor-pointer"
+                              />
+                            </div>
+
+                            {/* Position Y Slider */}
+                            <div>
+                              <div className="flex items-center justify-between text-[11px] text-gray-400 mb-1">
+                                <span>Position Y:</span>
+                                <span className="font-mono font-bold text-gray-200">{st.yOffset.toFixed(2)}"</span>
+                              </div>
+                              <input
+                                type="range"
+                                min="0.10"
+                                max="4.30"
+                                step="0.05"
+                                value={st.yOffset}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 2.0;
+                                  const updated = collarStripes.map((s, i) => i === idx ? { ...s, yOffset: val } : s);
+                                  handleUpdateCollar(collarCurved, collarCurveAmount, updated);
+                                }}
+                                className="w-full accent-orange-500 cursor-pointer"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             {tab === 'presets' && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
