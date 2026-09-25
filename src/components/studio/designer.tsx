@@ -13,6 +13,7 @@ import { StatusBar } from './coreldraw/StatusBar';
 import { ShortcutsModal } from './coreldraw/ShortcutsModal';
 import { GradientEditorModal } from './coreldraw/GradientEditorModal';
 import { TextSpecificationModal } from './coreldraw/TextSpecificationModal';
+import ArtboardFillModal from './ArtboardFillModal';
 
 export interface TextConfig {
   enabled: boolean;
@@ -53,7 +54,7 @@ export interface LogoConfig {
 
 export interface PanelConfig {
   backgroundType: 'generate' | 'upload';
-  generatedStyle: 'neon-gradient' | 'classic-stripes' | 'camo-glow' | 'blank';
+  generatedStyle: 'neon-gradient' | 'classic-stripes' | 'camo-glow' | 'blank' | 'solid' | 'gradient-linear-tb' | 'gradient-linear-lr' | 'gradient-linear-diag' | 'gradient-radial';
   generatedColor1: string;
   generatedColor2: string;
   uploadedFileUrl: string | null;
@@ -79,8 +80,10 @@ export interface PanelConfig {
 }
 
 export interface TrimPartConfig {
+  enabled?: boolean;
   color: string;
   uploadedUrl: string | null;
+  height?: number; // Height in inches (e.g. 2.3 for sleeve stripe)
 }
 
 export interface TrimConfig {
@@ -181,9 +184,9 @@ export const defaultDesignConfig: ArtDesignConfig = {
     torsoLogo: { enabled: false, uploadedUrl: null, width: 8.0, height: 5.0, xPos: 11.0, yPos: 16.0, text: '', lockAspectRatio: true }
   },
   trim: {
-    collar: { color: '#9b4dff', uploadedUrl: null },
-    placket: { color: '#9b4dff', uploadedUrl: null },
-    sleeveStripe: { color: '#9b4dff', uploadedUrl: null }
+    collar: { enabled: true, color: '#9b4dff', uploadedUrl: null },
+    placket: { enabled: true, color: '#9b4dff', uploadedUrl: null },
+    sleeveStripe: { enabled: true, color: '#171717', uploadedUrl: null, height: 2.3 }
   }
 };
 
@@ -211,6 +214,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [activeTextLayer, setActiveTextLayer] = useState<'name' | 'number' | null>(null);
   const [isGradientModalOpen, setIsGradientModalOpen] = useState<boolean>(false);
   const [gradientModalTarget, setGradientModalTarget] = useState<'name' | 'number' | 'palette'>('name');
+
+  // Triple-click Artboard Fill & Gradients Modal State
+  const [artboardFillModal, setArtboardFillModal] = useState<{
+    isOpen: boolean;
+    panelKey: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print';
+  }>({
+    isOpen: false,
+    panelKey: 'front'
+  });
+  const clickTrackerRef = useRef<{ panel: string; count: number; time: number }>({ panel: '', count: 0, time: 0 });
+  const doubleClickTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Undo/Redo history stacks
   const [undoStack, setUndoStack] = useState<ArtDesignConfig[]>([]);
@@ -1615,7 +1629,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           ctx.font = `600 ${Math.max(11, Math.round(12 * (scale / 20)))}px system-ui, sans-serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(`— Empty (No Graphic Uploaded) —`, width / 2, height / 2);
+          ctx.fillText(`— Empty (Triple-Click for Color) —`, width / 2, height / 2);
           ctx.restore();
 
           if (!is3DPreview) {
@@ -1629,16 +1643,38 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           drawTechnicalMarks(ctx);
         }
       } else {
-        const c1 = panel.generatedColor1;
-        const c2 = panel.generatedColor2;
+        const c1 = panel.generatedColor1 || '#ffffff';
+        const c2 = panel.generatedColor2 || '#1D4ED8';
+        const style = panel.generatedStyle || 'solid';
         
-        if (panel.generatedStyle === 'neon-gradient') {
-          const gradient = ctx.createRadialGradient(width/2, height/2, 50, width/2, height/2, width*0.8);
+        if (style === 'solid') {
+          ctx.fillStyle = c1;
+          ctx.fillRect(0, 0, width, height);
+        } else if (style === 'gradient-linear-tb') {
+          const gradient = ctx.createLinearGradient(0, 0, 0, height);
           gradient.addColorStop(0, c1);
           gradient.addColorStop(1, c2);
           ctx.fillStyle = gradient;
           ctx.fillRect(0, 0, width, height);
-        } else if (panel.generatedStyle === 'classic-stripes') {
+        } else if (style === 'gradient-linear-lr') {
+          const gradient = ctx.createLinearGradient(0, 0, width, 0);
+          gradient.addColorStop(0, c1);
+          gradient.addColorStop(1, c2);
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, width, height);
+        } else if (style === 'gradient-linear-diag') {
+          const gradient = ctx.createLinearGradient(0, 0, width, height);
+          gradient.addColorStop(0, c1);
+          gradient.addColorStop(1, c2);
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, width, height);
+        } else if (style === 'gradient-radial' || style === 'neon-gradient') {
+          const gradient = ctx.createRadialGradient(width/2, height/2, 20, width/2, height/2, Math.max(width, height) * 0.7);
+          gradient.addColorStop(0, c1);
+          gradient.addColorStop(1, c2);
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, width, height);
+        } else if (style === 'classic-stripes') {
           ctx.fillStyle = c2;
           ctx.fillRect(0, 0, width, height);
           
@@ -1651,7 +1687,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ctx.lineTo(i - 100, height);
           }
           ctx.fill();
-        } else if (panel.generatedStyle === 'camo-glow') {
+        } else if (style === 'camo-glow') {
           ctx.fillStyle = '#111';
           ctx.fillRect(0, 0, width, height);
           
@@ -1668,7 +1704,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           ctx.fill();
         } else {
           // Default panel base color: Pure White inside, like Illustrator artboard
-          ctx.fillStyle = '#ffffff';
+          ctx.fillStyle = c1 || '#ffffff';
           ctx.fillRect(0, 0, width, height);
         }
         
@@ -1682,6 +1718,57 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         drawTexts(ctx);
         drawTechnicalMarks(ctx);
       }
+
+      // ── SLEEVE STRIPE AT BOTTOM (Height: 2.3 inches fixed, Width: fits sleeve panel) ──
+      if (panelKey === 'sleeveLeft' || panelKey === 'sleeveRight') {
+        const stripeConf = designConfig.trim?.sleeveStripe;
+        if (stripeConf && stripeConf.enabled !== false && (stripeConf.color || stripeConf.uploadedUrl)) {
+          const stripeHInches = stripeConf.height || 2.3;
+          const stripeHPx = Math.round(stripeHInches * scale);
+          const stripeYPx = height - stripeHPx;
+          const stripeWPx = width;
+
+          if (stripeConf.uploadedUrl) {
+            const cachedStripeImg = logoImagesRef.current[stripeConf.uploadedUrl];
+            if (cachedStripeImg && cachedStripeImg.complete) {
+              ctx.drawImage(cachedStripeImg, 0, stripeYPx, stripeWPx, stripeHPx);
+            } else {
+              const img = new Image();
+              img.onload = () => {
+                logoImagesRef.current[stripeConf.uploadedUrl!] = img;
+                setPrefTrigger(prev => prev + 1);
+              };
+              img.src = stripeConf.uploadedUrl;
+              ctx.fillStyle = stripeConf.color || '#171717';
+              ctx.fillRect(0, stripeYPx, stripeWPx, stripeHPx);
+            }
+          } else if (stripeConf.color) {
+            ctx.fillStyle = stripeConf.color;
+            ctx.fillRect(0, stripeYPx, stripeWPx, stripeHPx);
+          }
+
+          // Subtle guide mark on 2D canvas showing 2.3" stripe boundary
+          if (!is3DPreview) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(0, stripeYPx);
+            ctx.lineTo(stripeWPx, stripeYPx);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.font = 'bold 9px system-ui, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('2.3" Sleeve Stripe', 6, stripeYPx - 2);
+            ctx.restore();
+          }
+        }
+      }
+
       ctx.restore();
     };
 
@@ -2330,8 +2417,55 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
     }
 
-    // 3. Fallback: double clicking on background opens graphic upload
-    fileInputRef.current?.click();
+    // 3. Fallback: double clicking on background opens graphic upload (debounced so triple click gesture isn't blocked by OS file dialog)
+    if (doubleClickTimerRef.current) {
+      clearTimeout(doubleClickTimerRef.current);
+    }
+    doubleClickTimerRef.current = setTimeout(() => {
+      fileInputRef.current?.click();
+    }, 280);
+  };
+
+  // Triple-click gesture listener to open Artboard Fill Colors & Gradients popup
+  const handleArtboardGestureClick = (
+    e: React.MouseEvent,
+    specificPanel?: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print'
+  ) => {
+    const targetPanelKey = specificPanel || (activeTab === 'dual' ? dualActivePanel : activeTab);
+    const now = Date.now();
+    const tracker = clickTrackerRef.current;
+
+    let isTriple = false;
+    if (e.detail >= 3) {
+      isTriple = true;
+    } else if (tracker.panel === targetPanelKey && now - tracker.time < 500) {
+      tracker.count += 1;
+      tracker.time = now;
+      if (tracker.count >= 3) {
+        isTriple = true;
+        tracker.count = 0;
+      }
+    } else {
+      tracker.panel = targetPanelKey;
+      tracker.count = 1;
+      tracker.time = now;
+    }
+
+    if (isTriple) {
+      if (doubleClickTimerRef.current) {
+        clearTimeout(doubleClickTimerRef.current);
+        doubleClickTimerRef.current = null;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      if (specificPanel && activeTab === 'dual' && dualActivePanel !== specificPanel && specificPanel !== 'a4Print') {
+        setDualActivePanel(specificPanel as 'front' | 'back' | 'sleeveLeft' | 'sleeveRight');
+      }
+      setArtboardFillModal({
+        isOpen: true,
+        panelKey: targetPanelKey as any
+      });
+    }
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>, specificPanel?: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print') => {
@@ -2826,7 +2960,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   {/* 1. LEFT SLEEVE CANVAS */}
                   <div 
                     style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                    onClick={() => setDualActivePanel('sleeveLeft')}
+                    onClick={(e) => {
+                      setDualActivePanel('sleeveLeft');
+                      handleArtboardGestureClick(e, 'sleeveLeft');
+                    }}
                   >
                     <div 
                       className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 ${
@@ -2834,14 +2971,28 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           ? 'bg-[#E4572E] text-white shadow-md shadow-orange-500/30 ring-2 ring-orange-400/40' 
                           : 'bg-white border border-[#D8D5CF] text-[#4B5563] shadow-sm hover:border-[#E4572E] hover:text-[#E4572E]'
                       }`}
+                      title="Left Sleeve • Triple-click artboard to fill colors & gradients"
                     >
                       <span>🧤 LEFT SLEEVE ({sleeveSpreadPhysicalW}" × {sleeveSpreadPhysicalH}")</span>
                       {dualActivePanel === 'sleeveLeft' && <span className="text-[10px] text-orange-200 font-semibold">• Active</span>}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDualActivePanel('sleeveLeft');
+                          setArtboardFillModal({ isOpen: true, panelKey: 'sleeveLeft' });
+                        }}
+                        className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/20 hover:bg-white/30 text-white transition-colors"
+                        title="Open Fill Colors, Gradients & Sleeve Stripe"
+                      >
+                        🎨 Fill
+                      </button>
                     </div>
 
                     <div style={{ position: 'relative', display: 'inline-block' }}>
                       <canvas 
                         ref={leftSleeveCanvasRef} 
+                        onClick={(e) => handleArtboardGestureClick(e, 'sleeveLeft')}
                         onMouseDown={(e) => {
                           if (spaceKeyPressed || activeTool === 'pan' || e.button === 1) {
                             e.preventDefault();
@@ -2855,7 +3006,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           }
                         }}
                         onDoubleClick={(e) => handleCanvasDoubleClick(e, 'sleeveLeft')}
-                        title="Left Sleeve - Double-click text to edit specifications, or double-click to upload artwork"
+                        title="Left Sleeve - Triple-click for Colors & Gradients, double-click to edit text or upload artwork"
                         style={{ 
                           borderRadius: '8px', 
                           border: dualActivePanel === 'sleeveLeft' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
@@ -2875,7 +3026,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   {/* 2. FRONT PANEL CANVAS */}
                   <div 
                     style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer' }}
-                    onClick={() => { if (!spaceKeyPressed) setDualActivePanel('front'); }}
+                    onClick={(e) => {
+                      if (!spaceKeyPressed) {
+                        setDualActivePanel('front');
+                        handleArtboardGestureClick(e, 'front');
+                      }
+                    }}
                   >
                     <div 
                       className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 ${
@@ -2883,14 +3039,28 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           ? 'bg-[#E4572E] text-white shadow-md shadow-orange-500/30 ring-2 ring-orange-400/40' 
                           : 'bg-white border border-[#D8D5CF] text-[#4B5563] shadow-sm hover:border-[#E4572E] hover:text-[#E4572E]'
                       }`}
+                      title="Front Panel • Triple-click artboard to fill colors & gradients"
                     >
                       <span>👕 FRONT PANEL ({designConfig.front.customWidth || 22}" × {designConfig.front.customHeight || 30}")</span>
                       {dualActivePanel === 'front' && <span className="text-[10px] text-orange-200 font-semibold">• Active</span>}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDualActivePanel('front');
+                          setArtboardFillModal({ isOpen: true, panelKey: 'front' });
+                        }}
+                        className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/20 hover:bg-white/30 text-white transition-colors"
+                        title="Open Fill Colors & Gradients"
+                      >
+                        🎨 Fill
+                      </button>
                     </div>
 
                     <div style={{ position: 'relative', display: 'inline-block' }}>
                       <canvas 
                         ref={frontCanvasRef} 
+                        onClick={(e) => handleArtboardGestureClick(e, 'front')}
                         onMouseDown={(e) => handleCanvasMouseDown(e, 'front')}
                         onMouseMove={(e) => handleCanvasMouseMove(e, 'front')}
                         onMouseUp={handleCanvasMouseUp}
@@ -2899,7 +3069,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           isDraggingTextRef.current = false;
                         }}
                         onDoubleClick={(e) => handleCanvasDoubleClick(e, 'front')}
-                        title="Front Panel - Double-click Player Name or Number to edit specifications, or double-click to upload artwork"
+                        title="Front Panel - Triple-click for Colors & Gradients, double-click text to edit, or double-click to upload artwork"
                         style={{ 
                           borderRadius: '8px', 
                           border: dualActivePanel === 'front' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
@@ -2919,7 +3089,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   {/* 3. BACK PANEL CANVAS */}
                   <div 
                     style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer' }}
-                    onClick={() => { if (!spaceKeyPressed) setDualActivePanel('back'); }}
+                    onClick={(e) => {
+                      if (!spaceKeyPressed) {
+                        setDualActivePanel('back');
+                        handleArtboardGestureClick(e, 'back');
+                      }
+                    }}
                   >
                     <div 
                       className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 ${
@@ -2927,14 +3102,28 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           ? 'bg-[#E4572E] text-white shadow-md shadow-orange-500/30 ring-2 ring-orange-400/40' 
                           : 'bg-white border border-[#D8D5CF] text-[#4B5563] shadow-sm hover:border-[#E4572E] hover:text-[#E4572E]'
                       }`}
+                      title="Back Panel • Triple-click artboard to fill colors & gradients"
                     >
                       <span>👕 BACK PANEL ({designConfig.back.customWidth || 22}" × {designConfig.back.customHeight || 30}")</span>
                       {dualActivePanel === 'back' && <span className="text-[10px] text-orange-200 font-semibold">• Active</span>}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDualActivePanel('back');
+                          setArtboardFillModal({ isOpen: true, panelKey: 'back' });
+                        }}
+                        className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/20 hover:bg-white/30 text-white transition-colors"
+                        title="Open Fill Colors & Gradients"
+                      >
+                        🎨 Fill
+                      </button>
                     </div>
 
                     <div style={{ position: 'relative', display: 'inline-block' }}>
                       <canvas 
                         ref={backCanvasRef} 
+                        onClick={(e) => handleArtboardGestureClick(e, 'back')}
                         onMouseDown={(e) => handleCanvasMouseDown(e, 'back')}
                         onMouseMove={(e) => handleCanvasMouseMove(e, 'back')}
                         onMouseUp={handleCanvasMouseUp}
@@ -2943,7 +3132,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           isDraggingTextRef.current = false;
                         }}
                         onDoubleClick={(e) => handleCanvasDoubleClick(e, 'back')}
-                        title="Back Panel - Double-click Player Name or Number to edit specifications, or double-click to upload artwork"
+                        title="Back Panel - Triple-click for Colors & Gradients, double-click text to edit, or double-click to upload artwork"
                         style={{ 
                           borderRadius: '8px', 
                           border: dualActivePanel === 'back' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
@@ -2963,7 +3152,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   {/* 4. RIGHT SLEEVE CANVAS */}
                   <div 
                     style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer' }}
-                    onClick={() => { if (!spaceKeyPressed) setDualActivePanel('sleeveRight'); }}
+                    onClick={(e) => {
+                      if (!spaceKeyPressed) {
+                        setDualActivePanel('sleeveRight');
+                        handleArtboardGestureClick(e, 'sleeveRight');
+                      }
+                    }}
                   >
                     <div 
                       className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 ${
@@ -2971,14 +3165,28 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           ? 'bg-[#E4572E] text-white shadow-md shadow-orange-500/30 ring-2 ring-orange-400/40' 
                           : 'bg-white border border-[#D8D5CF] text-[#4B5563] shadow-sm hover:border-[#E4572E] hover:text-[#E4572E]'
                       }`}
+                      title="Right Sleeve • Triple-click artboard to fill colors & gradients"
                     >
                       <span>🧤 RIGHT SLEEVE ({sleeveSpreadPhysicalW}" × {sleeveSpreadPhysicalH}")</span>
                       {dualActivePanel === 'sleeveRight' && <span className="text-[10px] text-orange-200 font-semibold">• Active</span>}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDualActivePanel('sleeveRight');
+                          setArtboardFillModal({ isOpen: true, panelKey: 'sleeveRight' });
+                        }}
+                        className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/20 hover:bg-white/30 text-white transition-colors"
+                        title="Open Fill Colors, Gradients & Sleeve Stripe"
+                      >
+                        🎨 Fill
+                      </button>
                     </div>
 
                     <div style={{ position: 'relative', display: 'inline-block' }}>
                       <canvas 
                         ref={rightSleeveCanvasRef} 
+                        onClick={(e) => handleArtboardGestureClick(e, 'sleeveRight')}
                         onMouseDown={(e) => {
                           if (spaceKeyPressed || activeTool === 'pan' || e.button === 1) {
                             e.preventDefault();
@@ -2992,7 +3200,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           }
                         }} 
                         onDoubleClick={(e) => handleCanvasDoubleClick(e, 'sleeveRight')}
-                        title="Right Sleeve - Double-click text to edit specifications, or double-click to upload artwork"
+                        title="Right Sleeve - Triple-click for Colors & Gradients, double-click text to edit, or double-click to upload artwork"
                         style={{ 
                           borderRadius: '8px', 
                           border: dualActivePanel === 'sleeveRight' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
@@ -3012,17 +3220,31 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 </div>
               ) : (
                 <div style={{ position: 'relative', display: 'inline-block' }}>
-                  {/* Double click helper badge */}
+                  {/* Double click & triple click helper badge */}
                   <div 
-                    className="absolute -top-9 left-1/2 -translate-x-1/2 z-20 pointer-events-none px-3.5 py-1 rounded-full bg-white/95 border border-[#E8E4DE] text-[#E4572E] text-[11px] font-bold shadow-md backdrop-blur-md flex items-center gap-1.5 whitespace-nowrap cursor-pointer hover:border-[#E4572E]"
+                    className="absolute -top-9 left-1/2 -translate-x-1/2 z-20 pointer-events-none px-3.5 py-1 rounded-full bg-white/95 border border-[#E8E4DE] text-[#E4572E] text-[11px] font-bold shadow-md backdrop-blur-md flex items-center gap-2 whitespace-nowrap cursor-pointer hover:border-[#E4572E]"
                     style={{ pointerEvents: 'auto' }}
-                    onClick={() => fileInputRef.current?.click()}
                   >
-                    <span>💡 Double-click text to edit specification • Double-click canvas to upload image</span>
+                    <span onClick={() => fileInputRef.current?.click()} className="hover:underline">
+                      💡 Double-click text to edit • Double-click canvas to upload image
+                    </span>
+                    <span className="text-[#D8D5CF]">•</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setArtboardFillModal({ isOpen: true, panelKey: (activeTab === 'dual' ? dualActivePanel : activeTab) as any });
+                      }}
+                      className="px-2 py-0.5 rounded bg-orange-500 text-white text-[10px] font-bold hover:bg-orange-600 transition-colors"
+                      title="Triple-click canvas to open fill colors & gradients"
+                    >
+                      🎨 Fill (Triple-Click)
+                    </button>
                   </div>
 
                   <canvas 
                     ref={canvasRef} 
+                    onClick={(e) => handleArtboardGestureClick(e, activeTab === 'dual' ? dualActivePanel : activeTab)}
                     onMouseDown={handleCanvasMouseDown}
                     onMouseMove={handleCanvasMouseMove}
                     onMouseUp={handleCanvasMouseUp}
@@ -3031,7 +3253,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       isDraggingTextRef.current = false;
                     }}
                     onDoubleClick={(e) => handleCanvasDoubleClick(e)}
-                    title="Double-click Player Name or Number to edit specifications, or double-click canvas to upload artwork"
+                    title="Triple-click for Colors & Gradients, double-click text to edit, or double-click to upload artwork"
                     style={{ 
                       borderRadius: '8px', 
                       border: '2px solid rgba(0, 240, 255, 0.5)', 
@@ -4772,20 +4994,39 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               </div>
 
               {/* Part 3: Sleeve Stripe */}
-              <div>
-                <h4 style={{ fontSize: '13px', fontWeight: 'semibold', color: '#fff', marginBottom: '8px' }}>Sleeve Stripe / Cuff</h4>
+              <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '10px', padding: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <h4 style={{ fontSize: '13px', fontWeight: '700', color: '#111827', margin: 0 }}>Sleeve Bottom Stripe</h4>
+                    <span style={{ fontSize: '10px', fontWeight: '700', background: '#FEF3C7', color: '#92400E', padding: '2px 6px', borderRadius: '4px', border: '1px solid #FCD34D' }}>
+                      2.3" Fixed Height
+                    </span>
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '600', color: '#374151' }}>
+                    <input 
+                      type="checkbox"
+                      checked={designConfig.trim?.sleeveStripe.enabled !== false}
+                      onChange={(e) => updateTrimConfig('sleeveStripe', { enabled: e.target.checked })}
+                      style={{ accentColor: '#E4572E' }}
+                    />
+                    Enabled
+                  </label>
+                </div>
+                <p style={{ fontSize: '11px', color: '#6B7280', margin: '0 0 10px 0' }}>
+                  Height stays exactly 2.3 inches across all sizes (18 to 60) on export. Width automatically fits each sleeve panel.
+                </p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <input 
                       type="color" 
-                      value={designConfig.trim?.sleeveStripe.color || designConfig.front.generatedColor1} 
+                      value={designConfig.trim?.sleeveStripe.color || '#171717'} 
                       onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
                       style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
                     />
                     <input 
                       type="text" 
                       className="form-input" 
-                      value={(designConfig.trim?.sleeveStripe.color || designConfig.front.generatedColor1).toUpperCase()}
+                      value={(designConfig.trim?.sleeveStripe.color || '#171717').toUpperCase()}
                       onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
                       style={{ padding: '6px', fontSize: '12px', width: '90px' }}
                     />
@@ -4794,7 +5035,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     {designConfig.trim?.sleeveStripe.uploadedUrl ? (
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          Image Active
+                          Pattern Active
                         </div>
                         <button 
                           className="btn btn-secondary" 
@@ -4806,7 +5047,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       </div>
                     ) : (
                       <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
-                        Import Image
+                        Import Pattern
                         <input 
                           type="file" 
                           accept="image/*" 
@@ -5173,6 +5414,36 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         }}
         customFonts={customFonts}
         onUndo={handleUndo}
+      />
+
+      {/* 9. TRIPLE-CLICK ARTBOARD FILL COLOR & GRADIENTS MODAL */}
+      <ArtboardFillModal
+        isOpen={artboardFillModal.isOpen}
+        panelKey={artboardFillModal.panelKey}
+        designConfig={designConfig}
+        onUpdatePanel={(pKey, updates) => {
+          const currentP = (designConfig[pKey as keyof ArtDesignConfig] || activePanel) as PanelConfig;
+          undoableConfigChange({
+            ...designConfig,
+            [pKey]: {
+              ...currentP,
+              ...updates
+            }
+          });
+        }}
+        onApplyAllPanels={(updates) => {
+          undoableConfigChange({
+            ...designConfig,
+            front: { ...designConfig.front, ...updates },
+            back: { ...designConfig.back, ...updates },
+            sleeveLeft: { ...designConfig.sleeveLeft, ...updates },
+            sleeveRight: { ...designConfig.sleeveRight, ...updates }
+          });
+        }}
+        onUpdateSleeveStripe={(updates) => {
+          updateTrimConfig('sleeveStripe', updates);
+        }}
+        onClose={() => setArtboardFillModal(prev => ({ ...prev, isOpen: false }))}
       />
     </div>
   );

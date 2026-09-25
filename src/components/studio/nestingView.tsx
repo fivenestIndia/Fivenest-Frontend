@@ -364,6 +364,7 @@ export const checkArtworkUploadStatus = (
 ) => {
   const frontHasArtwork = Boolean(
     designConfig?.front?.uploadedFileUrl ||
+    (designConfig?.front?.backgroundType === 'generate' && designConfig?.front?.generatedColor1) ||
     (designConfig?.front?.leftChestLogo?.enabled && designConfig?.front?.leftChestLogo?.uploadedUrl) ||
     (designConfig?.front?.rightChestLogo?.enabled && designConfig?.front?.rightChestLogo?.uploadedUrl) ||
     (designConfig?.front?.torsoLogo?.enabled && designConfig?.front?.torsoLogo?.uploadedUrl)
@@ -371,6 +372,7 @@ export const checkArtworkUploadStatus = (
 
   const backHasArtwork = Boolean(
     designConfig?.back?.uploadedFileUrl ||
+    (designConfig?.back?.backgroundType === 'generate' && designConfig?.back?.generatedColor1) ||
     (designConfig?.back?.leftChestLogo?.enabled && designConfig?.back?.leftChestLogo?.uploadedUrl) ||
     (designConfig?.back?.rightChestLogo?.enabled && designConfig?.back?.rightChestLogo?.uploadedUrl) ||
     (designConfig?.back?.torsoLogo?.enabled && designConfig?.back?.torsoLogo?.uploadedUrl)
@@ -382,7 +384,10 @@ export const checkArtworkUploadStatus = (
     designConfig?.sleeveLeft?.uploadedFileFullUrl || 
     designConfig?.sleeveRight?.uploadedFileUrl ||
     designConfig?.sleeveRight?.uploadedFileHalfUrl ||
-    designConfig?.sleeveRight?.uploadedFileFullUrl
+    designConfig?.sleeveRight?.uploadedFileFullUrl ||
+    (designConfig?.sleeveLeft?.backgroundType === 'generate' && designConfig?.sleeveLeft?.generatedColor1) ||
+    (designConfig?.sleeveRight?.backgroundType === 'generate' && designConfig?.sleeveRight?.generatedColor1) ||
+    (designConfig?.trim?.sleeveStripe?.enabled !== false && designConfig?.trim?.sleeveStripe?.color)
   );
 
   const a4HasArtwork = Boolean(
@@ -392,7 +397,8 @@ export const checkArtworkUploadStatus = (
   const trimHasArtwork = Boolean(
     designConfig?.trim?.collar?.uploadedUrl ||
     designConfig?.trim?.placket?.uploadedUrl ||
-    designConfig?.trim?.sleeveStripe?.uploadedUrl
+    designConfig?.trim?.sleeveStripe?.uploadedUrl ||
+    (designConfig?.trim?.sleeveStripe?.enabled !== false && designConfig?.trim?.sleeveStripe?.color)
   );
 
   const anyArtworkUploaded = frontHasArtwork || backHasArtwork || sleeveHasArtwork || a4HasArtwork || trimHasArtwork;
@@ -1644,7 +1650,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
       const torsoLogo = conf.torsoLogo;
 
       const loadAllImages = async () => {
-        const images: { bg?: HTMLImageElement; leftLogo?: HTMLImageElement; rightLogo?: HTMLImageElement; torsoLogo?: HTMLImageElement } = {};
+        const images: { bg?: HTMLImageElement; leftLogo?: HTMLImageElement; rightLogo?: HTMLImageElement; torsoLogo?: HTMLImageElement; sleeveStripe?: HTMLImageElement } = {};
         const promises: Promise<void>[] = [];
 
         if ((isUploadBg || conf.backgroundType === 'upload') && bgUrl) {
@@ -1671,6 +1677,12 @@ export const NestingView: React.FC<NestingViewProps> = ({
           );
         }
 
+        if ((item.panelType === 'sleeve-left' || item.panelType === 'sleeve-right') && designConfig?.trim?.sleeveStripe?.uploadedUrl) {
+          promises.push(
+            getCachedImage(designConfig.trim.sleeveStripe.uploadedUrl).then(img => { if (img) images.sleeveStripe = img; })
+          );
+        }
+
         await Promise.all(promises);
         return images;
       };
@@ -1678,7 +1690,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
       loadAllImages().then(images => {
         // Draw background
         if (images.bg) {
-          ctx.fillStyle = '#ffffff';
+          ctx.fillStyle = conf.generatedColor1 || '#ffffff';
           ctx.fillRect(0, 0, widthPx, heightPx);
 
           // For sleeves, enforce background dimensions matching actual sleeve item dimensions to prevent cropping
@@ -1699,16 +1711,38 @@ export const NestingView: React.FC<NestingViewProps> = ({
           ctx.drawImage(images.bg, bgX, bgY, bgW, bgH);
         } else {
           // Render generated vectors at high-res
-          const c1 = conf.generatedColor1;
-          const c2 = conf.generatedColor2;
+          const c1 = conf.generatedColor1 || '#ffffff';
+          const c2 = conf.generatedColor2 || '#1D4ED8';
+          const style = conf.generatedStyle || 'solid';
 
-          if (conf.generatedStyle === 'neon-gradient') {
-            const gradient = ctx.createRadialGradient(widthPx/2, heightPx/2, widthPx*0.1, widthPx/2, heightPx/2, widthPx*0.8);
+          if (style === 'solid') {
+            ctx.fillStyle = c1;
+            ctx.fillRect(0, 0, widthPx, heightPx);
+          } else if (style === 'gradient-linear-tb') {
+            const gradient = ctx.createLinearGradient(0, 0, 0, heightPx);
             gradient.addColorStop(0, c1);
             gradient.addColorStop(1, c2);
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, widthPx, heightPx);
-          } else if (conf.generatedStyle === 'classic-stripes') {
+          } else if (style === 'gradient-linear-lr') {
+            const gradient = ctx.createLinearGradient(0, 0, widthPx, 0);
+            gradient.addColorStop(0, c1);
+            gradient.addColorStop(1, c2);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, widthPx, heightPx);
+          } else if (style === 'gradient-linear-diag') {
+            const gradient = ctx.createLinearGradient(0, 0, widthPx, heightPx);
+            gradient.addColorStop(0, c1);
+            gradient.addColorStop(1, c2);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, widthPx, heightPx);
+          } else if (style === 'gradient-radial' || style === 'neon-gradient') {
+            const gradient = ctx.createRadialGradient(widthPx/2, heightPx/2, 20, widthPx/2, heightPx/2, Math.max(widthPx, heightPx)*0.7);
+            gradient.addColorStop(0, c1);
+            gradient.addColorStop(1, c2);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, widthPx, heightPx);
+          } else if (style === 'classic-stripes') {
             ctx.fillStyle = c2;
             ctx.fillRect(0, 0, widthPx, heightPx);
             
@@ -1722,7 +1756,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
               ctx.lineTo(i - heightPx, heightPx);
             }
             ctx.fill();
-          } else if (conf.generatedStyle === 'camo-glow') {
+          } else if (style === 'camo-glow') {
             ctx.fillStyle = '#111';
             ctx.fillRect(0, 0, widthPx, heightPx);
             
@@ -1738,8 +1772,27 @@ export const NestingView: React.FC<NestingViewProps> = ({
             ctx.arc(widthPx * 0.2, heightPx * 0.8, widthPx * 0.25, 0, Math.PI * 2);
             ctx.fill();
           } else {
-            ctx.fillStyle = item.panelType === 'a4-print' ? '#ffffff' : '#1c1c24';
+            ctx.fillStyle = item.panelType === 'a4-print' ? '#ffffff' : (c1 || '#ffffff');
             ctx.fillRect(0, 0, widthPx, heightPx);
+          }
+        }
+
+        // ── SLEEVE STRIPE AT BOTTOM (Height: 2.3 inches fixed, Width: fits sleeve panel) ──
+        if (item.panelType === 'sleeve-left' || item.panelType === 'sleeve-right') {
+          const stripeConf = designConfig?.trim?.sleeveStripe;
+          if (stripeConf && stripeConf.enabled !== false && (stripeConf.color || stripeConf.uploadedUrl)) {
+            // Exactly 2.3 inches fixed height across ALL sizes 18 to 60!
+            const stripeHInches = stripeConf.height || 2.3;
+            const stripeHPx = Math.round(stripeHInches * scaleDpi);
+            const stripeYPx = heightPx - stripeHPx;
+            const stripeWPx = widthPx; // Fits panel width for this specific graded size!
+
+            if (images.sleeveStripe) {
+              ctx.drawImage(images.sleeveStripe, 0, stripeYPx, stripeWPx, stripeHPx);
+            } else if (stripeConf.color) {
+              ctx.fillStyle = stripeConf.color;
+              ctx.fillRect(0, stripeYPx, stripeWPx, stripeHPx);
+            }
           }
         }
 
