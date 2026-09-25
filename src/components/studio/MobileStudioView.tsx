@@ -1,20 +1,44 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Palette, Users, Download, Wallet, Check, AlertCircle, Copy, 
   Upload, ArrowRight, Sparkles, RefreshCw, X, Package, 
   CreditCard, CheckCircle2, FileSpreadsheet, Plus, Trash2, 
-  ShieldCheck, FileText, CheckCircle
+  ShieldCheck, ChevronDown, ChevronUp, Type, Hash, Layers,
+  SlidersHorizontal, CheckCircle, Image as ImageIcon, Shirt,
+  Sliders
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import JSZip from 'jszip';
 import Papa from 'papaparse';
 import confetti from 'canvas-confetti';
 import { supabase, fetchUserWallet } from '../../lib/supabaseClient';
-import type { ArtDesignConfig } from './designer';
+import { sampleImageEdgeColor, type ArtDesignConfig, type TextConfig, type PanelConfig, type LogoConfig } from './designer';
 import type { PlayerRecord, OrderMetadata } from './orderEntry';
 import type { SizeDatabase } from './sizesDb';
 import type { NestingViewHandle } from './nestingView';
 import { classifyZipPanelFile } from './zipHelper';
+
+const FONT_OPTIONS = [
+  { id: 'OldSport02AthleticNcv-E0gj', label: 'Old Sport Athletic' },
+  { id: 'Impact', label: 'Impact Athletic' },
+  { id: 'Arial', label: 'Arial Clean' },
+  { id: 'Bebas Neue', label: 'Bebas Neue' },
+  { id: 'Montserrat', label: 'Montserrat' }
+];
+
+const COLOR_SWATCHES = [
+  { name: 'White', hex: '#FFFFFF' },
+  { name: 'Black', hex: '#000000' },
+  { name: 'Navy', hex: '#0A192F' },
+  { name: 'Royal', hex: '#1E3A8A' },
+  { name: 'Sky', hex: '#0284C7' },
+  { name: 'Cyan', hex: '#00F0FF' },
+  { name: 'Red', hex: '#DC2626' },
+  { name: 'Orange', hex: '#E4572E' },
+  { name: 'Gold', hex: '#F59E0B' },
+  { name: 'Emerald', hex: '#10B981' },
+  { name: 'Purple', hex: '#8B5CF6' }
+];
 
 interface MobileStudioViewProps {
   records: PlayerRecord[];
@@ -47,11 +71,27 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
   onOpenLogin,
   nestingRef
 }) => {
-  // Mobile navigation tabs: Artwork, Roster, Export, Payment
+  // Mobile tabs: artwork, roster, export, payment
   const [activeTab, setActiveTab] = useState<'artwork' | 'roster' | 'export' | 'payment'>('artwork');
   const [showPcNotice, setShowPcNotice] = useState<boolean>(() => {
     return localStorage.getItem('fivenest_dismiss_pc_notice') !== 'true';
   });
+
+  // Active panel being viewed/edited in the static artwork box
+  const [activePanel, setActivePanel] = useState<'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'collar'>('front');
+  // Sleeve style selector: half vs full
+  const [previewSleeveType, setPreviewSleeveType] = useState<'half' | 'full'>('half');
+
+  // Preview text for live canvas rendering
+  const [previewName, setPreviewName] = useState<string>("FIVENEST");
+  const [previewNumber, setPreviewNumber] = useState<string>("23");
+
+  // Canvas ref for static artwork box
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const imageCacheRef = useRef<Record<string, HTMLImageElement>>({});
+
+  // Collapsible editor accordion sections
+  const [expandedSection, setExpandedSection] = useState<'presets' | 'background' | 'name' | 'number' | 'logos' | 'collar' | null>('background');
 
   // Zip upload state
   const [zipUploading, setZipUploading] = useState<boolean>(false);
@@ -62,10 +102,22 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
   const [sheetImportMessage, setSheetImportMessage] = useState<string | null>(null);
   const sheetFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Presets state (synced with localStorage)
+  const [customPresets, setCustomPresets] = useState<{ name: string; config: ArtDesignConfig }[]>(() => {
+    try {
+      const saved = localStorage.getItem('fivenest_presets');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [newPresetName, setNewPresetName] = useState<string>('');
+
   // Payment states
   const [topupLoading, setTopupLoading] = useState<boolean>(false);
   const [topupMessage, setTopupMessage] = useState<string | null>(null);
   const [copiedUpi, setCopiedUpi] = useState<boolean>(false);
+  const [showQrCode, setShowQrCode] = useState<boolean>(true);
 
   // Quick player add modal
   const [showAddPlayer, setShowAddPlayer] = useState<boolean>(false);
@@ -141,7 +193,6 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
     return 0;
   };
 
-  // Normalize letter sizes and numerical strings
   const normalizeSize = (rawSize: string): string => {
     if (!rawSize) return '40';
     const cleaned = rawSize.trim().toUpperCase();
@@ -160,7 +211,6 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
     return numMatch ? numMatch[0] : (cleaned || '40');
   };
 
-  // Normalize sleeve styles
   const normalizeSleeve = (rawSleeve: string): 'half' | 'full' | 'none' => {
     if (!rawSleeve) return 'half';
     const s = rawSleeve.toLowerCase().trim();
@@ -169,7 +219,6 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
     return 'half';
   };
 
-  // Parse rows extracted from sheet
   const handleParsedRosterRows = (rawRows: any[], fileName: string) => {
     if (!rawRows || rawRows.length === 0) {
       setSheetImportMessage("⚠️ File appears to be empty.");
@@ -185,7 +234,6 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
     }
 
     const rawKeys = Object.keys(validRows[0]);
-
     const getBestKey = (field: 'name' | 'number' | 'size' | 'sleeve' | 'qty'): string | null => {
       let bestKey: string | null = null;
       let highestScore = 0;
@@ -205,31 +253,21 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
     let sleeveKey = getBestKey('sleeve');
     let qtyKey = getBestKey('qty');
 
-    // Content-based heuristic fallback
     if (!sizeKey || !sleeveKey || !nameKey) {
       rawKeys.forEach(k => {
         if (/^(filename|file|total|front size|half sleeve|full sleeve|sr|serial)/i.test(k)) return;
         const sampleVals = validRows.slice(0, 10).map(r => String(r[k] || '').trim());
-        
         if (!sizeKey) {
           const sizeLikeCount = sampleVals.filter(v => /^(18|20|22|24|26|28|30|32|34|36|38|40|42|44|46|48|50|52|54|56|58|60|S|M|L|XL|2XL|XXL|3XL|4XL)$/i.test(v)).length;
-          if (sizeLikeCount >= Math.min(2, sampleVals.length)) {
-            sizeKey = k;
-          }
+          if (sizeLikeCount >= Math.min(2, sampleVals.length)) sizeKey = k;
         }
-
         if (!sleeveKey) {
           const sleeveLikeCount = sampleVals.filter(v => /^(half|full|none|short|long|fls|lhs|rhs|sleeveless|full hand|half hand)$/i.test(v)).length;
-          if (sleeveLikeCount >= Math.min(2, sampleVals.length)) {
-            sleeveKey = k;
-          }
+          if (sleeveLikeCount >= Math.min(2, sampleVals.length)) sleeveKey = k;
         }
-
         if (!nameKey && k !== sizeKey && k !== sleeveKey && k !== numKey && k !== qtyKey) {
           const nameLikeCount = sampleVals.filter(v => /^[a-zA-Z\s\.\-]{2,}$/.test(v) && !/^(half|full|none|size)$/i.test(v)).length;
-          if (nameLikeCount >= Math.min(2, sampleVals.length)) {
-            nameKey = k;
-          }
+          if (nameLikeCount >= Math.min(2, sampleVals.length)) nameKey = k;
         }
       });
     }
@@ -244,9 +282,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
       let qtyVal = 1;
       if (qtyKey && row[qtyKey] !== undefined) {
         const parsed = parseInt(String(row[qtyKey]).trim(), 10);
-        if (!isNaN(parsed) && parsed >= 1 && parsed <= 10) {
-          qtyVal = parsed;
-        }
+        if (!isNaN(parsed) && parsed >= 1 && parsed <= 10) qtyVal = parsed;
       }
 
       if (!rawName && !rawNum && !rawSize && !rawSleeve) return;
@@ -272,7 +308,6 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
       return;
     }
 
-    // Auto-update customer/team name if empty
     if (!metadata.customerName && fileName) {
       const cleanName = fileName.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ").trim();
       onMetadataChange({ ...metadata, customerName: cleanName });
@@ -284,7 +319,6 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
     confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
   };
 
-  // Process sheet file (Excel or CSV)
   const handleSheetFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -310,7 +344,6 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
             handleParsedRosterRows(results.data as any[], file.name);
           },
           error: (error) => {
-            console.error("Excel parse error", error);
             setSheetImportMessage("❌ Failed to parse Excel sheet.");
             setSheetImportLoading(false);
           }
@@ -323,14 +356,12 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
             handleParsedRosterRows(results.data as any[], file.name);
           },
           error: (error) => {
-            console.error("CSV parse error", error);
             setSheetImportMessage("❌ Failed to parse CSV file.");
             setSheetImportLoading(false);
           }
         });
       }
     } catch (err: any) {
-      console.error("Sheet process error", err);
       setSheetImportMessage(`❌ Could not load sheet: ${err.message || err}`);
       setSheetImportLoading(false);
     } finally {
@@ -338,7 +369,194 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
     }
   };
 
-  // Handle Bulk ZIP Import
+  // ── Render Static Artwork Box onto Canvas ──
+  const drawActivePanelToCanvas = () => {
+    const canvas = previewCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let physicalW = 15;
+    let physicalH = 21;
+    if (activePanel === 'front' || activePanel === 'back') {
+      physicalW = 15;
+      physicalH = 21;
+    } else if (activePanel === 'sleeveLeft' || activePanel === 'sleeveRight') {
+      if (previewSleeveType === 'full') {
+        physicalW = 14;
+        physicalH = 18;
+      } else {
+        physicalW = 7;
+        physicalH = 7;
+      }
+    } else if (activePanel === 'collar') {
+      physicalW = 18;
+      physicalH = 4.5;
+    }
+
+    const containerW = Math.min(window.innerWidth - 32, 340);
+    const containerH = activePanel === 'collar' ? 120 : 280;
+    const scale = Math.min(containerW / physicalW, containerH / physicalH);
+    const canvasW = Math.round(physicalW * scale);
+    const canvasH = Math.round(physicalH * scale);
+
+    const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 2) : 2;
+    canvas.width = Math.round(canvasW * dpr);
+    canvas.height = Math.round(canvasH * dpr);
+    canvas.style.width = `${canvasW}px`;
+    canvas.style.height = `${canvasH}px`;
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, canvasW, canvasH);
+
+    const panelConf = (designConfig[activePanel] as PanelConfig) || designConfig.front;
+
+    // 1. Draw Background Color
+    ctx.fillStyle = panelConf.generatedColor1 || '#0F172A';
+    ctx.fillRect(0, 0, canvasW, canvasH);
+
+    // Gradient if enabled
+    if (panelConf.backgroundType === 'generate' && panelConf.generatedGradientStyle) {
+      let grad: CanvasGradient;
+      if (panelConf.generatedGradientStyle === 'gradient-linear-tb') {
+        grad = ctx.createLinearGradient(0, 0, 0, canvasH);
+      } else {
+        grad = ctx.createLinearGradient(0, 0, canvasW, 0);
+      }
+      grad.addColorStop(0, panelConf.generatedColor1 || '#0F172A');
+      grad.addColorStop(1, panelConf.generatedColor2 || '#1E3A8A');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvasW, canvasH);
+    }
+
+    // Uploaded Image
+    const isFullSleeve = (activePanel === 'sleeveLeft' || activePanel === 'sleeveRight') && previewSleeveType === 'full';
+    const imgUrl = isFullSleeve
+      ? (panelConf.uploadedFileFullUrl || panelConf.uploadedFileUrl)
+      : panelConf.uploadedFileUrl;
+
+    if (imgUrl) {
+      const img = imageCacheRef.current[imgUrl];
+      if (img && img.complete && img.naturalWidth > 0) {
+        ctx.drawImage(img, 0, 0, canvasW, canvasH);
+      } else {
+        const newImg = new Image();
+        newImg.crossOrigin = 'anonymous';
+        newImg.onload = () => {
+          imageCacheRef.current[imgUrl] = newImg;
+          drawActivePanelToCanvas();
+        };
+        newImg.src = imgUrl;
+      }
+    }
+
+    // 2. Collar curved arc or stripes
+    if (activePanel === 'collar') {
+      const collarConf = designConfig.collar;
+      if (collarConf?.curved) {
+        ctx.strokeStyle = '#E4572E';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(canvasW / 2, canvasH / 2, canvasW * 0.45, canvasH * 0.35, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      if (collarConf?.stripes && collarConf.stripes.length > 0) {
+        collarConf.stripes.forEach(s => {
+          ctx.fillStyle = s.color || '#FFFFFF';
+          const yPx = (s.yOffset / 4.5) * canvasH;
+          const hPx = Math.max(2, (s.height / 4.5) * canvasH);
+          ctx.fillRect(0, yPx, canvasW, hPx);
+        });
+      }
+    }
+
+    // 3. Technical Center Guidelines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(canvasW / 2, 0);
+    ctx.lineTo(canvasW / 2, canvasH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 4. Draw Player Name
+    if (panelConf.nameConfig?.enabled && (activePanel === 'front' || activePanel === 'back')) {
+      const nameText = previewName || 'FIVENEST';
+      const fontSizePx = Math.max(12, Math.round((panelConf.nameConfig.fontSize / 30) * canvasH));
+      const family = panelConf.nameConfig.fontFamily || 'OldSport02AthleticNcv-E0gj';
+      ctx.font = `bold ${fontSizePx}px "${family}", Impact, Arial, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const yPos = (panelConf.nameConfig.yPos / 100) * canvasH;
+
+      if (panelConf.nameConfig.strokeWidth > 0) {
+        ctx.strokeStyle = panelConf.nameConfig.strokeColor || '#000000';
+        ctx.lineWidth = Math.max(1, Math.round((panelConf.nameConfig.strokeWidth / 50) * fontSizePx));
+        ctx.lineJoin = 'round';
+        ctx.strokeText(nameText, canvasW / 2, yPos);
+      }
+      ctx.fillStyle = panelConf.nameConfig.color || '#FFFFFF';
+      ctx.fillText(nameText, canvasW / 2, yPos);
+    }
+
+    // 5. Draw Player Number
+    if (panelConf.numberConfig?.enabled && (activePanel === 'front' || activePanel === 'back')) {
+      const numText = previewNumber || '23';
+      const fontSizePx = Math.max(16, Math.round((panelConf.numberConfig.fontSize / 30) * canvasH));
+      const family = panelConf.numberConfig.fontFamily || 'OldSport02AthleticNcv-E0gj';
+      ctx.font = `bold ${fontSizePx}px "${family}", Impact, Arial, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const yPos = (panelConf.numberConfig.yPos / 100) * canvasH;
+
+      if (panelConf.numberConfig.strokeWidth > 0) {
+        ctx.strokeStyle = panelConf.numberConfig.strokeColor || '#000000';
+        ctx.lineWidth = Math.max(1, Math.round((panelConf.numberConfig.strokeWidth / 50) * fontSizePx));
+        ctx.lineJoin = 'round';
+        ctx.strokeText(numText, canvasW / 2, yPos);
+      }
+      ctx.fillStyle = panelConf.numberConfig.color || '#FFFFFF';
+      ctx.fillText(numText, canvasW / 2, yPos);
+    }
+
+    // 6. Draw Logos
+    const drawLogoHelper = (url: string | null, targetX: number, targetY: number, sizePx: number) => {
+      if (!url) return;
+      const img = imageCacheRef.current[url];
+      if (img && img.complete && img.naturalWidth > 0) {
+        ctx.drawImage(img, targetX - sizePx / 2, targetY - sizePx / 2, sizePx, sizePx);
+      } else {
+        const newImg = new Image();
+        newImg.crossOrigin = 'anonymous';
+        newImg.onload = () => {
+          imageCacheRef.current[url] = newImg;
+          drawActivePanelToCanvas();
+        };
+        newImg.src = url;
+      }
+    };
+
+    if (panelConf.leftChestLogo?.enabled && panelConf.leftChestLogo?.uploadedUrl) {
+      drawLogoHelper(panelConf.leftChestLogo.uploadedUrl, canvasW * 0.25, canvasH * 0.28, Math.round(canvasW * 0.18));
+    }
+    if (panelConf.rightChestLogo?.enabled && panelConf.rightChestLogo?.uploadedUrl) {
+      drawLogoHelper(panelConf.rightChestLogo.uploadedUrl, canvasW * 0.75, canvasH * 0.28, Math.round(canvasW * 0.18));
+    }
+    if (panelConf.torsoLogo?.enabled && panelConf.torsoLogo?.uploadedUrl) {
+      drawLogoHelper(panelConf.torsoLogo.uploadedUrl, canvasW * 0.5, canvasH * 0.55, Math.round(canvasW * 0.45));
+    }
+
+    // 7. Outline
+    ctx.strokeStyle = '#E4572E';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(0, 0, canvasW, canvasH);
+  };
+
+  // Re-draw static canvas on changes
+  useEffect(() => {
+    drawActivePanelToCanvas();
+  }, [activePanel, previewSleeveType, previewName, previewNumber, designConfig]);
+
+  // Bulk ZIP Upload handler
   const handleZipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -408,11 +626,8 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
     }
   };
 
-  // Handle individual panel image upload
-  const handleSinglePanelUpload = (
-    panelKey: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'collar',
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  // Upload single panel image
+  const handleSinglePanelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -422,16 +637,32 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
       if (!dataUrl) return;
 
       const newConfig = { ...designConfig };
-      if (panelKey === 'collar') {
+      if (activePanel === 'collar') {
         if (newConfig.collar) {
           newConfig.collar = { ...newConfig.collar, uploadedFileUrl: dataUrl, backgroundType: 'upload' };
         }
         if (newConfig.trim?.collar) {
           newConfig.trim.collar = { ...newConfig.trim.collar, uploadedUrl: dataUrl };
         }
+      } else if (activePanel === 'sleeveLeft' || activePanel === 'sleeveRight') {
+        if (previewSleeveType === 'full') {
+          newConfig[activePanel] = {
+            ...newConfig[activePanel],
+            uploadedFileFullUrl: dataUrl,
+            uploadedFileUrl: dataUrl,
+            backgroundType: 'upload'
+          };
+        } else {
+          newConfig[activePanel] = {
+            ...newConfig[activePanel],
+            uploadedFileHalfUrl: dataUrl,
+            uploadedFileUrl: dataUrl,
+            backgroundType: 'upload'
+          };
+        }
       } else {
-        newConfig[panelKey] = {
-          ...newConfig[panelKey],
+        newConfig[activePanel] = {
+          ...newConfig[activePanel],
           uploadedFileUrl: dataUrl,
           backgroundType: 'upload'
         };
@@ -443,19 +674,197 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
   };
 
   // Clear single panel image
-  const handleClearPanel = (panelKey: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'collar') => {
+  const handleClearCurrentPanel = () => {
     const newConfig = { ...designConfig };
-    if (panelKey === 'collar') {
+    if (activePanel === 'collar') {
       if (newConfig.collar) newConfig.collar.uploadedFileUrl = null;
       if (newConfig.trim?.collar) newConfig.trim.collar.uploadedUrl = null;
     } else {
-      newConfig[panelKey] = {
-        ...newConfig[panelKey],
+      newConfig[activePanel] = {
+        ...newConfig[activePanel],
         uploadedFileUrl: null,
+        uploadedFileHalfUrl: null,
+        uploadedFileFullUrl: null,
         backgroundType: 'generate'
       };
     }
     onDesignConfigChange(newConfig);
+  };
+
+  // Built-in presets
+  const builtInPresets = [
+    { name: 'Neon Cyber', c1: '#00F0FF', c2: '#FF6B00', trim: '#FF6B00', font: '#FFFFFF', stroke: '#00F0FF' },
+    { name: 'Royal Navy', c1: '#0A192F', c2: '#1E3A8A', trim: '#FFFFFF', font: '#FFFFFF', stroke: '#1E3A8A' },
+    { name: 'Gold Champion', c1: '#111827', c2: '#1F2937', trim: '#F59E0B', font: '#F59E0B', stroke: '#000000' },
+    { name: 'Crimson Fury', c1: '#DC2626', c2: '#7F1D1D', trim: '#000000', font: '#FFFFFF', stroke: '#000000' },
+    { name: 'Emerald Speed', c1: '#064E3B', c2: '#10B981', trim: '#10B981', font: '#FFFFFF', stroke: '#064E3B' },
+    { name: 'Clean White', c1: '#FFFFFF', c2: '#F1F5F9', trim: '#1E293B', font: '#0F172A', stroke: '#FFFFFF' }
+  ];
+
+  // Apply a preset
+  const handleApplyPreset = (p: typeof builtInPresets[0]) => {
+    const newConfig: ArtDesignConfig = {
+      ...designConfig,
+      front: {
+        ...designConfig.front,
+        backgroundType: 'generate',
+        generatedColor1: p.c1,
+        generatedColor2: p.c2,
+        generatedGradientStyle: 'gradient-linear-tb',
+        nameConfig: { ...designConfig.front.nameConfig, color: p.font, strokeColor: p.stroke },
+        numberConfig: { ...designConfig.front.numberConfig, color: p.font, strokeColor: p.stroke }
+      },
+      back: {
+        ...designConfig.back,
+        backgroundType: 'generate',
+        generatedColor1: p.c1,
+        generatedColor2: p.c2,
+        generatedGradientStyle: 'gradient-linear-tb',
+        nameConfig: { ...designConfig.back.nameConfig, color: p.font, strokeColor: p.stroke },
+        numberConfig: { ...designConfig.back.numberConfig, color: p.font, strokeColor: p.stroke }
+      },
+      sleeveLeft: {
+        ...designConfig.sleeveLeft,
+        backgroundType: 'generate',
+        generatedColor1: p.c1,
+        generatedColor2: p.c2,
+        generatedGradientStyle: 'gradient-linear-tb'
+      },
+      sleeveRight: {
+        ...designConfig.sleeveRight,
+        backgroundType: 'generate',
+        generatedColor1: p.c1,
+        generatedColor2: p.c2,
+        generatedGradientStyle: 'gradient-linear-tb'
+      },
+      trim: {
+        ...designConfig.trim,
+        collar: { enabled: true, color: p.trim, uploadedUrl: null },
+        placket: { enabled: true, color: p.trim, uploadedUrl: null },
+        sleeveStripe: { enabled: false, color: p.trim, uploadedUrl: null, height: 2.0 }
+      }
+    };
+    onDesignConfigChange(newConfig);
+    confetti({ particleCount: 40, spread: 50 });
+  };
+
+  // Save custom preset
+  const handleSaveCustomPreset = () => {
+    if (!newPresetName.trim()) {
+      alert("Please enter a name for your preset.");
+      return;
+    }
+    const updated = [...customPresets.filter(p => p.name !== newPresetName.trim()), { name: newPresetName.trim(), config: designConfig }];
+    setCustomPresets(updated);
+    localStorage.setItem('fivenest_presets', JSON.stringify(updated));
+    setNewPresetName('');
+    alert(`Saved preset "${newPresetName.trim()}"!`);
+  };
+
+  // Load custom preset
+  const handleLoadCustomPreset = (preset: { name: string; config: ArtDesignConfig }) => {
+    onDesignConfigChange(preset.config);
+    confetti({ particleCount: 40, spread: 50 });
+  };
+
+  // Handle Logo Upload (Left Chest, Right Chest, Torso)
+  const handleLogoUpload = (type: 'leftChest' | 'rightChest' | 'torso', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (!dataUrl) return;
+      const newConfig = { ...designConfig };
+      const panelKey = (activePanel === 'collar' ? 'front' : activePanel) as 'front' | 'back' | 'sleeveLeft' | 'sleeveRight';
+      const targetPanel = newConfig[panelKey] || newConfig.front;
+
+      if (type === 'leftChest') {
+        targetPanel.leftChestLogo = {
+          ...(targetPanel.leftChestLogo || { width: 3.5, height: 3.5, xPos: 15.0, yPos: 8.5, lockAspectRatio: true }),
+          enabled: true,
+          uploadedUrl: dataUrl
+        };
+      } else if (type === 'rightChest') {
+        targetPanel.rightChestLogo = {
+          ...(targetPanel.rightChestLogo || { width: 3.5, height: 3.5, xPos: 7.0, yPos: 8.5, lockAspectRatio: true }),
+          enabled: true,
+          uploadedUrl: dataUrl
+        };
+      } else if (type === 'torso') {
+        targetPanel.torsoLogo = {
+          ...(targetPanel.torsoLogo || { width: 8.5, height: 2.6, xPos: 11.0, yPos: 13.3, lockAspectRatio: true }),
+          enabled: true,
+          uploadedUrl: dataUrl
+        };
+      }
+      onDesignConfigChange(newConfig);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  // Toggle Logo Enabled
+  const handleToggleLogo = (type: 'leftChest' | 'rightChest' | 'torso', enabled: boolean) => {
+    const newConfig = { ...designConfig };
+    const panelKey = (activePanel === 'collar' ? 'front' : activePanel) as 'front' | 'back' | 'sleeveLeft' | 'sleeveRight';
+    const targetPanel = newConfig[panelKey] || newConfig.front;
+
+    if (type === 'leftChest' && targetPanel.leftChestLogo) {
+      targetPanel.leftChestLogo.enabled = enabled;
+    } else if (type === 'rightChest' && targetPanel.rightChestLogo) {
+      targetPanel.rightChestLogo.enabled = enabled;
+    } else if (type === 'torso' && targetPanel.torsoLogo) {
+      targetPanel.torsoLogo.enabled = enabled;
+    }
+    onDesignConfigChange(newConfig);
+  };
+
+  // Remove/Clear Logo
+  const handleClearLogo = (type: 'leftChest' | 'rightChest' | 'torso') => {
+    const newConfig = { ...designConfig };
+    const panelKey = (activePanel === 'collar' ? 'front' : activePanel) as 'front' | 'back' | 'sleeveLeft' | 'sleeveRight';
+    const targetPanel = newConfig[panelKey] || newConfig.front;
+
+    if (type === 'leftChest' && targetPanel.leftChestLogo) {
+      targetPanel.leftChestLogo.uploadedUrl = null;
+      targetPanel.leftChestLogo.enabled = false;
+    } else if (type === 'rightChest' && targetPanel.rightChestLogo) {
+      targetPanel.rightChestLogo.uploadedUrl = null;
+      targetPanel.rightChestLogo.enabled = false;
+    } else if (type === 'torso' && targetPanel.torsoLogo) {
+      targetPanel.torsoLogo.uploadedUrl = null;
+      targetPanel.torsoLogo.enabled = false;
+    }
+    onDesignConfigChange(newConfig);
+  };
+
+  // Auto-match collar and placket colors from front artwork edge analysis
+  const handleAutoMatchCollar = () => {
+    const frontUrl = designConfig.front?.uploadedFileUrl;
+    if (frontUrl && imageCacheRef.current[frontUrl]) {
+      const edgeColor = sampleImageEdgeColor(imageCacheRef.current[frontUrl]);
+      const newConfig = { ...designConfig };
+      if (newConfig.collar) {
+        newConfig.collar.generatedColor1 = edgeColor;
+      }
+      if (newConfig.trim) {
+        newConfig.trim.collar = { ...newConfig.trim.collar, color: edgeColor, enabled: true };
+        newConfig.trim.placket = { ...newConfig.trim.placket, color: edgeColor, enabled: true };
+      }
+      onDesignConfigChange(newConfig);
+      confetti({ particleCount: 35, spread: 45 });
+    } else {
+      const frontColor = designConfig.front?.generatedColor1 || '#1E3A8A';
+      const newConfig = { ...designConfig };
+      if (newConfig.collar) newConfig.collar.generatedColor1 = frontColor;
+      if (newConfig.trim) {
+        newConfig.trim.collar = { ...newConfig.trim.collar, color: frontColor, enabled: true };
+        newConfig.trim.placket = { ...newConfig.trim.placket, color: frontColor, enabled: true };
+      }
+      onDesignConfigChange(newConfig);
+      confetti({ particleCount: 20, spread: 30 });
+    }
   };
 
   // Add new player to roster manually
@@ -485,7 +894,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
     onRecordsChange(records.filter(r => r.id !== id));
   };
 
-  // Handle Quick Top-up in payment tab
+  // Recharge Wallet
   const handleRechargeWallet = async (amount: number) => {
     if (!currentUser) {
       onOpenLogin();
@@ -521,18 +930,15 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
     }
   };
 
-  // Copy UPI ID to clipboard
   const handleCopyUPI = () => {
     navigator.clipboard.writeText("vilesh332-1@okhdfcbank");
     setCopiedUpi(true);
     setTimeout(() => setCopiedUpi(false), 2500);
   };
 
-  // UPI deep link for 1-tap app launch
   const upiDeepLink = `upi://pay?pa=vilesh332-1@okhdfcbank&pn=FiveNest%20Studio&am=${orderCost.toFixed(2)}&cu=INR&tn=FiveNest%20Order%20${encodeURIComponent(metadata.orderNum || '01')}`;
   const upiQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(upiDeepLink)}`;
 
-  // Dismiss PC notice
   const handleDismissNotice = () => {
     setShowPcNotice(false);
     localStorage.setItem('fivenest_dismiss_pc_notice', 'true');
@@ -587,7 +993,6 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {/* Test / Live Toggle */}
           <button
             onClick={() => onTestModeChange(!testMode)}
             style={{
@@ -604,7 +1009,6 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
             {testMode ? '🧪 Test' : '⚡ Live'}
           </button>
 
-          {/* Orders Link */}
           <Link to="/orders" style={{ textDecoration: 'none' }}>
             <button style={{
               background: 'rgba(255, 255, 255, 0.08)',
@@ -622,7 +1026,6 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
             </button>
           </Link>
 
-          {/* Wallet Balance Pill */}
           <div
             onClick={() => setActiveTab('payment')}
             style={{
@@ -644,7 +1047,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
         </div>
       </header>
 
-      {/* ── CAD Tools PC Notice Banner (Dismissible) ── */}
+      {/* ── CAD Tools PC Notice Banner ── */}
       {showPcNotice && (
         <div style={{
           background: 'linear-gradient(90deg, rgba(228, 87, 46, 0.12), rgba(59, 130, 246, 0.12))',
@@ -674,18 +1077,189 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
       <main style={{ padding: '16px' }}>
         
         {/* ════════════════════════════════════════════════════════
-            TAB 1: 🎨 ARTWORK (Clean 2D, NO 3D)
+            TAB 1: 🎨 ARTWORK (Static Artwork Box + Whole Editor Panel)
            ════════════════════════════════════════════════════════ */}
         {activeTab === 'artwork' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             
-            {/* 1-Tap Bulk ZIP Upload Card */}
+            {/* 1. Panel Selector Pills & Full/Half Sleeve Toggle */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
+                {[
+                  { id: 'front', label: 'Front Panel' },
+                  { id: 'back', label: 'Back Panel' },
+                  { id: 'sleeveLeft', label: 'Left Sleeve' },
+                  { id: 'sleeveRight', label: 'Right Sleeve' },
+                  { id: 'collar', label: 'Collar (18"×4.5")' }
+                ].map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => setActivePanel(p.id as any)}
+                    style={{
+                      background: activePanel === p.id ? '#E4572E' : '#1E293B',
+                      border: activePanel === p.id ? '1px solid #E4572E' : '1px solid rgba(255, 255, 255, 0.1)',
+                      color: '#FFFFFF',
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      fontSize: '11px',
+                      fontWeight: activePanel === p.id ? '800' : '600',
+                      whiteSpace: 'nowrap',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Sleeve Type Toggle: Half vs Full */}
+              <div style={{
+                background: '#0F172A',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '8px',
+                padding: '6px 10px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '600' }}>
+                  Sleeve Style:
+                </span>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    onClick={() => setPreviewSleeveType('half')}
+                    style={{
+                      background: previewSleeveType === 'half' ? 'rgba(228,87,46,0.2)' : 'transparent',
+                      border: previewSleeveType === 'half' ? '1px solid #E4572E' : '1px solid transparent',
+                      color: previewSleeveType === 'half' ? '#FF7A45' : '#94A3B8',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Half Sleeve (7"×7")
+                  </button>
+                  <button
+                    onClick={() => setPreviewSleeveType('full')}
+                    style={{
+                      background: previewSleeveType === 'full' ? 'rgba(59,130,246,0.2)' : 'transparent',
+                      border: previewSleeveType === 'full' ? '1px solid #3B82F6' : '1px solid transparent',
+                      color: previewSleeveType === 'full' ? '#60A5FA' : '#94A3B8',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Full Sleeve (14"×18")
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. STATIC ARTWORK BOX (NOT Moveable, 100% stable touch) */}
             <div style={{
-              background: 'linear-gradient(135deg, rgba(228,87,46,0.15) 0%, rgba(30,41,59,0.7) 100%)',
-              border: '1.5px dashed rgba(228,87,46,0.5)',
-              borderRadius: '14px',
-              padding: '18px 16px',
-              textAlign: 'center',
+              background: '#0B0F19',
+              border: '1.5px solid rgba(228, 87, 46, 0.35)',
+              borderRadius: '16px',
+              padding: '12px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '10px',
+              boxShadow: '0 8px 30px rgba(0, 0, 0, 0.4)',
+              position: 'relative'
+            }}>
+              {/* Artwork Box Header Bar */}
+              <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
+                <span style={{ fontSize: '12px', fontWeight: '800', color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {activePanel === 'front' && 'Front Panel (15" × 21")'}
+                  {activePanel === 'back' && 'Back Panel (15" × 21")'}
+                  {activePanel === 'sleeveLeft' && `Left Sleeve (${previewSleeveType === 'full' ? '14" × 18"' : '7" × 7"'})`}
+                  {activePanel === 'sleeveRight' && `Right Sleeve (${previewSleeveType === 'full' ? '14" × 18"' : '7" × 7"'})`}
+                  {activePanel === 'collar' && 'Collar Band (18" × 4.5")'}
+                </span>
+                <span style={{ fontSize: '10px', color: '#94A3B8', background: 'rgba(255,255,255,0.08)', padding: '2px 6px', borderRadius: '4px' }}>
+                  Static Preview
+                </span>
+              </div>
+
+              {/* Static Canvas Area */}
+              <div style={{
+                background: '#040711',
+                borderRadius: '10px',
+                overflow: 'hidden',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
+                minHeight: activePanel === 'collar' ? '110px' : '260px',
+                maxHeight: '300px',
+                padding: '6px'
+              }}>
+                <canvas
+                  ref={previewCanvasRef}
+                  style={{
+                    borderRadius: '8px',
+                    display: 'block',
+                    maxWidth: '100%',
+                    objectFit: 'contain'
+                  }}
+                />
+              </div>
+
+              {/* Quick Action Buttons for Current Panel */}
+              <div style={{ width: '100%', display: 'flex', gap: '6px' }}>
+                <label style={{
+                  flex: 1,
+                  background: '#1E293B',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '8px',
+                  padding: '7px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  color: '#FFFFFF',
+                  textAlign: 'center',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '5px',
+                  cursor: 'pointer'
+                }}>
+                  <Upload size={13} />
+                  <span>Upload Image</span>
+                  <input type="file" accept="image/*" onChange={handleSinglePanelUpload} style={{ display: 'none' }} />
+                </label>
+
+                {((designConfig[activePanel] as PanelConfig)?.uploadedFileUrl) && (
+                  <button
+                    onClick={handleClearCurrentPanel}
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.15)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      color: '#EF4444',
+                      borderRadius: '8px',
+                      padding: '7px 12px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* 3. 1-Tap Bulk ZIP Upload Option */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(228,87,46,0.12) 0%, rgba(30,41,59,0.7) 100%)',
+              border: '1.5px dashed rgba(228,87,46,0.4)',
+              borderRadius: '12px',
+              padding: '12px 14px',
               position: 'relative'
             }}>
               <input
@@ -693,324 +1267,767 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                 accept=".zip,application/zip"
                 onChange={handleZipUpload}
                 disabled={zipUploading}
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  opacity: 0,
-                  width: '100%',
-                  height: '100%',
-                  cursor: 'pointer',
-                  zIndex: 10
-                }}
+                style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer', zIndex: 10 }}
               />
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                <div style={{
-                  width: '44px',
-                  height: '44px',
-                  borderRadius: '50%',
-                  background: 'rgba(228,87,46,0.2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#E4572E'
-                }}>
-                  {zipUploading ? <RefreshCw size={22} className="animate-spin" /> : <Upload size={22} />}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(228,87,46,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E4572E', flexShrink: 0 }}>
+                  {zipUploading ? <RefreshCw size={18} className="animate-spin" /> : <Upload size={18} />}
                 </div>
-                <div style={{ fontSize: '15px', fontWeight: '800', color: '#FFFFFF' }}>
-                  {zipUploading ? 'Extracting ZIP Panels...' : '1-Tap Bulk ZIP Import'}
-                </div>
-                <div style={{ fontSize: '11px', color: '#94A3B8', maxWidth: '280px' }}>
-                  Select a ZIP file containing Front, Back, Sleeves, or Collar artwork. Auto-detects each panel automatically.
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#FFFFFF' }}>
+                    {zipUploading ? 'Extracting ZIP...' : '1-Tap Bulk ZIP Artwork Import'}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#94A3B8' }}>
+                    Upload complete ZIP to auto-assign Front, Back, Sleeves & Collar
+                  </div>
                 </div>
               </div>
             </div>
 
             {zipResultMsg && (
-              <div style={{
-                background: 'rgba(30, 41, 59, 0.9)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '8px',
-                padding: '10px 14px',
-                fontSize: '12px',
-                color: '#E2E8F0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}>
+              <div style={{ background: '#1E293B', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '8px 12px', fontSize: '11px', color: '#E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span>{zipResultMsg}</span>
-                <button onClick={() => setZipResultMsg(null)} style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer' }}>
-                  <X size={12} />
-                </button>
+                <button onClick={() => setZipResultMsg(null)} style={{ background: 'transparent', border: 'none', color: '#94A3B8' }}><X size={12} /></button>
               </div>
             )}
 
-            {/* Collar & Trim Color Selection */}
-            <div style={{
-              background: '#0F172A',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '14px',
-              padding: '14px'
-            }}>
-              <div style={{ fontSize: '13px', fontWeight: '700', marginBottom: '8px', color: '#F8FAFC' }}>
-                Collar & Trim Color
+            {/* 4. WHOLE EDITOR PANEL ACCORDIONS */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              
+              {/* Accordion 1: Design Presets */}
+              <div style={{ background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', overflow: 'hidden' }}>
+                <button
+                  onClick={() => setExpandedSection(expandedSection === 'presets' ? null : 'presets')}
+                  style={{ width: '100%', background: 'transparent', border: 'none', padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#FFFFFF', cursor: 'pointer' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '700' }}>
+                    <Sparkles size={16} style={{ color: '#F59E0B' }} />
+                    <span>Design Presets</span>
+                  </div>
+                  {expandedSection === 'presets' ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+
+                {expandedSection === 'presets' && (
+                  <div style={{ padding: '12px 14px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ fontSize: '11px', color: '#94A3B8' }}>Tap any style preset to instantly apply colors & fonts:</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      {builtInPresets.map(p => (
+                        <button
+                          key={p.name}
+                          onClick={() => handleApplyPreset(p)}
+                          style={{
+                            background: '#1E293B',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            borderRadius: '8px',
+                            padding: '8px',
+                            textAlign: 'left',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: `linear-gradient(135deg, ${p.c1}, ${p.c2})`, flexShrink: 0 }} />
+                          <span style={{ fontSize: '11px', fontWeight: '700', color: '#FFFFFF' }}>{p.name}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Save Current as Preset */}
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                      <input
+                        type="text"
+                        value={newPresetName}
+                        onChange={(e) => setNewPresetName(e.target.value)}
+                        placeholder="Save preset name..."
+                        style={{ flex: 1, background: '#1E293B', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '6px', padding: '6px 10px', color: '#FFFFFF', fontSize: '11px', outline: 'none' }}
+                      />
+                      <button
+                        onClick={handleSaveCustomPreset}
+                        style={{ background: '#E4572E', border: 'none', color: '#FFFFFF', padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
+                      >
+                        Save
+                      </button>
+                    </div>
+
+                    {customPresets.length > 0 && (
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
+                        {customPresets.map(cp => (
+                          <div
+                            key={cp.name}
+                            onClick={() => handleLoadCustomPreset(cp)}
+                            style={{ background: '#1E293B', border: '1px solid rgba(228,87,46,0.3)', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', color: '#FF7A45', fontWeight: '700', cursor: 'pointer' }}
+                          >
+                            {cp.name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                {[
-                  '#FFFFFF', '#000000', '#0F172A', '#1E3A8A', '#0284C7', 
-                  '#DC2626', '#E4572E', '#F59E0B', '#10B981', '#8B5CF6'
-                ].map(col => (
-                  <button
-                    key={col}
-                    onClick={() => {
-                      const newConfig = { ...designConfig };
-                      if (newConfig.trim?.collar) {
-                        newConfig.trim.collar = { ...newConfig.trim.collar, color: col };
-                      }
-                      if (newConfig.collar) {
-                        newConfig.collar = { ...newConfig.collar, generatedColor1: col };
-                      }
-                      onDesignConfigChange(newConfig);
-                    }}
-                    style={{
-                      width: '28px',
-                      height: '28px',
-                      borderRadius: '50%',
-                      background: col,
-                      border: designConfig.trim?.collar?.color === col ? '3px solid #E4572E' : '1px solid rgba(255,255,255,0.3)',
-                      cursor: 'pointer'
-                    }}
-                  />
-                ))}
+
+              {/* Accordion 2: Background Colors & Gradients */}
+              <div style={{ background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', overflow: 'hidden' }}>
+                <button
+                  onClick={() => setExpandedSection(expandedSection === 'background' ? null : 'background')}
+                  style={{ width: '100%', background: 'transparent', border: 'none', padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#FFFFFF', cursor: 'pointer' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '700' }}>
+                    <Palette size={16} style={{ color: '#E4572E' }} />
+                    <span>Panel Colors & Background</span>
+                  </div>
+                  {expandedSection === 'background' ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+
+                {expandedSection === 'background' && (
+                  <div style={{ padding: '12px 14px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {/* Background Style: Solid vs Gradient */}
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '6px' }}>Fill Style</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
+                        {[
+                          { id: 'solid', label: 'Solid Color' },
+                          { id: 'gradient-linear-tb', label: 'Top → Bottom' },
+                          { id: 'gradient-linear-lr', label: 'Left → Right' }
+                        ].map(st => {
+                          const currentStyle = (designConfig[activePanel] as PanelConfig)?.generatedGradientStyle || 'solid';
+                          const isSel = currentStyle === st.id;
+                          return (
+                            <button
+                              key={st.id}
+                              onClick={() => {
+                                const newConfig = { ...designConfig };
+                                if (activePanel === 'collar') {
+                                  if (newConfig.collar) {
+                                    newConfig.collar.backgroundType = 'generate';
+                                  }
+                                } else {
+                                  newConfig[activePanel] = {
+                                    ...newConfig[activePanel],
+                                    backgroundType: 'generate',
+                                    generatedGradientStyle: st.id as any
+                                  };
+                                }
+                                onDesignConfigChange(newConfig);
+                              }}
+                              style={{
+                                background: isSel ? 'rgba(228,87,46,0.2)' : '#1E293B',
+                                border: isSel ? '1px solid #E4572E' : '1px solid rgba(255, 255, 255, 0.1)',
+                                color: isSel ? '#FF7A45' : '#CBD5E1',
+                                padding: '6px 4px',
+                                borderRadius: '6px',
+                                fontSize: '10px',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                textAlign: 'center'
+                              }}
+                            >
+                              {st.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Primary Color */}
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '6px' }}>Primary Base Color</label>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        {COLOR_SWATCHES.map(col => (
+                          <button
+                            key={col.hex}
+                            onClick={() => {
+                              const newConfig = { ...designConfig };
+                              if (activePanel === 'collar') {
+                                if (newConfig.collar) newConfig.collar.generatedColor1 = col.hex;
+                                if (newConfig.trim?.collar) newConfig.trim.collar.color = col.hex;
+                              } else {
+                                newConfig[activePanel] = {
+                                  ...newConfig[activePanel],
+                                  backgroundType: 'generate',
+                                  generatedColor1: col.hex
+                                };
+                              }
+                              onDesignConfigChange(newConfig);
+                            }}
+                            title={col.name}
+                            style={{
+                              width: '26px',
+                              height: '26px',
+                              borderRadius: '50%',
+                              background: col.hex,
+                              border: (designConfig[activePanel] as PanelConfig)?.generatedColor1 === col.hex ? '3px solid #E4572E' : '1px solid rgba(255,255,255,0.3)',
+                              cursor: 'pointer'
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Secondary Color for Gradients */}
+                    {((designConfig[activePanel] as PanelConfig)?.generatedGradientStyle && (designConfig[activePanel] as PanelConfig)?.generatedGradientStyle !== 'solid') && (
+                      <div>
+                        <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '6px' }}>Secondary Gradient Color</label>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                          {COLOR_SWATCHES.map(col => (
+                            <button
+                              key={col.hex}
+                              onClick={() => {
+                                const newConfig = { ...designConfig };
+                                if (activePanel !== 'collar') {
+                                  newConfig[activePanel] = {
+                                    ...newConfig[activePanel],
+                                    backgroundType: 'generate',
+                                    generatedColor2: col.hex
+                                  };
+                                }
+                                onDesignConfigChange(newConfig);
+                              }}
+                              title={col.name}
+                              style={{
+                                width: '26px',
+                                height: '26px',
+                                borderRadius: '50%',
+                                background: col.hex,
+                                border: (designConfig[activePanel] as PanelConfig)?.generatedColor2 === col.hex ? '3px solid #E4572E' : '1px solid rgba(255,255,255,0.3)',
+                                cursor: 'pointer'
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
 
-            {/* Individual Panels Upload Cards */}
-            <div style={{
-              background: '#0F172A',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '14px',
-              padding: '14px'
-            }}>
-              <div style={{ fontSize: '13px', fontWeight: '700', marginBottom: '12px', color: '#F8FAFC' }}>
-                Artwork Panels
+              {/* Accordion 3: Player Name Customizer */}
+              <div style={{ background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', overflow: 'hidden' }}>
+                <button
+                  onClick={() => setExpandedSection(expandedSection === 'name' ? null : 'name')}
+                  style={{ width: '100%', background: 'transparent', border: 'none', padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#FFFFFF', cursor: 'pointer' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '700' }}>
+                    <Type size={16} style={{ color: '#38BDF8' }} />
+                    <span>Player Name Customizer</span>
+                  </div>
+                  {expandedSection === 'name' ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+
+                {expandedSection === 'name' && (
+                  <div style={{ padding: '12px 14px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', color: '#E2E8F0', cursor: 'pointer' }}>
+                      <span>Enable Name Overlay</span>
+                      <input
+                        type="checkbox"
+                        checked={designConfig.back.nameConfig.enabled}
+                        onChange={(e) => {
+                          const val = e.target.checked;
+                          onDesignConfigChange({
+                            ...designConfig,
+                            front: { ...designConfig.front, nameConfig: { ...designConfig.front.nameConfig, enabled: val } },
+                            back: { ...designConfig.back, nameConfig: { ...designConfig.back.nameConfig, enabled: val } }
+                          });
+                        }}
+                        style={{ accentColor: '#E4572E', width: '16px', height: '16px' }}
+                      />
+                    </label>
+
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Sample Name</label>
+                      <input
+                        type="text"
+                        value={previewName}
+                        onChange={(e) => setPreviewName(e.target.value.toUpperCase())}
+                        style={{ width: '100%', background: '#1E293B', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '6px', padding: '7px 10px', color: '#FFFFFF', fontSize: '12px', outline: 'none' }}
+                      />
+                    </div>
+
+                    {/* Font Family Dropdown */}
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Font Style</label>
+                      <select
+                        value={designConfig.back.nameConfig.fontFamily || 'OldSport02AthleticNcv-E0gj'}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          onDesignConfigChange({
+                            ...designConfig,
+                            front: { ...designConfig.front, nameConfig: { ...designConfig.front.nameConfig, fontFamily: val } },
+                            back: { ...designConfig.back, nameConfig: { ...designConfig.back.nameConfig, fontFamily: val } }
+                          });
+                        }}
+                        style={{ width: '100%', background: '#1E293B', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '6px', padding: '7px 10px', color: '#FFFFFF', fontSize: '12px', outline: 'none' }}
+                      >
+                        {FONT_OPTIONS.map(f => (
+                          <option key={f.id} value={f.id}>{f.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      <div>
+                        <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Font Size ({designConfig.back.nameConfig.fontSize.toFixed(1)}")</label>
+                        <input
+                          type="range"
+                          min="1"
+                          max="4"
+                          step="0.1"
+                          value={designConfig.back.nameConfig.fontSize}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            onDesignConfigChange({
+                              ...designConfig,
+                              back: { ...designConfig.back, nameConfig: { ...designConfig.back.nameConfig, fontSize: val } }
+                            });
+                          }}
+                          style={{ width: '100%', accentColor: '#E4572E' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Y Position ({designConfig.back.nameConfig.yPos}%)</label>
+                        <input
+                          type="range"
+                          min="10"
+                          max="80"
+                          value={designConfig.back.nameConfig.yPos}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            onDesignConfigChange({
+                              ...designConfig,
+                              back: { ...designConfig.back, nameConfig: { ...designConfig.back.nameConfig, yPos: val } }
+                            });
+                          }}
+                          style={{ width: '100%', accentColor: '#E4572E' }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Name Color Swatches */}
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '6px' }}>Text Color</label>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        {COLOR_SWATCHES.map(col => (
+                          <button
+                            key={col.hex}
+                            onClick={() => {
+                              onDesignConfigChange({
+                                ...designConfig,
+                                front: { ...designConfig.front, nameConfig: { ...designConfig.front.nameConfig, color: col.hex } },
+                                back: { ...designConfig.back, nameConfig: { ...designConfig.back.nameConfig, color: col.hex } }
+                              });
+                            }}
+                            title={col.name}
+                            style={{
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '50%',
+                              background: col.hex,
+                              border: designConfig.back.nameConfig.color === col.hex ? '3px solid #E4572E' : '1px solid rgba(255,255,255,0.3)',
+                              cursor: 'pointer'
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Name Stroke / Outline Color */}
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '6px' }}>Outline / Stroke Color</label>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        {COLOR_SWATCHES.map(col => (
+                          <button
+                            key={col.hex}
+                            onClick={() => {
+                              onDesignConfigChange({
+                                ...designConfig,
+                                front: { ...designConfig.front, nameConfig: { ...designConfig.front.nameConfig, strokeColor: col.hex, strokeWidth: designConfig.front.nameConfig.strokeWidth || 4 } },
+                                back: { ...designConfig.back, nameConfig: { ...designConfig.back.nameConfig, strokeColor: col.hex, strokeWidth: designConfig.back.nameConfig.strokeWidth || 4 } }
+                              });
+                            }}
+                            title={col.name}
+                            style={{
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '50%',
+                              background: col.hex,
+                              border: designConfig.back.nameConfig.strokeColor === col.hex ? '3px solid #E4572E' : '1px solid rgba(255,255,255,0.3)',
+                              cursor: 'pointer'
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                {/* Front Panel Card */}
-                <div style={{
-                  background: '#1E293B',
-                  borderRadius: '10px',
-                  padding: '10px',
-                  border: hasFront ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '12px', fontWeight: '700' }}>Front Panel</span>
-                    {hasFront && <CheckCircle2 size={13} style={{ color: '#22C55E' }} />}
+              {/* Accordion 4: Player Number Customizer */}
+              <div style={{ background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', overflow: 'hidden' }}>
+                <button
+                  onClick={() => setExpandedSection(expandedSection === 'number' ? null : 'number')}
+                  style={{ width: '100%', background: 'transparent', border: 'none', padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#FFFFFF', cursor: 'pointer' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '700' }}>
+                    <Hash size={16} style={{ color: '#4ADE80' }} />
+                    <span>Player Number Customizer</span>
                   </div>
+                  {expandedSection === 'number' ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
 
-                  <div style={{
-                    height: '80px',
-                    borderRadius: '6px',
-                    background: '#090D16',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: '1px dashed rgba(255,255,255,0.1)'
-                  }}>
-                    {designConfig.front.uploadedFileUrl ? (
-                      <img src={designConfig.front.uploadedFileUrl} alt="Front" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                    ) : (
-                      <span style={{ fontSize: '10px', color: '#64748B' }}>No artwork</span>
-                    )}
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <label style={{
-                      flex: 1,
-                      background: 'rgba(255,255,255,0.08)',
-                      borderRadius: '6px',
-                      padding: '6px',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      textAlign: 'center',
-                      cursor: 'pointer'
-                    }}>
-                      Upload
-                      <input type="file" accept="image/*" onChange={(e) => handleSinglePanelUpload('front', e)} style={{ display: 'none' }} />
+                {expandedSection === 'number' && (
+                  <div style={{ padding: '12px 14px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', color: '#E2E8F0', cursor: 'pointer' }}>
+                      <span>Enable Number Overlay</span>
+                      <input
+                        type="checkbox"
+                        checked={designConfig.back.numberConfig.enabled}
+                        onChange={(e) => {
+                          const val = e.target.checked;
+                          onDesignConfigChange({
+                            ...designConfig,
+                            front: { ...designConfig.front, numberConfig: { ...designConfig.front.numberConfig, enabled: val } },
+                            back: { ...designConfig.back, numberConfig: { ...designConfig.back.numberConfig, enabled: val } }
+                          });
+                        }}
+                        style={{ accentColor: '#E4572E', width: '16px', height: '16px' }}
+                      />
                     </label>
-                    {hasFront && (
-                      <button onClick={() => handleClearPanel('front')} style={{ background: 'rgba(239,68,68,0.2)', border: 'none', color: '#EF4444', borderRadius: '6px', padding: '6px 8px', cursor: 'pointer' }}>
-                        <Trash2 size={12} />
-                      </button>
-                    )}
-                  </div>
-                </div>
 
-                {/* Back Panel Card */}
-                <div style={{
-                  background: '#1E293B',
-                  borderRadius: '10px',
-                  padding: '10px',
-                  border: hasBack ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '12px', fontWeight: '700' }}>Back Panel</span>
-                    {hasBack && <CheckCircle2 size={13} style={{ color: '#22C55E' }} />}
-                  </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Sample Number</label>
+                      <input
+                        type="text"
+                        value={previewNumber}
+                        onChange={(e) => setPreviewNumber(e.target.value)}
+                        style={{ width: '100%', background: '#1E293B', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '6px', padding: '7px 10px', color: '#FFFFFF', fontSize: '12px', outline: 'none' }}
+                      />
+                    </div>
 
-                  <div style={{
-                    height: '80px',
-                    borderRadius: '6px',
-                    background: '#090D16',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: '1px dashed rgba(255,255,255,0.1)'
-                  }}>
-                    {designConfig.back.uploadedFileUrl ? (
-                      <img src={designConfig.back.uploadedFileUrl} alt="Back" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                    ) : (
-                      <span style={{ fontSize: '10px', color: '#64748B' }}>No artwork</span>
-                    )}
-                  </div>
+                    {/* Font Family Dropdown */}
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Font Style</label>
+                      <select
+                        value={designConfig.back.numberConfig.fontFamily || 'OldSport02AthleticNcv-E0gj'}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          onDesignConfigChange({
+                            ...designConfig,
+                            front: { ...designConfig.front, numberConfig: { ...designConfig.front.numberConfig, fontFamily: val } },
+                            back: { ...designConfig.back, numberConfig: { ...designConfig.back.numberConfig, fontFamily: val } }
+                          });
+                        }}
+                        style={{ width: '100%', background: '#1E293B', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '6px', padding: '7px 10px', color: '#FFFFFF', fontSize: '12px', outline: 'none' }}
+                      >
+                        {FONT_OPTIONS.map(f => (
+                          <option key={f.id} value={f.id}>{f.label}</option>
+                        ))}
+                      </select>
+                    </div>
 
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <label style={{
-                      flex: 1,
-                      background: 'rgba(255,255,255,0.08)',
-                      borderRadius: '6px',
-                      padding: '6px',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      textAlign: 'center',
-                      cursor: 'pointer'
-                    }}>
-                      Upload
-                      <input type="file" accept="image/*" onChange={(e) => handleSinglePanelUpload('back', e)} style={{ display: 'none' }} />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      <div>
+                        <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Number Size ({designConfig.back.numberConfig.fontSize.toFixed(1)}")</label>
+                        <input
+                          type="range"
+                          min="4"
+                          max="12"
+                          step="0.5"
+                          value={designConfig.back.numberConfig.fontSize}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            onDesignConfigChange({
+                              ...designConfig,
+                              back: { ...designConfig.back, numberConfig: { ...designConfig.back.numberConfig, fontSize: val } }
+                            });
+                          }}
+                          style={{ width: '100%', accentColor: '#E4572E' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Y Position ({designConfig.back.numberConfig.yPos}%)</label>
+                        <input
+                          type="range"
+                          min="20"
+                          max="80"
+                          value={designConfig.back.numberConfig.yPos}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            onDesignConfigChange({
+                              ...designConfig,
+                              back: { ...designConfig.back, numberConfig: { ...designConfig.back.numberConfig, yPos: val } }
+                            });
+                          }}
+                          style={{ width: '100%', accentColor: '#E4572E' }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Number Color Swatches */}
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '6px' }}>Number Color</label>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        {COLOR_SWATCHES.map(col => (
+                          <button
+                            key={col.hex}
+                            onClick={() => {
+                              onDesignConfigChange({
+                                ...designConfig,
+                                front: { ...designConfig.front, numberConfig: { ...designConfig.front.numberConfig, color: col.hex } },
+                                back: { ...designConfig.back, numberConfig: { ...designConfig.back.numberConfig, color: col.hex } }
+                              });
+                            }}
+                            title={col.name}
+                            style={{
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '50%',
+                              background: col.hex,
+                              border: designConfig.back.numberConfig.color === col.hex ? '3px solid #E4572E' : '1px solid rgba(255,255,255,0.3)',
+                              cursor: 'pointer'
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Number Stroke / Outline Color */}
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '6px' }}>Outline / Stroke Color</label>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        {COLOR_SWATCHES.map(col => (
+                          <button
+                            key={col.hex}
+                            onClick={() => {
+                              onDesignConfigChange({
+                                ...designConfig,
+                                front: { ...designConfig.front, numberConfig: { ...designConfig.front.numberConfig, strokeColor: col.hex, strokeWidth: designConfig.front.numberConfig.strokeWidth || 4 } },
+                                back: { ...designConfig.back, numberConfig: { ...designConfig.back.numberConfig, strokeColor: col.hex, strokeWidth: designConfig.back.numberConfig.strokeWidth || 4 } }
+                              });
+                            }}
+                            title={col.name}
+                            style={{
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '50%',
+                              background: col.hex,
+                              border: designConfig.back.numberConfig.strokeColor === col.hex ? '3px solid #E4572E' : '1px solid rgba(255,255,255,0.3)',
+                              cursor: 'pointer'
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Accordion 5: Team Logos & Sponsor Badges */}
+              <div style={{ background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', overflow: 'hidden' }}>
+                <button
+                  onClick={() => setExpandedSection(expandedSection === 'logos' ? null : 'logos')}
+                  style={{ width: '100%', background: 'transparent', border: 'none', padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#FFFFFF', cursor: 'pointer' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '700' }}>
+                    <ShieldCheck size={16} style={{ color: '#A855F7' }} />
+                    <span>Team Logos & Badges</span>
+                  </div>
+                  {expandedSection === 'logos' ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+
+                {expandedSection === 'logos' && (
+                  <div style={{ padding: '12px 14px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {/* Left Chest Logo */}
+                    <div style={{ background: '#1E293B', padding: '10px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#F1F5F9' }}>Left Chest Logo</span>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(designConfig.front.leftChestLogo?.enabled)}
+                          onChange={(e) => handleToggleLogo('leftChest', e.target.checked)}
+                          style={{ accentColor: '#E4572E', width: '15px', height: '15px' }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {designConfig.front.leftChestLogo?.uploadedUrl ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                            <img src={designConfig.front.leftChestLogo.uploadedUrl} alt="Left Chest" style={{ width: '32px', height: '32px', objectFit: 'contain', background: '#0F172A', borderRadius: '4px' }} />
+                            <span style={{ fontSize: '11px', color: '#4ADE80', fontWeight: '600', flex: 1 }}>Logo loaded</span>
+                            <button onClick={() => handleClearLogo('leftChest')} style={{ background: 'rgba(239, 68, 68, 0.15)', border: 'none', color: '#EF4444', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '700', cursor: 'pointer' }}>Remove</button>
+                          </div>
+                        ) : (
+                          <label style={{ flex: 1, background: '#0F172A', border: '1px dashed rgba(255,255,255,0.2)', padding: '6px 10px', borderRadius: '6px', fontSize: '11px', color: '#CBD5E1', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', cursor: 'pointer' }}>
+                            <Upload size={12} /> Upload Left Chest Logo
+                            <input type="file" accept="image/*" onChange={(e) => handleLogoUpload('leftChest', e)} style={{ display: 'none' }} />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right Chest Logo */}
+                    <div style={{ background: '#1E293B', padding: '10px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#F1F5F9' }}>Right Chest Logo</span>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(designConfig.front.rightChestLogo?.enabled)}
+                          onChange={(e) => handleToggleLogo('rightChest', e.target.checked)}
+                          style={{ accentColor: '#E4572E', width: '15px', height: '15px' }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {designConfig.front.rightChestLogo?.uploadedUrl ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                            <img src={designConfig.front.rightChestLogo.uploadedUrl} alt="Right Chest" style={{ width: '32px', height: '32px', objectFit: 'contain', background: '#0F172A', borderRadius: '4px' }} />
+                            <span style={{ fontSize: '11px', color: '#4ADE80', fontWeight: '600', flex: 1 }}>Logo loaded</span>
+                            <button onClick={() => handleClearLogo('rightChest')} style={{ background: 'rgba(239, 68, 68, 0.15)', border: 'none', color: '#EF4444', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '700', cursor: 'pointer' }}>Remove</button>
+                          </div>
+                        ) : (
+                          <label style={{ flex: 1, background: '#0F172A', border: '1px dashed rgba(255,255,255,0.2)', padding: '6px 10px', borderRadius: '6px', fontSize: '11px', color: '#CBD5E1', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', cursor: 'pointer' }}>
+                            <Upload size={12} /> Upload Right Chest Logo
+                            <input type="file" accept="image/*" onChange={(e) => handleLogoUpload('rightChest', e)} style={{ display: 'none' }} />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Torso / Front Sponsor Logo */}
+                    <div style={{ background: '#1E293B', padding: '10px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#F1F5F9' }}>Center Sponsor / Torso Logo</span>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(designConfig.front.torsoLogo?.enabled)}
+                          onChange={(e) => handleToggleLogo('torso', e.target.checked)}
+                          style={{ accentColor: '#E4572E', width: '15px', height: '15px' }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {designConfig.front.torsoLogo?.uploadedUrl ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                            <img src={designConfig.front.torsoLogo.uploadedUrl} alt="Torso Sponsor" style={{ width: '40px', height: '24px', objectFit: 'contain', background: '#0F172A', borderRadius: '4px' }} />
+                            <span style={{ fontSize: '11px', color: '#4ADE80', fontWeight: '600', flex: 1 }}>Logo loaded</span>
+                            <button onClick={() => handleClearLogo('torso')} style={{ background: 'rgba(239, 68, 68, 0.15)', border: 'none', color: '#EF4444', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '700', cursor: 'pointer' }}>Remove</button>
+                          </div>
+                        ) : (
+                          <label style={{ flex: 1, background: '#0F172A', border: '1px dashed rgba(255,255,255,0.2)', padding: '6px 10px', borderRadius: '6px', fontSize: '11px', color: '#CBD5E1', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', cursor: 'pointer' }}>
+                            <Upload size={12} /> Upload Center Sponsor Logo
+                            <input type="file" accept="image/*" onChange={(e) => handleLogoUpload('torso', e)} style={{ display: 'none' }} />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Accordion 6: Collar & Trim Styling */}
+              <div style={{ background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', overflow: 'hidden' }}>
+                <button
+                  onClick={() => setExpandedSection(expandedSection === 'collar' ? null : 'collar')}
+                  style={{ width: '100%', background: 'transparent', border: 'none', padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#FFFFFF', cursor: 'pointer' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '700' }}>
+                    <Shirt size={16} style={{ color: '#F59E0B' }} />
+                    <span>Collar & Trim Styling</span>
+                  </div>
+                  {expandedSection === 'collar' ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+
+                {expandedSection === 'collar' && (
+                  <div style={{ padding: '12px 14px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {/* Auto Match Collar to Artwork */}
+                    <button
+                      onClick={handleAutoMatchCollar}
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(228,87,46,0.2) 0%, rgba(59,130,246,0.2) 100%)',
+                        border: '1px solid #E4572E',
+                        color: '#FFFFFF',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <Sparkles size={14} style={{ color: '#FF7A45' }} />
+                      <span>Auto-Match Collar to Design Colors</span>
+                    </button>
+
+                    {/* Collar Band Color */}
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '6px' }}>Collar Band Color</label>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        {COLOR_SWATCHES.map(col => (
+                          <button
+                            key={col.hex}
+                            onClick={() => {
+                              const newConfig = { ...designConfig };
+                              if (newConfig.collar) newConfig.collar.generatedColor1 = col.hex;
+                              if (newConfig.trim) newConfig.trim.collar = { ...newConfig.trim.collar, color: col.hex, enabled: true };
+                              onDesignConfigChange(newConfig);
+                            }}
+                            title={col.name}
+                            style={{
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '50%',
+                              background: col.hex,
+                              border: designConfig.trim?.collar?.color === col.hex ? '3px solid #E4572E' : '1px solid rgba(255,255,255,0.3)',
+                              cursor: 'pointer'
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Placket Color */}
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '6px' }}>Placket Color</label>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        {COLOR_SWATCHES.map(col => (
+                          <button
+                            key={col.hex}
+                            onClick={() => {
+                              const newConfig = { ...designConfig };
+                              if (newConfig.trim) newConfig.trim.placket = { ...newConfig.trim.placket, color: col.hex, enabled: true };
+                              onDesignConfigChange(newConfig);
+                            }}
+                            title={col.name}
+                            style={{
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '50%',
+                              background: col.hex,
+                              border: designConfig.trim?.placket?.color === col.hex ? '3px solid #E4572E' : '1px solid rgba(255,255,255,0.3)',
+                              cursor: 'pointer'
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Curved Collar Checkbox */}
+                    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', color: '#E2E8F0', cursor: 'pointer' }}>
+                      <span>Curved Cut Collar Band</span>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(designConfig.collar?.curved)}
+                        onChange={(e) => {
+                          const val = e.target.checked;
+                          const newConfig = { ...designConfig };
+                          if (newConfig.collar) newConfig.collar.curved = val;
+                          onDesignConfigChange(newConfig);
+                        }}
+                        style={{ accentColor: '#E4572E', width: '15px', height: '15px' }}
+                      />
                     </label>
-                    {hasBack && (
-                      <button onClick={() => handleClearPanel('back')} style={{ background: 'rgba(239,68,68,0.2)', border: 'none', color: '#EF4444', borderRadius: '6px', padding: '6px 8px', cursor: 'pointer' }}>
-                        <Trash2 size={12} />
-                      </button>
-                    )}
                   </div>
-                </div>
-
-                {/* Left Sleeve Card */}
-                <div style={{
-                  background: '#1E293B',
-                  borderRadius: '10px',
-                  padding: '10px',
-                  border: designConfig.sleeveLeft.uploadedFileUrl ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '12px', fontWeight: '700' }}>Left Sleeve</span>
-                    {designConfig.sleeveLeft.uploadedFileUrl && <CheckCircle2 size={13} style={{ color: '#22C55E' }} />}
-                  </div>
-
-                  <div style={{
-                    height: '80px',
-                    borderRadius: '6px',
-                    background: '#090D16',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: '1px dashed rgba(255,255,255,0.1)'
-                  }}>
-                    {designConfig.sleeveLeft.uploadedFileUrl ? (
-                      <img src={designConfig.sleeveLeft.uploadedFileUrl} alt="L Sleeve" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                    ) : (
-                      <span style={{ fontSize: '10px', color: '#64748B' }}>No artwork</span>
-                    )}
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <label style={{
-                      flex: 1,
-                      background: 'rgba(255,255,255,0.08)',
-                      borderRadius: '6px',
-                      padding: '6px',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      textAlign: 'center',
-                      cursor: 'pointer'
-                    }}>
-                      Upload
-                      <input type="file" accept="image/*" onChange={(e) => handleSinglePanelUpload('sleeveLeft', e)} style={{ display: 'none' }} />
-                    </label>
-                    {designConfig.sleeveLeft.uploadedFileUrl && (
-                      <button onClick={() => handleClearPanel('sleeveLeft')} style={{ background: 'rgba(239,68,68,0.2)', border: 'none', color: '#EF4444', borderRadius: '6px', padding: '6px 8px', cursor: 'pointer' }}>
-                        <Trash2 size={12} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Right Sleeve Card */}
-                <div style={{
-                  background: '#1E293B',
-                  borderRadius: '10px',
-                  padding: '10px',
-                  border: designConfig.sleeveRight.uploadedFileUrl ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '12px', fontWeight: '700' }}>Right Sleeve</span>
-                    {designConfig.sleeveRight.uploadedFileUrl && <CheckCircle2 size={13} style={{ color: '#22C55E' }} />}
-                  </div>
-
-                  <div style={{
-                    height: '80px',
-                    borderRadius: '6px',
-                    background: '#090D16',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: '1px dashed rgba(255,255,255,0.1)'
-                  }}>
-                    {designConfig.sleeveRight.uploadedFileUrl ? (
-                      <img src={designConfig.sleeveRight.uploadedFileUrl} alt="R Sleeve" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                    ) : (
-                      <span style={{ fontSize: '10px', color: '#64748B' }}>No artwork</span>
-                    )}
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <label style={{
-                      flex: 1,
-                      background: 'rgba(255,255,255,0.08)',
-                      borderRadius: '6px',
-                      padding: '6px',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      textAlign: 'center',
-                      cursor: 'pointer'
-                    }}>
-                      Upload
-                      <input type="file" accept="image/*" onChange={(e) => handleSinglePanelUpload('sleeveRight', e)} style={{ display: 'none' }} />
-                    </label>
-                    {designConfig.sleeveRight.uploadedFileUrl && (
-                      <button onClick={() => handleClearPanel('sleeveRight')} style={{ background: 'rgba(239,68,68,0.2)', border: 'none', color: '#EF4444', borderRadius: '6px', padding: '6px 8px', cursor: 'pointer' }}>
-                        <Trash2 size={12} />
-                      </button>
-                    )}
-                  </div>
-                </div>
+                )}
               </div>
             </div>
 
@@ -1059,15 +2076,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                 accept=".xlsx,.xls,.csv"
                 onChange={handleSheetFileChange}
                 disabled={sheetImportLoading}
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  opacity: 0,
-                  width: '100%',
-                  height: '100%',
-                  cursor: 'pointer',
-                  zIndex: 10
-                }}
+                style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer', zIndex: 10 }}
               />
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{
@@ -1095,106 +2104,50 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
             </div>
 
             {sheetImportMessage && (
-              <div style={{
-                background: 'rgba(30, 41, 59, 0.9)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '8px',
-                padding: '10px 14px',
-                fontSize: '12px',
-                color: sheetImportMessage.startsWith('✅') ? '#4ADE80' : '#FACC15',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}>
+              <div style={{ background: 'rgba(30, 41, 59, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: sheetImportMessage.startsWith('✅') ? '#4ADE80' : '#FACC15', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span>{sheetImportMessage}</span>
-                <button onClick={() => setSheetImportMessage(null)} style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer' }}>
-                  <X size={12} />
-                </button>
+                <button onClick={() => setSheetImportMessage(null)} style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer' }}><X size={12} /></button>
               </div>
             )}
 
             {/* Job Metadata Card */}
-            <div style={{
-              background: '#0F172A',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '14px',
-              padding: '16px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '12px'
-            }}>
-              <div style={{ fontSize: '14px', fontWeight: '800', color: '#F8FAFC' }}>
-                Order Details
-              </div>
+            <div style={{ background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ fontSize: '14px', fontWeight: '800', color: '#F8FAFC' }}>Order Details</div>
 
               <div>
-                <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>
-                  Customer / Team Name
-                </label>
+                <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Customer / Team Name</label>
                 <input
                   type="text"
                   value={metadata.customerName}
                   onChange={(e) => onMetadataChange({ ...metadata, customerName: e.target.value })}
                   placeholder="e.g. Blue Dragons XI"
-                  style={{
-                    width: '100%',
-                    background: '#1E293B',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    borderRadius: '8px',
-                    padding: '8px 12px',
-                    color: '#FFFFFF',
-                    fontSize: '13px',
-                    outline: 'none'
-                  }}
+                  style={{ width: '100%', background: '#1E293B', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '8px', padding: '8px 12px', color: '#FFFFFF', fontSize: '13px', outline: 'none' }}
                 />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
-                  <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>
-                    Order Number
-                  </label>
+                  <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Order Number</label>
                   <input
                     type="text"
                     value={metadata.orderNum}
                     onChange={(e) => onMetadataChange({ ...metadata, orderNum: e.target.value })}
                     placeholder="01"
-                    style={{
-                      width: '100%',
-                      background: '#1E293B',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      borderRadius: '8px',
-                      padding: '8px 12px',
-                      color: '#FFFFFF',
-                      fontSize: '13px',
-                      outline: 'none'
-                    }}
+                    style={{ width: '100%', background: '#1E293B', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '8px', padding: '8px 12px', color: '#FFFFFF', fontSize: '13px', outline: 'none' }}
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>
-                    WhatsApp #
-                  </label>
+                  <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>WhatsApp #</label>
                   <input
                     type="tel"
                     value={metadata.whatsapp || ''}
                     onChange={(e) => onMetadataChange({ ...metadata, whatsapp: e.target.value })}
                     placeholder="e.g. 9876543210"
-                    style={{
-                      width: '100%',
-                      background: '#1E293B',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      borderRadius: '8px',
-                      padding: '8px 12px',
-                      color: '#FFFFFF',
-                      fontSize: '13px',
-                      outline: 'none'
-                    }}
+                    style={{ width: '100%', background: '#1E293B', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '8px', padding: '8px 12px', color: '#FFFFFF', fontSize: '13px', outline: 'none' }}
                   />
                 </div>
               </div>
 
-              {/* Quick style switches */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '6px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', color: '#CBD5E1', cursor: 'pointer' }}>
                   <span>Merge Half Sleeves (pair per row)</span>
@@ -1205,7 +2158,6 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                     style={{ accentColor: '#E4572E', width: '16px', height: '16px' }}
                   />
                 </label>
-
                 <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', color: '#CBD5E1', cursor: 'pointer' }}>
                   <span>Raglan Style Sleeves</span>
                   <input
@@ -1219,46 +2171,22 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
             </div>
 
             {/* Players Roster List Card */}
-            <div style={{
-              background: '#0F172A',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '14px',
-              padding: '16px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '12px'
-            }}>
+            <div style={{ background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <span style={{ fontSize: '14px', fontWeight: '800', color: '#F8FAFC' }}>
-                    Jersey Roster
-                  </span>
+                  <span style={{ fontSize: '14px', fontWeight: '800', color: '#F8FAFC' }}>Jersey Roster</span>
                   <span style={{ marginLeft: '8px', fontSize: '11px', background: 'rgba(228,87,46,0.2)', color: '#FF7A45', padding: '2px 8px', borderRadius: '12px', fontWeight: '700' }}>
                     {totalQty} Jerseys
                   </span>
                 </div>
-
                 <button
                   onClick={() => setShowAddPlayer(true)}
-                  style={{
-                    background: '#E4572E',
-                    border: 'none',
-                    color: '#FFFFFF',
-                    padding: '6px 12px',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    cursor: 'pointer'
-                  }}
+                  style={{ background: '#E4572E', border: 'none', color: '#FFFFFF', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
                 >
                   <Plus size={14} /> Add Jersey
                 </button>
               </div>
 
-              {/* Player Items List */}
               {records.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '24px 10px', color: '#64748B', fontSize: '12px' }}>
                   No jerseys added yet. Use <strong>Import Sheet</strong> above or tap <strong>+ Add Jersey</strong>.
@@ -1268,51 +2196,21 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                   {records.map((rec, idx) => (
                     <div
                       key={rec.id}
-                      style={{
-                        background: '#1E293B',
-                        borderRadius: '8px',
-                        padding: '10px 12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        border: '1px solid rgba(255, 255, 255, 0.05)'
-                      }}
+                      style={{ background: '#1E293B', borderRadius: '8px', padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid rgba(255, 255, 255, 0.05)' }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{
-                          width: '26px',
-                          height: '26px',
-                          borderRadius: '6px',
-                          background: 'rgba(255, 255, 255, 0.08)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '11px',
-                          fontWeight: '800',
-                          color: '#E4572E'
-                        }}>
+                        <div style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '800', color: '#E4572E' }}>
                           {rec.number || `${idx + 1}`}
                         </div>
                         <div>
-                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#F8FAFC' }}>
-                            {rec.name}
-                          </div>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#F8FAFC' }}>{rec.name}</div>
                           <div style={{ fontSize: '10px', color: '#94A3B8' }}>
                             Size: <strong style={{ color: '#F1F5F9' }}>{rec.size}</strong> • {rec.sleeve === 'full' ? 'Full Sleeve' : 'Half Sleeve'} • Qty: {rec.qty}
                           </div>
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => handleRemovePlayer(rec.id)}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#EF4444',
-                          padding: '6px',
-                          cursor: 'pointer'
-                        }}
-                      >
+                      <button onClick={() => handleRemovePlayer(rec.id)} style={{ background: 'transparent', border: 'none', color: '#EF4444', padding: '6px', cursor: 'pointer' }}>
                         <Trash2 size={14} />
                       </button>
                     </div>
@@ -1321,7 +2219,6 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
               )}
             </div>
 
-            {/* Bottom Next Step Button */}
             <button
               onClick={() => setActiveTab('export')}
               style={{
@@ -1347,12 +2244,124 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
         )}
 
         {/* ════════════════════════════════════════════════════════
-            TAB 3: 🚀 EXPORT (ONLY Individual Files / Panels ZIP)
+            TAB 3: 🚀 EXPORT (PAYMENT PLACED ON TOP + INDIVIDUAL PANELS ONLY)
            ════════════════════════════════════════════════════════ */}
         {activeTab === 'export' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             
-            {/* Artwork Readiness Status Banner */}
+            {/* ── 1. PAYMENT & WALLET PLACED ON TOP AS REQUESTED ── */}
+            <div style={{
+              background: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
+              border: '1.5px solid rgba(228, 87, 46, 0.4)',
+              borderRadius: '16px',
+              padding: '18px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Wallet size={18} style={{ color: '#E4572E' }} />
+                  <span style={{ fontSize: '13px', fontWeight: '800', color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Order Payment & Wallet
+                  </span>
+                </div>
+                <span style={{ fontSize: '11px', background: currentUser ? 'rgba(34, 197, 94, 0.15)' : 'rgba(234, 179, 8, 0.15)', color: currentUser ? '#4ADE80' : '#FACC15', padding: '2px 8px', borderRadius: '10px', fontWeight: '700' }}>
+                  {currentUser ? currentUser.name.split(' ')[0] : 'Guest'}
+                </span>
+              </div>
+
+              {/* Total Order Cost & Wallet Balance Row */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', background: '#090D16', padding: '12px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                <div>
+                  <div style={{ fontSize: '10px', color: '#94A3B8' }}>Order Total ({totalQty || 1} pcs)</div>
+                  <div style={{ fontSize: '20px', fontWeight: '900', color: '#FF7A45' }}>
+                    ₹{orderCost.toFixed(2)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '10px', color: '#94A3B8' }}>Wallet Balance</div>
+                  <div style={{ fontSize: '20px', fontWeight: '900', color: '#FFFFFF' }}>
+                    ₹{currentUser ? currentUser.balance.toFixed(2) : '0.00'}
+                  </div>
+                </div>
+              </div>
+
+              {/* 1-Tap Pay with Wallet Button */}
+              {currentUser && currentUser.balance >= orderCost ? (
+                <button
+                  onClick={() => nestingRef.current?.executePaymentWithWallet()}
+                  style={{
+                    background: '#16A34A',
+                    border: 'none',
+                    color: '#FFFFFF',
+                    padding: '12px',
+                    borderRadius: '10px',
+                    fontSize: '13px',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <CheckCircle2 size={16} /> Pay ₹{orderCost.toFixed(2)} with Wallet (Instant)
+                </button>
+              ) : null}
+
+              {/* 1-Tap UPI Launch Button */}
+              <a
+                href={upiDeepLink}
+                style={{
+                  background: 'linear-gradient(135deg, #FF6B3D 0%, #E4572E 100%)',
+                  color: '#FFFFFF',
+                  textDecoration: 'none',
+                  padding: '12px',
+                  borderRadius: '10px',
+                  fontSize: '13px',
+                  fontWeight: '800',
+                  textAlign: 'center',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  boxShadow: '0 4px 12px rgba(228,87,46,0.35)'
+                }}
+              >
+                <CreditCard size={16} /> Pay ₹{orderCost.toFixed(2)} via UPI App (GPay / PhonePe)
+              </a>
+
+              {/* Toggle UPI QR Code & Copy ID */}
+              <button
+                onClick={() => setShowQrCode(!showQrCode)}
+                style={{ background: 'transparent', border: 'none', color: '#94A3B8', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', cursor: 'pointer', padding: '4px' }}
+              >
+                <span>{showQrCode ? 'Hide UPI QR Code' : 'Show UPI QR Code & ID'}</span>
+                {showQrCode ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+              </button>
+
+              {showQrCode && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', background: '#090D16', padding: '12px', borderRadius: '10px' }}>
+                  <div style={{ padding: '8px', background: '#FFFFFF', borderRadius: '8px' }}>
+                    <img src={upiQrUrl} alt="UPI QR" style={{ width: '150px', height: '150px', display: 'block' }} />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: '#1E293B', padding: '6px 10px', borderRadius: '6px', fontSize: '11px' }}>
+                    <span style={{ fontFamily: 'monospace' }}>vilesh332-1@okhdfcbank</span>
+                    <button
+                      onClick={handleCopyUPI}
+                      style={{ background: copiedUpi ? '#16A34A' : 'rgba(255,255,255,0.1)', border: 'none', color: '#FFFFFF', padding: '3px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}
+                    >
+                      {copiedUpi ? <Check size={11} /> : <Copy size={11} />}
+                      {copiedUpi ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── 2. ARTWORK READINESS BANNER ── */}
             <div style={{
               background: anyArtworkUploaded ? 'rgba(34, 197, 94, 0.1)' : 'rgba(234, 179, 8, 0.1)',
               border: anyArtworkUploaded ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(234, 179, 8, 0.3)',
@@ -1370,7 +2379,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                       Artwork Ready for Export
                     </div>
                     <div style={{ fontSize: '11px', color: '#94A3B8' }}>
-                      {records.length > 0 ? `${totalQty} jerseys configured` : '1 default jersey piece ready'}
+                      {records.length > 0 ? `${totalQty} jerseys configured` : '1 default jersey ready'}
                     </div>
                   </div>
                 </>
@@ -1389,7 +2398,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
               )}
             </div>
 
-            {/* ONLY Option: Sublimation Panels Individual Files ZIP */}
+            {/* ── 3. ONLY EXPORT OPTION: Sublimation Panels Individual Files (ZIP) ── */}
             <div style={{
               background: '#0F172A',
               border: '1.5px solid rgba(228, 87, 46, 0.35)',
@@ -1472,47 +2481,11 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                 <span>Download Individual Panels (ZIP)</span>
               </button>
             </div>
-
-            {/* Pay Button / Quick Wallet link */}
-            <div style={{
-              background: 'rgba(228,87,46,0.1)',
-              border: '1px solid rgba(228,87,46,0.25)',
-              borderRadius: '12px',
-              padding: '14px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: '700', color: '#FF7A45' }}>
-                  Export Cost: ₹{orderCost.toFixed(2)}
-                </div>
-                <div style={{ fontSize: '11px', color: '#94A3B8' }}>
-                  Wallet Balance: ₹{currentUser ? currentUser.balance.toFixed(2) : '0.00'}
-                </div>
-              </div>
-
-              <button
-                onClick={() => setActiveTab('payment')}
-                style={{
-                  background: '#E4572E',
-                  border: 'none',
-                  color: '#FFFFFF',
-                  padding: '8px 14px',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
-              >
-                Make Payment
-              </button>
-            </div>
           </div>
         )}
 
         {/* ════════════════════════════════════════════════════════
-            TAB 4: 💳 MAKE PAYMENT & WALLET
+            TAB 4: 💳 PAYMENT (Full dedicated wallet & recharge screen)
            ════════════════════════════════════════════════════════ */}
         {activeTab === 'payment' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -1532,14 +2505,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                     FiveNest Wallet
                   </span>
                 </div>
-                <span style={{
-                  fontSize: '11px',
-                  background: currentUser ? 'rgba(34, 197, 94, 0.15)' : 'rgba(234, 179, 8, 0.15)',
-                  color: currentUser ? '#4ADE80' : '#FACC15',
-                  padding: '2px 8px',
-                  borderRadius: '10px',
-                  fontWeight: '700'
-                }}>
+                <span style={{ fontSize: '11px', background: currentUser ? 'rgba(34, 197, 94, 0.15)' : 'rgba(234, 179, 8, 0.15)', color: currentUser ? '#4ADE80' : '#FACC15', padding: '2px 8px', borderRadius: '10px', fontWeight: '700' }}>
                   {currentUser ? currentUser.name.split(' ')[0] : 'Guest'}
                 </span>
               </div>
@@ -1554,158 +2520,8 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
               </div>
             </div>
 
-            {/* Current Order Cost Breakdown */}
-            <div style={{
-              background: '#0F172A',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '14px',
-              padding: '16px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '10px'
-            }}>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#F8FAFC' }}>
-                Current Order Cost
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#94A3B8' }}>
-                <span>Total Jerseys:</span>
-                <span style={{ fontWeight: '700', color: '#FFFFFF' }}>{totalQty || 1} pcs</span>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#94A3B8' }}>
-                <span>Rate per Jersey:</span>
-                <span style={{ fontWeight: '700', color: '#FFFFFF' }}>₹3.00</span>
-              </div>
-
-              <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.08)', margin: '4px 0' }} />
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: '800', color: '#FF7A45' }}>
-                <span>Order Total:</span>
-                <span>₹{orderCost.toFixed(2)}</span>
-              </div>
-
-              {/* 1-Tap Pay with Wallet Button */}
-              {currentUser && currentUser.balance >= orderCost ? (
-                <button
-                  onClick={() => nestingRef.current?.executePaymentWithWallet()}
-                  style={{
-                    background: '#16A34A',
-                    border: 'none',
-                    color: '#FFFFFF',
-                    padding: '12px',
-                    borderRadius: '10px',
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    marginTop: '6px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  <CheckCircle2 size={16} /> Pay ₹{orderCost.toFixed(2)} from Wallet
-                </button>
-              ) : null}
-
-              {/* 1-Tap UPI Launch Button (Mobile Deep-Link) */}
-              <a
-                href={upiDeepLink}
-                style={{
-                  background: 'linear-gradient(135deg, #FF6B3D 0%, #E4572E 100%)',
-                  color: '#FFFFFF',
-                  textDecoration: 'none',
-                  padding: '12px',
-                  borderRadius: '10px',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  textAlign: 'center',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  boxShadow: '0 4px 12px rgba(228,87,46,0.35)',
-                  marginTop: '4px'
-                }}
-              >
-                <CreditCard size={16} /> Pay ₹{orderCost.toFixed(2)} via UPI App (GPay / PhonePe)
-              </a>
-            </div>
-
-            {/* UPI QR Code & Manual Copy Card */}
-            <div style={{
-              background: '#0F172A',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '14px',
-              padding: '16px',
-              textAlign: 'center',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '12px'
-            }}>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#F8FAFC' }}>
-                Scan UPI QR Code
-              </div>
-
-              <div style={{
-                padding: '10px',
-                background: '#FFFFFF',
-                borderRadius: '12px',
-                display: 'inline-block',
-                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.4)'
-              }}>
-                <img
-                  src={upiQrUrl}
-                  alt="UPI QR Code"
-                  style={{ width: '180px', height: '180px', display: 'block' }}
-                />
-              </div>
-
-              {/* UPI ID with Copy Button */}
-              <div style={{
-                background: '#1E293B',
-                borderRadius: '8px',
-                padding: '8px 12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontSize: '12px',
-                color: '#CBD5E1',
-                width: '100%',
-                justifyContent: 'space-between'
-              }}>
-                <span style={{ fontFamily: 'monospace' }}>vilesh332-1@okhdfcbank</span>
-                <button
-                  onClick={handleCopyUPI}
-                  style={{
-                    background: copiedUpi ? '#16A34A' : 'rgba(255, 255, 255, 0.1)',
-                    border: 'none',
-                    color: '#FFFFFF',
-                    padding: '4px 8px',
-                    borderRadius: '6px',
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  {copiedUpi ? <Check size={12} /> : <Copy size={12} />}
-                  {copiedUpi ? 'Copied' : 'Copy'}
-                </button>
-              </div>
-            </div>
-
-            {/* Quick Wallet Recharge Options */}
-            <div style={{
-              background: '#0F172A',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '14px',
-              padding: '16px'
-            }}>
+            {/* Quick Wallet Recharge Presets */}
+            <div style={{ background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px' }}>
               <div style={{ fontSize: '13px', fontWeight: '700', marginBottom: '10px', color: '#F8FAFC' }}>
                 Recharge Wallet
               </div>
@@ -1716,16 +2532,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                     key={amt}
                     onClick={() => handleRechargeWallet(amt)}
                     disabled={topupLoading}
-                    style={{
-                      background: '#1E293B',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      color: '#FFFFFF',
-                      padding: '10px',
-                      borderRadius: '8px',
-                      fontSize: '13px',
-                      fontWeight: '700',
-                      cursor: 'pointer'
-                    }}
+                    style={{ background: '#1E293B', border: '1px solid rgba(255, 255, 255, 0.1)', color: '#FFFFFF', padding: '10px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}
                   >
                     + ₹{amt}
                   </button>
@@ -1739,34 +2546,27 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
               )}
             </div>
 
-            {/* Sign in banner if guest */}
+            {/* UPI QR Code */}
+            <div style={{ background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#F8FAFC' }}>Scan UPI QR Code</div>
+              <div style={{ padding: '10px', background: '#FFFFFF', borderRadius: '12px', display: 'inline-block' }}>
+                <img src={upiQrUrl} alt="UPI QR Code" style={{ width: '180px', height: '180px', display: 'block' }} />
+              </div>
+              <div style={{ background: '#1E293B', borderRadius: '8px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#CBD5E1', width: '100%', justifyContent: 'space-between' }}>
+                <span style={{ fontFamily: 'monospace' }}>vilesh332-1@okhdfcbank</span>
+                <button onClick={handleCopyUPI} style={{ background: copiedUpi ? '#16A34A' : 'rgba(255, 255, 255, 0.1)', border: 'none', color: '#FFFFFF', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  {copiedUpi ? <Check size={12} /> : <Copy size={12} />}
+                  {copiedUpi ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+            </div>
+
             {!currentUser && (
-              <div style={{
-                background: 'rgba(59, 130, 246, 0.1)',
-                border: '1px solid rgba(59, 130, 246, 0.25)',
-                borderRadius: '12px',
-                padding: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}>
+              <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '12px', padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ fontSize: '12px', color: '#93C5FD' }}>
                   Sign in to save your wallet balance and history across devices.
                 </div>
-                <button
-                  onClick={onOpenLogin}
-                  style={{
-                    background: '#2563EB',
-                    border: 'none',
-                    color: '#FFFFFF',
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
+                <button onClick={onOpenLogin} style={{ background: '#2563EB', border: 'none', color: '#FFFFFF', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                   Sign In
                 </button>
               </div>
@@ -1791,104 +2591,44 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
         padding: '8px 10px',
         paddingBottom: 'calc(8px + env(safe-area-inset-bottom, 0px))'
       }}>
-        {/* Tab 1: Artwork (Clean 2D) */}
         <button
           onClick={() => setActiveTab('artwork')}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '3px',
-            color: activeTab === 'artwork' ? '#E4572E' : '#94A3B8',
-            cursor: 'pointer'
-          }}
+          style={{ background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', color: activeTab === 'artwork' ? '#E4572E' : '#94A3B8', cursor: 'pointer' }}
         >
           <Palette size={20} />
           <span style={{ fontSize: '10px', fontWeight: activeTab === 'artwork' ? '800' : '600' }}>Artwork</span>
         </button>
 
-        {/* Tab 2: Roster (With Import Sheet) */}
         <button
           onClick={() => setActiveTab('roster')}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '3px',
-            color: activeTab === 'roster' ? '#E4572E' : '#94A3B8',
-            cursor: 'pointer',
-            position: 'relative'
-          }}
+          style={{ background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', color: activeTab === 'roster' ? '#E4572E' : '#94A3B8', cursor: 'pointer', position: 'relative' }}
         >
           <Users size={20} />
           <span style={{ fontSize: '10px', fontWeight: activeTab === 'roster' ? '800' : '600' }}>Roster</span>
           {records.length > 0 && (
-            <span style={{
-              position: 'absolute',
-              top: '-3px',
-              right: '8px',
-              background: '#E4572E',
-              color: '#FFFFFF',
-              borderRadius: '8px',
-              padding: '1px 5px',
-              fontSize: '9px',
-              fontWeight: '800'
-            }}>
+            <span style={{ position: 'absolute', top: '-3px', right: '8px', background: '#E4572E', color: '#FFFFFF', borderRadius: '8px', padding: '1px 5px', fontSize: '9px', fontWeight: '800' }}>
               {totalQty}
             </span>
           )}
         </button>
 
-        {/* Tab 3: Export (Only Individual Panels ZIP) */}
         <button
           onClick={() => setActiveTab('export')}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '3px',
-            color: activeTab === 'export' ? '#E4572E' : '#94A3B8',
-            cursor: 'pointer',
-            position: 'relative'
-          }}
+          style={{ background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', color: activeTab === 'export' ? '#E4572E' : '#94A3B8', cursor: 'pointer', position: 'relative' }}
         >
           <Download size={20} />
-          <span style={{ fontSize: '10px', fontWeight: activeTab === 'export' ? '800' : '600' }}>Export</span>
+          <span style={{ fontSize: '10px', fontWeight: activeTab === 'export' ? '800' : '600' }}>Export & Pay</span>
           {anyArtworkUploaded && (
-            <span style={{
-              position: 'absolute',
-              top: '-2px',
-              right: '12px',
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              background: '#22C55E'
-            }} />
+            <span style={{ position: 'absolute', top: '-2px', right: '12px', width: '6px', height: '6px', borderRadius: '50%', background: '#22C55E' }} />
           )}
         </button>
 
-        {/* Tab 4: Payment */}
         <button
           onClick={() => setActiveTab('payment')}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '3px',
-            color: activeTab === 'payment' ? '#E4572E' : '#94A3B8',
-            cursor: 'pointer'
-          }}
+          style={{ background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', color: activeTab === 'payment' ? '#E4572E' : '#94A3B8', cursor: 'pointer' }}
         >
           <CreditCard size={20} />
-          <span style={{ fontSize: '10px', fontWeight: activeTab === 'payment' ? '800' : '600' }}>Payment</span>
+          <span style={{ fontSize: '10px', fontWeight: activeTab === 'payment' ? '800' : '600' }}>Wallet</span>
         </button>
       </nav>
 
@@ -1917,79 +2657,41 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
             gap: '14px'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '15px', fontWeight: '800', color: '#F8FAFC' }}>
-                Add Player to Roster
-              </span>
-              <button
-                onClick={() => setShowAddPlayer(false)}
-                style={{ background: 'transparent', border: 'none', color: '#94A3B8', padding: '4px', cursor: 'pointer' }}
-              >
+              <span style={{ fontSize: '15px', fontWeight: '800', color: '#F8FAFC' }}>Add Player to Roster</span>
+              <button onClick={() => setShowAddPlayer(false)} style={{ background: 'transparent', border: 'none', color: '#94A3B8', padding: '4px', cursor: 'pointer' }}>
                 <X size={18} />
               </button>
             </div>
 
             <div>
-              <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>
-                Player Name
-              </label>
+              <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Player Name</label>
               <input
                 type="text"
                 value={newPlayerName}
                 onChange={(e) => setNewPlayerName(e.target.value)}
                 placeholder="e.g. VIKRAM"
-                style={{
-                  width: '100%',
-                  background: '#1E293B',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  borderRadius: '8px',
-                  padding: '9px 12px',
-                  color: '#FFFFFF',
-                  fontSize: '13px',
-                  outline: 'none'
-                }}
+                style={{ width: '100%', background: '#1E293B', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '8px', padding: '9px 12px', color: '#FFFFFF', fontSize: '13px', outline: 'none' }}
               />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div>
-                <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>
-                  Jersey Number
-                </label>
+                <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Jersey Number</label>
                 <input
                   type="text"
                   value={newPlayerNumber}
                   onChange={(e) => setNewPlayerNumber(e.target.value)}
                   placeholder="e.g. 07"
-                  style={{
-                    width: '100%',
-                    background: '#1E293B',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    borderRadius: '8px',
-                    padding: '9px 12px',
-                    color: '#FFFFFF',
-                    fontSize: '13px',
-                    outline: 'none'
-                  }}
+                  style={{ width: '100%', background: '#1E293B', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '8px', padding: '9px 12px', color: '#FFFFFF', fontSize: '13px', outline: 'none' }}
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>
-                  Size
-                </label>
+                <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Size</label>
                 <select
                   value={newPlayerSize}
                   onChange={(e) => setNewPlayerSize(e.target.value)}
-                  style={{
-                    width: '100%',
-                    background: '#1E293B',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    borderRadius: '8px',
-                    padding: '9px 12px',
-                    color: '#FFFFFF',
-                    fontSize: '13px',
-                    outline: 'none'
-                  }}
+                  style={{ width: '100%', background: '#1E293B', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '8px', padding: '9px 12px', color: '#FFFFFF', fontSize: '13px', outline: 'none' }}
                 >
                   {Object.keys(sizeDB).map(s => (
                     <option key={s} value={s}>{s}</option>
@@ -2000,22 +2702,11 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div>
-                <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>
-                  Sleeve
-                </label>
+                <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Sleeve Style</label>
                 <select
                   value={newPlayerSleeve}
                   onChange={(e) => setNewPlayerSleeve(e.target.value as any)}
-                  style={{
-                    width: '100%',
-                    background: '#1E293B',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    borderRadius: '8px',
-                    padding: '9px 12px',
-                    color: '#FFFFFF',
-                    fontSize: '13px',
-                    outline: 'none'
-                  }}
+                  style={{ width: '100%', background: '#1E293B', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '8px', padding: '9px 12px', color: '#FFFFFF', fontSize: '13px', outline: 'none' }}
                 >
                   <option value="half">Half Sleeve</option>
                   <option value="full">Full Sleeve</option>
@@ -2023,41 +2714,20 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
               </div>
 
               <div>
-                <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>
-                  Quantity
-                </label>
+                <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Quantity</label>
                 <input
                   type="number"
                   min="1"
                   value={newPlayerQty}
                   onChange={(e) => setNewPlayerQty(parseInt(e.target.value, 10) || 1)}
-                  style={{
-                    width: '100%',
-                    background: '#1E293B',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    borderRadius: '8px',
-                    padding: '9px 12px',
-                    color: '#FFFFFF',
-                    fontSize: '13px',
-                    outline: 'none'
-                  }}
+                  style={{ width: '100%', background: '#1E293B', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '8px', padding: '9px 12px', color: '#FFFFFF', fontSize: '13px', outline: 'none' }}
                 />
               </div>
             </div>
 
             <button
               onClick={handleAddPlayer}
-              style={{
-                background: 'linear-gradient(135deg, #FF6B3D 0%, #E4572E 100%)',
-                border: 'none',
-                color: '#FFFFFF',
-                padding: '12px',
-                borderRadius: '10px',
-                fontSize: '14px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                marginTop: '6px'
-              }}
+              style={{ background: 'linear-gradient(135deg, #FF6B3D 0%, #E4572E 100%)', border: 'none', color: '#FFFFFF', padding: '12px', borderRadius: '10px', fontSize: '14px', fontWeight: '700', cursor: 'pointer', marginTop: '6px' }}
             >
               Add to Roster
             </button>
