@@ -90,7 +90,10 @@ export interface TrimPartConfig {
   enabled?: boolean;
   color: string;
   uploadedUrl: string | null;
-  height?: number; // Height in inches (e.g. 2.3 for sleeve stripe)
+  height?: number; // Height in inches (2.0 for sleeve stripe)
+  fillType?: 'solid' | 'gradient';
+  gradientStyle?: 'gradient-linear-lr' | 'gradient-linear-tb' | 'gradient-linear-diag' | 'gradient-radial';
+  gradientStops?: GradientStopItem[];
 }
 
 export interface TrimConfig {
@@ -193,7 +196,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
   trim: {
     collar: { enabled: true, color: '#9b4dff', uploadedUrl: null },
     placket: { enabled: true, color: '#9b4dff', uploadedUrl: null },
-    sleeveStripe: { enabled: false, color: '#171717', uploadedUrl: null, height: 2.3 }
+    sleeveStripe: { enabled: false, color: '#171717', uploadedUrl: null, height: 2.0, fillType: 'solid' }
   }
 };
 
@@ -732,7 +735,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const currentTrim = designConfig.trim || {
       collar: { color: designConfig.front.generatedColor1, uploadedUrl: null },
       placket: { color: designConfig.front.generatedColor1, uploadedUrl: null },
-      sleeveStripe: { enabled: false, color: designConfig.front.generatedColor1, uploadedUrl: null, height: 2.3 }
+      sleeveStripe: { enabled: false, color: designConfig.front.generatedColor1, uploadedUrl: null, height: 2.0, fillType: 'solid' }
     };
     const updated = {
       ...designConfig,
@@ -1726,11 +1729,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         drawTechnicalMarks(ctx);
       }
 
-      // ── SLEEVE STRIPE AT BOTTOM (Height: 2.3 inches fixed, Width: fits sleeve panel) ──
+      // ── SLEEVE STRIPE AT BOTTOM (Height: 2.0 inches fixed, Width: fits sleeve panel) ──
       if (panelKey === 'sleeveLeft' || panelKey === 'sleeveRight') {
         const stripeConf = designConfig.trim?.sleeveStripe;
-        if (stripeConf && stripeConf.enabled === true && (stripeConf.color || stripeConf.uploadedUrl)) {
-          const stripeHInches = stripeConf.height || 2.3;
+        if (stripeConf && stripeConf.enabled === true && (stripeConf.color || stripeConf.uploadedUrl || stripeConf.gradientStops)) {
+          const stripeHInches = stripeConf.height || 2.0;
           const stripeHPx = Math.round(stripeHInches * scale);
           const stripeYPx = height - stripeHPx;
           const stripeWPx = width;
@@ -1749,12 +1752,38 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               ctx.fillStyle = stripeConf.color || '#171717';
               ctx.fillRect(0, stripeYPx, stripeWPx, stripeHPx);
             }
+          } else if (stripeConf.fillType === 'gradient' || (stripeConf.gradientStops && stripeConf.gradientStops.length >= 2)) {
+            let grad: CanvasGradient;
+            const style = stripeConf.gradientStyle || 'gradient-linear-lr';
+            if (style === 'gradient-linear-lr') {
+              grad = ctx.createLinearGradient(0, stripeYPx, stripeWPx, stripeYPx);
+            } else if (style === 'gradient-linear-tb') {
+              grad = ctx.createLinearGradient(0, stripeYPx, 0, stripeYPx + stripeHPx);
+            } else if (style === 'gradient-linear-diag') {
+              grad = ctx.createLinearGradient(0, stripeYPx, stripeWPx, stripeYPx + stripeHPx);
+            } else {
+              grad = ctx.createRadialGradient(stripeWPx / 2, stripeYPx + stripeHPx / 2, 5, stripeWPx / 2, stripeYPx + stripeHPx / 2, Math.max(stripeWPx, stripeHPx) * 0.6);
+            }
+
+            const stops = stripeConf.gradientStops && stripeConf.gradientStops.length >= 2
+              ? [...stripeConf.gradientStops].sort((a, b) => a.offset - b.offset)
+              : [
+                  { color: stripeConf.color || '#171717', offset: 0 },
+                  { color: '#ffffff', offset: 100 }
+                ];
+
+            stops.forEach(s => {
+              const clamped = Math.max(0, Math.min(1, s.offset / 100));
+              grad.addColorStop(clamped, s.color);
+            });
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, stripeYPx, stripeWPx, stripeHPx);
           } else if (stripeConf.color) {
             ctx.fillStyle = stripeConf.color;
             ctx.fillRect(0, stripeYPx, stripeWPx, stripeHPx);
           }
 
-          // Subtle guide mark on 2D canvas showing 2.3" stripe boundary
+          // Subtle guide mark on 2D canvas showing 2.0" stripe boundary
           if (!is3DPreview) {
             ctx.save();
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
@@ -1770,7 +1799,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ctx.font = 'bold 9px system-ui, sans-serif';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'bottom';
-            ctx.fillText('2.3" Sleeve Stripe', 6, stripeYPx - 2);
+            ctx.fillText('2.0" Sleeve Stripe', 6, stripeYPx - 2);
             ctx.restore();
           }
         }
@@ -5344,16 +5373,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     </div>
     </div>
 
-      {/* 4. COREL COLOR PALETTE STRIP */}
-      <ColorPalette
-        onSelectFillColor={handlePaletteFill}
-        onSelectStrokeColor={handlePaletteStroke}
-        onSelectGradientColor={handlePaletteGradient}
-        onOpenGradientEditor={() => {
-          setGradientModalTarget('palette');
-          setIsGradientModalOpen(true);
-        }}
-      />
 
       {/* 5. COREL STATUS BAR */}
       <StatusBar
@@ -5483,6 +5502,29 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         }}
         onUpdateSleeveStripe={(updates) => {
           updateTrimConfig('sleeveStripe', updates);
+        }}
+        onApplyFullJerseyPreset={(config) => {
+          undoableConfigChange({
+            ...designConfig,
+            front: { ...designConfig.front, ...config.panelUpdates },
+            back: { ...designConfig.back, ...config.panelUpdates },
+            sleeveLeft: { ...designConfig.sleeveLeft, ...config.panelUpdates },
+            sleeveRight: { ...designConfig.sleeveRight, ...config.panelUpdates },
+            trim: {
+              collar: {
+                ...(designConfig.trim?.collar || { color: '#9b4dff', uploadedUrl: null }),
+                color: config.collarColor || designConfig.trim?.collar?.color || '#9b4dff'
+              },
+              placket: {
+                ...(designConfig.trim?.placket || { color: '#9b4dff', uploadedUrl: null }),
+                color: config.placketColor || config.collarColor || designConfig.trim?.placket?.color || '#9b4dff'
+              },
+              sleeveStripe: {
+                ...(designConfig.trim?.sleeveStripe || { enabled: false, color: '#171717', uploadedUrl: null, height: 2.0, fillType: 'solid' }),
+                ...(config.stripeUpdates || {})
+              }
+            }
+          });
         }}
         onClose={() => setArtboardFillModal(prev => ({ ...prev, isOpen: false }))}
       />

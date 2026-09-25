@@ -189,6 +189,12 @@ export const ThreeDPreview: React.FC<ThreeDPreviewProps> = ({
     if (trim.sleeveStripe?.enabled === true) {
       if (loadedTrimImages.sleeveStripe) {
         mainCtx.drawImage(loadedTrimImages.sleeveStripe, 490, 1429, 1067, 107);
+      } else if (trim.sleeveStripe.fillType === 'gradient' || (trim.sleeveStripe.gradientStops && trim.sleeveStripe.gradientStops.length >= 2)) {
+        const grad = mainCtx.createLinearGradient(490, 1429, 1557, 1429);
+        const stops = [...trim.sleeveStripe.gradientStops].sort((a, b) => a.offset - b.offset);
+        stops.forEach(s => grad.addColorStop(Math.max(0, Math.min(1, s.offset / 100)), s.color));
+        mainCtx.fillStyle = grad;
+        mainCtx.fillRect(490, 1429, 1067, 107);
       } else {
         mainCtx.fillStyle = trim.sleeveStripe.color || c1;
         mainCtx.fillRect(490, 1429, 1067, 107);

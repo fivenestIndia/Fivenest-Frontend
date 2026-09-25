@@ -3,7 +3,7 @@ import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { 
   X, Palette, Sparkles, Check, ArrowRightLeft, 
   RotateCcw, Sliders, CheckCheck, Shirt, Layers, 
-  GripHorizontal, Trash2, Plus
+  GripHorizontal, Trash2, Plus, Edit3, Wand2
 } from 'lucide-react';
 import type { ArtDesignConfig, PanelConfig, TrimPartConfig, GradientStopItem } from './designer';
 
@@ -14,6 +14,12 @@ interface ArtboardFillModalProps {
   onUpdatePanel: (panelKey: string, updates: Partial<PanelConfig>) => void;
   onApplyAllPanels: (updates: Partial<PanelConfig>) => void;
   onUpdateSleeveStripe: (updates: Partial<TrimPartConfig>) => void;
+  onApplyFullJerseyPreset?: (config: {
+    panelUpdates: Partial<PanelConfig>;
+    stripeUpdates?: Partial<TrimPartConfig>;
+    collarColor?: string;
+    placketColor?: string;
+  }) => void;
   onClose: () => void;
 }
 
@@ -58,123 +64,265 @@ export const SOLID_COLOR_PALETTE = [
   { name: 'Hot Pink', hex: '#EC4899', dark: false }
 ];
 
-// Photoshop & Athletic Multi-Stop Gradient Presets
-export const PHOTOSHOP_GRADIENT_PRESETS: Array<{
+// Complete Jersey Team Matching Presets (All Panels + 2" Stripe + Trim)
+export interface CompleteJerseyPreset {
+  id: string;
   name: string;
-  stops: Array<{ color: string; offset: number }>;
-  style: 'gradient-linear-tb' | 'gradient-linear-lr' | 'gradient-linear-diag' | 'gradient-radial';
-}> = [
+  category: string;
+  description: string;
+  panelGradient: {
+    style: 'gradient-linear-tb' | 'gradient-linear-lr' | 'gradient-linear-diag' | 'gradient-radial';
+    stops: Array<{ color: string; offset: number }>;
+  };
+  stripe: {
+    fillType: 'solid' | 'gradient';
+    color: string;
+    gradientStyle?: 'gradient-linear-lr' | 'gradient-linear-tb' | 'gradient-linear-diag' | 'gradient-radial';
+    stops?: Array<{ color: string; offset: number }>;
+  };
+  collarColor: string;
+  placketColor: string;
+}
+
+export const COMPLETE_JERSEY_PRESETS: CompleteJerseyPreset[] = [
   {
-    name: 'Sunset Blaze',
-    style: 'gradient-linear-tb',
-    stops: [
-      { color: '#FF416C', offset: 0 },
-      { color: '#FF4B2B', offset: 50 },
-      { color: '#FFA07A', offset: 100 }
-    ]
+    id: 'india-bleed-blue',
+    name: 'India Bleed Blue & Saffron',
+    category: 'Cricket Pro',
+    description: 'Navy to Cobalt Bleed Blue body with vibrant Saffron Gold 2" sleeve stripe & collar',
+    panelGradient: {
+      style: 'gradient-linear-tb',
+      stops: [
+        { color: '#0A192F', offset: 0 },
+        { color: '#0047AB', offset: 50 },
+        { color: '#1E90FF', offset: 100 }
+      ]
+    },
+    stripe: {
+      fillType: 'gradient',
+      color: '#FF671F',
+      gradientStyle: 'gradient-linear-lr',
+      stops: [
+        { color: '#FF671F', offset: 0 },
+        { color: '#FFA500', offset: 100 }
+      ]
+    },
+    collarColor: '#FF671F',
+    placketColor: '#FF671F'
   },
   {
-    name: 'Metallic Gold',
-    style: 'gradient-linear-diag',
-    stops: [
-      { color: '#BF953F', offset: 0 },
-      { color: '#FCF6BA', offset: 25 },
-      { color: '#B38728', offset: 50 },
-      { color: '#FBF5B7', offset: 75 },
-      { color: '#AA771C', offset: 100 }
-    ]
+    id: 'metallic-gold-champion',
+    name: 'Metallic Gold Champion',
+    category: 'Championship',
+    description: 'Rich specular chrome gold body with pitch black & chrome accent sleeve stripe',
+    panelGradient: {
+      style: 'gradient-linear-diag',
+      stops: [
+        { color: '#BF953F', offset: 0 },
+        { color: '#FCF6BA', offset: 25 },
+        { color: '#B38728', offset: 50 },
+        { color: '#FBF5B7', offset: 75 },
+        { color: '#AA771C', offset: 100 }
+      ]
+    },
+    stripe: {
+      fillType: 'solid',
+      color: '#0B0D11'
+    },
+    collarColor: '#0B0D11',
+    placketColor: '#0B0D11'
   },
   {
-    name: 'Silver Chrome',
-    style: 'gradient-linear-diag',
-    stops: [
-      { color: '#E0E0E0', offset: 0 },
-      { color: '#F5F5F5', offset: 35 },
-      { color: '#9E9E9E', offset: 70 },
-      { color: '#757575', offset: 100 }
-    ]
+    id: 'cyber-volt-stealth',
+    name: 'Cyber Volt & Stealth Charcoal',
+    category: 'Esports Pro',
+    description: 'Pitch Black to Charcoal gradient body with high-voltage neon volt 2" sleeve cuff',
+    panelGradient: {
+      style: 'gradient-linear-tb',
+      stops: [
+        { color: '#0B0D11', offset: 0 },
+        { color: '#1F242D', offset: 60 },
+        { color: '#374151', offset: 100 }
+      ]
+    },
+    stripe: {
+      fillType: 'gradient',
+      color: '#84CC16',
+      gradientStyle: 'gradient-linear-lr',
+      stops: [
+        { color: '#84CC16', offset: 0 },
+        { color: '#A3E635', offset: 100 }
+      ]
+    },
+    collarColor: '#84CC16',
+    placketColor: '#84CC16'
   },
   {
-    name: 'India Bleed Blue',
-    style: 'gradient-linear-tb',
-    stops: [
-      { color: '#0A192F', offset: 0 },
-      { color: '#0047AB', offset: 50 },
-      { color: '#1E90FF', offset: 100 }
-    ]
+    id: 'sunset-blaze-carbon',
+    name: 'Sunset Blaze & Carbon',
+    category: 'Athletic Dynamic',
+    description: 'Crimson to flame orange fade body with carbon stealth 2" sleeve stripe & trim',
+    panelGradient: {
+      style: 'gradient-linear-tb',
+      stops: [
+        { color: '#FF416C', offset: 0 },
+        { color: '#FF4B2B', offset: 50 },
+        { color: '#FFA07A', offset: 100 }
+      ]
+    },
+    stripe: {
+      fillType: 'solid',
+      color: '#0B0D11'
+    },
+    collarColor: '#0B0D11',
+    placketColor: '#0B0D11'
   },
   {
-    name: 'Cyber Volt',
-    style: 'gradient-linear-diag',
-    stops: [
-      { color: '#0B0D11', offset: 0 },
-      { color: '#16A34A', offset: 55 },
-      { color: '#84CC16', offset: 100 }
-    ]
+    id: 'real-madrid-gold',
+    name: 'Madrid Pure White & Gold',
+    category: 'Football Classic',
+    description: 'Pure Ice White jersey with royal gold 2" sleeve stripe and navy trim accent',
+    panelGradient: {
+      style: 'gradient-linear-tb',
+      stops: [
+        { color: '#FFFFFF', offset: 0 },
+        { color: '#F8FAFC', offset: 60 },
+        { color: '#F1F5F9', offset: 100 }
+      ]
+    },
+    stripe: {
+      fillType: 'gradient',
+      color: '#D97706',
+      gradientStyle: 'gradient-linear-lr',
+      stops: [
+        { color: '#B45309', offset: 0 },
+        { color: '#F59E0B', offset: 50 },
+        { color: '#FCD34D', offset: 100 }
+      ]
+    },
+    collarColor: '#0A192F',
+    placketColor: '#0A192F'
   },
   {
-    name: 'Copper Bronze',
-    style: 'gradient-linear-diag',
-    stops: [
-      { color: '#804A00', offset: 0 },
-      { color: '#F7BA70', offset: 30 },
-      { color: '#A06000', offset: 60 },
-      { color: '#603000', offset: 100 }
-    ]
+    id: 'lakers-purple-gold',
+    name: 'Lakers Regal Purple & Gold',
+    category: 'Basketball Elite',
+    description: 'Deep royal purple body with iconic trophy gold 2" sleeve stripe and matching trim',
+    panelGradient: {
+      style: 'gradient-linear-diag',
+      stops: [
+        { color: '#552583', offset: 0 },
+        { color: '#4C1D95', offset: 60 },
+        { color: '#2E1065', offset: 100 }
+      ]
+    },
+    stripe: {
+      fillType: 'gradient',
+      color: '#FDB927',
+      gradientStyle: 'gradient-linear-lr',
+      stops: [
+        { color: '#F59E0B', offset: 0 },
+        { color: '#FDB927', offset: 100 }
+      ]
+    },
+    collarColor: '#FDB927',
+    placketColor: '#FDB927'
   },
   {
-    name: 'Electric Cyan',
-    style: 'gradient-linear-tb',
-    stops: [
-      { color: '#0052D4', offset: 0 },
-      { color: '#4364F7', offset: 60 },
-      { color: '#6FB1FC', offset: 100 }
-    ]
+    id: 'barcelona-blaugrana',
+    name: 'Barcelona Blaugrana & Gold',
+    category: 'Football Legend',
+    description: 'Deep Royal Navy to Crimson Garnet diagonal fade with golden yellow cuff & collar',
+    panelGradient: {
+      style: 'gradient-linear-diag',
+      stops: [
+        { color: '#004D98', offset: 0 },
+        { color: '#5B1736', offset: 50 },
+        { color: '#A50044', offset: 100 }
+      ]
+    },
+    stripe: {
+      fillType: 'solid',
+      color: '#EDBB00'
+    },
+    collarColor: '#EDBB00',
+    placketColor: '#EDBB00'
   },
   {
-    name: 'Deep Ocean',
-    style: 'gradient-linear-tb',
-    stops: [
-      { color: '#000428', offset: 0 },
-      { color: '#004E92', offset: 65 },
-      { color: '#00C9FF', offset: 100 }
-    ]
+    id: 'viper-emerald-glow',
+    name: 'Viper Strike Emerald & Dark Forest',
+    category: 'Motorsport & Cricket',
+    description: 'Charcoal carbon into emerald green fade with mint neon 2" sleeve stripe',
+    panelGradient: {
+      style: 'gradient-linear-tb',
+      stops: [
+        { color: '#111827', offset: 0 },
+        { color: '#064E3B', offset: 50 },
+        { color: '#047857', offset: 100 }
+      ]
+    },
+    stripe: {
+      fillType: 'gradient',
+      color: '#10B981',
+      gradientStyle: 'gradient-linear-lr',
+      stops: [
+        { color: '#059669', offset: 0 },
+        { color: '#34D399', offset: 100 }
+      ]
+    },
+    collarColor: '#10B981',
+    placketColor: '#10B981'
   },
   {
-    name: 'Crimson Shadow',
-    style: 'gradient-linear-diag',
-    stops: [
-      { color: '#4A0012', offset: 0 },
-      { color: '#DC2626', offset: 50 },
-      { color: '#FFA07A', offset: 100 }
-    ]
+    id: 'miami-vice-neon',
+    name: 'Miami Vice Cyan & Neon Pink',
+    category: 'Retro Wave',
+    description: 'Electric cyan to violet purple body with screaming hot neon pink 2" cuff stripe',
+    panelGradient: {
+      style: 'gradient-linear-diag',
+      stops: [
+        { color: '#00F2FE', offset: 0 },
+        { color: '#7F00FF', offset: 55 },
+        { color: '#4A00E0', offset: 100 }
+      ]
+    },
+    stripe: {
+      fillType: 'gradient',
+      color: '#EC4899',
+      gradientStyle: 'gradient-linear-lr',
+      stops: [
+        { color: '#D946EF', offset: 0 },
+        { color: '#F43F5E', offset: 100 }
+      ]
+    },
+    collarColor: '#EC4899',
+    placketColor: '#EC4899'
   },
   {
-    name: 'Viper Strike',
-    style: 'gradient-linear-tb',
-    stops: [
-      { color: '#111827', offset: 0 },
-      { color: '#064E3B', offset: 45 },
-      { color: '#10B981', offset: 100 }
-    ]
-  },
-  {
-    name: 'Lakers Vibe',
-    style: 'gradient-linear-diag',
-    stops: [
-      { color: '#552583', offset: 0 },
-      { color: '#800080', offset: 40 },
-      { color: '#FDB927', offset: 100 }
-    ]
-  },
-  {
-    name: 'Fire & Ice',
-    style: 'gradient-linear-lr',
-    stops: [
-      { color: '#FA709A', offset: 0 },
-      { color: '#FEE140', offset: 50 },
-      { color: '#00C9FF', offset: 100 }
-    ]
+    id: 'ferrari-scarlet-chrome',
+    name: 'Scuderia Scarlet Red & Silver',
+    category: 'Racing Speed',
+    description: 'Ruby Scarlet into deep dark maroon with pure silver chrome 2" stripe and black trim',
+    panelGradient: {
+      style: 'gradient-linear-tb',
+      stops: [
+        { color: '#DC2626', offset: 0 },
+        { color: '#991B1B', offset: 55 },
+        { color: '#450A0A', offset: 100 }
+      ]
+    },
+    stripe: {
+      fillType: 'gradient',
+      color: '#E0E0E0',
+      gradientStyle: 'gradient-linear-lr',
+      stops: [
+        { color: '#9CA3AF', offset: 0 },
+        { color: '#FFFFFF', offset: 50 },
+        { color: '#9CA3AF', offset: 100 }
+      ]
+    },
+    collarColor: '#0B0D11',
+    placketColor: '#0B0D11'
   }
 ];
 
@@ -185,6 +333,7 @@ export default function ArtboardFillModal({
   onUpdatePanel,
   onApplyAllPanels,
   onUpdateSleeveStripe,
+  onApplyFullJerseyPreset,
   onClose
 }: ArtboardFillModalProps) {
   const panel = designConfig[panelKey] || designConfig.front;
@@ -192,6 +341,7 @@ export default function ArtboardFillModal({
 
   const dragControls = useDragControls();
   const spectrumBarRef = useRef<HTMLDivElement>(null);
+  const stripeSpectrumRef = useRef<HTMLDivElement>(null);
 
   // Active tab inside modal
   const [tab, setTab] = useState<'solid' | 'gradient' | 'sleeveStripe' | 'presets'>(() => {
@@ -199,10 +349,13 @@ export default function ArtboardFillModal({
     return 'solid';
   });
 
+  // Feedback banner when preset is loaded into editor
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+
   // Solid Color State
   const [solidColor, setSolidColor] = useState<string>(panel.generatedColor1 || '#FFFFFF');
 
-  // Multi-stop Photoshop Gradient State
+  // Multi-stop Photoshop Gradient State for Panel
   const [stops, setStops] = useState<GradientStopItem[]>(() => {
     if (panel.gradientStops && panel.gradientStops.length >= 2) {
       return [...panel.gradientStops].sort((a, b) => a.offset - b.offset);
@@ -226,17 +379,26 @@ export default function ArtboardFillModal({
     return 'gradient-linear-tb';
   });
 
-  // Custom User Saved Presets (from localStorage)
-  const [customPresets, setCustomPresets] = useState<
-    Array<{ name: string; stops: Array<{ color: string; offset: number }>; style: any }>
-  >([]);
-  const [isSavingPreset, setIsSavingPreset] = useState<boolean>(false);
-  const [presetNameInput, setPresetNameInput] = useState<string>('');
-
-  // Sleeve Stripe Config: DEFAULT IS FALSE (OFF)
+  // Sleeve Stripe Config: DEFAULT IS FALSE (OFF), HEIGHT IS 2.0"
   const stripe = designConfig.trim?.sleeveStripe;
   const [stripeEnabled, setStripeEnabled] = useState<boolean>(Boolean(stripe?.enabled));
   const [stripeColor, setStripeColor] = useState<string>(stripe?.color || '#171717');
+  const [stripeFillType, setStripeFillType] = useState<'solid' | 'gradient'>(stripe?.fillType || 'solid');
+  const [stripeGradientStyle, setStripeGradientStyle] = useState<
+    'gradient-linear-lr' | 'gradient-linear-tb' | 'gradient-linear-diag' | 'gradient-radial'
+  >(stripe?.gradientStyle || 'gradient-linear-lr');
+  const [stripeStops, setStripeStops] = useState<GradientStopItem[]>(() => {
+    if (stripe?.gradientStops && stripe.gradientStops.length >= 2) {
+      return [...stripe.gradientStops].sort((a, b) => a.offset - b.offset);
+    }
+    return [
+      { id: 'stripe-stop-0', color: stripe?.color || '#FF671F', offset: 0 },
+      { id: 'stripe-stop-1', color: '#FFA500', offset: 100 }
+    ];
+  });
+  const [stripeSelectedStopId, setStripeSelectedStopId] = useState<string>(
+    stripeStops[0]?.id || 'stripe-stop-0'
+  );
 
   // Sync state when panel changes or modal reopens
   useEffect(() => {
@@ -267,20 +429,14 @@ export default function ArtboardFillModal({
       const strp = designConfig.trim?.sleeveStripe;
       setStripeEnabled(Boolean(strp?.enabled));
       if (strp?.color) setStripeColor(strp.color);
+      if (strp?.fillType) setStripeFillType(strp.fillType);
+      if (strp?.gradientStyle) setStripeGradientStyle(strp.gradientStyle);
+      if (strp?.gradientStops && strp.gradientStops.length >= 2) {
+        setStripeStops([...strp.gradientStops].sort((a, b) => a.offset - b.offset));
+        setStripeSelectedStopId(strp.gradientStops[0].id || 'stripe-stop-0');
+      }
     }
   }, [isOpen, panelKey]);
-
-  // Load custom presets from localStorage
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('fivenest_photoshop_gradient_presets');
-      if (saved) {
-        setCustomPresets(JSON.parse(saved));
-      }
-    } catch (e) {
-      console.error('Failed to load custom presets', e);
-    }
-  }, []);
 
   if (!isOpen) return null;
 
@@ -292,7 +448,7 @@ export default function ArtboardFillModal({
     a4Print: '📄 A4 Back Print'
   };
 
-  // Selected stop object
+  // Selected stop object for Panel Gradient
   const selectedStop = stops.find((s) => s.id === selectedStopId) || stops[0] || {
     id: 'stop-0',
     color: '#FF416C',
@@ -302,6 +458,16 @@ export default function ArtboardFillModal({
   // Sorted stops for CSS strings
   const sortedStops = [...stops].sort((a, b) => a.offset - b.offset);
   const cssStopsString = sortedStops.map((s) => `${s.color} ${s.offset}%`).join(', ');
+
+  // Selected stop object for Sleeve Stripe Gradient
+  const stripeSelectedStop =
+    stripeStops.find((s) => s.id === stripeSelectedStopId) || stripeStops[0] || {
+      id: 'stripe-stop-0',
+      color: '#FF671F',
+      offset: 0
+    };
+  const stripeSortedStops = [...stripeStops].sort((a, b) => a.offset - b.offset);
+  const stripeCssStopsString = stripeSortedStops.map((s) => `${s.color} ${s.offset}%`).join(', ');
 
   // Compute live CSS background for preview
   const previewBackground =
@@ -326,7 +492,7 @@ export default function ArtboardFillModal({
     });
   };
 
-  // Apply Gradient updates
+  // Apply Gradient updates for Panel
   const applyGradientChange = (
     currentStops: GradientStopItem[],
     currentStyle: 'gradient-linear-tb' | 'gradient-linear-lr' | 'gradient-linear-diag' | 'gradient-radial' = gradientStyle
@@ -388,14 +554,14 @@ export default function ArtboardFillModal({
     window.addEventListener('pointerup', onPointerUp);
   };
 
-  // Change Color of the currently selected stop
+  // Change Color of selected stop
   const handleSelectedStopColorChange = (newColor: string) => {
     const updated = stops.map((s) => (s.id === selectedStop.id ? { ...s, color: newColor } : s));
     setStops(updated);
     applyGradientChange(updated, gradientStyle);
   };
 
-  // Change Offset Location (%) of the currently selected stop
+  // Change Offset Location (%) of selected stop
   const handleSelectedStopOffsetChange = (newOffset: number) => {
     const clamped = Math.max(0, Math.min(100, Math.round(newOffset)));
     const updated = stops.map((s) => (s.id === selectedStop.id ? { ...s, offset: clamped } : s));
@@ -403,7 +569,7 @@ export default function ArtboardFillModal({
     applyGradientChange(updated, gradientStyle);
   };
 
-  // Delete active stop (requires minimum 2 stops, Photoshop standard)
+  // Delete active stop
   const handleDeleteSelectedStop = () => {
     if (stops.length <= 2) return;
     const remaining = stops.filter((s) => s.id !== selectedStop.id);
@@ -421,50 +587,177 @@ export default function ArtboardFillModal({
     applyGradientChange(reversed, gradientStyle);
   };
 
-  // Load a preset into the Photoshop editor
-  const handleLoadPreset = (
-    presetStops: Array<{ color: string; offset: number }>,
-    style: any = 'gradient-linear-tb'
-  ) => {
-    const formatted: GradientStopItem[] = presetStops.map((s, idx) => ({
-      id: `stop-${idx}-${Date.now()}`,
+  // ── SLEEVE STRIPE GRADIENT HANDLERS ──
+  const applyStripeUpdate = (updates: Partial<TrimPartConfig>) => {
+    onUpdateSleeveStripe({
+      enabled: stripeEnabled,
+      height: 2.0,
+      fillType: stripeFillType,
+      color: stripeColor,
+      gradientStyle: stripeGradientStyle,
+      gradientStops: stripeStops,
+      ...updates
+    });
+  };
+
+  const handleStripeToggle = (enabled: boolean) => {
+    setStripeEnabled(enabled);
+    onUpdateSleeveStripe({
+      enabled,
+      height: 2.0,
+      color: stripeColor,
+      fillType: stripeFillType,
+      gradientStyle: stripeGradientStyle,
+      gradientStops: stripeStops
+    });
+  };
+
+  const handleStripeSpectrumClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!stripeSpectrumRef.current) return;
+    const rect = stripeSpectrumRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const offset = Math.max(0, Math.min(100, Math.round((clickX / rect.width) * 100)));
+
+    const newStop: GradientStopItem = {
+      id: `stripe-stop-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      color: stripeSelectedStop?.color || '#FFA500',
+      offset
+    };
+
+    const nextStops = [...stripeStops, newStop].sort((a, b) => a.offset - b.offset);
+    setStripeStops(nextStops);
+    setStripeSelectedStopId(newStop.id!);
+    applyStripeUpdate({ gradientStops: nextStops });
+  };
+
+  const handleStripeStopPointerDown = (e: React.PointerEvent, stopId: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setStripeSelectedStopId(stopId);
+
+    const onPointerMove = (moveEvt: PointerEvent) => {
+      if (!stripeSpectrumRef.current) return;
+      const rect = stripeSpectrumRef.current.getBoundingClientRect();
+      const currentX = moveEvt.clientX - rect.left;
+      const newOffset = Math.max(0, Math.min(100, Math.round((currentX / rect.width) * 100)));
+
+      setStripeStops((prev) => {
+        const updated = prev.map((s) => (s.id === stopId ? { ...s, offset: newOffset } : s));
+        applyStripeUpdate({ gradientStops: updated });
+        return updated;
+      });
+    };
+
+    const onPointerUp = () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+  };
+
+  const handleStripeStopColorChange = (newColor: string) => {
+    const updated = stripeStops.map((s) =>
+      s.id === stripeSelectedStop.id ? { ...s, color: newColor } : s
+    );
+    setStripeStops(updated);
+    applyStripeUpdate({ gradientStops: updated });
+  };
+
+  const handleStripeStopOffsetChange = (newOffset: number) => {
+    const clamped = Math.max(0, Math.min(100, Math.round(newOffset)));
+    const updated = stripeStops.map((s) =>
+      s.id === stripeSelectedStop.id ? { ...s, offset: clamped } : s
+    );
+    setStripeStops(updated);
+    applyStripeUpdate({ gradientStops: updated });
+  };
+
+  const handleDeleteStripeStop = () => {
+    if (stripeStops.length <= 2) return;
+    const remaining = stripeStops.filter((s) => s.id !== stripeSelectedStop.id);
+    setStripeStops(remaining);
+    setStripeSelectedStopId(remaining[0].id!);
+    applyStripeUpdate({ gradientStops: remaining });
+  };
+
+  // ── APPLY MATCHING FULL JERSEY TEAM PRESET ──
+  const handleApplyFullPreset = (preset: CompleteJerseyPreset, switchToEditorTab?: 'gradient' | 'sleeveStripe') => {
+    const sortedPanelStops: GradientStopItem[] = preset.panelGradient.stops.map((s, i) => ({
+      id: `preset-stop-${i}-${Date.now()}`,
       color: s.color,
       offset: s.offset
     }));
-    setStops(formatted);
-    setSelectedStopId(formatted[0].id!);
-    setGradientStyle(style);
-    applyGradientChange(formatted, style);
-  };
 
-  // Save current gradient as a custom preset to localStorage
-  const handleSaveCustomPreset = () => {
-    const name = presetNameInput.trim() || `Gradient ${customPresets.length + 1}`;
-    const newPreset = {
-      name,
-      stops: sortedStops.map((s) => ({ color: s.color, offset: s.offset })),
-      style: gradientStyle
+    setStops(sortedPanelStops);
+    setSelectedStopId(sortedPanelStops[0].id!);
+    setGradientStyle(preset.panelGradient.style);
+
+    const stripeStopsFormatted: GradientStopItem[] = (preset.stripe.stops || [
+      { color: preset.stripe.color, offset: 0 },
+      { color: '#ffffff', offset: 100 }
+    ]).map((s, i) => ({
+      id: `preset-stripe-${i}-${Date.now()}`,
+      color: s.color,
+      offset: s.offset
+    }));
+
+    setStripeEnabled(true);
+    setStripeColor(preset.stripe.color);
+    setStripeFillType(preset.stripe.fillType);
+    if (preset.stripe.gradientStyle) setStripeGradientStyle(preset.stripe.gradientStyle);
+    setStripeStops(stripeStopsFormatted);
+    setStripeSelectedStopId(stripeStopsFormatted[0].id!);
+
+    const panelUpdate: Partial<PanelConfig> = {
+      backgroundType: 'generate',
+      generatedStyle: preset.panelGradient.style,
+      generatedColor1: sortedPanelStops[0].color,
+      generatedColor2: sortedPanelStops[sortedPanelStops.length - 1].color,
+      gradientStops: sortedPanelStops
     };
-    const updated = [...customPresets, newPreset];
-    setCustomPresets(updated);
-    try {
-      localStorage.setItem('fivenest_photoshop_gradient_presets', JSON.stringify(updated));
-    } catch (e) {
-      console.error(e);
+
+    const stripeUpdate: Partial<TrimPartConfig> = {
+      enabled: true,
+      height: 2.0,
+      fillType: preset.stripe.fillType,
+      color: preset.stripe.color,
+      gradientStyle: preset.stripe.gradientStyle || 'gradient-linear-lr',
+      gradientStops: stripeStopsFormatted
+    };
+
+    if (onApplyFullJerseyPreset) {
+      onApplyFullJerseyPreset({
+        panelUpdates: panelUpdate,
+        stripeUpdates: stripeUpdate,
+        collarColor: preset.collarColor,
+        placketColor: preset.placketColor
+      });
+    } else {
+      onApplyAllPanels(panelUpdate);
+      onUpdateSleeveStripe(stripeUpdate);
     }
-    setPresetNameInput('');
-    setIsSavingPreset(false);
+
+    if (switchToEditorTab) {
+      setTab(switchToEditorTab);
+      setFeedbackMessage(`Loaded "${preset.name}". You can now customize colors & stops live!`);
+      setTimeout(() => setFeedbackMessage(null), 3800);
+    } else {
+      setFeedbackMessage(`Applied "${preset.name}" across all panels & 2" sleeve stripe!`);
+      setTimeout(() => setFeedbackMessage(null), 3800);
+    }
   };
 
-  const handleDeleteCustomPreset = (index: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const updated = customPresets.filter((_, idx) => idx !== index);
-    setCustomPresets(updated);
-    try {
-      localStorage.setItem('fivenest_photoshop_gradient_presets', JSON.stringify(updated));
-    } catch (e) {
-      console.error(e);
-    }
+  // Reset to Plain White / Blank
+  const handleResetBlank = () => {
+    onUpdatePanel(panelKey, {
+      backgroundType: 'generate',
+      generatedStyle: 'solid',
+      generatedColor1: '#FFFFFF',
+      generatedColor2: '#FFFFFF'
+    });
+    setSolidColor('#FFFFFF');
   };
 
   // Apply to All Panels
@@ -487,36 +780,6 @@ export default function ArtboardFillModal({
     }
   };
 
-  // Reset to Plain White / Blank
-  const handleResetBlank = () => {
-    onUpdatePanel(panelKey, {
-      backgroundType: 'generate',
-      generatedStyle: 'solid',
-      generatedColor1: '#FFFFFF',
-      generatedColor2: '#FFFFFF'
-    });
-    setSolidColor('#FFFFFF');
-  };
-
-  // Sleeve Stripe Toggle (Default is OFF)
-  const handleStripeToggle = (enabled: boolean) => {
-    setStripeEnabled(enabled);
-    onUpdateSleeveStripe({
-      enabled,
-      color: stripeColor,
-      height: 2.3
-    });
-  };
-
-  const handleStripeColorChange = (newColor: string) => {
-    setStripeColor(newColor);
-    onUpdateSleeveStripe({
-      enabled: stripeEnabled,
-      color: newColor,
-      height: 2.3
-    });
-  };
-
   return (
     <AnimatePresence>
       {/* 
@@ -531,11 +794,11 @@ export default function ArtboardFillModal({
           dragListener={false}
           dragMomentum={false}
           dragConstraints={{ left: -1200, right: 100, top: -50, bottom: 650 }}
-          initial={{ opacity: 0, scale: 0.95, y: 15 }}
+          initial={{ opacity: 0, scale: 0.96, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 15 }}
+          exit={{ opacity: 0, scale: 0.96, y: 15 }}
           transition={{ duration: 0.16 }}
-          className="pointer-events-auto bg-[#181B22]/95 backdrop-blur-2xl text-[#E2E8F0] border border-[#2E3544] rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.85),0_0_20px_rgba(228,87,46,0.15)] w-full max-w-lg overflow-hidden flex flex-col max-h-[92vh] select-none"
+          className="pointer-events-auto bg-[#181B22]/95 backdrop-blur-2xl text-[#E2E8F0] border border-[#2E3544] rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.85),0_0_25px_rgba(228,87,46,0.18)] w-full max-w-lg overflow-hidden flex flex-col max-h-[92vh] select-none"
         >
           {/* DRAGGABLE HEADER BAR */}
           <div
@@ -547,20 +810,20 @@ export default function ArtboardFillModal({
             <div className="flex items-center gap-2.5">
               <div 
                 className="w-7 h-7 rounded-lg bg-orange-500/20 text-[#E4572E] border border-orange-500/30 flex items-center justify-center font-bold"
-                title="Photoshop-Style Color & Gradient Studio"
+                title="Color & Gradient Studio"
               >
                 <Palette size={16} />
               </div>
               <div>
                 <h3 className="text-xs font-bold text-white flex items-center gap-2">
                   {panelNames[panelKey] || 'Artboard Fill'}
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/25">
-                    Moveable
+                  <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/25">
+                    Moveable Window
                   </span>
                 </h3>
                 <p className="text-[10px] text-gray-400 flex items-center gap-1">
                   <GripHorizontal size={11} className="text-gray-500" />
-                  Drag header to reposition • Artwork visible live behind
+                  Drag header to move • Artwork is visible live behind
                 </p>
               </div>
             </div>
@@ -574,60 +837,70 @@ export default function ArtboardFillModal({
             </button>
           </div>
 
+          {/* NOTIFICATION FEEDBACK BANNER */}
+          {feedbackMessage && (
+            <div className="bg-emerald-500/15 border-b border-emerald-500/30 px-4 py-1.5 text-[11px] font-bold text-emerald-400 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Check size={13} /> {feedbackMessage}
+              </span>
+              <button onClick={() => setFeedbackMessage(null)} className="text-emerald-300 hover:text-white">✕</button>
+            </div>
+          )}
+
           {/* LIVE GRADIENT / COLOR PREVIEW BAR */}
           <div className="px-4 pt-3 pb-1">
             <div
               className="h-9 rounded-xl border border-white/20 shadow-inner flex items-center justify-between px-3 text-xs font-semibold text-white/95 drop-shadow-sm transition-all"
               style={{ background: previewBackground }}
             >
-              <span className="bg-black/50 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-mono shadow-sm">
+              <span className="bg-black/60 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-mono shadow-sm">
                 {tab === 'solid'
                   ? solidColor.toUpperCase()
                   : `${sortedStops.length} STOPS • ${gradientStyle.replace('gradient-', '').replace('-', ' ').toUpperCase()}`}
               </span>
-              <span className="bg-black/50 backdrop-blur-md px-2 py-0.5 rounded text-[9px] font-bold text-orange-300">
-                LIVE PREVIEW
+              <span className="bg-black/60 backdrop-blur-md px-2 py-0.5 rounded text-[9px] font-bold text-orange-300">
+                LIVE ARTWORK PREVIEW
               </span>
             </div>
           </div>
 
           {/* NAVIGATION TABS */}
-          <div className="flex border-b border-[#2E3544] px-4 gap-1 pt-1.5 bg-[#14171E]/60">
+          <div className="flex border-b border-[#2E3544] px-3 gap-1 pt-1.5 bg-[#14171E]/60 text-xs">
             <button
               onClick={() => setTab('solid')}
-              className={`px-3 py-2 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
+              className={`px-2.5 py-2 font-bold transition-all border-b-2 flex items-center gap-1.5 ${
                 tab === 'solid'
                   ? 'border-[#E4572E] text-[#E4572E]'
                   : 'border-transparent text-gray-400 hover:text-gray-200'
               }`}
             >
               <span className="w-2.5 h-2.5 rounded-full border border-white/40" style={{ background: solidColor }} />
-              Solid Color
+              Solid
             </button>
 
             <button
               onClick={() => setTab('gradient')}
-              className={`px-3 py-2 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
+              className={`px-2.5 py-2 font-bold transition-all border-b-2 flex items-center gap-1.5 ${
                 tab === 'gradient'
                   ? 'border-[#E4572E] text-[#E4572E]'
                   : 'border-transparent text-gray-400 hover:text-gray-200'
               }`}
             >
               <Sparkles size={13} />
-              Photoshop Gradient
+              Gradient
             </button>
 
             {isSleeve && (
               <button
                 onClick={() => setTab('sleeveStripe')}
-                className={`px-3 py-2 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
+                className={`px-2.5 py-2 font-bold transition-all border-b-2 flex items-center gap-1.5 ${
                   tab === 'sleeveStripe'
                     ? 'border-[#E4572E] text-[#E4572E]'
                     : 'border-transparent text-gray-400 hover:text-gray-200'
                 }`}
               >
                 <Layers size={13} />
-                Sleeve Stripe (2.3")
+                Sleeve Stripe (2")
                 <span
                   className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
                     stripeEnabled
@@ -642,14 +915,14 @@ export default function ArtboardFillModal({
 
             <button
               onClick={() => setTab('presets')}
-              className={`px-3 py-2 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
+              className={`px-2.5 py-2 font-bold transition-all border-b-2 flex items-center gap-1.5 ${
                 tab === 'presets'
                   ? 'border-[#E4572E] text-[#E4572E]'
                   : 'border-transparent text-gray-400 hover:text-gray-200'
               }`}
             >
-              <Shirt size={13} />
-              Presets
+              <Wand2 size={13} />
+              Team Presets
             </button>
           </div>
 
@@ -716,7 +989,7 @@ export default function ArtboardFillModal({
 
             {/* 2. PHOTOSHOP-STYLE GRADIENT EDITOR TAB */}
             {tab === 'gradient' && (
-              <div className="space-y-4">
+              <div className="space-y-3.5">
                 {/* INTERACTIVE PHOTOSHOP SPECTRUM TRACK */}
                 <div className="bg-[#111319] p-3.5 rounded-xl border border-[#2E3544]">
                   <div className="flex items-center justify-between mb-2">
@@ -786,7 +1059,7 @@ export default function ArtboardFillModal({
                   {/* Active Selected Stop Controller */}
                   <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-[#2E3544]/80 mt-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-bold text-gray-400">Stop Color:</span>
+                      <span className="text-[10px] font-bold text-gray-400">Color:</span>
                       <input
                         type="color"
                         value={selectedStop.color}
@@ -893,92 +1166,14 @@ export default function ArtboardFillModal({
                     ))}
                   </div>
                 </div>
-
-                {/* QUICK PHOTOSHOP PRESET STRIP */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-bold text-gray-300">
-                      Photoshop & Athletic Presets
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setIsSavingPreset(!isSavingPreset)}
-                      className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/25"
-                    >
-                      <Plus size={11} /> Save Current
-                    </button>
-                  </div>
-
-                  {isSavingPreset && (
-                    <div className="flex items-center gap-2 mb-2 p-2 bg-[#111319] rounded-lg border border-cyan-500/30">
-                      <input
-                        type="text"
-                        placeholder="Preset Name (e.g. Bleed Blue 2)"
-                        value={presetNameInput}
-                        onChange={(e) => setPresetNameInput(e.target.value)}
-                        className="flex-1 bg-[#181B22] border border-[#2E3544] rounded px-2 py-1 text-xs text-white outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleSaveCustomPreset}
-                        className="px-2.5 py-1 bg-cyan-500 text-black text-xs font-bold rounded hover:bg-cyan-400"
-                      >
-                        Save
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                    {PHOTOSHOP_GRADIENT_PRESETS.map((preset) => {
-                      const css = `linear-gradient(135deg, ${preset.stops.map((s) => `${s.color} ${s.offset}%`).join(', ')})`;
-                      return (
-                        <button
-                          key={preset.name}
-                          type="button"
-                          onClick={() => handleLoadPreset(preset.stops, preset.style)}
-                          className="h-8 rounded-lg border border-white/10 hover:border-white/40 px-2 flex items-center justify-center text-[10px] font-bold text-white shadow-sm transition-transform active:scale-95"
-                          style={{ background: css }}
-                        >
-                          <span className="bg-black/50 px-1 py-0.5 rounded drop-shadow">
-                            {preset.name}
-                          </span>
-                        </button>
-                      );
-                    })}
-
-                    {customPresets.map((cp, idx) => {
-                      const css = `linear-gradient(135deg, ${cp.stops.map((s) => `${s.color} ${s.offset}%`).join(', ')})`;
-                      return (
-                        <div
-                          key={`custom-${idx}`}
-                          onClick={() => handleLoadPreset(cp.stops, cp.style)}
-                          className="relative h-8 rounded-lg border-2 border-cyan-400 px-2 flex items-center justify-center text-[10px] font-bold text-white shadow-sm cursor-pointer transition-transform active:scale-95"
-                          style={{ background: css }}
-                        >
-                          <span className="bg-black/60 px-1 py-0.5 rounded drop-shadow">
-                            {cp.name}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={(e) => handleDeleteCustomPreset(idx, e)}
-                            className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 text-white flex items-center justify-center text-[8px] font-bold"
-                            title="Delete custom preset"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
               </div>
             )}
 
-            {/* 3. SLEEVE BOTTOM STRIPE (2.3") TAB */}
+            {/* 3. SLEEVE BOTTOM STRIPE (2" FIXED) WITH GRADIENT EDITOR */}
             {tab === 'sleeveStripe' && isSleeve && (
-              <div className="space-y-4">
+              <div className="space-y-3.5">
                 {/* PROMINENT TOGGLE CARD: DEFAULT OFF */}
-                <div className="bg-[#111319] p-4 rounded-xl border border-[#2E3544] flex items-center justify-between">
+                <div className="bg-[#111319] p-3.5 rounded-xl border border-[#2E3544] flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">
                       <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
@@ -986,7 +1181,7 @@ export default function ArtboardFillModal({
                         Sleeve Bottom Stripe Visibility
                       </h4>
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
                           stripeEnabled
                             ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                             : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
@@ -996,7 +1191,7 @@ export default function ArtboardFillModal({
                       </span>
                     </div>
                     <p className="text-[11px] text-gray-400 mt-1">
-                      2.3" fixed height stripe across all sizes (18–60). Width auto-fits sleeve.
+                      Fixed <strong>2.0 Inches</strong> height on all sizes (18–60). Width auto-fits sleeve.
                     </p>
                   </div>
 
@@ -1022,7 +1217,7 @@ export default function ArtboardFillModal({
                 {!stripeEnabled && (
                   <div className="p-4 rounded-xl bg-zinc-900/60 border border-dashed border-zinc-700 text-center space-y-2">
                     <p className="text-xs text-gray-300">
-                      Sleeve stripe is currently <strong>OFF</strong>. Turn it ON to add a 2.3-inch bottom cuff stripe.
+                      Sleeve stripe is currently <strong>OFF</strong>. Turn it ON to add a 2.0-inch bottom cuff stripe.
                     </p>
                     <button
                       type="button"
@@ -1037,63 +1232,251 @@ export default function ArtboardFillModal({
                 {/* When Stripe is ON */}
                 {stripeEnabled && (
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#14171E] border border-[#2E3544] text-[11px]">
+                    {/* Fixed Height & Stripe Preview */}
+                    <div className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-[#14171E] border border-[#2E3544] text-[11px]">
                       <span className="text-gray-400">Fixed Print Height:</span>
-                      <span className="font-bold text-orange-400 font-mono">2.3 Inches (Fixed)</span>
+                      <span className="font-bold text-orange-400 font-mono">2.0 Inches (Fixed)</span>
                     </div>
 
-                    <div className="flex items-center gap-3 bg-[#111319] p-3 rounded-xl border border-[#2E3544]">
-                      <input
-                        type="color"
-                        value={stripeColor}
-                        onChange={(e) => handleStripeColorChange(e.target.value)}
-                        className="w-10 h-10 rounded-lg cursor-pointer border border-white/20 bg-transparent flex-shrink-0"
-                      />
-                      <div className="flex-1">
-                        <label className="text-[11px] font-semibold text-gray-400 block mb-1">
-                          Stripe Color (Hex)
-                        </label>
-                        <input
-                          type="text"
-                          value={stripeColor.toUpperCase()}
-                          onChange={(e) => {
-                            let val = e.target.value;
-                            if (!val.startsWith('#')) val = '#' + val;
-                            handleStripeColorChange(val);
+                    {/* Stripe Fill Type Switch: Solid vs Gradient */}
+                    <div className="flex items-center gap-1 bg-[#111319] p-1 rounded-xl border border-[#2E3544]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStripeFillType('solid');
+                          applyStripeUpdate({ fillType: 'solid' });
+                        }}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          stripeFillType === 'solid'
+                            ? 'bg-[#E4572E] text-white shadow-sm'
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        Solid Stripe Color
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStripeFillType('gradient');
+                          applyStripeUpdate({ fillType: 'gradient' });
+                        }}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                          stripeFillType === 'gradient'
+                            ? 'bg-[#E4572E] text-white shadow-sm'
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        <Sparkles size={12} />
+                        Gradient Sleeve Stripe
+                      </button>
+                    </div>
+
+                    {/* SOLID STRIPE CONTROLS */}
+                    {stripeFillType === 'solid' && (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3 bg-[#111319] p-3 rounded-xl border border-[#2E3544]">
+                          <input
+                            type="color"
+                            value={stripeColor}
+                            onChange={(e) => {
+                              setStripeColor(e.target.value);
+                              applyStripeUpdate({ color: e.target.value, fillType: 'solid' });
+                            }}
+                            className="w-10 h-10 rounded-lg cursor-pointer border border-white/20 bg-transparent flex-shrink-0"
+                          />
+                          <div className="flex-1">
+                            <label className="text-[11px] font-semibold text-gray-400 block mb-1">
+                              Stripe Hex Color
+                            </label>
+                            <input
+                              type="text"
+                              value={stripeColor.toUpperCase()}
+                              onChange={(e) => {
+                                let val = e.target.value;
+                                if (!val.startsWith('#')) val = '#' + val;
+                                setStripeColor(val);
+                                applyStripeUpdate({ color: val, fillType: 'solid' });
+                              }}
+                              className="w-full bg-[#181B22] border border-[#2E3544] rounded-lg px-2.5 py-1 text-xs font-mono font-bold text-white focus:border-[#E4572E] focus:outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Quick Swatches for Stripe */}
+                        <div>
+                          <h4 className="text-xs font-bold text-gray-300 mb-2">
+                            Quick Stripe Swatches
+                          </h4>
+                          <div className="grid grid-cols-7 gap-2">
+                            {SOLID_COLOR_PALETTE.slice(0, 14).map((swatch) => (
+                              <button
+                                key={swatch.name}
+                                onClick={() => {
+                                  setStripeColor(swatch.hex);
+                                  applyStripeUpdate({ color: swatch.hex, fillType: 'solid' });
+                                }}
+                                title={swatch.name}
+                                className={`h-8 rounded-lg border flex items-center justify-center transition-all ${
+                                  stripeColor.toLowerCase() === swatch.hex.toLowerCase()
+                                    ? 'border-orange-500 ring-2 ring-orange-500/50 scale-105'
+                                    : 'border-white/10 hover:border-white/40'
+                                }`}
+                                style={{ backgroundColor: swatch.hex }}
+                              >
+                                {stripeColor.toLowerCase() === swatch.hex.toLowerCase() && (
+                                  <Check
+                                    size={12}
+                                    className={swatch.dark ? 'text-white' : 'text-black'}
+                                  />
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* GRADIENT STRIPE CONTROLS (PHOTOSHOP-STYLE) */}
+                    {stripeFillType === 'gradient' && (
+                      <div className="space-y-3 bg-[#111319] p-3.5 rounded-xl border border-[#2E3544]">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-gray-300 flex items-center gap-1.5">
+                            <Sparkles size={12} className="text-orange-400" />
+                            Sleeve Stripe Gradient Slider
+                          </span>
+                          <span className="text-[10px] font-mono text-orange-400 font-bold bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/20">
+                            {stripeStops.length} Stops • Click to add stop
+                          </span>
+                        </div>
+
+                        {/* Spectrum Track */}
+                        <div
+                          ref={stripeSpectrumRef}
+                          onClick={handleStripeSpectrumClick}
+                          className="relative h-8 rounded-lg border-2 border-white/30 cursor-crosshair shadow-inner"
+                          style={{
+                            background: `linear-gradient(to right, ${stripeCssStopsString})`,
+                            marginBottom: '26px'
                           }}
-                          className="w-full bg-[#181B22] border border-[#2E3544] rounded-lg px-2.5 py-1 text-xs font-mono font-bold text-white focus:border-[#E4572E] focus:outline-none"
-                        />
-                      </div>
-                    </div>
+                          title="Click anywhere along the bar to add a new stripe color stop"
+                        >
+                          {stripeSortedStops.map((stop) => {
+                            const isSelected = stop.id === stripeSelectedStop.id;
+                            return (
+                              <div
+                                key={stop.id}
+                                onPointerDown={(e) => handleStripeStopPointerDown(e, stop.id!)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setStripeSelectedStopId(stop.id!);
+                                }}
+                                className="absolute -bottom-6 flex flex-col items-center cursor-grab active:cursor-grabbing transition-transform"
+                                style={{
+                                  left: `${stop.offset}%`,
+                                  transform: 'translateX(-50%)',
+                                  zIndex: isSelected ? 30 : 20
+                                }}
+                                title={`Color: ${stop.color} (${stop.offset}%)`}
+                              >
+                                <div
+                                  style={{
+                                    width: 0,
+                                    height: 0,
+                                    borderLeft: '5px solid transparent',
+                                    borderRight: '5px solid transparent',
+                                    borderBottom: isSelected ? '6px solid #F97316' : '6px solid #FFFFFF'
+                                  }}
+                                />
+                                <div
+                                  className={`w-3.5 h-3.5 rounded-sm shadow-md transition-all ${
+                                    isSelected
+                                      ? 'ring-2 ring-orange-500 ring-offset-1 ring-offset-[#111319] scale-110'
+                                      : 'border border-white/80'
+                                  }`}
+                                  style={{ backgroundColor: stop.color }}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
 
-                    {/* Quick Swatches for Stripe */}
-                    <div>
-                      <h4 className="text-xs font-bold text-gray-300 mb-2">
-                        Stripe Color Swatches
-                      </h4>
-                      <div className="grid grid-cols-7 gap-2">
-                        {SOLID_COLOR_PALETTE.slice(0, 14).map((swatch) => (
-                          <button
-                            key={swatch.name}
-                            onClick={() => handleStripeColorChange(swatch.hex)}
-                            title={swatch.name}
-                            className={`h-8 rounded-lg border flex items-center justify-center transition-all ${
-                              stripeColor.toLowerCase() === swatch.hex.toLowerCase()
-                                ? 'border-orange-500 ring-2 ring-orange-500/50 scale-105'
-                                : 'border-white/10 hover:border-white/40'
-                            }`}
-                            style={{ backgroundColor: swatch.hex }}
-                          >
-                            {stripeColor.toLowerCase() === swatch.hex.toLowerCase() && (
-                              <Check
-                                size={12}
-                                className={swatch.dark ? 'text-white' : 'text-black'}
-                              />
-                            )}
-                          </button>
-                        ))}
+                        {/* Active Stop Controller */}
+                        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#2E3544]/80">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-bold text-gray-400">Stop:</span>
+                            <input
+                              type="color"
+                              value={stripeSelectedStop.color}
+                              onChange={(e) => handleStripeStopColorChange(e.target.value)}
+                              className="w-7 h-7 rounded cursor-pointer border border-white/20 bg-transparent flex-shrink-0"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-1 flex-1 min-w-[90px]">
+                            <input
+                              type="text"
+                              value={stripeSelectedStop.color.toUpperCase()}
+                              onChange={(e) => {
+                                let val = e.target.value;
+                                if (!val.startsWith('#')) val = '#' + val;
+                                handleStripeStopColorChange(val);
+                              }}
+                              className="w-full bg-[#181B22] border border-[#2E3544] rounded px-2 py-1 text-xs font-mono font-bold text-white focus:border-[#E4572E] focus:outline-none"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-gray-400">Pos:</span>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={stripeSelectedStop.offset}
+                              onChange={(e) => handleStripeStopOffsetChange(Number(e.target.value))}
+                              className="w-11 bg-[#181B22] border border-[#2E3544] rounded px-1.5 py-1 text-xs font-mono font-bold text-white text-center focus:border-[#E4572E] focus:outline-none"
+                            />
+                            <span className="text-[10px] text-gray-400 font-bold">%</span>
+                          </div>
+
+                          {stripeStops.length > 2 && (
+                            <button
+                              type="button"
+                              onClick={handleDeleteStripeStop}
+                              className="p-1.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 transition-colors"
+                              title="Delete selected color stop"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Angle direction buttons for sleeve stripe */}
+                        <div className="grid grid-cols-4 gap-1.5 pt-1">
+                          {[
+                            { key: 'gradient-linear-lr', label: 'Left ➔ Right' },
+                            { key: 'gradient-linear-tb', label: 'Top ➔ Bottom' },
+                            { key: 'gradient-linear-diag', label: 'Diagonal ↘' },
+                            { key: 'gradient-radial', label: 'Radial ⊙' }
+                          ].map((dir) => (
+                            <button
+                              key={dir.key}
+                              type="button"
+                              onClick={() => {
+                                setStripeGradientStyle(dir.key as any);
+                                applyStripeUpdate({ gradientStyle: dir.key as any });
+                              }}
+                              className={`py-1 rounded text-[10px] font-bold border ${
+                                stripeGradientStyle === dir.key
+                                  ? 'bg-[#E4572E] text-white border-[#E4572E]'
+                                  : 'bg-[#181B22] text-gray-400 border-[#2E3544]'
+                              }`}
+                            >
+                              {dir.label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     <div className="text-right">
                       <button
@@ -1109,29 +1492,89 @@ export default function ArtboardFillModal({
               </div>
             )}
 
-            {/* 4. PRESETS TAB */}
+            {/* 4. COMPLETE TEAM MATCHING PRESETS (ALL PANELS + 2" STRIPE + EDITABLE) */}
             {tab === 'presets' && (
               <div className="space-y-3">
-                <h4 className="text-xs font-bold text-gray-300">
-                  Select a Designer Team Gradient Preset
-                </h4>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {PHOTOSHOP_GRADIENT_PRESETS.map((preset) => {
-                    const css = `linear-gradient(135deg, ${preset.stops.map((s) => `${s.color} ${s.offset}%`).join(', ')})`;
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <Wand2 size={13} className="text-[#E4572E]" />
+                      Full Jersey Matching Presets
+                    </h4>
+                    <p className="text-[10px] text-gray-400">
+                      Coordinates Front, Back, Sleeves, 2" Sleeve Stripe, and Trim in 1-Click
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2.5">
+                  {COMPLETE_JERSEY_PRESETS.map((preset) => {
+                    const bodyCss = `linear-gradient(135deg, ${preset.panelGradient.stops.map((s) => `${s.color} ${s.offset}%`).join(', ')})`;
+                    const stripePreviewColor = preset.stripe.color;
+
                     return (
-                      <button
-                        key={preset.name}
-                        onClick={() => handleLoadPreset(preset.stops, preset.style)}
-                        className="p-3 rounded-xl border border-white/10 hover:border-white/40 flex flex-col justify-between h-20 text-left transition-transform active:scale-95 shadow-sm group"
-                        style={{ background: css }}
+                      <div
+                        key={preset.id}
+                        className="p-3 rounded-xl border border-white/10 bg-[#111319] hover:border-white/25 transition-all space-y-2.5"
                       >
-                        <span className="text-xs font-extrabold text-white drop-shadow-md">
-                          {preset.name}
-                        </span>
-                        <span className="text-[10px] font-mono text-white/90 bg-black/50 px-2 py-0.5 rounded w-max drop-shadow">
-                          {preset.stops.length} STOPS • {preset.style.replace('gradient-', '')}
-                        </span>
-                      </button>
+                        {/* Preset Header with Mini Jersey Preview */}
+                        <div className="flex items-center gap-3">
+                          {/* Mini Visual Swatch showing body gradient + bottom sleeve stripe */}
+                          <div
+                            className="w-14 h-12 rounded-lg border border-white/20 shadow-sm relative overflow-hidden flex flex-col justify-between flex-shrink-0"
+                            style={{ background: bodyCss }}
+                          >
+                            <span className="text-[8px] font-bold text-white/80 bg-black/40 px-1 py-0.2 rounded m-1 w-max">
+                              TEAM
+                            </span>
+                            {/* 2" Stripe preview band */}
+                            <div
+                              className="h-3 w-full border-t border-black/30 shadow-sm"
+                              style={{ backgroundColor: stripePreviewColor }}
+                              title="2.0-inch Matching Cuff Stripe"
+                            />
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <h5 className="text-xs font-bold text-white truncate">
+                                {preset.name}
+                              </h5>
+                              <span className="text-[9px] font-semibold px-2 py-0.2 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                                {preset.category}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-gray-400 truncate mt-0.5">
+                              {preset.description}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Actions for this Preset */}
+                        <div className="flex items-center gap-2 pt-1 border-t border-[#2E3544]/60">
+                          {/* 1-Click Apply to All Panels & Stripe */}
+                          <button
+                            type="button"
+                            onClick={() => handleApplyFullPreset(preset)}
+                            className="flex-1 py-1.5 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
+                            title="Apply matching colors to Front, Back, Sleeves and 2-inch Stripe"
+                          >
+                            <Check size={13} />
+                            Apply Full Jersey + 2" Stripe
+                          </button>
+
+                          {/* "If customer want to in that colour add Editor also" */}
+                          <button
+                            type="button"
+                            onClick={() => handleApplyFullPreset(preset, 'gradient')}
+                            className="py-1.5 px-3 rounded-lg bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-orange-400 text-[11px] font-bold transition-all flex items-center gap-1.5"
+                            title="Load these colors into the Gradient Editor to customize color stops"
+                          >
+                            <Edit3 size={12} />
+                            Customize in Editor
+                          </button>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>

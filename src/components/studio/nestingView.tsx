@@ -387,7 +387,7 @@ export const checkArtworkUploadStatus = (
     designConfig?.sleeveRight?.uploadedFileFullUrl ||
     (designConfig?.sleeveLeft?.backgroundType === 'generate' && designConfig?.sleeveLeft?.generatedColor1) ||
     (designConfig?.sleeveRight?.backgroundType === 'generate' && designConfig?.sleeveRight?.generatedColor1) ||
-    (designConfig?.trim?.sleeveStripe?.enabled === true && (designConfig?.trim?.sleeveStripe?.color || designConfig?.trim?.sleeveStripe?.uploadedUrl))
+    (designConfig?.trim?.sleeveStripe?.enabled === true && (designConfig?.trim?.sleeveStripe?.color || designConfig?.trim?.sleeveStripe?.uploadedUrl || designConfig?.trim?.sleeveStripe?.gradientStops))
   );
 
   const a4HasArtwork = Boolean(
@@ -397,7 +397,7 @@ export const checkArtworkUploadStatus = (
   const trimHasArtwork = Boolean(
     designConfig?.trim?.collar?.uploadedUrl ||
     designConfig?.trim?.placket?.uploadedUrl ||
-    (designConfig?.trim?.sleeveStripe?.enabled === true && (designConfig?.trim?.sleeveStripe?.uploadedUrl || designConfig?.trim?.sleeveStripe?.color))
+    (designConfig?.trim?.sleeveStripe?.enabled === true && (designConfig?.trim?.sleeveStripe?.uploadedUrl || designConfig?.trim?.sleeveStripe?.color || designConfig?.trim?.sleeveStripe?.gradientStops))
   );
 
   const anyArtworkUploaded = frontHasArtwork || backHasArtwork || sleeveHasArtwork || a4HasArtwork || trimHasArtwork;
@@ -1776,18 +1776,44 @@ export const NestingView: React.FC<NestingViewProps> = ({
           }
         }
 
-        // ── SLEEVE STRIPE AT BOTTOM (Height: 2.3 inches fixed, Width: fits sleeve panel) ──
+        // ── SLEEVE STRIPE AT BOTTOM (Height: 2.0 inches fixed, Width: fits sleeve panel) ──
         if (item.panelType === 'sleeve-left' || item.panelType === 'sleeve-right') {
           const stripeConf = designConfig?.trim?.sleeveStripe;
-          if (stripeConf && stripeConf.enabled === true && (stripeConf.color || stripeConf.uploadedUrl)) {
-            // Exactly 2.3 inches fixed height across ALL sizes 18 to 60!
-            const stripeHInches = stripeConf.height || 2.3;
+          if (stripeConf && stripeConf.enabled === true && (stripeConf.color || stripeConf.uploadedUrl || stripeConf.gradientStops)) {
+            // Exactly 2.0 inches fixed height across ALL sizes 18 to 60!
+            const stripeHInches = stripeConf.height || 2.0;
             const stripeHPx = Math.round(stripeHInches * scaleDpi);
             const stripeYPx = heightPx - stripeHPx;
             const stripeWPx = widthPx; // Fits panel width for this specific graded size!
 
             if (images.sleeveStripe) {
               ctx.drawImage(images.sleeveStripe, 0, stripeYPx, stripeWPx, stripeHPx);
+            } else if (stripeConf.fillType === 'gradient' || (stripeConf.gradientStops && stripeConf.gradientStops.length >= 2)) {
+              let grad: CanvasGradient;
+              const style = stripeConf.gradientStyle || 'gradient-linear-lr';
+              if (style === 'gradient-linear-lr') {
+                grad = ctx.createLinearGradient(0, stripeYPx, stripeWPx, stripeYPx);
+              } else if (style === 'gradient-linear-tb') {
+                grad = ctx.createLinearGradient(0, stripeYPx, 0, stripeYPx + stripeHPx);
+              } else if (style === 'gradient-linear-diag') {
+                grad = ctx.createLinearGradient(0, stripeYPx, stripeWPx, stripeYPx + stripeHPx);
+              } else {
+                grad = ctx.createRadialGradient(stripeWPx / 2, stripeYPx + stripeHPx / 2, 5, stripeWPx / 2, stripeYPx + stripeHPx / 2, Math.max(stripeWPx, stripeHPx) * 0.6);
+              }
+
+              const stops = stripeConf.gradientStops && stripeConf.gradientStops.length >= 2
+                ? [...stripeConf.gradientStops].sort((a: any, b: any) => a.offset - b.offset)
+                : [
+                    { color: stripeConf.color || '#171717', offset: 0 },
+                    { color: '#ffffff', offset: 100 }
+                  ];
+
+              stops.forEach((s: any) => {
+                const clamped = Math.max(0, Math.min(1, s.offset / 100));
+                grad.addColorStop(clamped, s.color);
+              });
+              ctx.fillStyle = grad;
+              ctx.fillRect(0, stripeYPx, stripeWPx, stripeHPx);
             } else if (stripeConf.color) {
               ctx.fillStyle = stripeConf.color;
               ctx.fillRect(0, stripeYPx, stripeWPx, stripeHPx);
