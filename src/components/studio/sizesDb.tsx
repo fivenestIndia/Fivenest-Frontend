@@ -79,6 +79,53 @@ export const BUILT_IN_PRESETS: Record<string, { label: string; description: stri
   }
 };
 
+export interface CollarExportDimensions {
+  small: { w: number; h: number }; // Sizes 18 to 30 (Youth)
+  big: { w: number; h: number };   // Sizes 32 to 60 (Adult)
+}
+
+export const DEFAULT_COLLAR_EXPORT_SIZES: CollarExportDimensions = {
+  small: { w: 16, h: 4.5 },
+  big: { w: 18, h: 4.5 }
+};
+
+export const getCollarExportSizes = (): CollarExportDimensions => {
+  try {
+    const saved = localStorage.getItem('fivenest_collar_export_sizes');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      const sw = parseFloat(parsed?.small?.w);
+      const sh = parseFloat(parsed?.small?.h);
+      const bw = parseFloat(parsed?.big?.w);
+      const bh = parseFloat(parsed?.big?.h);
+      return {
+        small: {
+          w: !isNaN(sw) && sw > 0 ? sw : 16,
+          h: !isNaN(sh) && sh > 0 ? sh : 4.5
+        },
+        big: {
+          w: !isNaN(bw) && bw > 0 ? bw : 18,
+          h: !isNaN(bh) && bh > 0 ? bh : 4.5
+        }
+      };
+    }
+  } catch (e) {
+    console.error("Failed to load collar export sizes:", e);
+  }
+  return DEFAULT_COLLAR_EXPORT_SIZES;
+};
+
+export const saveCollarExportSizes = (sizes: CollarExportDimensions) => {
+  try {
+    localStorage.setItem('fivenest_collar_export_sizes', JSON.stringify(sizes));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('collar-export-sizes-changed'));
+    }
+  } catch (e) {
+    console.error("Failed to save collar export sizes:", e);
+  }
+};
+
 interface SizesDbProps {
   onDatabaseChange?: (db: SizeDatabase) => void;
 }
@@ -145,6 +192,29 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
       return true;
     }
   });
+
+  const [collarExportSizes, setCollarExportSizes] = useState<CollarExportDimensions>(() => getCollarExportSizes());
+
+  const handleUpdateCollarExportSize = (setKey: 'small' | 'big', dim: 'w' | 'h', val: number) => {
+    setCollarExportSizes(prev => {
+      const next = {
+        ...prev,
+        [setKey]: {
+          ...prev[setKey],
+          [dim]: val > 0 ? val : 0.1
+        }
+      };
+      saveCollarExportSizes(next);
+      return next;
+    });
+  };
+
+  const handleResetCollarExportSizes = () => {
+    setCollarExportSizes(DEFAULT_COLLAR_EXPORT_SIZES);
+    saveCollarExportSizes(DEFAULT_COLLAR_EXPORT_SIZES);
+    setSaveMessage("Collar export dimensions reset to factory defaults (16\"×4.5\" & 18\"×4.5\")!");
+    setTimeout(() => setSaveMessage(""), 3500);
+  };
 
   // Load active size database from localStorage on mount
   useEffect(() => {
@@ -744,7 +814,206 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
         </div>
       </div>
 
-      {/* 4. Technical Alignment Marks Options */}
+      {/* 4. Collar Export Dimensions Editor (Youth & Adult) */}
+      <div className="glass-card" style={{ padding: '18px 20px', marginBottom: '20px', textAlign: 'left', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#111827', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              👔 Collar Export Dimensions Editor (Inches)
+            </h3>
+            <p style={{ fontSize: '12px', color: '#6B7280', margin: '4px 0 0' }}>
+              Customize physical export dimensions for collar panels. Small Collars apply to youth sizes (18 to 30) and Big Collar applies to adult sizes (32 to 60). Used in Roll Nesting and Individual Panels export.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleResetCollarExportSizes}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              fontSize: '11px',
+              fontWeight: '700',
+              background: '#F3F4F6',
+              color: '#4B5563',
+              border: '1px solid #D1D5DB',
+              borderRadius: '7px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            title="Reset collar sizes to standard default dimensions"
+          >
+            <RotateCcw size={13} /> Reset Collar Defaults
+          </button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+          {/* Small Collars (Youth: 18 - 30) */}
+          <div style={{ 
+            background: 'linear-gradient(135deg, #FFF7ED 0%, #FFFFFF 100%)', 
+            border: '1.5px solid #FED7AA', 
+            borderRadius: '10px', 
+            padding: '16px' 
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <div>
+                <span style={{ fontSize: '10px', fontWeight: '800', color: '#C2410C', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  YOUTH / JUNIOR COLLAR
+                </span>
+                <h4 style={{ margin: '2px 0 0', fontSize: '14px', fontWeight: '800', color: '#111827' }}>
+                  Small Collars (Sizes 18 to 30)
+                </h4>
+              </div>
+              <span style={{ fontSize: '10px', fontWeight: '800', background: '#FFEDD5', color: '#9A3412', border: '1px solid #FDBA74', padding: '2px 8px', borderRadius: '6px' }}>
+                Default: 16" × 4.5"
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#4B5563', marginBottom: '4px' }}>
+                  Width (inches)
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="1"
+                    value={collarExportSizes.small.w}
+                    onChange={(e) => handleUpdateCollarExportSize('small', 'w', parseFloat(e.target.value) || 0)}
+                    style={{
+                      width: '100%',
+                      height: '36px',
+                      padding: '0 28px 0 10px',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      borderRadius: '6px',
+                      border: '1px solid #D1D5DB',
+                      background: '#FFFFFF',
+                      color: '#111827'
+                    }}
+                  />
+                  <span style={{ position: 'absolute', right: '10px', top: '9px', fontSize: '11px', fontWeight: '700', color: '#9CA3AF' }}>in</span>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#4B5563', marginBottom: '4px' }}>
+                  Height (inches)
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="1"
+                    value={collarExportSizes.small.h}
+                    onChange={(e) => handleUpdateCollarExportSize('small', 'h', parseFloat(e.target.value) || 0)}
+                    style={{
+                      width: '100%',
+                      height: '36px',
+                      padding: '0 28px 0 10px',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      borderRadius: '6px',
+                      border: '1px solid #D1D5DB',
+                      background: '#FFFFFF',
+                      color: '#111827'
+                    }}
+                  />
+                  <span style={{ position: 'absolute', right: '10px', top: '9px', fontSize: '11px', fontWeight: '700', color: '#9CA3AF' }}>in</span>
+                </div>
+              </div>
+            </div>
+            <p style={{ margin: '8px 0 0', fontSize: '11px', color: '#6B7280' }}>
+              Exported as: <strong style={{ color: '#111827' }}>Small Collars = {'{qty}'} pcs (dimention = {collarExportSizes.small.w} x {collarExportSizes.small.h})</strong>
+            </p>
+          </div>
+
+          {/* Big Collar (Adult: 32 - 60) */}
+          <div style={{ 
+            background: 'linear-gradient(135deg, #EFF6FF 0%, #FFFFFF 100%)', 
+            border: '1.5px solid #BFDBFE', 
+            borderRadius: '10px', 
+            padding: '16px' 
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <div>
+                <span style={{ fontSize: '10px', fontWeight: '800', color: '#1D4ED8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  ADULT / MEN & WOMEN COLLAR
+                </span>
+                <h4 style={{ margin: '2px 0 0', fontSize: '14px', fontWeight: '800', color: '#111827' }}>
+                  Big Collar (Sizes 32 to 60)
+                </h4>
+              </div>
+              <span style={{ fontSize: '10px', fontWeight: '800', background: '#DBEAFE', color: '#1E40AF', border: '1px solid #93C5FD', padding: '2px 8px', borderRadius: '6px' }}>
+                Default: 18" × 4.5"
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#4B5563', marginBottom: '4px' }}>
+                  Width (inches)
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="1"
+                    value={collarExportSizes.big.w}
+                    onChange={(e) => handleUpdateCollarExportSize('big', 'w', parseFloat(e.target.value) || 0)}
+                    style={{
+                      width: '100%',
+                      height: '36px',
+                      padding: '0 28px 0 10px',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      borderRadius: '6px',
+                      border: '1px solid #D1D5DB',
+                      background: '#FFFFFF',
+                      color: '#111827'
+                    }}
+                  />
+                  <span style={{ position: 'absolute', right: '10px', top: '9px', fontSize: '11px', fontWeight: '700', color: '#9CA3AF' }}>in</span>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#4B5563', marginBottom: '4px' }}>
+                  Height (inches)
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="1"
+                    value={collarExportSizes.big.h}
+                    onChange={(e) => handleUpdateCollarExportSize('big', 'h', parseFloat(e.target.value) || 0)}
+                    style={{
+                      width: '100%',
+                      height: '36px',
+                      padding: '0 28px 0 10px',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      borderRadius: '6px',
+                      border: '1px solid #D1D5DB',
+                      background: '#FFFFFF',
+                      color: '#111827'
+                    }}
+                  />
+                  <span style={{ position: 'absolute', right: '10px', top: '9px', fontSize: '11px', fontWeight: '700', color: '#9CA3AF' }}>in</span>
+                </div>
+              </div>
+            </div>
+            <p style={{ margin: '8px 0 0', fontSize: '11px', color: '#6B7280' }}>
+              Exported as: <strong style={{ color: '#111827' }}>Big Collar = {'{qty}'} pcs (dimention = {collarExportSizes.big.w} x {collarExportSizes.big.h})</strong>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 5. Technical Alignment Marks Options */}
       <div className="glass-card" style={{ padding: '18px 20px', marginBottom: '20px', textAlign: 'left', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '12px' }}>
         <div style={{ marginBottom: '14px' }}>
           <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#111827', display: 'flex', alignItems: 'center', gap: '8px' }}>

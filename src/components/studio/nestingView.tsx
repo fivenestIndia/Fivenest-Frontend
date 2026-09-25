@@ -350,7 +350,11 @@ const getCachedImage = async (url: string): Promise<HTMLImageElement | null> => 
   }
 };
 
-import type { SizeDatabase } from './sizesDb';
+import { 
+  type SizeDatabase, 
+  type CollarExportDimensions, 
+  getCollarExportSizes 
+} from './sizesDb';
 import type { PlayerRecord, OrderMetadata } from './orderEntry';
 import { sampleImageEdgeColor, type ArtDesignConfig, type TextConfig } from './designer';
 
@@ -502,7 +506,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
   onGoToArtwork
 }) => {
   const artworkStatus = checkArtworkUploadStatus(designConfig, metadata);
-  const { anyArtworkUploaded, frontHasArtwork, backHasArtwork, sleeveHasArtwork } = artworkStatus;
+  const { anyArtworkUploaded, frontHasArtwork, backHasArtwork, sleeveHasArtwork, collarHasArtwork } = artworkStatus;
   const [enableNesting, setEnableNesting] = useState<boolean>(true);
   const [rollW, setRollW] = useState<number>(64);
   const [rollH, setRollH] = useState<number>(100); // Max paper height before page split
@@ -527,6 +531,16 @@ export const NestingView: React.FC<NestingViewProps> = ({
       const saved = localStorage.getItem('fivenest_pref_logo_watermark');
       return saved !== null ? JSON.parse(saved) : true;
     } catch (e) {
+      return true;
+    }
+  });
+
+  const [collarSizes, setCollarSizes] = useState<CollarExportDimensions>(() => getCollarExportSizes());
+  const [exportCollar, setExportCollar] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('fivenest_pref_export_collar');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch {
       return true;
     }
   });
@@ -744,6 +758,14 @@ export const NestingView: React.FC<NestingViewProps> = ({
     if (savedDpi) {
       try { setDpi(JSON.parse(savedDpi)); } catch (e) {}
     }
+
+    const handleCollarSizesChanged = () => {
+      setCollarSizes(getCollarExportSizes());
+    };
+    window.addEventListener('collar-export-sizes-changed', handleCollarSizesChanged);
+    return () => {
+      window.removeEventListener('collar-export-sizes-changed', handleCollarSizesChanged);
+    };
   }, []);
 
   // Helper to compile the list of all panel pieces to export on the fly with Selective Panel Filtering
@@ -887,18 +909,22 @@ export const NestingView: React.FC<NestingViewProps> = ({
           });
         }
 
-        // Collar panel: 18x4.5 (Youth 18-30 -> 16x4.5)
-        const includeCollar = cHas && !isSleeveOnly;
+        // Collar panel: 2 sets (Small Collars 18-30 & Big Collar 32-60)
+        // Custom dimensions loaded from Size Editor
+        // Total nested collars across the 2 sets = total number of t-shirts
+        const includeCollar = (cHas || exportCollar) && !isSleeveOnly && !isFrontOnly && !isBackOnly;
         if (includeCollar) {
           const isYouth = isYouthCollarSize(player.size);
+          const collarW = isYouth ? collarSizes.small.w : collarSizes.big.w;
+          const collarH = isYouth ? collarSizes.small.h : collarSizes.big.h;
           items.push({
-            recordId: itemIndex,
+            recordId: `${itemIndex}-collar`,
             playerName: player.name,
             playerNum: player.number,
             panelType: 'collar',
             size: player.size,
-            w: isYouth ? 16 : 18,
-            h: 4.5,
+            w: collarW,
+            h: collarH,
             x: 0,
             y: 0,
             rotated: false
@@ -2262,14 +2288,14 @@ export const NestingView: React.FC<NestingViewProps> = ({
             const adultCollars = collarItems.filter(it => !isYouthCollarSize(it.size));
             if (youthCollars.length > 0) {
               testPdfPages.push({
-                item: { ...youthCollars[0], w: 16, h: 4.5, qty: youthCollars.length },
-                label: `[Collar] 16"x4.5" Youth (18-30) Qty ${youthCollars.length}`
+                item: { ...youthCollars[0], w: collarSizes.small.w, h: collarSizes.small.h, qty: youthCollars.length },
+                label: `[Collar] Small Collars = ${youthCollars.length} pcs (dimention = ${collarSizes.small.w} x ${collarSizes.small.h})`
               });
             }
             if (adultCollars.length > 0) {
               testPdfPages.push({
-                item: { ...adultCollars[0], w: 18, h: 4.5, qty: adultCollars.length },
-                label: `[Collar] 18"x4.5" Adult (32-60) Qty ${adultCollars.length}`
+                item: { ...adultCollars[0], w: collarSizes.big.w, h: collarSizes.big.h, qty: adultCollars.length },
+                label: `[Collar] Big Collar = ${adultCollars.length} pcs (dimention = ${collarSizes.big.w} x ${collarSizes.big.h})`
               });
             }
           }
@@ -2543,7 +2569,8 @@ export const NestingView: React.FC<NestingViewProps> = ({
             });
           });
 
-          // Group Collars (Youth: 18-30 -> 16"x4.5", Adult: 32-60 -> 18"x4.5")
+          // Group Collars into exactly 2 sets (Youth: 18-30 -> Small Collars, Adult: 32-60 -> Big Collar)
+          // Export inside 'Sleeve' folder as ONLY 2 files with respective quantities and custom dimensions
           if (collarItems.length > 0) {
             const youthCollars = collarItems.filter(it => isYouthCollarSize(it.size));
             const adultCollars = collarItems.filter(it => !isYouthCollarSize(it.size));
@@ -2553,12 +2580,12 @@ export const NestingView: React.FC<NestingViewProps> = ({
               renderActions.push({
                 representativeItem: {
                   ...youthCollars[0],
-                  w: 16,
-                  h: 4.5,
+                  w: collarSizes.small.w,
+                  h: collarSizes.small.h,
                   qty: youthQty
                 },
-                fileName: `Collar_Sizes_18-30_16x4.5_Qty_${youthQty}.jpg`,
-                folder: 'Collar'
+                fileName: `Small Collars = ${youthQty} pcs (dimention = ${collarSizes.small.w} x ${collarSizes.small.h}).jpg`,
+                folder: 'Sleeve'
               });
             }
 
@@ -2567,12 +2594,12 @@ export const NestingView: React.FC<NestingViewProps> = ({
               renderActions.push({
                 representativeItem: {
                   ...adultCollars[0],
-                  w: 18,
-                  h: 4.5,
+                  w: collarSizes.big.w,
+                  h: collarSizes.big.h,
                   qty: adultQty
                 },
-                fileName: `Collar_Sizes_32-60_18x4.5_Qty_${adultQty}.jpg`,
-                folder: 'Collar'
+                fileName: `Big Collar = ${adultQty} pcs (dimention = ${collarSizes.big.w} x ${collarSizes.big.h}).jpg`,
+                folder: 'Sleeve'
               });
             }
           }
@@ -2666,14 +2693,14 @@ export const NestingView: React.FC<NestingViewProps> = ({
               const adultCollars = collarPreviewList.filter(it => !isYouthCollarSize(it.size));
               if (youthCollars.length > 0) {
                 previewPages.push({
-                  item: { ...youthCollars[0], w: 16, h: 4.5, qty: youthCollars.length },
-                  label: `[Collar] Youth 16"×4.5" (Sizes 18-30) Qty ${youthCollars.length}`
+                  item: { ...youthCollars[0], w: collarSizes.small.w, h: collarSizes.small.h, qty: youthCollars.length },
+                  label: `[Collar] Small Collars = ${youthCollars.length} pcs (dimention = ${collarSizes.small.w} x ${collarSizes.small.h})`
                 });
               }
               if (adultCollars.length > 0) {
                 previewPages.push({
-                  item: { ...adultCollars[0], w: 18, h: 4.5, qty: adultCollars.length },
-                  label: `[Collar] Adult 18"×4.5" (Sizes 32-60) Qty ${adultCollars.length}`
+                  item: { ...adultCollars[0], w: collarSizes.big.w, h: collarSizes.big.h, qty: adultCollars.length },
+                  label: `[Collar] Big Collar = ${adultCollars.length} pcs (dimention = ${collarSizes.big.w} x ${collarSizes.big.h})`
                 });
               }
               collarPreviewList.forEach(it => processedItemIds.add(it.recordId));
@@ -3236,6 +3263,17 @@ export const NestingView: React.FC<NestingViewProps> = ({
                   />
                   <span>Rotate 90° to Fit</span>
                 </label>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', color: '#374151' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={exportCollar} 
+                    onChange={(e) => {
+                      setExportCollar(e.target.checked);
+                      localStorage.setItem('fivenest_pref_export_collar', JSON.stringify(e.target.checked));
+                    }} 
+                  />
+                  <span>Export Collars (2 Sets: Youth &amp; Adult)</span>
+                </label>
               </div>
 
               <button 
@@ -3246,6 +3284,30 @@ export const NestingView: React.FC<NestingViewProps> = ({
               >
                 <Play size={14} /> {isNesting ? "Computing Optimal Layout..." : "▶ Re-Calculate Roll Packing"}
               </button>
+            </div>
+          )}
+
+          {!enableNesting && (
+            <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '10px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '800', color: '#111827' }}>
+                📁 ZIP Output Folder Structure
+              </div>
+              <div style={{ fontSize: '11px', color: '#4B5563', lineHeight: '1.4' }}>
+                • <strong>Front/</strong> &amp; <strong>Back/</strong>: Jersey body panels<br/>
+                • <strong>Sleeve/</strong>: Sleeves + 2 Collar files (<span style={{ color: '#E4572E', fontWeight: '700' }}>Small Collars</span> &amp; <span style={{ color: '#E4572E', fontWeight: '700' }}>Big Collar</span> with quantities)<br/>
+                • <strong>A4/</strong>: Standalone prints (if enabled)
+              </div>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', color: '#374151', marginTop: '4px' }}>
+                <input 
+                  type="checkbox" 
+                  checked={exportCollar} 
+                  onChange={(e) => {
+                    setExportCollar(e.target.checked);
+                    localStorage.setItem('fivenest_pref_export_collar', JSON.stringify(e.target.checked));
+                  }} 
+                />
+                <span>Include Collars inside Sleeve folder</span>
+              </label>
             </div>
           )}
         </div>
@@ -3362,6 +3424,17 @@ export const NestingView: React.FC<NestingViewProps> = ({
                   border: sleeveHasArtwork ? '1px solid #86EFAC' : '1px solid #E5E7EB'
                 }}>
                   Sleeves {sleeveHasArtwork ? '✓' : '—'}
+                </span>
+                <span style={{ 
+                  fontSize: '10px', 
+                  fontWeight: '800', 
+                  padding: '3px 8px', 
+                  borderRadius: '6px', 
+                  background: (collarHasArtwork || exportCollar) ? '#DCFCE7' : '#F3F4F6',
+                  color: (collarHasArtwork || exportCollar) ? '#15803D' : '#9CA3AF',
+                  border: (collarHasArtwork || exportCollar) ? '1px solid #86EFAC' : '1px solid #E5E7EB'
+                }}>
+                  Collar {(collarHasArtwork || exportCollar) ? '✓' : '—'}
                 </span>
               </div>
             </div>
