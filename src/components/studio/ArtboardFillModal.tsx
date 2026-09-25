@@ -3,7 +3,7 @@ import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { 
   X, Palette, Sparkles, Check, ArrowRightLeft, 
   RotateCcw, Sliders, CheckCheck, Shirt, Layers, 
-  GripHorizontal, Trash2, Plus, Edit3, Wand2
+  GripHorizontal, Trash2, Plus, Edit3, Wand2, Pipette
 } from 'lucide-react';
 import type { ArtDesignConfig, PanelConfig, TrimPartConfig, GradientStopItem, CollarConfig, CollarStripe } from './designer';
 import { defaultDesignConfig } from './designer';
@@ -63,6 +63,161 @@ export const SOLID_COLOR_PALETTE = [
   { name: 'Deep Violet', hex: '#4C1D95', dark: true },
   { name: 'Neon Magenta', hex: '#D946EF', dark: false },
   { name: 'Hot Pink', hex: '#EC4899', dark: false }
+];
+
+export function hslToHex(h: number, s: number, l: number): string {
+  l /= 100;
+  const a = (s * Math.min(l, 1 - l)) / 100;
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`.toUpperCase();
+}
+
+export interface CollarTemplate {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  bgColor: string;
+  curved: boolean;
+  curveAmount: number;
+  stripes: CollarStripe[];
+}
+
+export const COLLAR_TEMPLATES: CollarTemplate[] = [
+  {
+    id: 'ct-classic-navy',
+    name: 'Classic Navy & Dual White/Orange',
+    category: 'Varsity Athletic',
+    description: 'Deep Navy body with clean White & Sport Orange top stripes at 0.5" seam bleed',
+    bgColor: '#0A192F',
+    curved: true,
+    curveAmount: 0.8,
+    stripes: [
+      { id: 'cs-t1-1', color: '#FFFFFF', height: 0.15, yOffset: 0.50 },
+      { id: 'cs-t1-2', color: '#EA580C', height: 0.18, yOffset: 0.72 }
+    ]
+  },
+  {
+    id: 'ct-india-blue',
+    name: 'India Bleed Blue & Saffron Gold',
+    category: 'Cricket Pro',
+    description: 'Cobalt Royal Blue with vibrant Saffron Gold & Pure White curved stripes',
+    bgColor: '#0047AB',
+    curved: true,
+    curveAmount: 0.8,
+    stripes: [
+      { id: 'cs-t2-1', color: '#FF671F', height: 0.18, yOffset: 0.50 },
+      { id: 'cs-t2-2', color: '#FFFFFF', height: 0.14, yOffset: 0.74 }
+    ]
+  },
+  {
+    id: 'ct-madrid-white-gold',
+    name: 'Madrid Pure White & Royal Gold',
+    category: 'Football Classic',
+    description: 'Pure Ice White collar with royal gold and obsidian navy dual stripes',
+    bgColor: '#FFFFFF',
+    curved: false,
+    curveAmount: 0.8,
+    stripes: [
+      { id: 'cs-t3-1', color: '#D97706', height: 0.16, yOffset: 0.50 },
+      { id: 'cs-t3-2', color: '#0F172A', height: 0.16, yOffset: 0.72 }
+    ]
+  },
+  {
+    id: 'ct-varsity-tri',
+    name: 'Varsity Tri-Stripe Green/White/Red',
+    category: 'Retro Classic',
+    description: 'Matte Charcoal Black with traditional 3-color varsity stripes',
+    bgColor: '#111827',
+    curved: false,
+    curveAmount: 0.8,
+    stripes: [
+      { id: 'cs-t4-1', color: '#16A34A', height: 0.14, yOffset: 0.50 },
+      { id: 'cs-t4-2', color: '#FFFFFF', height: 0.14, yOffset: 0.68 },
+      { id: 'cs-t4-3', color: '#DC2626', height: 0.14, yOffset: 0.86 }
+    ]
+  },
+  {
+    id: 'ct-stealth-volt',
+    name: 'Stealth Carbon & Cyber Volt',
+    category: 'Esports Pro',
+    description: 'Pitch Black collar with high-voltage neon volt & clean white stripe',
+    bgColor: '#0B0D11',
+    curved: true,
+    curveAmount: 0.75,
+    stripes: [
+      { id: 'cs-t5-1', color: '#84CC16', height: 0.18, yOffset: 0.50 },
+      { id: 'cs-t5-2', color: '#FFFFFF', height: 0.12, yOffset: 0.74 }
+    ]
+  },
+  {
+    id: 'ct-brazil-canary',
+    name: 'Brazil Samba Canary & Forest Green',
+    category: 'National Team',
+    description: 'Golden Canary Yellow with rich Forest Green and Royal Blue edge stripes',
+    bgColor: '#FACC15',
+    curved: true,
+    curveAmount: 0.85,
+    stripes: [
+      { id: 'cs-t6-1', color: '#15803D', height: 0.18, yOffset: 0.50 },
+      { id: 'cs-t6-2', color: '#1D4ED8', height: 0.14, yOffset: 0.74 }
+    ]
+  },
+  {
+    id: 'ct-argentina-sky',
+    name: 'Argentina Albiceleste Sky & Gold',
+    category: 'Football Pro',
+    description: 'Albiceleste Sky Blue collar with pure white and sun gold stripe',
+    bgColor: '#0284C7',
+    curved: true,
+    curveAmount: 0.8,
+    stripes: [
+      { id: 'cs-t7-1', color: '#FFFFFF', height: 0.18, yOffset: 0.50 },
+      { id: 'cs-t7-2', color: '#EAB308', height: 0.14, yOffset: 0.74 }
+    ]
+  },
+  {
+    id: 'ct-red-devils',
+    name: 'Red Devils Crimson & Obsidian',
+    category: 'Athletic Bold',
+    description: 'Sport Red collar with contrasting White & Black dual stripes',
+    bgColor: '#DC2626',
+    curved: false,
+    curveAmount: 0.8,
+    stripes: [
+      { id: 'cs-t8-1', color: '#FFFFFF', height: 0.16, yOffset: 0.50 },
+      { id: 'cs-t8-2', color: '#0B0D11', height: 0.16, yOffset: 0.72 }
+    ]
+  },
+  {
+    id: 'ct-champion-gold',
+    name: 'Championship Black & Specular Gold',
+    category: 'Championship',
+    description: 'Pitch Black collar with single bold Metallic Gold 0.22" top stripe',
+    bgColor: '#000000',
+    curved: false,
+    curveAmount: 0.8,
+    stripes: [
+      { id: 'cs-t9-1', color: '#D4AF37', height: 0.22, yOffset: 0.50 }
+    ]
+  },
+  {
+    id: 'ct-australia-green',
+    name: 'Australia Baggy Green & Golden Wattle',
+    category: 'Cricket Pro',
+    description: 'Traditional deep forest green collar with bright golden wattle and white stripes',
+    bgColor: '#064E3B',
+    curved: true,
+    curveAmount: 0.8,
+    stripes: [
+      { id: 'cs-t10-1', color: '#EAB308', height: 0.18, yOffset: 0.50 },
+      { id: 'cs-t10-2', color: '#FFFFFF', height: 0.12, yOffset: 0.74 }
+    ]
+  }
 ];
 
 // Complete Jersey Team Matching Presets (All Panels + 2" Stripe + Trim)
@@ -344,6 +499,10 @@ export default function ArtboardFillModal({
   const dragControls = useDragControls();
   const spectrumBarRef = useRef<HTMLDivElement>(null);
   const stripeSpectrumRef = useRef<HTMLDivElement>(null);
+  const nativeColorInputRef = useRef<HTMLInputElement>(null);
+
+  // Sub-tab inside presets (Collar Templates vs Full Jersey Presets)
+  const [presetSubTab, setPresetSubTab] = useState<'collar' | 'jersey'>(() => panelKey === 'collar' ? 'collar' : 'jersey');
 
   // Active tab inside modal
   const [tab, setTab] = useState<'solid' | 'gradient' | 'sleeveStripe' | 'collarStripe' | 'presets'>(() => {
@@ -429,6 +588,9 @@ export default function ArtboardFillModal({
         setCollarCurveAmount(curC?.curveAmount ?? 0.8);
         setCollarStripes(curC?.stripes || []);
         setTab('collarStripe');
+        setPresetSubTab('collar');
+      } else {
+        setPresetSubTab('jersey');
       }
 
       setSolidColor(panel.generatedColor1 || '#FFFFFF');
@@ -778,6 +940,32 @@ export default function ArtboardFillModal({
     }
   };
 
+  // 1-Click Apply Collar Template
+  const handleApplyCollarTemplate = (tmpl: CollarTemplate, switchToEditor?: boolean) => {
+    setSolidColor(tmpl.bgColor);
+    setCollarCurved(tmpl.curved);
+    setCollarCurveAmount(tmpl.curveAmount);
+    setCollarStripes(tmpl.stripes);
+
+    onUpdatePanel('collar', {
+      backgroundType: 'generate',
+      generatedStyle: 'solid',
+      generatedColor1: tmpl.bgColor,
+      curved: tmpl.curved,
+      curveAmount: tmpl.curveAmount,
+      stripes: tmpl.stripes
+    } as any);
+
+    if (switchToEditor) {
+      setTab('collarStripe');
+      setFeedbackMessage(`Loaded "${tmpl.name}". You can now customize curve & stripes!`);
+      setTimeout(() => setFeedbackMessage(null), 3800);
+    } else {
+      setFeedbackMessage(`Applied "${tmpl.name}" Collar Template!`);
+      setTimeout(() => setFeedbackMessage(null), 3800);
+    }
+  };
+
   // Reset to Plain White / Blank
   const handleResetBlank = () => {
     onUpdatePanel(panelKey, {
@@ -977,28 +1165,121 @@ export default function ArtboardFillModal({
             {/* 1. SOLID COLOR TAB */}
             {tab === 'solid' && (
               <div className="space-y-3.5">
-                {/* Custom Color Input Row */}
-                <div className="flex items-center gap-3 bg-[#111319] p-3 rounded-xl border border-[#2E3544]">
+                {/* Interactive Color Picker & Palette Section */}
+                <div className="bg-[#111319] p-3.5 rounded-xl border border-[#2E3544] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <Pipette size={14} className="text-[#E4572E]" />
+                      Interactive Color Picker
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => nativeColorInputRef.current?.click()}
+                      className="px-2.5 py-1 rounded-lg bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-orange-400 text-[11px] font-bold transition-all flex items-center gap-1.5 shadow-sm"
+                      title="Open full system/browser color picker with eyedropper tool"
+                    >
+                      <Pipette size={12} />
+                      Open Eyedropper / Color Picker
+                    </button>
+                  </div>
+
+                  {/* Hidden Native Color Input that can be triggered programmatically */}
                   <input
+                    ref={nativeColorInputRef}
                     type="color"
-                    value={solidColor}
+                    value={solidColor.length === 7 ? solidColor : '#FFFFFF'}
                     onChange={(e) => handleApplySolid(e.target.value)}
-                    className="w-10 h-10 rounded-lg cursor-pointer border border-white/20 bg-transparent flex-shrink-0"
+                    className="sr-only"
                   />
-                  <div className="flex-1">
-                    <label className="text-[11px] font-semibold text-gray-400 block mb-1">
-                      Custom Hex Code
-                    </label>
+
+                  {/* Visual Swatch + Hex Input Row */}
+                  <div className="flex items-center gap-3">
+                    {/* Clickable Large Color Swatch with Pipette on Hover */}
+                    <button
+                      type="button"
+                      onClick={() => nativeColorInputRef.current?.click()}
+                      className="group relative w-12 h-11 rounded-xl border-2 border-white/30 shadow-md flex items-center justify-center cursor-pointer transition-transform active:scale-95 flex-shrink-0 overflow-hidden"
+                      style={{ backgroundColor: solidColor }}
+                      title="Click to open system color picker"
+                    >
+                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Pipette size={14} className="text-white drop-shadow" />
+                      </div>
+                    </button>
+
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-semibold text-gray-400">
+                          Hex Color Code
+                        </label>
+                        <span className="text-[10px] font-mono text-gray-500">
+                          {solidColor.toUpperCase()}
+                        </span>
+                      </div>
+                      <input
+                        type="text"
+                        value={solidColor.toUpperCase()}
+                        onChange={(e) => {
+                          let val = e.target.value;
+                          if (!val.startsWith('#')) val = '#' + val;
+                          handleApplySolid(val);
+                        }}
+                        className="w-full bg-[#181B22] border border-[#2E3544] rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-white focus:border-[#E4572E] focus:outline-none tracking-wider"
+                        placeholder="#FFFFFF"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Rainbow Hue Spectrum Slider */}
+                  <div className="space-y-1 pt-1">
+                    <div className="flex items-center justify-between text-[11px] text-gray-400">
+                      <span>Rainbow Hue Spectrum:</span>
+                      <span className="text-[10px] text-gray-500">Slide to browse vibrant colors</span>
+                    </div>
                     <input
-                      type="text"
-                      value={solidColor.toUpperCase()}
+                      type="range"
+                      min="0"
+                      max="360"
                       onChange={(e) => {
-                        let val = e.target.value;
-                        if (!val.startsWith('#')) val = '#' + val;
-                        handleApplySolid(val);
+                        const h = parseInt(e.target.value, 10);
+                        const hex = hslToHex(h, 95, 48);
+                        handleApplySolid(hex);
                       }}
-                      className="w-full bg-[#181B22] border border-[#2E3544] rounded-lg px-2.5 py-1 text-xs font-mono font-bold text-white focus:border-[#E4572E] focus:outline-none"
+                      className="w-full h-3.5 rounded-lg appearance-none cursor-pointer border border-white/20 shadow-inner"
+                      style={{
+                        background:
+                          'linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%)'
+                      }}
+                      title="Slide across full spectrum"
                     />
+                  </div>
+
+                  {/* Quick Core Neutrals Strip */}
+                  <div className="flex items-center justify-between pt-1 border-t border-[#232732]">
+                    <span className="text-[10px] text-gray-400 font-semibold">Core Neutrals:</span>
+                    <div className="flex items-center gap-1.5">
+                      {[
+                        { name: 'Pure White', hex: '#FFFFFF' },
+                        { name: 'Off-White', hex: '#F1F5F9' },
+                        { name: 'Silver', hex: '#94A3B8' },
+                        { name: 'Charcoal', hex: '#334155' },
+                        { name: 'Navy Black', hex: '#0F172A' },
+                        { name: 'Jet Black', hex: '#000000' }
+                      ].map((item) => (
+                        <button
+                          key={item.name}
+                          type="button"
+                          onClick={() => handleApplySolid(item.hex)}
+                          className={`w-5 h-5 rounded-md border transition-all ${
+                            solidColor.toLowerCase() === item.hex.toLowerCase()
+                              ? 'ring-2 ring-[#E4572E] scale-110 border-white'
+                              : 'border-white/20 hover:scale-105'
+                          }`}
+                          style={{ backgroundColor: item.hex }}
+                          title={`${item.name} (${item.hex})`}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -1541,6 +1822,59 @@ export default function ArtboardFillModal({
             {/* 3B. COLLAR STRIPES & CURVE EDITOR (18" x 4.5" Panel) */}
             {tab === 'collarStripe' && isCollar && (
               <div className="space-y-4">
+                {/* QUICK COLLAR TEMPLATES BAR */}
+                <div className="bg-[#111319] p-3 rounded-xl border border-[#2E3544] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-white flex items-center gap-1.5">
+                      <Shirt size={13} className="text-orange-400" />
+                      Quick Collar Templates
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPresetSubTab('collar');
+                        setTab('presets');
+                      }}
+                      className="text-[10px] text-orange-400 hover:text-orange-300 font-semibold"
+                    >
+                      View All Presets →
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                    {COLLAR_TEMPLATES.map((tmpl) => (
+                      <button
+                        key={tmpl.id}
+                        type="button"
+                        onClick={() => handleApplyCollarTemplate(tmpl, false)}
+                        className="flex-shrink-0 px-2.5 py-1.5 rounded-lg bg-[#181B22] border border-[#2E3544] hover:border-orange-500/60 transition-all flex items-center gap-2 group text-left"
+                        title={tmpl.description}
+                      >
+                        <div
+                          className="w-6 h-5 rounded-md border border-white/20 shadow-xs flex-shrink-0 relative overflow-hidden flex flex-col justify-start"
+                          style={{ backgroundColor: tmpl.bgColor }}
+                        >
+                          {tmpl.stripes.map((s, idx) => (
+                            <div
+                              key={idx}
+                              className="w-full"
+                              style={{
+                                height: `${Math.max(2, Math.round(s.height * 10))}px`,
+                                backgroundColor: s.color,
+                                marginBottom: '1px'
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-bold text-gray-200 group-hover:text-white block whitespace-nowrap">
+                            {tmpl.name}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* 1. CURVED COLLAR ARC SECTION */}
                 <div className="bg-[#111319] p-3.5 rounded-xl border border-[#2E3544] space-y-3">
                   <div className="flex items-center justify-between">
@@ -1872,89 +2206,221 @@ export default function ArtboardFillModal({
             )}
             {tab === 'presets' && (
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <Wand2 size={13} className="text-[#E4572E]" />
-                      Full Jersey Matching Presets
-                    </h4>
-                    <p className="text-[10px] text-gray-400">
-                      Coordinates Front, Back, Sleeves, 2" Sleeve Stripe, and Trim in 1-Click
-                    </p>
+                {/* PRESET SUB-TAB SWITCHER */}
+                <div className="flex items-center justify-between gap-2 border-b border-[#2E3544] pb-2">
+                  <div className="flex items-center bg-[#111319] p-1 rounded-xl border border-[#2E3544]">
+                    <button
+                      type="button"
+                      onClick={() => setPresetSubTab('collar')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        presetSubTab === 'collar'
+                          ? 'bg-[#E4572E] text-white shadow-sm'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      <Shirt size={13} />
+                      Collar Templates ({COLLAR_TEMPLATES.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPresetSubTab('jersey')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        presetSubTab === 'jersey'
+                          ? 'bg-[#E4572E] text-white shadow-sm'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      <Wand2 size={13} />
+                      Full Jersey Presets ({COMPLETE_JERSEY_PRESETS.length})
+                    </button>
                   </div>
+                  <span className="text-[10px] text-gray-400 font-medium hidden sm:inline">
+                    {presetSubTab === 'collar' ? '18" × 4.5" Collar & Stripes' : 'All Panels + 2" Stripe'}
+                  </span>
                 </div>
 
-                <div className="space-y-2.5">
-                  {COMPLETE_JERSEY_PRESETS.map((preset) => {
-                    const bodyCss = `linear-gradient(135deg, ${preset.panelGradient.stops.map((s) => `${s.color} ${s.offset}%`).join(', ')})`;
-                    const stripePreviewColor = preset.stripe.color;
-
-                    return (
-                      <div
-                        key={preset.id}
-                        className="p-3 rounded-xl border border-white/10 bg-[#111319] hover:border-white/25 transition-all space-y-2.5"
-                      >
-                        {/* Preset Header with Mini Jersey Preview */}
-                        <div className="flex items-center gap-3">
-                          {/* Mini Visual Swatch showing body gradient + bottom sleeve stripe */}
-                          <div
-                            className="w-14 h-12 rounded-lg border border-white/20 shadow-sm relative overflow-hidden flex flex-col justify-between flex-shrink-0"
-                            style={{ background: bodyCss }}
-                          >
-                            <span className="text-[8px] font-bold text-white/80 bg-black/40 px-1 py-0.2 rounded m-1 w-max">
-                              TEAM
-                            </span>
-                            {/* 2" Stripe preview band */}
-                            <div
-                              className="h-3 w-full border-t border-black/30 shadow-sm"
-                              style={{ backgroundColor: stripePreviewColor }}
-                              title="2.0-inch Matching Cuff Stripe"
-                            />
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <h5 className="text-xs font-bold text-white truncate">
-                                {preset.name}
-                              </h5>
-                              <span className="text-[9px] font-semibold px-2 py-0.2 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20">
-                                {preset.category}
-                              </span>
-                            </div>
-                            <p className="text-[10px] text-gray-400 truncate mt-0.5">
-                              {preset.description}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Actions for this Preset */}
-                        <div className="flex items-center gap-2 pt-1 border-t border-[#2E3544]/60">
-                          {/* 1-Click Apply to All Panels & Stripe */}
-                          <button
-                            type="button"
-                            onClick={() => handleApplyFullPreset(preset)}
-                            className="flex-1 py-1.5 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
-                            title="Apply matching colors to Front, Back, Sleeves and 2-inch Stripe"
-                          >
-                            <Check size={13} />
-                            Apply Full Jersey + 2" Stripe
-                          </button>
-
-                          {/* "If customer want to in that colour add Editor also" */}
-                          <button
-                            type="button"
-                            onClick={() => handleApplyFullPreset(preset, 'gradient')}
-                            className="py-1.5 px-3 rounded-lg bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-orange-400 text-[11px] font-bold transition-all flex items-center gap-1.5"
-                            title="Load these colors into the Gradient Editor to customize color stops"
-                          >
-                            <Edit3 size={12} />
-                            Customize in Editor
-                          </button>
-                        </div>
+                {/* 1. COLLAR TEMPLATES SUB-TAB */}
+                {presetSubTab === 'collar' && (
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                          <Shirt size={13} className="text-[#E4572E]" />
+                          Ready-Made Athletic Collar Templates
+                        </h4>
+                        <p className="text-[10px] text-gray-400">
+                          Pre-designed collars with top edge stripes, curved arcs & bleed allowances
+                        </p>
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2.5 max-h-[50vh] overflow-y-auto pr-1">
+                      {COLLAR_TEMPLATES.map((tmpl) => (
+                        <div
+                          key={tmpl.id}
+                          className="p-3 rounded-xl border border-white/10 bg-[#111319] hover:border-white/25 transition-all space-y-2.5"
+                        >
+                          <div className="flex items-center gap-3">
+                            {/* Collar Visual Preview Banner */}
+                            <div
+                              className="w-20 h-10 rounded-lg border border-white/20 shadow-sm relative overflow-hidden flex flex-col justify-start flex-shrink-0"
+                              style={{ backgroundColor: tmpl.bgColor }}
+                              title={`Background: ${tmpl.bgColor}`}
+                            >
+                              {/* Draw stripes inside collar preview */}
+                              {tmpl.stripes.map((s, sIdx) => (
+                                <div
+                                  key={sIdx}
+                                  className="w-full"
+                                  style={{
+                                    height: `${Math.max(2, Math.round(s.height * 10))}px`,
+                                    backgroundColor: s.color,
+                                    marginTop: sIdx === 0 ? `${Math.round(s.yOffset * 3)}px` : '2px'
+                                  }}
+                                  title={`Stripe #${sIdx + 1}: ${s.color}`}
+                                />
+                              ))}
+                              {tmpl.curved && (
+                                <div className="absolute bottom-0 inset-x-0 h-1 bg-white/20 rounded-t-full" />
+                              )}
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <h5 className="text-xs font-bold text-white truncate">
+                                  {tmpl.name}
+                                </h5>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] font-semibold px-2 py-0.2 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                    {tmpl.curved ? 'Curved Arc' : 'Flat'}
+                                  </span>
+                                  <span className="text-[9px] font-semibold px-2 py-0.2 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                                    {tmpl.stripes.length} Stripe{tmpl.stripes.length === 1 ? '' : 's'}
+                                  </span>
+                                </div>
+                              </div>
+                              <p className="text-[10px] text-gray-400 truncate mt-0.5">
+                                {tmpl.description}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons for Collar Template */}
+                          <div className="flex items-center gap-2 pt-1 border-t border-[#2E3544]/60">
+                            <button
+                              type="button"
+                              onClick={() => handleApplyCollarTemplate(tmpl, false)}
+                              className="flex-1 py-1.5 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
+                              title="Apply this template directly to collar artboard"
+                            >
+                              <Check size={13} />
+                              Apply Collar
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleApplyCollarTemplate(tmpl, true)}
+                              className="py-1.5 px-3 rounded-lg bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-orange-400 text-[11px] font-bold transition-all flex items-center gap-1.5"
+                              title="Load into editor to customize stripes, colors and curve"
+                            >
+                              <Edit3 size={12} />
+                              Customize in Editor
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. FULL JERSEY PRESETS SUB-TAB */}
+                {presetSubTab === 'jersey' && (
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                          <Wand2 size={13} className="text-[#E4572E]" />
+                          Full Jersey Matching Presets
+                        </h4>
+                        <p className="text-[10px] text-gray-400">
+                          Coordinates Front, Back, Sleeves, 2" Sleeve Stripe, and Trim in 1-Click
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1">
+                      {COMPLETE_JERSEY_PRESETS.map((preset) => {
+                        const bodyCss = `linear-gradient(135deg, ${preset.panelGradient.stops.map((s) => `${s.color} ${s.offset}%`).join(', ')})`;
+                        const stripePreviewColor = preset.stripe.color;
+
+                        return (
+                          <div
+                            key={preset.id}
+                            className="p-3 rounded-xl border border-white/10 bg-[#111319] hover:border-white/25 transition-all space-y-2.5"
+                          >
+                            {/* Preset Header with Mini Jersey Preview */}
+                            <div className="flex items-center gap-3">
+                              {/* Mini Visual Swatch showing body gradient + bottom sleeve stripe */}
+                              <div
+                                className="w-14 h-12 rounded-lg border border-white/20 shadow-sm relative overflow-hidden flex flex-col justify-between flex-shrink-0"
+                                style={{ background: bodyCss }}
+                              >
+                                <span className="text-[8px] font-bold text-white/80 bg-black/40 px-1 py-0.2 rounded m-1 w-max">
+                                  TEAM
+                                </span>
+                                {/* 2" Stripe preview band */}
+                                <div
+                                  className="h-3 w-full border-t border-black/30 shadow-sm"
+                                  style={{ backgroundColor: stripePreviewColor }}
+                                  title="2.0-inch Matching Cuff Stripe"
+                                />
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <h5 className="text-xs font-bold text-white truncate">
+                                    {preset.name}
+                                  </h5>
+                                  <span className="text-[9px] font-semibold px-2 py-0.2 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                                    {preset.category}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-gray-400 truncate mt-0.5">
+                                  {preset.description}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Actions for this Preset */}
+                            <div className="flex items-center gap-2 pt-1 border-t border-[#2E3544]/60">
+                              {/* 1-Click Apply to All Panels & Stripe */}
+                              <button
+                                type="button"
+                                onClick={() => handleApplyFullPreset(preset)}
+                                className="flex-1 py-1.5 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
+                                title="Apply matching colors to Front, Back, Sleeves and 2-inch Stripe"
+                              >
+                                <Check size={13} />
+                                Apply Full Jersey + 2" Stripe
+                              </button>
+
+                              {/* "If customer want to in that colour add Editor also" */}
+                              <button
+                                type="button"
+                                onClick={() => handleApplyFullPreset(preset, 'gradient')}
+                                className="py-1.5 px-3 rounded-lg bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-orange-400 text-[11px] font-bold transition-all flex items-center gap-1.5"
+                                title="Load these colors into the Gradient Editor to customize color stops"
+                              >
+                                <Edit3 size={12} />
+                                Customize in Editor
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

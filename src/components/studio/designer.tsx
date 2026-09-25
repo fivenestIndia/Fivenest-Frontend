@@ -1073,7 +1073,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
       const stroke3ptPx = Math.max(1, Math.round((3 / 72) * scale));
 
-      if (centerMarks && panelKey !== 'a4Print') {
+      if (centerMarks && panelKey !== 'a4Print' && panelKey !== 'collar') {
         ctx.save();
         ctx.shadowColor = 'transparent';
 
@@ -1097,7 +1097,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.restore();
       }
 
-      if (sizeWatermarks && panelKey !== 'a4Print') {
+      if (sizeWatermarks && panelKey !== 'a4Print' && panelKey !== 'collar') {
         ctx.save();
         // FIXED 14pt text size — same physical size on ALL panels
         const pxPerInch = width / physicalW;
@@ -1464,7 +1464,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const savedR = localStorage.getItem('fivenest_pref_rulers');
       if (savedR !== null) rulersPref = JSON.parse(savedR);
     } catch (e) {}
-    const rulersEnabled = !is3DPreview && rulersPref;
+    const rulersEnabled = !is3DPreview && rulersPref && (panelKey !== 'collar');
     const rulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
 
     const drawRulersAndGrid = (ctx: CanvasRenderingContext2D) => {
@@ -1814,9 +1814,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               ctx.strokeRect(0, 0, width, height);
             }
 
-            // 0.5" Bleed Space Guide Line (top margin for sewing / fold seam)
+            // 0.5" Bleed Space Guide Line (top margin for sewing / fold seam - clean line without text inside panel)
             const bleedY = Math.round((0.5 / collarPhysicalH) * height);
-            ctx.strokeStyle = 'rgba(234, 88, 12, 0.7)';
+            ctx.strokeStyle = 'rgba(234, 88, 12, 0.55)';
             ctx.lineWidth = 1;
             ctx.setLineDash([4, 4]);
             ctx.beginPath();
@@ -1824,22 +1824,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ctx.lineTo(width, bleedY);
             ctx.stroke();
             ctx.setLineDash([]);
-
-            // 0.5" Bleed Label
-            ctx.fillStyle = 'rgba(234, 88, 12, 0.9)';
-            ctx.font = 'bold 9px system-ui, sans-serif';
-            ctx.textAlign = 'right';
-            ctx.fillText('0.5" BLEED LINE', width - 8, Math.max(11, bleedY - 3));
-
-            // Size badge watermark in corner
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-            ctx.font = 'bold 10px system-ui, sans-serif';
-            ctx.textAlign = 'left';
-            ctx.fillText(
-              `18" × 4.5" ${collarConf.curved ? '(Curved Collar)' : '(Flat Collar)'}`,
-              10,
-              Math.max(22, bleedY + 14)
-            );
             ctx.restore();
           }
         }
@@ -2311,12 +2295,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const rulerOffset = rulersPref ? Math.round(0.55 * scale) : 0;
 
     if (activeTab === 'dual') {
-      // 0. Collar Panel (18" x 4.5" at top)
+      // 0. Collar Panel (18" x 4.5" at top - fits 100% edge-to-edge without extra ruler offset)
       if (collarCanvasRef.current) {
         const cCtx = collarCanvasRef.current.getContext('2d');
         if (cCtx) {
-          collarCanvasRef.current.width = (collarSpreadWidth + rulerOffset) * zoom;
-          collarCanvasRef.current.height = (collarSpreadHeight + rulerOffset) * zoom;
+          collarCanvasRef.current.width = Math.round(collarSpreadWidth * zoom);
+          collarCanvasRef.current.height = Math.round(collarSpreadHeight * zoom);
           cCtx.scale(zoom, zoom);
           renderPanelToCanvas('collar', cCtx, collarSpreadWidth, collarSpreadHeight, scale, false);
         }
@@ -2369,8 +2353,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = (width + rulerOffset) * zoom;
-    canvas.height = (height + rulerOffset) * zoom;
+    const currentRulerOffset = activeTab === 'collar' ? 0 : rulerOffset;
+    canvas.width = Math.round((width + currentRulerOffset) * zoom);
+    canvas.height = Math.round((height + currentRulerOffset) * zoom);
     ctx.scale(zoom, zoom);
 
     renderPanelToCanvas(activeTab, ctx, width, height, scale, false);
@@ -3378,11 +3363,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           border: dualActivePanel === 'collar' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
                           boxShadow: dualActivePanel === 'collar' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
                           cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer',
-                          width: `${Math.round((collarSpreadWidth + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
-                          height: `${Math.round((collarSpreadHeight + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                          width: `${Math.round(collarSpreadWidth * zoom)}px`,
+                          height: `${Math.round(collarSpreadHeight * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
-                          objectFit: 'contain',
+                          objectFit: 'fill',
+                          display: 'block',
                           flexShrink: 0
                         }} 
                       />
@@ -3727,11 +3713,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       border: '2px solid rgba(0, 240, 255, 0.5)', 
                       boxShadow: '0 0 50px rgba(0,0,0,0.95)',
                       cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : 'pointer',
-                      width: `${Math.round((width + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
-                      height: `${Math.round((height + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                      width: `${Math.round((width + ((rulersEnabled && activeTab !== 'collar') ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                      height: `${Math.round((height + ((rulersEnabled && activeTab !== 'collar') ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                       maxWidth: 'none',
                       maxHeight: 'none',
-                      objectFit: 'contain',
+                      objectFit: activeTab === 'collar' ? 'fill' : 'contain',
                       flexShrink: 0
                     }} 
                   />
