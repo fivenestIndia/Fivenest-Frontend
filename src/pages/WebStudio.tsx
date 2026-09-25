@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Palette, Users, Ruler, Sliders, Sparkles, Sun, Moon, Menu, X, Award, ExternalLink, Package, ReceiptText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -9,7 +9,8 @@ import { OrderEntry } from '../components/studio/orderEntry';
 import type { PlayerRecord, OrderMetadata } from '../components/studio/orderEntry';
 import { SizesDb, defaultSizes } from '../components/studio/sizesDb';
 import type { SizeDatabase } from '../components/studio/sizesDb';
-import { NestingView } from '../components/studio/nestingView';
+import { NestingView, type NestingViewHandle } from '../components/studio/nestingView';
+import { MobileStudioView } from '../components/studio/MobileStudioView';
 import { HelpCenter } from '../components/studio/helpCenter';
 import { BillingSystem } from '../components/studio/billingSystem';
 import { LoginModal } from '../components/studio/loginModal';
@@ -179,6 +180,63 @@ export default function WebStudio() {
     { id: 'help', step: null, label: 'AI Data Refiner', icon: Sparkles },
     { id: 'billing', step: null, label: 'Invoice & Bill', icon: ReceiptText },
   ];
+
+  const mobileNestingRef = useRef<NestingViewHandle>(null);
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    return typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  if (isMobile) {
+    return (
+      <>
+        <MobileStudioView
+          records={records}
+          onRecordsChange={setRecords}
+          metadata={metadata}
+          onMetadataChange={setMetadata}
+          designConfig={designConfig}
+          onDesignConfigChange={setDesignConfig}
+          sizeDB={sizeDB}
+          currentUser={currentUser}
+          onUserChange={setCurrentUser}
+          testMode={testMode}
+          onTestModeChange={handleTestModeChange}
+          onOpenLogin={() => setLoginModalOpen(true)}
+          nestingRef={mobileNestingRef}
+        />
+        {/* Hidden NestingView instance to provide full high-res PDF/ZIP rendering and billing execution */}
+        <div style={{ display: 'none' }} aria-hidden="true">
+          <NestingView
+            ref={mobileNestingRef}
+            records={records}
+            metadata={metadata}
+            sizeDB={sizeDB}
+            designConfig={designConfig}
+            currentUser={currentUser}
+            testMode={testMode}
+            onUserChange={setCurrentUser}
+            onOpenLogin={() => setLoginModalOpen(true)}
+            onGoToArtwork={() => {}}
+          />
+        </div>
+        {loginModalOpen && (
+          <LoginModal 
+            onClose={() => setLoginModalOpen(false)} 
+            onLoginStateChange={setCurrentUser}
+            currentUser={currentUser}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <div className={`app-layout ${themeMode}`}>

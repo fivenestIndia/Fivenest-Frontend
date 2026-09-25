@@ -1,5 +1,5 @@
 // BUILD v20260906-r5 — FiveNest Studio Export Processing Modal
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import { jsPDF } from 'jspdf';
 import confetti from 'canvas-confetti';
 import { Play, Download, Sliders, Coins, QrCode, CheckCircle, AlertTriangle, Loader2, X, Palette } from 'lucide-react';
@@ -494,7 +494,18 @@ class PackNode {
   }
 }
 
-export const NestingView: React.FC<NestingViewProps> = ({
+export interface NestingViewHandle {
+  exportRollPDF: () => Promise<void>;
+  exportPanelsZip: () => Promise<void>;
+  calculateCost: () => number;
+  executePaymentWithWallet: () => Promise<void>;
+  executePaymentWithUPI: () => void;
+  isExporting: boolean;
+  exportProgress: string;
+  exportProgressPct: number;
+}
+
+export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(function NestingView({
   records,
   metadata,
   sizeDB,
@@ -504,7 +515,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
   onUserChange,
   onOpenLogin,
   onGoToArtwork
-}) => {
+}, ref) {
   const artworkStatus = checkArtworkUploadStatus(designConfig, metadata);
   const { anyArtworkUploaded, frontHasArtwork, backHasArtwork, sleeveHasArtwork, collarHasArtwork } = artworkStatus;
   const [enableNesting, setEnableNesting] = useState<boolean>(true);
@@ -2104,14 +2115,37 @@ export const NestingView: React.FC<NestingViewProps> = ({
     }
   };
 
+  const calculateCost = () => {
+    const items = getItemsToExport();
+    const backHasArtwork = Boolean(
+      designConfig?.back?.uploadedFileUrl || 
+      (designConfig?.back?.backgroundType === 'upload' && designConfig?.back?.uploadedFileUrl) ||
+      designConfig?.back?.backgroundType === 'generate'
+    );
+    const activeRate = includeWatermarkLogo ? 3.00 : 5.00;
+    return items.reduce((acc, item) => {
+      if (item.panelType === 'back') {
+        return acc + (backHasArtwork ? activeRate : 0);
+      } else if (item.panelType === 'a4-print') {
+        return acc + 0.50;
+      }
+      return acc;
+    }, 0);
+  };
+
   // Compile full nesting sheets and save PDF
-  const handleExportPDF = async () => {
+  const handleExportPDF = async (overrideNesting?: boolean) => {
+    const isNestingActive = overrideNesting !== undefined ? overrideNesting : enableNesting;
+    if (overrideNesting !== undefined) {
+      setEnableNesting(overrideNesting);
+    }
+
     if (!anyArtworkUploaded) {
       alert("Artwork file is not detected!\n\nNo uploaded artwork was found in Step 1: Artwork. Please upload an artwork file for at least one panel (Front, Back, or Sleeves) before exporting.");
       return;
     }
 
-    if (enableNesting && nestingSheets.length === 0) {
+    if (isNestingActive && nestingSheets.length === 0) {
       // Auto-run nesting calculation so user doesn't get blocked
       runNesting();
       // Allow state update
@@ -2127,21 +2161,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
       return;
     }
 
-    const backHasArtwork = Boolean(
-      designConfig?.back?.uploadedFileUrl || 
-      (designConfig?.back?.backgroundType === 'upload' && designConfig?.back?.uploadedFileUrl) ||
-      designConfig?.back?.backgroundType === 'generate'
-    );
-    const activeRate = includeWatermarkLogo ? 3.00 : 5.00;
-    const calculatedCost = items.reduce((acc, item) => {
-      if (item.panelType === 'back') {
-        // If client did not upload back image / artwork, charge 0 rs
-        return acc + (backHasArtwork ? activeRate : 0);
-      } else if (item.panelType === 'a4-print') {
-        return acc + 0.50;
-      }
-      return acc;
-    }, 0);
+    const calculatedCost = calculateCost();
 
     const executeExport = async () => {
       setIsExporting(true);
@@ -2415,7 +2435,7 @@ export const NestingView: React.FC<NestingViewProps> = ({
           return;
         }
 
-        if (!enableNesting) {
+        if (!isNestingActive) {
           // EXPORT AS ZIP OF INDIVIDUAL IMAGES (Front, Back, Sleeve, A4 folders)
           const frontOverlaysChecked = (designConfig.front.nameConfig.enabled || designConfig.front.numberConfig.enabled) && !metadata.blankKit;
           const backOverlaysChecked = (designConfig.back.nameConfig.enabled || designConfig.back.numberConfig.enabled) && !metadata.blankKit;
@@ -2960,6 +2980,32 @@ export const NestingView: React.FC<NestingViewProps> = ({
       setShowPaymentModal(true);
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    exportRollPDF: () => handleExportPDF(true),
+    exportPanelsZip: () => handleExportPDF(false),
+    calculateCost,
+    executePaymentWithWallet,
+    executePaymentWithUPI,
+    isExporting,
+    exportProgress,
+    exportProgressPct
+  }), [
+    enableNesting,
+    nestingSheets,
+    records,
+    metadata,
+    designConfig,
+    currentUser,
+    testMode,
+    dpi,
+    exportFormat,
+    colorProfile,
+    includeWatermarkLogo,
+    isExporting,
+    exportProgress,
+    exportProgressPct
+  ]);
 
   return (
     <div className="nesting-view fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '30px' }}>
@@ -4026,4 +4072,6 @@ export const NestingView: React.FC<NestingViewProps> = ({
       />
     </div>
   );
-};
+});
+NestingView.displayName = 'NestingView';
+
