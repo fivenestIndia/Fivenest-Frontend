@@ -5,7 +5,7 @@ import {
   CreditCard, CheckCircle2, FileSpreadsheet, Plus, Trash2, 
   ShieldCheck, ChevronDown, ChevronUp, Type, Hash, Layers,
   SlidersHorizontal, CheckCircle, Image as ImageIcon, Shirt,
-  Sliders, Ruler
+  Sliders, Ruler, Bookmark, Save
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import JSZip from 'jszip';
@@ -117,9 +117,100 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
     setLocalSizeDB(updated);
   };
 
+  // Size Presets states (synced with localStorage & desktop editor)
+  const [savedSizePresets, setSavedSizePresets] = useState<Record<string, SizeDatabase>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('fivenest_size_presets') || '{}');
+    } catch {
+      return {};
+    }
+  });
+  const [activeSizePreset, setActiveSizePreset] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('fivenest_active_size_preset');
+      const presets = JSON.parse(localStorage.getItem('fivenest_size_presets') || '{}');
+      if (saved && (saved === 'Default Size' || presets[saved])) {
+        return saved;
+      }
+      return 'Default Size';
+    } catch {
+      return 'Default Size';
+    }
+  });
+  const [newSizePresetName, setNewSizePresetName] = useState<string>('');
+  const [sizePresetFeedback, setSizePresetFeedback] = useState<string | null>(null);
+
+  const handleLoadSizePreset = (presetName: string) => {
+    let targetDb: SizeDatabase = defaultSizes;
+    if (presetName === 'Default Size') {
+      targetDb = defaultSizes;
+    } else if (savedSizePresets[presetName]) {
+      targetDb = savedSizePresets[presetName];
+    }
+    setLocalSizeDB(targetDb);
+    setActiveSizePreset(presetName);
+    localStorage.setItem('fivenest_active_size_preset', presetName);
+    localStorage.setItem('teedex_size_database', JSON.stringify(targetDb));
+    localStorage.setItem('fivenest_size_db', JSON.stringify(targetDb));
+    if (onSizeDBChange) onSizeDBChange(targetDb);
+    setSizePresetFeedback(`Loaded preset "${presetName}"`);
+    setTimeout(() => setSizePresetFeedback(null), 3000);
+    confetti({ particleCount: 25, spread: 40 });
+  };
+
+  const handleSaveSizePreset = () => {
+    const trimmed = newSizePresetName.trim();
+    if (!trimmed) {
+      alert("Please enter a preset name (e.g. Slim Fit, Cricket Jersey, Custom Fit 1).");
+      return;
+    }
+    if (trimmed.toLowerCase() === 'default size') {
+      alert("Cannot overwrite 'Default Size'. Please choose a custom name.");
+      return;
+    }
+    const updatedPresets = { ...savedSizePresets, [trimmed]: localSizeDB };
+    setSavedSizePresets(updatedPresets);
+    localStorage.setItem('fivenest_size_presets', JSON.stringify(updatedPresets));
+    setActiveSizePreset(trimmed);
+    localStorage.setItem('fivenest_active_size_preset', trimmed);
+    localStorage.setItem('teedex_size_database', JSON.stringify(localSizeDB));
+    localStorage.setItem('fivenest_size_db', JSON.stringify(localSizeDB));
+    if (onSizeDBChange) onSizeDBChange(localSizeDB);
+    setNewSizePresetName('');
+    setSizePresetFeedback(`Preset "${trimmed}" saved successfully!`);
+    setTimeout(() => setSizePresetFeedback(null), 3500);
+    confetti({ particleCount: 40, spread: 60 });
+  };
+
+  const handleDeleteSizePreset = (presetToDelete: string) => {
+    if (!savedSizePresets[presetToDelete]) return;
+    if (window.confirm(`Delete preset "${presetToDelete}"?`)) {
+      const updated = { ...savedSizePresets };
+      delete updated[presetToDelete];
+      setSavedSizePresets(updated);
+      localStorage.setItem('fivenest_size_presets', JSON.stringify(updated));
+      if (activeSizePreset === presetToDelete) {
+        setActiveSizePreset('Default Size');
+        localStorage.setItem('fivenest_active_size_preset', 'Default Size');
+        setLocalSizeDB(defaultSizes);
+        localStorage.setItem('teedex_size_database', JSON.stringify(defaultSizes));
+        localStorage.setItem('fivenest_size_db', JSON.stringify(defaultSizes));
+        if (onSizeDBChange) onSizeDBChange(defaultSizes);
+      }
+      setSizePresetFeedback(`Preset "${presetToDelete}" deleted.`);
+      setTimeout(() => setSizePresetFeedback(null), 3000);
+    }
+  };
+
   const handleSaveSizes = () => {
     localStorage.setItem('teedex_size_database', JSON.stringify(localSizeDB));
     localStorage.setItem('fivenest_size_db', JSON.stringify(localSizeDB));
+    // Also if a custom preset is active, update it
+    if (activeSizePreset !== 'Default Size' && savedSizePresets[activeSizePreset]) {
+      const updatedPresets = { ...savedSizePresets, [activeSizePreset]: localSizeDB };
+      setSavedSizePresets(updatedPresets);
+      localStorage.setItem('fivenest_size_presets', JSON.stringify(updatedPresets));
+    }
     if (onSizeDBChange) onSizeDBChange(localSizeDB);
     confetti({ particleCount: 35, spread: 45 });
     setShowSizeModal(false);
@@ -128,6 +219,8 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
   const handleResetAllSizes = () => {
     if (window.confirm("Reset all sizes back to factory default measurements?")) {
       setLocalSizeDB(defaultSizes);
+      setActiveSizePreset('Default Size');
+      localStorage.setItem('fivenest_active_size_preset', 'Default Size');
       localStorage.setItem('teedex_size_database', JSON.stringify(defaultSizes));
       localStorage.setItem('fivenest_size_db', JSON.stringify(defaultSizes));
       if (onSizeDBChange) onSizeDBChange(defaultSizes);
@@ -1312,44 +1405,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
               </div>
             </div>
 
-            {/* 3. 1-Tap Bulk ZIP Upload Option */}
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(228,87,46,0.12) 0%, rgba(30,41,59,0.7) 100%)',
-              border: '1.5px dashed rgba(228,87,46,0.4)',
-              borderRadius: '12px',
-              padding: '12px 14px',
-              position: 'relative'
-            }}>
-              <input
-                type="file"
-                accept=".zip,application/zip"
-                onChange={handleZipUpload}
-                disabled={zipUploading}
-                style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer', zIndex: 10 }}
-              />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(228,87,46,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E4572E', flexShrink: 0 }}>
-                  {zipUploading ? <RefreshCw size={18} className="animate-spin" /> : <Upload size={18} />}
-                </div>
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#FFFFFF' }}>
-                    {zipUploading ? 'Extracting ZIP...' : '1-Tap Bulk ZIP Artwork Import'}
-                  </div>
-                  <div style={{ fontSize: '10px', color: '#94A3B8' }}>
-                    Upload complete ZIP to auto-assign Front, Back, Sleeves & Collar
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {zipResultMsg && (
-              <div style={{ background: '#1E293B', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '8px 12px', fontSize: '11px', color: '#E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>{zipResultMsg}</span>
-                <button onClick={() => setZipResultMsg(null)} style={{ background: 'transparent', border: 'none', color: '#94A3B8' }}><X size={12} /></button>
-              </div>
-            )}
-
-            {/* 4. WHOLE EDITOR PANEL ACCORDIONS */}
+            {/* 3. WHOLE EDITOR PANEL ACCORDIONS */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               
               {/* Accordion 1: Design Presets */}
@@ -2202,7 +2258,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                     <span style={{ fontSize: '9px', background: 'rgba(228,87,46,0.25)', color: '#FF7A45', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>18–60</span>
                   </div>
                   <div style={{ fontSize: '11px', color: '#94A3B8' }}>
-                    Tap to customize chest width, length & sleeve inches per size
+                    Preset: <strong style={{ color: '#FF7A45' }}>{activeSizePreset}</strong> • Tap to edit or manage presets
                   </div>
                 </div>
               </div>
@@ -2398,7 +2454,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Wallet size={18} style={{ color: '#E4572E' }} />
                   <span style={{ fontSize: '13px', fontWeight: '800', color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Order Payment & Wallet
+                    Payment Options (GPay / Wallet)
                   </span>
                 </div>
                 <span style={{ fontSize: '11px', background: currentUser ? 'rgba(34, 197, 94, 0.15)' : 'rgba(234, 179, 8, 0.15)', color: currentUser ? '#4ADE80' : '#FACC15', padding: '2px 8px', borderRadius: '10px', fontWeight: '700' }}>
@@ -2422,77 +2478,115 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                 </div>
               </div>
 
-              {/* 1-Tap Pay with Wallet Button */}
+              {/* Payment Option 1: Pay with Wallet (Instant) */}
               {currentUser && currentUser.balance >= orderCost ? (
                 <button
                   onClick={() => nestingRef.current?.executePaymentWithWallet()}
                   style={{
-                    background: '#16A34A',
+                    background: 'linear-gradient(135deg, #16A34A 0%, #15803D 100%)',
                     border: 'none',
                     color: '#FFFFFF',
-                    padding: '12px',
-                    borderRadius: '10px',
-                    fontSize: '13px',
+                    padding: '13px',
+                    borderRadius: '12px',
+                    fontSize: '14px',
                     fontWeight: '800',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '6px'
+                    gap: '8px',
+                    boxShadow: '0 4px 14px rgba(22, 163, 74, 0.35)'
                   }}
                 >
-                  <CheckCircle2 size={16} /> Pay ₹{orderCost.toFixed(2)} with Wallet (Instant)
+                  <Wallet size={17} />
+                  <span>Pay ₹{orderCost.toFixed(2)} with Wallet (Instant)</span>
                 </button>
-              ) : null}
+              ) : (
+                <div style={{
+                  background: '#090D16',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '10px',
+                  padding: '10px 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '12px',
+                  color: '#94A3B8'
+                }}>
+                  <div>
+                    <span style={{ color: '#CBD5E1', fontWeight: '700' }}>Wallet Balance:</span> ₹{currentUser ? currentUser.balance.toFixed(2) : '0.00'}
+                    <div style={{ fontSize: '10px', color: '#EF4444', marginTop: '1px' }}>
+                      {currentUser ? `Need ₹${(orderCost - currentUser.balance).toFixed(2)} more` : 'Sign in to use FiveNest wallet'}
+                    </div>
+                  </div>
+                  {!currentUser ? (
+                    <button
+                      onClick={onOpenLogin}
+                      style={{
+                        background: '#2563EB',
+                        border: 'none',
+                        color: '#FFFFFF',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Sign In
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setActiveTab('payment')}
+                      style={{
+                        background: 'rgba(255, 122, 69, 0.15)',
+                        border: '1px solid rgba(255, 122, 69, 0.3)',
+                        color: '#FF7A45',
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Recharge
+                    </button>
+                  )}
+                </div>
+              )}
 
-              {/* 1-Tap UPI Launch Button */}
+              {/* Payment Option 2: Pay with GPay (Google Pay) */}
               <a
                 href={upiDeepLink}
                 style={{
-                  background: 'linear-gradient(135deg, #FF6B3D 0%, #E4572E 100%)',
+                  background: '#000000',
+                  border: '1.5px solid rgba(255, 255, 255, 0.25)',
                   color: '#FFFFFF',
                   textDecoration: 'none',
-                  padding: '12px',
-                  borderRadius: '10px',
-                  fontSize: '13px',
+                  padding: '13px',
+                  borderRadius: '12px',
+                  fontSize: '14px',
                   fontWeight: '800',
                   textAlign: 'center',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '6px',
-                  boxShadow: '0 4px 12px rgba(228,87,46,0.35)'
+                  gap: '8px',
+                  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.5)'
                 }}
               >
-                <CreditCard size={16} /> Pay ₹{orderCost.toFixed(2)} via UPI App (GPay / PhonePe)
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '15px', fontWeight: '900' }}>
+                  <span style={{ color: '#4285F4' }}>G</span>
+                  <span style={{ color: '#EA4335' }}>o</span>
+                  <span style={{ color: '#FBBC05' }}>o</span>
+                  <span style={{ color: '#4285F4' }}>g</span>
+                  <span style={{ color: '#34A853' }}>l</span>
+                  <span style={{ color: '#EA4335' }}>e</span>
+                  <span style={{ color: '#FFFFFF', marginLeft: '2px' }}>Pay</span>
+                </span>
+                <span style={{ color: '#64748B', fontSize: '12px' }}>•</span>
+                <span>Pay ₹{orderCost.toFixed(2)} with GPay</span>
               </a>
-
-              {/* Toggle UPI QR Code & Copy ID */}
-              <button
-                onClick={() => setShowQrCode(!showQrCode)}
-                style={{ background: 'transparent', border: 'none', color: '#94A3B8', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', cursor: 'pointer', padding: '4px' }}
-              >
-                <span>{showQrCode ? 'Hide UPI QR Code' : 'Show UPI QR Code & ID'}</span>
-                {showQrCode ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-              </button>
-
-              {showQrCode && (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', background: '#090D16', padding: '12px', borderRadius: '10px' }}>
-                  <div style={{ padding: '8px', background: '#FFFFFF', borderRadius: '8px' }}>
-                    <img src={upiQrUrl} alt="UPI QR" style={{ width: '150px', height: '150px', display: 'block' }} />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: '#1E293B', padding: '6px 10px', borderRadius: '6px', fontSize: '11px' }}>
-                    <span style={{ fontFamily: 'monospace' }}>vilesh332-1@okhdfcbank</span>
-                    <button
-                      onClick={handleCopyUPI}
-                      style={{ background: copiedUpi ? '#16A34A' : 'rgba(255,255,255,0.1)', border: 'none', color: '#FFFFFF', padding: '3px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}
-                    >
-                      {copiedUpi ? <Check size={11} /> : <Copy size={11} />}
-                      {copiedUpi ? 'Copied' : 'Copy'}
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* ── 2. ARTWORK READINESS BANNER ── */}
@@ -2532,89 +2626,29 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
               )}
             </div>
 
-            {/* ── 3. ONLY EXPORT OPTION: Sublimation Panels Individual Files (ZIP) ── */}
-            <div style={{
-              background: '#0F172A',
-              border: '1.5px solid rgba(228, 87, 46, 0.35)',
-              borderRadius: '16px',
-              padding: '18px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '14px',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <div style={{
-                  width: '46px',
-                  height: '46px',
-                  borderRadius: '12px',
-                  background: 'rgba(228,87,46,0.15)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#E4572E',
-                  flexShrink: 0
-                }}>
-                  <Package size={24} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '15px', fontWeight: '800', color: '#FFFFFF' }}>
-                    Sublimation Panels (ZIP)
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
-                    Individual high-resolution 300 DPI panels (Front, Back, Sleeves & Collars) sorted with quantities
-                  </div>
-                </div>
-              </div>
-
-              <div style={{
-                background: '#1E293B',
-                borderRadius: '10px',
-                padding: '12px',
+            {/* ── 3. DIRECT EXPORT INDIVIDUAL FILES (NO CLUNKY BOTTOM ZIP PANEL) ── */}
+            <button
+              onClick={() => nestingRef.current?.exportPanelsZip()}
+              disabled={!anyArtworkUploaded}
+              style={{
+                background: anyArtworkUploaded ? 'linear-gradient(135deg, #FF6B3D 0%, #E4572E 100%)' : '#334155',
+                border: 'none',
+                color: '#FFFFFF',
+                padding: '14px',
+                borderRadius: '12px',
+                fontSize: '14px',
+                fontWeight: '800',
+                cursor: anyArtworkUploaded ? 'pointer' : 'not-allowed',
                 display: 'flex',
-                flexDirection: 'column',
-                gap: '6px',
-                fontSize: '11px',
-                color: '#CBD5E1'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <CheckCircle size={13} style={{ color: '#22C55E' }} />
-                  <span>Individual print files in separate folders (Front, Back, Sleeve, Collar)</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <CheckCircle size={13} style={{ color: '#22C55E' }} />
-                  <span>Formatted filenames with quantities (e.g. <code>40 = 5 F.jpg</code>)</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <CheckCircle size={13} style={{ color: '#22C55E' }} />
-                  <span>300 DPI ready for sublimation plotting</span>
-                </div>
-              </div>
-
-              {/* 1-Tap Download Button */}
-              <button
-                onClick={() => nestingRef.current?.exportPanelsZip()}
-                disabled={!anyArtworkUploaded}
-                style={{
-                  background: anyArtworkUploaded ? 'linear-gradient(135deg, #FF6B3D 0%, #E4572E 100%)' : '#334155',
-                  border: 'none',
-                  color: '#FFFFFF',
-                  padding: '14px',
-                  borderRadius: '10px',
-                  fontSize: '14px',
-                  fontWeight: '800',
-                  cursor: anyArtworkUploaded ? 'pointer' : 'not-allowed',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  boxShadow: anyArtworkUploaded ? '0 4px 14px rgba(228,87,46,0.35)' : 'none'
-                }}
-              >
-                <Download size={18} />
-                <span>Download Individual Panels (ZIP)</span>
-              </button>
-            </div>
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: anyArtworkUploaded ? '0 4px 14px rgba(228,87,46,0.35)' : 'none'
+              }}
+            >
+              <Download size={18} />
+              <span>Export Individual Files (300 DPI)</span>
+            </button>
           </div>
         )}
 
@@ -2656,8 +2690,13 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
 
             {/* Quick Wallet Recharge Presets */}
             <div style={{ background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px' }}>
-              <div style={{ fontSize: '13px', fontWeight: '700', marginBottom: '10px', color: '#F8FAFC' }}>
-                Recharge Wallet
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: '#F8FAFC' }}>
+                  Recharge Wallet via GPay
+                </div>
+                <span style={{ fontSize: '10px', background: 'rgba(59, 130, 246, 0.15)', color: '#60A5FA', padding: '2px 8px', borderRadius: '4px', fontWeight: '800' }}>
+                  Google Pay
+                </span>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
@@ -2666,9 +2705,9 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                     key={amt}
                     onClick={() => handleRechargeWallet(amt)}
                     disabled={topupLoading}
-                    style={{ background: '#1E293B', border: '1px solid rgba(255, 255, 255, 0.1)', color: '#FFFFFF', padding: '10px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}
+                    style={{ background: '#1E293B', border: '1px solid rgba(255, 255, 255, 0.1)', color: '#FFFFFF', padding: '10px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                   >
-                    + ₹{amt}
+                    <span>+ ₹{amt}</span>
                   </button>
                 ))}
               </div>
@@ -2678,21 +2717,6 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                   {topupMessage}
                 </div>
               )}
-            </div>
-
-            {/* UPI QR Code */}
-            <div style={{ background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#F8FAFC' }}>Scan UPI QR Code</div>
-              <div style={{ padding: '10px', background: '#FFFFFF', borderRadius: '12px', display: 'inline-block' }}>
-                <img src={upiQrUrl} alt="UPI QR Code" style={{ width: '180px', height: '180px', display: 'block' }} />
-              </div>
-              <div style={{ background: '#1E293B', borderRadius: '8px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#CBD5E1', width: '100%', justifyContent: 'space-between' }}>
-                <span style={{ fontFamily: 'monospace' }}>vilesh332-1@okhdfcbank</span>
-                <button onClick={handleCopyUPI} style={{ background: copiedUpi ? '#16A34A' : 'rgba(255, 255, 255, 0.1)', border: 'none', color: '#FFFFFF', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  {copiedUpi ? <Check size={12} /> : <Copy size={12} />}
-                  {copiedUpi ? 'Copied' : 'Copy'}
-                </button>
-              </div>
             </div>
 
             {!currentUser && (
@@ -2936,6 +2960,142 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
 
             {/* Modal Body */}
             <div style={{ padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              
+              {/* ── SIZING PRESETS MANAGER (Save & Load Presets) ── */}
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(228,87,46,0.12) 0%, rgba(30,41,59,0.85) 100%)',
+                border: '1.5px solid rgba(228, 87, 46, 0.35)',
+                borderRadius: '12px',
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                    <Bookmark size={15} style={{ color: '#FF7A45' }} />
+                    <span style={{ fontSize: '12px', fontWeight: '800', color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Sizing Presets
+                    </span>
+                  </div>
+                  <span style={{
+                    fontSize: '10px',
+                    background: 'rgba(255, 122, 69, 0.15)',
+                    color: '#FF7A45',
+                    border: '1px solid rgba(255, 122, 69, 0.3)',
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    fontWeight: '800'
+                  }}>
+                    Active: {activeSizePreset}
+                  </span>
+                </div>
+
+                {/* Preset Selector Dropdown & Delete */}
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <select
+                    value={activeSizePreset}
+                    onChange={(e) => handleLoadSizePreset(e.target.value)}
+                    style={{
+                      flex: 1,
+                      background: '#0F172A',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: '8px',
+                      color: '#FFFFFF',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      padding: '8px 10px',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="Default Size">Default Size (Official Matrix 18–60)</option>
+                    {Object.keys(savedSizePresets).map(name => (
+                      <option key={name} value={name}>{name} (Custom Preset)</option>
+                    ))}
+                  </select>
+
+                  {activeSizePreset !== 'Default Size' && savedSizePresets[activeSizePreset] && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSizePreset(activeSizePreset)}
+                      title="Delete this custom preset"
+                      style={{
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        color: '#EF4444',
+                        borderRadius: '8px',
+                        width: '34px',
+                        height: '34px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        flexShrink: 0
+                      }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Save Current Measurements as New Preset */}
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input
+                    type="text"
+                    placeholder="New preset name (e.g. Slim Fit, Kids, Cricket)..."
+                    value={newSizePresetName}
+                    onChange={(e) => setNewSizePresetName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveSizePreset(); }}
+                    style={{
+                      flex: 1,
+                      background: '#0F172A',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      borderRadius: '8px',
+                      color: '#FFFFFF',
+                      fontSize: '11px',
+                      padding: '7px 10px',
+                      outline: 'none'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveSizePreset}
+                    style={{
+                      background: 'linear-gradient(135deg, #FF6B3D 0%, #E4572E 100%)',
+                      border: 'none',
+                      color: '#FFFFFF',
+                      borderRadius: '8px',
+                      padding: '7px 12px',
+                      fontSize: '11px',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <Save size={12} />
+                    <span>Save Preset</span>
+                  </button>
+                </div>
+
+                {sizePresetFeedback && (
+                  <div style={{
+                    fontSize: '11px',
+                    color: sizePresetFeedback.includes('deleted') ? '#F87171' : '#4ADE80',
+                    textAlign: 'center',
+                    background: 'rgba(0,0,0,0.2)',
+                    padding: '4px',
+                    borderRadius: '6px',
+                    fontWeight: '600'
+                  }}>
+                    {sizePresetFeedback}
+                  </div>
+                )}
+              </div>
+
               {/* Size Selection Chips */}
               <div>
                 <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '6px' }}>
