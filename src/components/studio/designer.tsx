@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus, Maximize2 } from 'lucide-react';
+import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus, Maximize2, Camera, Sparkles, Check, Image as ImageIcon, RotateCcw, Palette } from 'lucide-react';
 import type { OrderMetadata } from './orderEntry';
-import { ThreeDPreview } from './ThreeDPreview';
+import { ThreeDPreview, ThreeDPreviewHandle, generatePresentationBoard } from './ThreeDPreview';
 import { defaultSizes } from './sizesDb';
 import { toast } from 'sonner';
 
@@ -321,6 +321,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const rightClickTrackerRef = useRef<{ panel: string; time: number }>({ panel: '', time: 0 });
   const lastRightClickActionTimeRef = useRef<number>(0);
   const doubleClickTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 3D Viewport State
+  const threeDRef = useRef<ThreeDPreviewHandle | null>(null);
+  const [threeDBgColor, setThreeDBgColor] = useState<string>('#0a0a0f');
+  const [threeDBgImageUrl, setThreeDBgImageUrl] = useState<string | null>(null);
+  const [placketMode, setPlacketMode] = useState<'matchFront' | 'color' | 'image'>('matchFront');
+  const [extractedPalette, setExtractedPalette] = useState<string[]>([]);
+  const [isExportingMockup, setIsExportingMockup] = useState<boolean>(false);
+  const [exportMockupStatus, setExportMockupStatus] = useState<string>('');
+  const bgUploadInputRef = useRef<HTMLInputElement | null>(null);
 
   // Undo/Redo history stacks
   const [undoStack, setUndoStack] = useState<ArtDesignConfig[]>([]);
@@ -864,6 +874,179 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const isLightColor = (colorStr: string): boolean => {
+    if (!colorStr) return false;
+    if (colorStr.startsWith('#')) {
+      const hex = colorStr.replace('#', '');
+      const r = parseInt(hex.substring(0, 2), 16) || 0;
+      const g = parseInt(hex.substring(2, 4), 16) || 0;
+      const b = parseInt(hex.substring(4, 6), 16) || 0;
+      return (r * 0.299 + g * 0.587 + b * 0.114) > 160;
+    }
+    return false;
+  };
+
+  const handleAutoAnalyzeColors = () => {
+    if (!threeDRef.current) return;
+    const analysis = threeDRef.current.analyzeColors();
+    if (analysis) {
+      setExtractedPalette(analysis.palette || []);
+      const newCollarColor = analysis.neck || analysis.dominant;
+      const newAccentColor = analysis.accent || analysis.dominant;
+
+      const currentTrim = designConfig.trim || {
+        collar: { color: designConfig.front.generatedColor1, uploadedUrl: null },
+        placket: { color: designConfig.front.generatedColor1, uploadedUrl: null },
+        sleeveStripe: { enabled: false, color: designConfig.front.generatedColor1, uploadedUrl: null, height: 2.0, fillType: 'solid' }
+      };
+
+      const updated = {
+        ...designConfig,
+        trim: {
+          ...currentTrim,
+          collar: {
+            ...currentTrim.collar,
+            color: newCollarColor
+          },
+          placket: {
+            ...currentTrim.placket,
+            color: newCollarColor
+          },
+          sleeveStripe: {
+            ...currentTrim.sleeveStripe,
+            color: newAccentColor
+          }
+        }
+      };
+      undoableConfigChange(updated as ArtDesignConfig);
+      toast.success('Artwork analyzed! Collar and trim colors updated automatically.');
+    }
+  };
+
+  const handleApplyPaletteColorToCollar = (color: string) => {
+    updateTrimConfig('collar', { color });
+    toast.success(`Applied ${color} to collar`);
+  };
+
+  const handleCustomBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const url = event.target?.result as string;
+        setThreeDBgImageUrl(url);
+        toast.success('Custom 3D background loaded');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleDownload4AnglesZip = async () => {
+    if (!threeDRef.current) return;
+    setIsExportingMockup(true);
+    setExportMockupStatus('Capturing 4 dimension views...');
+
+    try {
+      const views = await threeDRef.current.captureAll4Views((step, total) => {
+        setExportMockupStatus(`Capturing angle ${step} of ${total}...`);
+      });
+
+      setExportMockupStatus('Packaging JPG files into ZIP...');
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      const orderPrefix = metadata?.orderNumber ? `${metadata.orderNumber}_` : '';
+
+      const angles = [
+        { name: `${orderPrefix}Mockup_01_Front.jpg`, dataUrl: views.front },
+        { name: `${orderPrefix}Mockup_02_Back.jpg`, dataUrl: views.back },
+        { name: `${orderPrefix}Mockup_03_Left_34.jpg`, dataUrl: views.left },
+        { name: `${orderPrefix}Mockup_04_Right_34.jpg`, dataUrl: views.right },
+      ];
+
+      for (const angle of angles) {
+        const base64Data = angle.dataUrl.split(',')[1];
+        zip.file(angle.name, base64Data, { base64: true });
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${orderPrefix}3D_Mockup_4_Angles.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success('4-Dimension Mockups ZIP downloaded!');
+      setExportMockupStatus('ZIP Downloaded successfully!');
+      setTimeout(() => {
+        setIsExportingMockup(false);
+        setExportMockupStatus('');
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to export 4 angles zip:', err);
+      toast.error('Failed to export 3D mockups.');
+      setIsExportingMockup(false);
+      setExportMockupStatus('');
+    }
+  };
+
+  const handleDownloadPresentationBoard = async () => {
+    if (!threeDRef.current) return;
+    setIsExportingMockup(true);
+    setExportMockupStatus('Capturing 4 camera angles...');
+
+    try {
+      const views = await threeDRef.current.captureAll4Views((step, total) => {
+        setExportMockupStatus(`Rendering angle ${step} of ${total}...`);
+      });
+
+      setExportMockupStatus('Composing 4-in-1 Presentation Board...');
+      const presentationJpg = await generatePresentationBoard(views, {
+        orderNumber: metadata?.orderNumber || 'CUSTOM-ORDER',
+        designName: 'Sublimation Polo Jersey',
+        bgColor: threeDBgColor,
+        sleeveType: previewSleeveType,
+      });
+
+      const orderPrefix = metadata?.orderNumber ? `${metadata.orderNumber}_` : '';
+      const link = document.createElement('a');
+      link.href = presentationJpg;
+      link.download = `${orderPrefix}3D_Client_Mockup_Presentation.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success('4-in-1 Client Presentation Board JPG downloaded!');
+      setExportMockupStatus('Presentation Board JPG downloaded!');
+      setTimeout(() => {
+        setIsExportingMockup(false);
+        setExportMockupStatus('');
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to export presentation board:', err);
+      toast.error('Failed to generate presentation board.');
+      setIsExportingMockup(false);
+      setExportMockupStatus('');
+    }
+  };
+
+  const handleSnapshotCurrentView = () => {
+    if (!threeDRef.current) return;
+    const dataUrl = threeDRef.current.captureCurrentView();
+    if (!dataUrl) return;
+
+    const orderPrefix = metadata?.orderNumber ? `${metadata.orderNumber}_` : '';
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = `${orderPrefix}3D_Mockup_View.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Snapshot JPG downloaded!');
   };
 
   const handleTextTextureUpload = (textType: 'name' | 'number', e: React.ChangeEvent<HTMLInputElement>) => {
@@ -3560,11 +3743,15 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         {activeTab === 'threeD' ? (
           <div style={{ width: '100%', height: '100%', flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden', padding: '8px', boxSizing: 'border-box' }}>
             <ThreeDPreview 
+              ref={threeDRef}
               designConfig={designConfig} 
               renderPanelToCanvas={renderPanelToCanvas}
               previewSleeveType={previewSleeveType}
               prefTrigger={prefTrigger}
               zoom={1}
+              bgColor={threeDBgColor}
+              bgImageUrl={threeDBgImageUrl}
+              placketMode={placketMode}
             />
           </div>
         ) : (
@@ -4163,6 +4350,563 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           boxSizing: 'border-box'
         }}
       >
+        {activeTab === 'threeD' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Header Badge */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#ECFDF5', padding: '10px 14px', borderRadius: '10px', border: '1px solid #A7F3D0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
+                <span style={{ fontSize: '12px', fontWeight: '800', color: '#047857', letterSpacing: '0.4px' }}>
+                  3D STUDIO ACTIVE
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('dual')}
+                className="btn btn-secondary"
+                style={{ padding: '3px 8px', fontSize: '10px', fontWeight: '700' }}
+              >
+                ✕ Exit 3D
+              </button>
+            </div>
+
+            {/* Card 1: 3D Camera Angles & Controls */}
+            <div className="glass-card" style={{ padding: '16px', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Maximize2 size={18} style={{ color: '#E4572E' }} />
+                  <h3 style={{ fontSize: '13px', fontWeight: '800', color: '#1F2937', margin: 0 }}>3D Camera Views</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => threeDRef.current?.resetCamera()}
+                  className="btn btn-secondary"
+                  style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  title="Reset Camera Orientation & Zoom"
+                >
+                  <RotateCcw size={12} /> Reset
+                </button>
+              </div>
+
+              {/* Quick Camera Angles Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => threeDRef.current?.setCameraAngle('front')}
+                  className="btn btn-secondary"
+                  style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#FAF8F5' }}
+                >
+                  Front (0°)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => threeDRef.current?.setCameraAngle('back')}
+                  className="btn btn-secondary"
+                  style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#FAF8F5' }}
+                >
+                  Back (180°)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => threeDRef.current?.setCameraAngle('left')}
+                  className="btn btn-secondary"
+                  style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#FAF8F5' }}
+                >
+                  Left 3/4 (-45°)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => threeDRef.current?.setCameraAngle('right')}
+                  className="btn btn-secondary"
+                  style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#FAF8F5' }}
+                >
+                  Right 3/4 (+45°)
+                </button>
+              </div>
+
+              {/* Sleeve Style Toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F9FAFB', padding: '8px 12px', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', color: '#4B5563' }}>Sleeve Model:</span>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleSleeveTypeChange('half')}
+                    style={{
+                      padding: '4px 10px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      borderRadius: '6px',
+                      border: previewSleeveType === 'half' ? '1px solid #E4572E' : '1px solid #D1D5DB',
+                      background: previewSleeveType === 'half' ? '#E4572E' : '#FFFFFF',
+                      color: previewSleeveType === 'half' ? '#FFFFFF' : '#374151',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Half Sleeve
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSleeveTypeChange('full')}
+                    style={{
+                      padding: '4px 10px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      borderRadius: '6px',
+                      border: previewSleeveType === 'full' ? '1px solid #E4572E' : '1px solid #D1D5DB',
+                      background: previewSleeveType === 'full' ? '#E4572E' : '#FFFFFF',
+                      color: previewSleeveType === 'full' ? '#FFFFFF' : '#374151',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Full Sleeve
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 2: Collar & Trim Customization (Exclusively in 3D View!) */}
+            <div className="glass-card" style={{ padding: '16px', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Shirt size={18} style={{ color: '#E4572E' }} />
+                  <span style={{ fontSize: '13px', fontWeight: '800', color: '#1F2937' }}>Collar & Trim Customization</span>
+                </span>
+              </div>
+
+              {/* Auto-Analyse Design & Fill Collar Button */}
+              <button
+                type="button"
+                onClick={handleAutoAnalyzeColors}
+                className="btn w-full"
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '10px 14px',
+                  background: 'linear-gradient(135deg, #E4572E 0%, #EA580C 100%)',
+                  color: '#FFFFFF',
+                  borderRadius: '8px',
+                  border: 'none',
+                  fontWeight: '800',
+                  fontSize: '12px',
+                  boxShadow: '0 2px 8px rgba(228, 87, 46, 0.25)',
+                  cursor: 'pointer',
+                  marginBottom: '12px'
+                }}
+              >
+                <Sparkles size={15} /> Auto-Analyse Design & Fill Collar
+              </button>
+
+              {/* Detected Palette Swatches */}
+              {extractedPalette.length > 0 && (
+                <div style={{ marginBottom: '14px', background: '#F8FAFC', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#475569', marginBottom: '6px' }}>
+                    Detected Colors (click to apply to Collar):
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {extractedPalette.map((col, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleApplyPaletteColorToCollar(col)}
+                        title={`Click to set collar color to ${col}`}
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '6px',
+                          background: col,
+                          border: (designConfig.trim?.collar.color === col) ? '2px solid #E4572E' : '1px solid rgba(0,0,0,0.15)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                        }}
+                      >
+                        {(designConfig.trim?.collar.color === col) && <Check size={14} color={isLightColor(col) ? '#000000' : '#ffffff'} />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Section: Collar & Rib */}
+              <div style={{ marginBottom: '14px' }}>
+                <h4 style={{ fontSize: '12px', fontWeight: '700', color: '#374151', marginBottom: '6px' }}>Collar & Rib Color</h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <input 
+                      type="color" 
+                      value={designConfig.trim?.collar.color || designConfig.front.generatedColor1} 
+                      onChange={(e) => updateTrimConfig('collar', { color: e.target.value })}
+                      style={{ border: 'none', background: 'none', width: '36px', height: '36px', cursor: 'pointer' }}
+                    />
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={(designConfig.trim?.collar.color || designConfig.front.generatedColor1).toUpperCase()}
+                      onChange={(e) => updateTrimConfig('collar', { color: e.target.value })}
+                      style={{ padding: '6px', fontSize: '12px', width: '85px', borderRadius: '6px' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    {designConfig.trim?.collar.uploadedUrl ? (
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <span style={{ fontSize: '11px', color: '#10b981', fontWeight: '600' }}>Pattern Active</span>
+                        <button 
+                          type="button"
+                          className="btn btn-secondary" 
+                          style={{ padding: '3px 8px', fontSize: '11px' }}
+                          onClick={() => updateTrimConfig('collar', { uploadedUrl: null })}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
+                        Import Image
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => handleTrimFileUpload('collar', e)} 
+                          style={{ display: 'none' }} 
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Section: Placket Mode & Styling */}
+              <div style={{ marginBottom: '14px', background: '#F9FAFB', padding: '10px', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
+                <h4 style={{ fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '6px' }}>Button Placket Styling</h4>
+                <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setPlacketMode('matchFront')}
+                    style={{
+                      flex: 1,
+                      padding: '6px 4px',
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      borderRadius: '6px',
+                      border: placketMode === 'matchFront' ? '1px solid #E4572E' : '1px solid #D1D5DB',
+                      background: placketMode === 'matchFront' ? '#E4572E' : '#FFFFFF',
+                      color: placketMode === 'matchFront' ? '#FFFFFF' : '#4B5563',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ✨ Match Design
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPlacketMode('color')}
+                    style={{
+                      flex: 1,
+                      padding: '6px 4px',
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      borderRadius: '6px',
+                      border: placketMode === 'color' ? '1px solid #E4572E' : '1px solid #D1D5DB',
+                      background: placketMode === 'color' ? '#E4572E' : '#FFFFFF',
+                      color: placketMode === 'color' ? '#FFFFFF' : '#4B5563',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🎨 Solid Color
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPlacketMode('image')}
+                    style={{
+                      flex: 1,
+                      padding: '6px 4px',
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      borderRadius: '6px',
+                      border: placketMode === 'image' ? '1px solid #E4572E' : '1px solid #D1D5DB',
+                      background: placketMode === 'image' ? '#E4572E' : '#FFFFFF',
+                      color: placketMode === 'image' ? '#FFFFFF' : '#4B5563',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🖼️ Custom Image
+                  </button>
+                </div>
+
+                {placketMode === 'matchFront' && (
+                  <p style={{ fontSize: '11px', color: '#059669', margin: 0, fontWeight: '600' }}>
+                    ✓ Placket seamlessly completes front chest artwork.
+                  </p>
+                )}
+
+                {placketMode === 'color' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input 
+                      type="color" 
+                      value={designConfig.trim?.placket.color || designConfig.front.generatedColor1} 
+                      onChange={(e) => updateTrimConfig('placket', { color: e.target.value })}
+                      style={{ border: 'none', background: 'none', width: '32px', height: '32px', cursor: 'pointer' }}
+                    />
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={(designConfig.trim?.placket.color || designConfig.front.generatedColor1).toUpperCase()}
+                      onChange={(e) => updateTrimConfig('placket', { color: e.target.value })}
+                      style={{ padding: '4px 6px', fontSize: '11px', width: '80px', borderRadius: '6px' }}
+                    />
+                  </div>
+                )}
+
+                {placketMode === 'image' && (
+                  <div>
+                    {designConfig.trim?.placket.uploadedUrl ? (
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <span style={{ fontSize: '11px', color: '#10b981', fontWeight: '600' }}>Image Active</span>
+                        <button 
+                          type="button"
+                          className="btn btn-secondary" 
+                          style={{ padding: '3px 8px', fontSize: '11px' }}
+                          onClick={() => updateTrimConfig('placket', { uploadedUrl: null })}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="btn btn-secondary" style={{ padding: '5px 10px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
+                        Upload Placket Image
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => handleTrimFileUpload('placket', e)} 
+                          style={{ display: 'none' }} 
+                        />
+                      </label>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Section: Sleeve Bottom Stripe */}
+              <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#111827' }}>Sleeve Bottom Stripe</span>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '600', color: '#374151' }}>
+                    <input 
+                      type="checkbox"
+                      checked={designConfig.trim?.sleeveStripe.enabled !== false}
+                      onChange={(e) => updateTrimConfig('sleeveStripe', { enabled: e.target.checked })}
+                      style={{ accentColor: '#E4572E' }}
+                    />
+                    Enabled
+                  </label>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input 
+                    type="color" 
+                    value={designConfig.trim?.sleeveStripe.color || '#171717'} 
+                    onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
+                    style={{ border: 'none', background: 'none', width: '32px', height: '32px', cursor: 'pointer' }}
+                  />
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={(designConfig.trim?.sleeveStripe.color || '#171717').toUpperCase()}
+                    onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
+                    style={{ padding: '4px 6px', fontSize: '11px', width: '80px', borderRadius: '6px' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Card 3: 3D Background Studio */}
+            <div className="glass-card" style={{ padding: '16px', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <Palette size={18} style={{ color: '#E4572E' }} />
+                <h3 style={{ fontSize: '13px', fontWeight: '800', color: '#1F2937', margin: 0 }}>3D Studio Background</h3>
+              </div>
+
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                {[
+                  { label: 'Studio Dark', color: '#0a0a0f' },
+                  { label: 'Clean White', color: '#ffffff' },
+                  { label: 'Slate Gray', color: '#1e293b' },
+                  { label: 'Charcoal', color: '#18181b' },
+                  { label: 'Soft Gray', color: '#f1f5f9' },
+                ].map((bg, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setThreeDBgColor(bg.color);
+                      setThreeDBgImageUrl(null);
+                    }}
+                    style={{
+                      padding: '5px 8px',
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      borderRadius: '6px',
+                      border: (threeDBgColor === bg.color && !threeDBgImageUrl) ? '2px solid #E4572E' : '1px solid #D1D5DB',
+                      background: bg.color,
+                      color: isLightColor(bg.color) ? '#1F2937' : '#FFFFFF',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {bg.label}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '600', color: '#4B5563' }}>Custom Color:</span>
+                <input 
+                  type="color" 
+                  value={threeDBgColor} 
+                  onChange={(e) => {
+                    setThreeDBgColor(e.target.value);
+                    setThreeDBgImageUrl(null);
+                  }}
+                  style={{ border: 'none', background: 'none', width: '32px', height: '32px', cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '11px', fontWeight: '700', color: '#374151' }}>{threeDBgColor.toUpperCase()}</span>
+              </div>
+
+              {/* Upload Custom Background Image */}
+              <div style={{ background: '#F8FAFC', padding: '10px', borderRadius: '8px', border: '1px dashed #CBD5E1' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#1E293B' }}>Upload Custom Backdrop</div>
+                    <div style={{ fontSize: '10px', color: '#64748B' }}>Add stadium, locker room, or client branding</div>
+                  </div>
+                  {threeDBgImageUrl ? (
+                    <button
+                      type="button"
+                      onClick={() => setThreeDBgImageUrl(null)}
+                      className="btn btn-secondary"
+                      style={{ padding: '4px 8px', fontSize: '10px' }}
+                    >
+                      Remove BG
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => bgUploadInputRef.current?.click()}
+                      className="btn btn-secondary"
+                      style={{ padding: '5px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <Upload size={12} /> Upload Image
+                    </button>
+                  )}
+                </div>
+                <input 
+                  ref={bgUploadInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCustomBgUpload}
+                  style={{ display: 'none' }}
+                />
+              </div>
+            </div>
+
+            {/* Card 4: Client 3D Mockup Exporter (4 Dimension JPGs) */}
+            <div className="glass-card" style={{ padding: '16px', background: '#FFFFFF', border: '2px solid #E4572E', borderRadius: '10px', boxShadow: '0 4px 14px rgba(228, 87, 46, 0.12)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                <Camera size={18} style={{ color: '#E4572E' }} />
+                <h3 style={{ fontSize: '13px', fontWeight: '800', color: '#E4572E', margin: 0 }}>Client 3D Mockup Export</h3>
+              </div>
+              <p style={{ fontSize: '11px', color: '#6B7280', margin: '0 0 12px 0', lineHeight: '1.4' }}>
+                Export 4-dimension high-resolution JPG images (Front 0°, Back 180°, Left 3/4, Right 3/4) to show clients.
+              </p>
+
+              {exportMockupStatus && (
+                <div style={{ marginBottom: '10px', padding: '6px 10px', background: '#EFF6FF', color: '#1D4ED8', borderRadius: '6px', fontSize: '11px', fontWeight: '700', textAlign: 'center' }}>
+                  {exportMockupStatus}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {/* Button 1: Download 4 Angles ZIP */}
+                <button
+                  type="button"
+                  disabled={isExportingMockup}
+                  onClick={handleDownload4AnglesZip}
+                  className="btn btn-primary"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    padding: '10px 14px',
+                    fontSize: '12px',
+                    fontWeight: '800',
+                    borderRadius: '8px',
+                    cursor: isExportingMockup ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  <FolderArchive size={15} /> Download 4 Angles (ZIP)
+                </button>
+
+                {/* Button 2: Download 4-in-1 Client Presentation Board JPG */}
+                <button
+                  type="button"
+                  disabled={isExportingMockup}
+                  onClick={handleDownloadPresentationBoard}
+                  className="btn"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    padding: '10px 14px',
+                    fontSize: '12px',
+                    fontWeight: '800',
+                    borderRadius: '8px',
+                    background: '#1F2937',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    cursor: isExportingMockup ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  <ImageIcon size={15} /> Download 4-in-1 Presentation Board (JPG)
+                </button>
+
+                {/* Button 3: Snapshot Current View */}
+                <button
+                  type="button"
+                  disabled={isExportingMockup}
+                  onClick={handleSnapshotCurrentView}
+                  className="btn btn-secondary"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '8px 12px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    borderRadius: '8px',
+                    cursor: isExportingMockup ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  <Camera size={13} /> Snapshot Current View (JPG)
+                </button>
+              </div>
+            </div>
+
+            {/* Return to 2D Button */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('dual')}
+              className="btn btn-secondary w-full"
+              style={{ padding: '9px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: '8px' }}
+            >
+              ✕ Return to 2D Artwork Designer
+            </button>
+          </div>
+        ) : (
+          <>
         {/* Step 1: Bulk ZIP Importer Card */}
         <div className="glass-card" style={{ padding: '16px', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
           <h3 
@@ -5677,186 +6421,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
 
 
-        {/* Collar & Trim Customization */}
-        <div className="glass-card" style={{ padding: '16px', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
-          <h3 
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', cursor: 'pointer', color: '#1F2937' }}
-            onClick={() => toggleCollapse('trim')}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Shirt size={18} style={{ color: '#E4572E' }} /> <span style={{ fontSize: '13px', fontWeight: '700' }}>Collar & Trim Customization</span>
-            </span>
-            {collapsed.trim ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-          </h3>
 
-
-          {!collapsed.trim && (
-            <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {/* Part 1: Collar */}
-              <div>
-                <h4 style={{ fontSize: '13px', fontWeight: 'semibold', color: '#fff', marginBottom: '8px' }}>Collar & Rib</h4>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input 
-                      type="color" 
-                      value={designConfig.trim?.collar.color || designConfig.front.generatedColor1} 
-                      onChange={(e) => updateTrimConfig('collar', { color: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
-                    />
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      value={(designConfig.trim?.collar.color || designConfig.front.generatedColor1).toUpperCase()}
-                      onChange={(e) => updateTrimConfig('collar', { color: e.target.value })}
-                      style={{ padding: '6px', fontSize: '12px', width: '90px' }}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    {designConfig.trim?.collar.uploadedUrl ? (
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          Image Active
-                        </div>
-                        <button 
-                          className="btn btn-secondary" 
-                          style={{ padding: '4px 8px', fontSize: '11px' }}
-                          onClick={() => updateTrimConfig('collar', { uploadedUrl: null })}
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
-                        Import Image
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={(e) => handleTrimFileUpload('collar', e)} 
-                          style={{ display: 'none' }} 
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Part 2: Placket */}
-              <div>
-                <h4 style={{ fontSize: '13px', fontWeight: 'semibold', color: '#fff', marginBottom: '8px' }}>Button Placket</h4>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input 
-                      type="color" 
-                      value={designConfig.trim?.placket.color || designConfig.front.generatedColor1} 
-                      onChange={(e) => updateTrimConfig('placket', { color: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
-                    />
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      value={(designConfig.trim?.placket.color || designConfig.front.generatedColor1).toUpperCase()}
-                      onChange={(e) => updateTrimConfig('placket', { color: e.target.value })}
-                      style={{ padding: '6px', fontSize: '12px', width: '90px' }}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    {designConfig.trim?.placket.uploadedUrl ? (
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          Image Active
-                        </div>
-                        <button 
-                          className="btn btn-secondary" 
-                          style={{ padding: '4px 8px', fontSize: '11px' }}
-                          onClick={() => updateTrimConfig('placket', { uploadedUrl: null })}
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
-                        Import Image
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={(e) => handleTrimFileUpload('placket', e)} 
-                          style={{ display: 'none' }} 
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Part 3: Sleeve Stripe */}
-              <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '10px', padding: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <h4 style={{ fontSize: '13px', fontWeight: '700', color: '#111827', margin: 0 }}>Sleeve Bottom Stripe</h4>
-                    <span style={{ fontSize: '10px', fontWeight: '700', background: '#FEF3C7', color: '#92400E', padding: '2px 6px', borderRadius: '4px', border: '1px solid #FCD34D' }}>
-                      2.3" Fixed Height
-                    </span>
-                  </div>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '600', color: '#374151' }}>
-                    <input 
-                      type="checkbox"
-                      checked={designConfig.trim?.sleeveStripe.enabled !== false}
-                      onChange={(e) => updateTrimConfig('sleeveStripe', { enabled: e.target.checked })}
-                      style={{ accentColor: '#E4572E' }}
-                    />
-                    Enabled
-                  </label>
-                </div>
-                <p style={{ fontSize: '11px', color: '#6B7280', margin: '0 0 10px 0' }}>
-                  Height stays exactly 2.3 inches across all sizes (18 to 60) on export. Width automatically fits each sleeve panel.
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input 
-                      type="color" 
-                      value={designConfig.trim?.sleeveStripe.color || '#171717'} 
-                      onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '38px', height: '38px', cursor: 'pointer' }}
-                    />
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      value={(designConfig.trim?.sleeveStripe.color || '#171717').toUpperCase()}
-                      onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
-                      style={{ padding: '6px', fontSize: '12px', width: '90px' }}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    {designConfig.trim?.sleeveStripe.uploadedUrl ? (
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          Pattern Active
-                        </div>
-                        <button 
-                          className="btn btn-secondary" 
-                          style={{ padding: '4px 8px', fontSize: '11px' }}
-                          onClick={() => updateTrimConfig('sleeveStripe', { uploadedUrl: null })}
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
-                        Import Pattern
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={(e) => handleTrimFileUpload('sleeveStripe', e)} 
-                          style={{ display: 'none' }} 
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
 
 
 
@@ -6095,6 +6660,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             </div>
           )}
         </div>
+        </>
+      )}
     </div>
     </div>
 
