@@ -18,8 +18,8 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ onClose }) => {
     { key: 'T / B / L / R', desc: 'Align Top (T), Bottom (B), Left (L), Right (R)' },
     { key: 'Space (hold & drag)', desc: 'Pan canvas dynamically' },
     { key: 'Ctrl + 0', desc: 'Fit Canvas View to Screen' },
-    { key: 'Ctrl + I', desc: 'Import single panel graphic image' },
-    { key: 'Ctrl + Shift + I / Ctrl + B', desc: 'Bulk Import ZIP containing all panels' },
+    { key: 'Ctrl + U / Ctrl + I / U', desc: 'Upload / Import single panel graphic image' },
+    { key: 'Ctrl + Shift + I / Ctrl + B / Ctrl + Shift + U', desc: 'Bulk Import ZIP containing panels (Front, Back, Sleeves, Collar)' },
     { key: 'Delete', desc: 'Clear current uploaded panel background' }
   ];
 

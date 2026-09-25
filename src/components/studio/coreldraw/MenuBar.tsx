@@ -86,12 +86,12 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           <div className="cd-menu-dropdown">
             <div className="cd-dropdown-action" onClick={() => { onOpenImport(); close(); }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><FileUp size={13} /> Import Graphic</span>
-              <span style={{ opacity: 0.5 }}>Ctrl+I</span>
+              <span style={{ opacity: 0.5 }}>Ctrl+U / Ctrl+I</span>
             </div>
             {onOpenBulkImport && (
               <div className="cd-dropdown-action" onClick={() => { onOpenBulkImport(); close(); }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><FileUp size={13} /> Bulk Import ZIP</span>
-                <span style={{ opacity: 0.5 }}>Ctrl+Shift+I</span>
+                <span style={{ opacity: 0.5 }}>Ctrl+Shift+I / Ctrl+B</span>
               </div>
             )}
             <div className="cd-dropdown-action" onClick={() => { exportAllLocalData(); close(); }}>

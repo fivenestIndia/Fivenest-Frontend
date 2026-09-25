@@ -2121,16 +2121,21 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         return;
       }
 
-      // 5. BULK ZIP IMPORT: Ctrl + Shift + I  OR  Ctrl + B
-      if ((isCtrl && e.shiftKey && key === 'I') || (isCtrl && key === 'B')) {
+      // 5. BULK ZIP IMPORT: Ctrl+Shift+I, Cmd+Shift+I, Ctrl+Shift+U, Cmd+Shift+U, Ctrl+B, Cmd+B
+      if (
+        (isCtrl && e.shiftKey && (key === 'I' || key === 'U')) ||
+        (isCtrl && !e.shiftKey && key === 'B')
+      ) {
         e.preventDefault();
+        e.stopPropagation();
         zipInputRef.current?.click();
         return;
       }
 
-      // 6. IMPORT GRAPHIC: Ctrl + I
-      if (isCtrl && key === 'I') {
+      // 6. IMPORT / UPLOAD SINGLE GRAPHIC: Ctrl+I, Cmd+I, Ctrl+U, Cmd+U, Ctrl+O, Cmd+O
+      if (isCtrl && (key === 'I' || key === 'U' || key === 'O')) {
         e.preventDefault();
+        e.stopPropagation();
         fileInputRef.current?.click();
         return;
       }
@@ -2188,6 +2193,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         }
         if (key === 'L') {
           setActiveTool('logo');
+          return;
+        }
+        if (key === 'U') {
+          fileInputRef.current?.click();
           return;
         }
         if (key === 'I') {
@@ -2418,6 +2427,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       };
       reader.readAsDataURL(file);
     }
+    e.target.value = '';
   };
 
 
@@ -2434,6 +2444,192 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     reader.readAsDataURL(file);
   };
 
+  // Helper: Levenshtein distance for fuzzy matching filename typos
+  const levenshteinDistance = (s1: string, s2: string): number => {
+    const m = s1.length;
+    const n = s2.length;
+    if (m === 0) return n;
+    if (n === 0) return m;
+    const d: number[][] = [];
+    for (let i = 0; i <= m; i++) d[i] = [i];
+    for (let j = 0; j <= n; j++) d[0][j] = j;
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
+        d[i][j] = Math.min(
+          d[i - 1][j] + 1,
+          d[i][j - 1] + 1,
+          d[i - 1][j - 1] + cost
+        );
+      }
+    }
+    return d[m][n];
+  };
+
+  // Smart Panel Classifier for ZIP Importer (tolerant of typos and naming variations)
+  type ZipPanelTarget =
+    | 'front'
+    | 'back'
+    | 'collar'
+    | 'sleeveLeft_half'
+    | 'sleeveLeft_full'
+    | 'sleeveLeft_both'
+    | 'sleeveRight_half'
+    | 'sleeveRight_full'
+    | 'sleeveRight_both'
+    | 'sleeve_both_half'
+    | 'sleeve_both_full'
+    | 'sleeve_both_all'
+    | null;
+
+  const classifyZipPanelFile = (rawPath: string): ZipPanelTarget => {
+    const pathParts = rawPath.split('/');
+    const baseFilename = pathParts[pathParts.length - 1];
+    const nameWithoutExt = baseFilename.replace(/\.[a-zA-Z0-9]+$/, '').toLowerCase();
+    const folder = pathParts.length > 1 ? pathParts[pathParts.length - 2].toLowerCase() : '';
+
+    const cleanName = nameWithoutExt.replace(/[^a-z0-9]/g, ' ');
+    const cleanFolder = folder.replace(/[^a-z0-9]/g, ' ');
+    const combined = `${cleanFolder} ${cleanName}`.trim();
+    const words = combined.split(/\s+/).filter(Boolean);
+
+    const containsSub = (sub: string) => combined.includes(sub);
+
+    const hasFuzzyWord = (target: string, maxDist: number = 1): boolean => {
+      return words.some(w => {
+        if (w === target) return true;
+        if (w.length >= 3 && Math.abs(w.length - target.length) <= maxDist) {
+          return levenshteinDistance(w, target) <= maxDist;
+        }
+        return false;
+      });
+    };
+
+    // 1. COLLAR PANEL (Handles: collar, colar, coler, coller, collor, cllr, neck, neckband, rib, ribbing)
+    const collarKeywords = [
+      'collar', 'collars', 'colar', 'coler', 'coller', 'collor', 'cllr', 
+      'kollar', 'kolar', 'neck', 'neckband', 'neckrib', 'rib', 'ribbing',
+      'collarband', 'collarstrip', 'collartrim', 'ribcollar'
+    ];
+    const isCollar = 
+      words.some(w => collarKeywords.includes(w)) ||
+      hasFuzzyWord('collar', 2) ||
+      hasFuzzyWord('neckband', 2) ||
+      containsSub('collar') ||
+      containsSub('colar') ||
+      containsSub('coler') ||
+      containsSub('coller') ||
+      containsSub('collor') ||
+      containsSub('neck') ||
+      containsSub('ribbing');
+
+    if (isCollar) {
+      return 'collar';
+    }
+
+    // 2. SLEEVE PANELS (Handles: sleeve, sleev, sleve, slevee, slv, arm, shoulder, lhs, rhs)
+    const sleeveKeywords = ['sleeve', 'sleev', 'sleve', 'slevee', 'slev', 'slv', 'sl', 'sleeves', 'arm', 'shoulder', 'cuff', 'hand'];
+    const hasSleeveWord = 
+      words.some(w => sleeveKeywords.includes(w)) || 
+      hasFuzzyWord('sleeve', 2) || 
+      containsSub('sleeve') || 
+      containsSub('sleev') || 
+      containsSub('sleve') || 
+      containsSub('slv');
+
+    const hasLeftWord = 
+      words.some(w => ['left', 'lft', 'lef', 'letf', 'lefft', 'lhs', 'lfs', 'ls'].includes(w)) ||
+      hasFuzzyWord('left', 1) ||
+      containsSub('left') ||
+      words.includes('l');
+
+    const hasRightWord = 
+      words.some(w => ['right', 'rgt', 'rit', 'rigth', 'rigt', 'rihgt', 'rght', 'rite', 'rhs', 'rfs', 'rs'].includes(w)) ||
+      hasFuzzyWord('right', 1) ||
+      containsSub('right') ||
+      words.includes('r');
+
+    const isLeftSleeve = hasLeftWord && (hasSleeveWord || words.some(w => ['lhs', 'lfs', 'ls'].includes(w)) || containsSub('left sleeve') || containsSub('l sleeve') || containsSub('sleeve l') || containsSub('lsleeve'));
+    const isRightSleeve = hasRightWord && (hasSleeveWord || words.some(w => ['rhs', 'rfs', 'rs'].includes(w)) || containsSub('right sleeve') || containsSub('r sleeve') || containsSub('sleeve r') || containsSub('rsleeve'));
+
+    const isFullSleeve = 
+      words.some(w => ['full', 'ful', 'long', 'lng', 'fls', 'lfs', 'rfs'].includes(w)) ||
+      hasFuzzyWord('full', 1) ||
+      containsSub('full') ||
+      containsSub('long');
+
+    const isHalfSleeve = 
+      words.some(w => ['half', 'haf', 'hlf', 'short', 'shrt', 'hs', 'lhs', 'rhs'].includes(w)) ||
+      hasFuzzyWord('half', 1) ||
+      containsSub('half') ||
+      containsSub('short');
+
+    if (isLeftSleeve && !isRightSleeve) {
+      if (isFullSleeve && !isHalfSleeve) return 'sleeveLeft_full';
+      if (isHalfSleeve && !isFullSleeve) return 'sleeveLeft_half';
+      return 'sleeveLeft_both';
+    }
+
+    if (isRightSleeve && !isLeftSleeve) {
+      if (isFullSleeve && !isHalfSleeve) return 'sleeveRight_full';
+      if (isHalfSleeve && !isFullSleeve) return 'sleeveRight_half';
+      return 'sleeveRight_both';
+    }
+
+    if (hasSleeveWord) {
+      if (isFullSleeve && !isHalfSleeve) return 'sleeve_both_full';
+      if (isHalfSleeve && !isFullSleeve) return 'sleeve_both_half';
+      return 'sleeve_both_all';
+    }
+
+    // 3. FRONT PANEL (Handles: front, frnt, fornt, font, frt, fron, chest, torso, 01)
+    const frontKeywords = [
+      'front', 'frnt', 'fornt', 'font', 'frt', 'fron', 'frotn', 'frton', 
+      'frnot', 'fronnt', 'ffront', 'frontt', 'frot', 'frontbody', 'frontside',
+      'chest', 'torso'
+    ];
+    const isFront = 
+      words.some(w => frontKeywords.includes(w)) ||
+      hasFuzzyWord('front', 2) ||
+      containsSub('front') ||
+      containsSub('frnt') ||
+      containsSub('fornt') ||
+      (words.includes('f') && (words.includes('body') || words.includes('panel') || words.includes('torso') || words.includes('01') || words.includes('1')));
+
+    if (isFront && !containsSub('back') && !hasSleeveWord) {
+      return 'front';
+    }
+
+    // 4. BACK PANEL (Handles: back, bak, bck, baack, bakk, bcak, rear, reverse, 02)
+    const backKeywords = [
+      'back', 'bak', 'bck', 'baack', 'bakk', 'bcak', 'bark', 'bka', 
+      'bac', 'bckk', 'backk', 'backbody', 'backside', 'rear', 'reverse'
+    ];
+    const isBack = 
+      words.some(w => backKeywords.includes(w)) ||
+      hasFuzzyWord('back', 1) ||
+      containsSub('back') ||
+      containsSub('bak') ||
+      containsSub('bck') ||
+      (words.includes('b') && (words.includes('body') || words.includes('panel') || words.includes('torso') || words.includes('02') || words.includes('2')));
+
+    if (isBack && !containsSub('front') && !hasSleeveWord) {
+      return 'back';
+    }
+
+    // 5. NUMERIC / SHORTCODE FALLBACK (e.g. 1.png, 01.png, 02.png, 03.png, 04.png, 05.png)
+    if (words.length === 1) {
+      const w = words[0];
+      if (w === '1' || w === '01' || w === 'f') return 'front';
+      if (w === '2' || w === '02' || w === 'b') return 'back';
+      if (w === '3' || w === '03' || w === 'l' || w === 'ls') return 'sleeveLeft_both';
+      if (w === '4' || w === '04' || w === 'r' || w === 'rs') return 'sleeveRight_both';
+      if (w === '5' || w === '05' || w === 'c') return 'collar';
+    }
+
+    return null;
+  };
+
   const handleZipImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -2446,6 +2642,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const newConfig = {
         front: { ...designConfig.front },
         back: { ...designConfig.back },
+        collar: { ...designConfig.collar },
         sleeveLeft: { ...designConfig.sleeveLeft },
         sleeveRight: { ...designConfig.sleeveRight },
         a4Print: { ...designConfig.a4Print },
@@ -2466,53 +2663,141 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           continue;
         }
 
+        const target = classifyZipPanelFile(filename);
+        if (!target) continue;
+
         const base64Data = await zipEntry.async('base64');
         const mimeType = lowerBase.endsWith('.png') ? 'image/png' : lowerBase.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
         const dataUrl = `data:${mimeType};base64,${base64Data}`;
 
-        if (lowerBase.includes('front') && !lowerBase.includes('sleeve') && !lowerBase.includes('sl') && !lowerBase.includes('back')) {
-          newConfig.front.uploadedFileUrl = dataUrl;
-          newConfig.front.backgroundType = 'upload';
-          importedCount++;
-          importedNames.push('Front');
-        }
-        else if (lowerBase.includes('back') && !lowerBase.includes('sleeve') && !lowerBase.includes('sl') && !lowerBase.includes('front')) {
-          newConfig.back.uploadedFileUrl = dataUrl;
-          newConfig.back.backgroundType = 'upload';
-          importedCount++;
-          importedNames.push('Back');
-        }
-        else if (lowerBase.includes('left') && (lowerBase.includes('half sl') || (lowerBase.includes('half') && lowerBase.includes('sleeve')) || lowerBase.includes('lhs') || lowerBase.includes('lh sl'))) {
-          newConfig.sleeveLeft.uploadedFileHalfUrl = dataUrl;
-          newConfig.sleeveLeft.backgroundType = 'upload';
-          importedCount++;
-          importedNames.push('Left Half Sleeve');
-        }
-        else if (lowerBase.includes('right') && (lowerBase.includes('half sl') || (lowerBase.includes('half') && lowerBase.includes('sleeve')) || lowerBase.includes('rhs') || lowerBase.includes('rh sl'))) {
-          newConfig.sleeveRight.uploadedFileHalfUrl = dataUrl;
-          newConfig.sleeveRight.backgroundType = 'upload';
-          importedCount++;
-          importedNames.push('Right Half Sleeve');
-        }
-        else if (lowerBase.includes('left') && (lowerBase.includes('full sleeve') || lowerBase.includes('full sl') || lowerBase.includes('fls') || lowerBase.includes('lf sl'))) {
-          newConfig.sleeveLeft.uploadedFileFullUrl = dataUrl;
-          newConfig.sleeveLeft.backgroundType = 'upload';
-          importedCount++;
-          importedNames.push('Left Full Sleeve');
-        }
-        else if (lowerBase.includes('right') && (lowerBase.includes('full sleeve') || lowerBase.includes('full sl') || lowerBase.includes('rls') || lowerBase.includes('rf sl'))) {
-          newConfig.sleeveRight.uploadedFileFullUrl = dataUrl;
-          newConfig.sleeveRight.backgroundType = 'upload';
-          importedCount++;
-          importedNames.push('Right Full Sleeve');
+        switch (target) {
+          case 'front':
+            newConfig.front.uploadedFileUrl = dataUrl;
+            newConfig.front.backgroundType = 'upload';
+            importedCount++;
+            importedNames.push(`Front (${baseFilename})`);
+            break;
+
+          case 'back':
+            newConfig.back.uploadedFileUrl = dataUrl;
+            newConfig.back.backgroundType = 'upload';
+            importedCount++;
+            importedNames.push(`Back (${baseFilename})`);
+            break;
+
+          case 'collar':
+            newConfig.collar.uploadedFileUrl = dataUrl;
+            newConfig.collar.backgroundType = 'upload';
+            importedCount++;
+            importedNames.push(`Collar (${baseFilename})`);
+            if (typeof Image !== 'undefined') {
+              const img = new Image();
+              img.onload = () => {
+                logoImagesRef.current[dataUrl] = img;
+                const edgeColor = sampleImageEdgeColor(img);
+                if (edgeColor) {
+                  onDesignConfigChange({
+                    ...newConfig,
+                    collar: {
+                      ...newConfig.collar,
+                      generatedColor1: edgeColor
+                    }
+                  });
+                }
+              };
+              img.src = dataUrl;
+            }
+            break;
+
+          case 'sleeveLeft_half':
+            newConfig.sleeveLeft.uploadedFileHalfUrl = dataUrl;
+            newConfig.sleeveLeft.backgroundType = 'upload';
+            importedCount++;
+            importedNames.push(`Left Half Sleeve (${baseFilename})`);
+            break;
+
+          case 'sleeveLeft_full':
+            newConfig.sleeveLeft.uploadedFileFullUrl = dataUrl;
+            newConfig.sleeveLeft.backgroundType = 'upload';
+            importedCount++;
+            importedNames.push(`Left Full Sleeve (${baseFilename})`);
+            break;
+
+          case 'sleeveLeft_both':
+            newConfig.sleeveLeft.uploadedFileHalfUrl = dataUrl;
+            newConfig.sleeveLeft.uploadedFileFullUrl = dataUrl;
+            newConfig.sleeveLeft.backgroundType = 'upload';
+            importedCount++;
+            importedNames.push(`Left Sleeve (${baseFilename})`);
+            break;
+
+          case 'sleeveRight_half':
+            newConfig.sleeveRight.uploadedFileHalfUrl = dataUrl;
+            newConfig.sleeveRight.backgroundType = 'upload';
+            importedCount++;
+            importedNames.push(`Right Half Sleeve (${baseFilename})`);
+            break;
+
+          case 'sleeveRight_full':
+            newConfig.sleeveRight.uploadedFileFullUrl = dataUrl;
+            newConfig.sleeveRight.backgroundType = 'upload';
+            importedCount++;
+            importedNames.push(`Right Full Sleeve (${baseFilename})`);
+            break;
+
+          case 'sleeveRight_both':
+            newConfig.sleeveRight.uploadedFileHalfUrl = dataUrl;
+            newConfig.sleeveRight.uploadedFileFullUrl = dataUrl;
+            newConfig.sleeveRight.backgroundType = 'upload';
+            importedCount++;
+            importedNames.push(`Right Sleeve (${baseFilename})`);
+            break;
+
+          case 'sleeve_both_half':
+            newConfig.sleeveLeft.uploadedFileHalfUrl = dataUrl;
+            newConfig.sleeveLeft.backgroundType = 'upload';
+            newConfig.sleeveRight.uploadedFileHalfUrl = dataUrl;
+            newConfig.sleeveRight.backgroundType = 'upload';
+            importedCount += 2;
+            importedNames.push(`Both Sleeves (Half) (${baseFilename})`);
+            break;
+
+          case 'sleeve_both_full':
+            newConfig.sleeveLeft.uploadedFileFullUrl = dataUrl;
+            newConfig.sleeveLeft.backgroundType = 'upload';
+            newConfig.sleeveRight.uploadedFileFullUrl = dataUrl;
+            newConfig.sleeveRight.backgroundType = 'upload';
+            importedCount += 2;
+            importedNames.push(`Both Sleeves (Full) (${baseFilename})`);
+            break;
+
+          case 'sleeve_both_all':
+            newConfig.sleeveLeft.uploadedFileHalfUrl = dataUrl;
+            newConfig.sleeveLeft.uploadedFileFullUrl = dataUrl;
+            newConfig.sleeveLeft.backgroundType = 'upload';
+            newConfig.sleeveRight.uploadedFileHalfUrl = dataUrl;
+            newConfig.sleeveRight.uploadedFileFullUrl = dataUrl;
+            newConfig.sleeveRight.backgroundType = 'upload';
+            importedCount += 2;
+            importedNames.push(`Both Sleeves (${baseFilename})`);
+            break;
         }
       }
 
       if (importedCount > 0) {
         onDesignConfigChange(newConfig);
-        alert(`Successfully imported ${importedCount} panels from ZIP:\n- ${importedNames.join('\n- ')}`);
+        toast.success(`Successfully imported ${importedCount} panels from ZIP!`);
+        alert(`Successfully imported ${importedCount} panels from ZIP:\n\n` + importedNames.map(n => `• ${n}`).join('\n'));
       } else {
-        alert('No matching panel graphics found in ZIP file.\n\nMake sure filenames contain: Front, Back, Left Half SL, Right Half SL, Left Full Sleeve, or Right Full Sleeve.');
+        alert(
+          'No matching panel graphics found in ZIP file.\n\n' +
+          'Smart Importer searches for:\n' +
+          '• Front (e.g. Front, Frnt, Fornt, Font, 01)\n' +
+          '• Back (e.g. Back, Bak, Bck, 02)\n' +
+          '• Left Sleeve (e.g. Left Sleeve, L_Sleeve, LHS, 03)\n' +
+          '• Right Sleeve (e.g. Right Sleeve, R_Sleeve, RHS, 04)\n' +
+          '• Collar (e.g. Collar, Colar, Coller, Neck, Rib, 05)'
+        );
       }
     } catch (err) {
       console.error('Failed to import ZIP:', err);
@@ -3187,14 +3472,26 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         </div>
 
 
-        {/* Global Invisible Image File Input for Double Click / Button Upload */}
+        {/* Global Invisible Image File Input for Double Click / Button Upload / Shortcuts */}
         <input 
           ref={fileInputRef} 
           type="file" 
           onChange={handleFileUpload} 
+          onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
           accept="image/*" 
           style={{ display: 'none' }} 
           id="global-artwork-file-input" 
+        />
+
+        {/* Global Invisible Bulk ZIP File Input (Always mounted in DOM for Shortcuts & MenuBar) */}
+        <input 
+          ref={zipInputRef} 
+          type="file" 
+          accept=".zip" 
+          id="zip-importer-input" 
+          style={{ display: 'none' }} 
+          onChange={handleZipImport} 
+          onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
         />
 
         {/* 3D VIEWPORT: 100% Locked Container (Zero DOM zoom, Three.js OrbitControls only) */}
@@ -3832,20 +4129,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           </h3>
           {!collapsed.zip && (
             <div style={{ marginTop: '16px' }}>
-              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                Upload a `.zip` file. The system will auto-detect and import: <strong>Front, Back, Left Half SL, Right Half SL, Left Full Sleeve, & Right Full Sleeve</strong>.
+              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: '1.45' }}>
+                Upload a `.zip` archive. Smart auto-detect recognizes typos and imports: <strong>Front, Back, Left Sleeve, Right Sleeve, & Collar (18" × 4.5")</strong>.
               </p>
-              <input 
-                ref={zipInputRef}
-                type="file" 
-                accept=".zip" 
-                id="zip-importer-input" 
-                style={{ display: 'none' }} 
-                onChange={handleZipImport} 
-              />
-              <label htmlFor="zip-importer-input" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '8px' }}>
-                <Upload size={14} /> Import ZIP File <span style={{ fontSize: '9px', opacity: 0.75, background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: '3px' }}>Ctrl+Shift+I</span>
-              </label>
+              <button
+                type="button"
+                onClick={() => zipInputRef.current?.click()}
+                className="btn btn-secondary w-full"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '9px 12px', width: '100%', borderRadius: '8px' }}
+              >
+                <Upload size={14} /> Import ZIP File <span style={{ fontSize: '9px', opacity: 0.75, background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: '3px' }}>Ctrl+Shift+I / Ctrl+B</span>
+              </button>
             </div>
           )}
         </div>
