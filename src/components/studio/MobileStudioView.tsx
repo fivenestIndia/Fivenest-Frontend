@@ -5,7 +5,7 @@ import {
   CreditCard, CheckCircle2, FileSpreadsheet, Plus, Trash2, 
   ShieldCheck, ChevronDown, ChevronUp, Type, Hash, Layers,
   SlidersHorizontal, CheckCircle, Image as ImageIcon, Shirt,
-  Sliders
+  Sliders, Ruler
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import JSZip from 'jszip';
@@ -14,7 +14,7 @@ import confetti from 'canvas-confetti';
 import { supabase, fetchUserWallet } from '../../lib/supabaseClient';
 import { sampleImageEdgeColor, type ArtDesignConfig, type TextConfig, type PanelConfig, type LogoConfig } from './designer';
 import type { PlayerRecord, OrderMetadata } from './orderEntry';
-import type { SizeDatabase } from './sizesDb';
+import { defaultSizes, DEFAULT_SIZE_AGE_MAP, type SizeDatabase, type SizeConfig } from './sizesDb';
 import type { NestingViewHandle } from './nestingView';
 import { classifyZipPanelFile } from './zipHelper';
 
@@ -48,11 +48,13 @@ interface MobileStudioViewProps {
   designConfig: ArtDesignConfig;
   onDesignConfigChange: (config: ArtDesignConfig) => void;
   sizeDB: SizeDatabase;
+  onSizeDBChange?: (db: SizeDatabase) => void;
   currentUser: { email: string; name: string; balance: number; id?: string } | null;
   onUserChange: (user: { email: string; name: string; balance: number; id?: string } | null) => void;
   testMode: boolean;
   onTestModeChange: (val: boolean) => void;
   onOpenLogin: () => void;
+  onOpenSizeEditor?: () => void;
   nestingRef: React.RefObject<NestingViewHandle>;
 }
 
@@ -64,18 +66,74 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
   designConfig,
   onDesignConfigChange,
   sizeDB,
+  onSizeDBChange,
   currentUser,
   onUserChange,
   testMode,
   onTestModeChange,
   onOpenLogin,
+  onOpenSizeEditor,
   nestingRef
 }) => {
-  // Mobile tabs: artwork, roster, export, payment
+  // Mobile tabs: artwork, roster (players data), export, payment
   const [activeTab, setActiveTab] = useState<'artwork' | 'roster' | 'export' | 'payment'>('artwork');
   const [showPcNotice, setShowPcNotice] = useState<boolean>(() => {
     return localStorage.getItem('fivenest_dismiss_pc_notice') !== 'true';
   });
+
+  // Size Editor states
+  const [showSizeModal, setShowSizeModal] = useState<boolean>(false);
+  const [localSizeDB, setLocalSizeDB] = useState<SizeDatabase>(() => {
+    try {
+      const saved = localStorage.getItem('teedex_size_database') || localStorage.getItem('fivenest_size_db');
+      return saved ? JSON.parse(saved) : (sizeDB || defaultSizes);
+    } catch {
+      return sizeDB || defaultSizes;
+    }
+  });
+  const [selectedEditSize, setSelectedEditSize] = useState<string>("40");
+
+  useEffect(() => {
+    if (sizeDB && Object.keys(sizeDB).length > 0) {
+      setLocalSizeDB(sizeDB);
+    }
+  }, [sizeDB]);
+
+  const sizeList = Object.keys(localSizeDB).length > 0 ? Object.keys(localSizeDB) : Object.keys(defaultSizes);
+  const currentEditingConfig: SizeConfig = localSizeDB[selectedEditSize] || defaultSizes[selectedEditSize] || defaultSizes["40"];
+
+  const handleUpdateDimension = (panel: 'front' | 'back' | 'half' | 'full', dim: 'w' | 'h', val: number) => {
+    const current = localSizeDB[selectedEditSize] || defaultSizes[selectedEditSize] || defaultSizes["40"];
+    const updated = {
+      ...localSizeDB,
+      [selectedEditSize]: {
+        ...current,
+        [panel]: {
+          ...current[panel],
+          [dim]: val
+        }
+      }
+    };
+    setLocalSizeDB(updated);
+  };
+
+  const handleSaveSizes = () => {
+    localStorage.setItem('teedex_size_database', JSON.stringify(localSizeDB));
+    localStorage.setItem('fivenest_size_db', JSON.stringify(localSizeDB));
+    if (onSizeDBChange) onSizeDBChange(localSizeDB);
+    confetti({ particleCount: 35, spread: 45 });
+    setShowSizeModal(false);
+  };
+
+  const handleResetAllSizes = () => {
+    if (window.confirm("Reset all sizes back to factory default measurements?")) {
+      setLocalSizeDB(defaultSizes);
+      localStorage.setItem('teedex_size_database', JSON.stringify(defaultSizes));
+      localStorage.setItem('fivenest_size_db', JSON.stringify(defaultSizes));
+      if (onSizeDBChange) onSizeDBChange(defaultSizes);
+      confetti({ particleCount: 20, spread: 30 });
+    }
+  };
 
   // Active panel being viewed/edited in the static artwork box
   const [activePanel, setActivePanel] = useState<'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'collar'>('front');
@@ -2050,14 +2108,14 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                 boxShadow: '0 4px 12px rgba(228,87,46,0.3)'
               }}
             >
-              <span>Next: Edit Roster & Import Sheet</span>
+              <span>Next: Players Data & Import Sheet</span>
               <ArrowRight size={14} />
             </button>
           </div>
         )}
 
         {/* ════════════════════════════════════════════════════════
-            TAB 2: 📋 ROSTER & JOB DETAILS (With Import Sheet)
+            TAB 2: 📋 PLAYERS DATA & JOB DETAILS (With Import Sheet)
            ════════════════════════════════════════════════════════ */}
         {activeTab === 'roster' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -2097,7 +2155,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                     {sheetImportLoading ? 'Processing Sheet...' : 'Import Sheet (Excel / CSV)'}
                   </div>
                   <div style={{ fontSize: '11px', color: '#94A3B8' }}>
-                    Tap to upload team roster (.xlsx, .xls, .csv). Auto-detects names, numbers, sizes & sleeves.
+                    Tap to upload players data (.xlsx, .xls, .csv). Auto-detects names, numbers, sizes & sleeves.
                   </div>
                 </div>
               </div>
@@ -2109,6 +2167,59 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                 <button onClick={() => setSheetImportMessage(null)} style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer' }}><X size={12} /></button>
               </div>
             )}
+
+            {/* Quick Size Editor & Dimensions Card */}
+            <div 
+              onClick={() => setShowSizeModal(true)}
+              style={{
+                background: 'linear-gradient(135deg, rgba(228,87,46,0.12) 0%, rgba(30,41,59,0.8) 100%)',
+                border: '1.5px solid rgba(228, 87, 46, 0.4)',
+                borderRadius: '12px',
+                padding: '12px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '8px',
+                  background: 'rgba(228,87,46,0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#FF7A45',
+                  flexShrink: 0
+                }}>
+                  <Ruler size={18} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: '800', color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>Size Editor & Customisation</span>
+                    <span style={{ fontSize: '9px', background: 'rgba(228,87,46,0.25)', color: '#FF7A45', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>18–60</span>
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                    Tap to customize chest width, length & sleeve inches per size
+                  </div>
+                </div>
+              </div>
+              <div style={{
+                background: '#E4572E',
+                borderRadius: '6px',
+                padding: '5px 10px',
+                fontSize: '11px',
+                fontWeight: '800',
+                color: '#FFFFFF',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                <SlidersHorizontal size={12} /> Edit Sizes
+              </div>
+            </div>
 
             {/* Job Metadata Card */}
             <div style={{ background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -2170,26 +2281,49 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
               </div>
             </div>
 
-            {/* Players Roster List Card */}
+            {/* Players Data List Card */}
             <div style={{ background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <span style={{ fontSize: '14px', fontWeight: '800', color: '#F8FAFC' }}>Jersey Roster</span>
+                  <span style={{ fontSize: '14px', fontWeight: '800', color: '#F8FAFC' }}>Players Data</span>
                   <span style={{ marginLeft: '8px', fontSize: '11px', background: 'rgba(228,87,46,0.2)', color: '#FF7A45', padding: '2px 8px', borderRadius: '12px', fontWeight: '700' }}>
                     {totalQty} Jerseys
                   </span>
                 </div>
-                <button
-                  onClick={() => setShowAddPlayer(true)}
-                  style={{ background: '#E4572E', border: 'none', color: '#FFFFFF', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
-                >
-                  <Plus size={14} /> Add Jersey
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    onClick={() => setShowSizeModal(true)}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      color: '#F8FAFC',
+                      padding: '6px 10px',
+                      borderRadius: '8px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      cursor: 'pointer'
+                    }}
+                    title="Size Editor & Customisation"
+                  >
+                    <Ruler size={13} style={{ color: '#FF7A45' }} />
+                    <span>Size Editor</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowAddPlayer(true)}
+                    style={{ background: '#E4572E', border: 'none', color: '#FFFFFF', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+                  >
+                    <Plus size={14} /> Add Jersey
+                  </button>
+                </div>
               </div>
 
               {records.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '24px 10px', color: '#64748B', fontSize: '12px' }}>
-                  No jerseys added yet. Use <strong>Import Sheet</strong> above or tap <strong>+ Add Jersey</strong>.
+                  No jerseys in players data yet. Use <strong>Import Sheet</strong> above or tap <strong>+ Add Jersey</strong>.
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '360px', overflowY: 'auto' }}>
@@ -2604,7 +2738,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
           style={{ background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', color: activeTab === 'roster' ? '#E4572E' : '#94A3B8', cursor: 'pointer', position: 'relative' }}
         >
           <Users size={20} />
-          <span style={{ fontSize: '10px', fontWeight: activeTab === 'roster' ? '800' : '600' }}>Roster</span>
+          <span style={{ fontSize: '10px', fontWeight: activeTab === 'roster' ? '800' : '600' }}>Players Data</span>
           {records.length > 0 && (
             <span style={{ position: 'absolute', top: '-3px', right: '8px', background: '#E4572E', color: '#FFFFFF', borderRadius: '8px', padding: '1px 5px', fontSize: '9px', fontWeight: '800' }}>
               {totalQty}
@@ -2657,7 +2791,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
             gap: '14px'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '15px', fontWeight: '800', color: '#F8FAFC' }}>Add Player to Roster</span>
+              <span style={{ fontSize: '15px', fontWeight: '800', color: '#F8FAFC' }}>Add to Players Data</span>
               <button onClick={() => setShowAddPlayer(false)} style={{ background: 'transparent', border: 'none', color: '#94A3B8', padding: '4px', cursor: 'pointer' }}>
                 <X size={18} />
               </button>
@@ -2687,14 +2821,26 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
               </div>
 
               <div>
-                <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Size</label>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <label style={{ fontSize: '11px', color: '#94A3B8' }}>Size</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddPlayer(false);
+                      setShowSizeModal(true);
+                    }}
+                    style={{ background: 'transparent', border: 'none', color: '#FF7A45', fontSize: '10px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer', padding: 0 }}
+                  >
+                    <Ruler size={11} /> Edit Sizes
+                  </button>
+                </div>
                 <select
                   value={newPlayerSize}
                   onChange={(e) => setNewPlayerSize(e.target.value)}
                   style={{ width: '100%', background: '#1E293B', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '8px', padding: '9px 12px', color: '#FFFFFF', fontSize: '13px', outline: 'none' }}
                 >
                   {Object.keys(sizeDB).map(s => (
-                    <option key={s} value={s}>{s}</option>
+                    <option key={s} value={s}>{s} ({DEFAULT_SIZE_AGE_MAP[s] || 'Standard'})</option>
                   ))}
                 </select>
               </div>
@@ -2729,8 +2875,288 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
               onClick={handleAddPlayer}
               style={{ background: 'linear-gradient(135deg, #FF6B3D 0%, #E4572E 100%)', border: 'none', color: '#FFFFFF', padding: '12px', borderRadius: '10px', fontSize: '14px', fontWeight: '700', cursor: 'pointer', marginTop: '6px' }}
             >
-              Add to Roster
+              Add to Players Data
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Size Editor & Dimensions Modal ── */}
+      {showSizeModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 110,
+          background: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'center',
+          padding: '0 0 calc(env(safe-area-inset-bottom, 0px)) 0'
+        }}>
+          <div style={{
+            background: '#0F172A',
+            borderTop: '1.5px solid rgba(228, 87, 46, 0.4)',
+            borderRadius: '20px 20px 0 0',
+            width: '100%',
+            maxWidth: '520px',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.6)'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '16px 18px',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(228,87,46,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FF7A45' }}>
+                  <Ruler size={18} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: '800', color: '#FFFFFF' }}>
+                    Size Editor & Dimensions
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                    Customize chest, length & sleeve inches per size
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSizeModal(false)}
+                style={{ background: 'transparent', border: 'none', color: '#94A3B8', padding: '4px', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Size Selection Chips */}
+              <div>
+                <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '6px' }}>
+                  Select Size to Customize ({DEFAULT_SIZE_AGE_MAP[selectedEditSize] || selectedEditSize}):
+                </label>
+                <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '6px', scrollbarWidth: 'none' }}>
+                  {sizeList.map(s => {
+                    const isSel = s === selectedEditSize;
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setSelectedEditSize(s)}
+                        style={{
+                          background: isSel ? '#E4572E' : '#1E293B',
+                          border: isSel ? '1px solid #E4572E' : '1px solid rgba(255, 255, 255, 0.1)',
+                          color: '#FFFFFF',
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: isSel ? '800' : '600',
+                          whiteSpace: 'nowrap',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {s}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Editing Card for selected size */}
+              <div style={{ background: '#1E293B', borderRadius: '12px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                <div style={{ fontSize: '13px', fontWeight: '800', color: '#FF7A45', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Size {selectedEditSize} ({DEFAULT_SIZE_AGE_MAP[selectedEditSize] || 'Standard'})</span>
+                  <span style={{ fontSize: '10px', color: '#94A3B8' }}>Units: Inches (")</span>
+                </div>
+
+                {/* Front Panel W & H */}
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#CBD5E1', marginBottom: '6px' }}>
+                    Front Panel (Chest Width × Height)
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div>
+                      <label style={{ fontSize: '10px', color: '#94A3B8', display: 'block', marginBottom: '2px' }}>Chest Width (W)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={currentEditingConfig?.front?.w ?? 22}
+                        onChange={(e) => handleUpdateDimension('front', 'w', parseFloat(e.target.value) || 0)}
+                        style={{ width: '100%', background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '6px', padding: '7px 10px', color: '#FFFFFF', fontSize: '12px', outline: 'none' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '10px', color: '#94A3B8', display: 'block', marginBottom: '2px' }}>Body Length (H)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={currentEditingConfig?.front?.h ?? 30}
+                        onChange={(e) => handleUpdateDimension('front', 'h', parseFloat(e.target.value) || 0)}
+                        style={{ width: '100%', background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '6px', padding: '7px 10px', color: '#FFFFFF', fontSize: '12px', outline: 'none' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Back Panel W & H */}
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#CBD5E1', marginBottom: '6px' }}>
+                    Back Panel (Width × Height)
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div>
+                      <label style={{ fontSize: '10px', color: '#94A3B8', display: 'block', marginBottom: '2px' }}>Width (W)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={currentEditingConfig?.back?.w ?? 22}
+                        onChange={(e) => handleUpdateDimension('back', 'w', parseFloat(e.target.value) || 0)}
+                        style={{ width: '100%', background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '6px', padding: '7px 10px', color: '#FFFFFF', fontSize: '12px', outline: 'none' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '10px', color: '#94A3B8', display: 'block', marginBottom: '2px' }}>Length (H)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={currentEditingConfig?.back?.h ?? 30}
+                        onChange={(e) => handleUpdateDimension('back', 'h', parseFloat(e.target.value) || 0)}
+                        style={{ width: '100%', background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '6px', padding: '7px 10px', color: '#FFFFFF', fontSize: '12px', outline: 'none' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Half Sleeve W & H */}
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#CBD5E1', marginBottom: '6px' }}>
+                    Half Sleeve (Width × Length)
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div>
+                      <label style={{ fontSize: '10px', color: '#94A3B8', display: 'block', marginBottom: '2px' }}>Sleeve Width (W)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={currentEditingConfig?.half?.w ?? 20}
+                        onChange={(e) => handleUpdateDimension('half', 'w', parseFloat(e.target.value) || 0)}
+                        style={{ width: '100%', background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '6px', padding: '7px 10px', color: '#FFFFFF', fontSize: '12px', outline: 'none' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '10px', color: '#94A3B8', display: 'block', marginBottom: '2px' }}>Sleeve Length (H)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={currentEditingConfig?.half?.h ?? 11}
+                        onChange={(e) => handleUpdateDimension('half', 'h', parseFloat(e.target.value) || 0)}
+                        style={{ width: '100%', background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '6px', padding: '7px 10px', color: '#FFFFFF', fontSize: '12px', outline: 'none' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Full Sleeve W & H */}
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#CBD5E1', marginBottom: '6px' }}>
+                    Full Sleeve (Width × Length)
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div>
+                      <label style={{ fontSize: '10px', color: '#94A3B8', display: 'block', marginBottom: '2px' }}>Sleeve Width (W)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={currentEditingConfig?.full?.w ?? 20}
+                        onChange={(e) => handleUpdateDimension('full', 'w', parseFloat(e.target.value) || 0)}
+                        style={{ width: '100%', background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '6px', padding: '7px 10px', color: '#FFFFFF', fontSize: '12px', outline: 'none' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '10px', color: '#94A3B8', display: 'block', marginBottom: '2px' }}>Sleeve Length (H)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={currentEditingConfig?.full?.h ?? 26}
+                        onChange={(e) => handleUpdateDimension('full', 'h', parseFloat(e.target.value) || 0)}
+                        style={{ width: '100%', background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '6px', padding: '7px 10px', color: '#FFFFFF', fontSize: '12px', outline: 'none' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={handleResetAllSizes}
+                  style={{
+                    flex: 1,
+                    background: '#1E293B',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#CBD5E1',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Reset Defaults
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveSizes}
+                  style={{
+                    flex: 2,
+                    background: 'linear-gradient(135deg, #FF6B3D 0%, #E4572E 100%)',
+                    border: 'none',
+                    color: '#FFFFFF',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    boxShadow: '0 4px 12px rgba(228,87,46,0.3)'
+                  }}
+                >
+                  <Check size={14} /> Save & Apply Dimensions
+                </button>
+              </div>
+
+              {onOpenSizeEditor && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSizeModal(false);
+                    onOpenSizeEditor();
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: '1px dashed rgba(255, 255, 255, 0.2)',
+                    color: '#94A3B8',
+                    padding: '8px',
+                    borderRadius: '8px',
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                    textAlign: 'center'
+                  }}
+                >
+                  Open Full Desktop Matrix Grid
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

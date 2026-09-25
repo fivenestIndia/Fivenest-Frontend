@@ -205,11 +205,13 @@ export default function WebStudio() {
           designConfig={designConfig}
           onDesignConfigChange={setDesignConfig}
           sizeDB={sizeDB}
+          onSizeDBChange={handleSizeDatabaseChange}
           currentUser={currentUser}
           onUserChange={setCurrentUser}
           testMode={testMode}
           onTestModeChange={handleTestModeChange}
           onOpenLogin={() => setLoginModalOpen(true)}
+          onOpenSizeEditor={() => setSizeEditorOpen(true)}
           nestingRef={mobileNestingRef}
         />
         {/* Hidden NestingView instance to provide full high-res PDF/ZIP rendering and billing execution */}
@@ -227,6 +229,33 @@ export default function WebStudio() {
             onGoToArtwork={() => {}}
           />
         </div>
+        {sizeEditorOpen && (
+          <div
+            style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(23,23,23,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+            onClick={(e) => { if (e.target === e.currentTarget) setSizeEditorOpen(false); }}
+          >
+            <div style={{ background: '#FFFFFF', border: '1px solid #DDD9D2', borderRadius: '14px', width: '100%', maxWidth: '980px', maxHeight: '88vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid #E8E4DE', background: '#F5F3EF' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '15px', fontWeight: '800', color: '#171717' }}>📐 Size Grading & Sizing Presets</span>
+                  <span style={{ fontSize: '10px', background: '#FFF0EB', color: '#C2410C', border: '1px solid #FCD7C8', padding: '2px 8px', borderRadius: '6px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Master 18–60
+                  </span>
+                </div>
+                <button 
+                  onClick={() => setSizeEditorOpen(false)} 
+                  style={{ background: '#FFFFFF', border: '1px solid #D0CCC5', borderRadius: '6px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#242321', fontSize: '14px', fontWeight: '700', transition: 'all 0.15s ease' }}
+                  title="Close Size Grading Editor"
+                >
+                  ✕
+                </button>
+              </div>
+              <div style={{ overflow: 'auto', flex: 1, padding: '16px' }}>
+                <SizesDb onDatabaseChange={handleSizeDatabaseChange} />
+              </div>
+            </div>
+          </div>
+        )}
         {loginModalOpen && (
           <LoginModal 
             onClose={() => setLoginModalOpen(false)} 
