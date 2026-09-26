@@ -527,11 +527,11 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let physicalW = 15;
-    let physicalH = 21;
+    let physicalW = 22;
+    let physicalH = 30;
     if (activePanel === 'front' || activePanel === 'back') {
-      physicalW = 15;
-      physicalH = 21;
+      physicalW = 22;
+      physicalH = 30;
     } else if (activePanel === 'sleeveLeft' || activePanel === 'sleeveRight') {
       if (previewSleeveType === 'full') {
         physicalW = 19;
@@ -1327,8 +1327,8 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
               {/* Artwork Box Header Bar */}
               <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
                 <span style={{ fontSize: '12px', fontWeight: '800', color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  {activePanel === 'front' && 'Front Panel (15" × 21")'}
-                  {activePanel === 'back' && 'Back Panel (15" × 21")'}
+                  {activePanel === 'front' && 'Front Panel (22" × 30")'}
+                  {activePanel === 'back' && 'Back Panel (22" × 30")'}
                   {activePanel === 'sleeveLeft' && `Left Sleeve (${previewSleeveType === 'full' ? '19" × 25"' : '19" × 11"'})`}
                   {activePanel === 'sleeveRight' && `Right Sleeve (${previewSleeveType === 'full' ? '19" × 25"' : '19" × 11"'})`}
                   {activePanel === 'collar' && 'Collar Band (18" × 4.5")'}
