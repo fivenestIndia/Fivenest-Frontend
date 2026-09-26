@@ -33,7 +33,7 @@ export const defaultSizes: SizeDatabase = {
   "34": { front: { w: 19, h: 27 }, back: { w: 19, h: 27 }, half: { w: 17.0, h: 10.0 }, full: { w: 17, h: 23.5 }, rHalf: { w: 17.5, h: 16.0 }, rFull: { w: 17.5, h: 28 }, nn: { w: 9, h: 9 } },
   "36": { front: { w: 20, h: 28 }, back: { w: 20, h: 28 }, half: { w: 18.0, h: 11.0 }, full: { w: 18, h: 24.5 }, rHalf: { w: 18.5, h: 17.0 }, rFull: { w: 18.5, h: 31 }, nn: { w: 10, h: 10 } },
   "38": { front: { w: 21, h: 29 }, back: { w: 21, h: 29 }, half: { w: 19.0, h: 11.0 }, full: { w: 19, h: 25 }, rHalf: { w: 19.0, h: 16.5 }, rFull: { w: 19.0, h: 31 }, nn: { w: 10, h: 10 } },
-  "40": { front: { w: 22, h: 30 }, back: { w: 22, h: 30 }, half: { w: 20.0, h: 11.0 }, full: { w: 20, h: 26 }, rHalf: { w: 19.5, h: 17.0 }, rFull: { w: 19.5, h: 31 }, nn: { w: 11, h: 11 } },
+  "40": { front: { w: 22, h: 30 }, back: { w: 22, h: 30 }, half: { w: 19.0, h: 11.0 }, full: { w: 19.0, h: 25.0 }, rHalf: { w: 19.5, h: 17.0 }, rFull: { w: 19.5, h: 31 }, nn: { w: 11, h: 11 } },
   "42": { front: { w: 23, h: 31 }, back: { w: 23, h: 31 }, half: { w: 21.0, h: 12.0 }, full: { w: 21, h: 26 }, rHalf: { w: 20.5, h: 18.0 }, rFull: { w: 20.5, h: 31.5 }, nn: { w: 11, h: 11 } },
   "44": { front: { w: 24, h: 31.8 }, back: { w: 24, h: 31.8 }, half: { w: 22.0, h: 13.0 }, full: { w: 22, h: 27 }, rHalf: { w: 21.5, h: 18.5 }, rFull: { w: 21.5, h: 32 }, nn: { w: 11, h: 11 } },
   "46": { front: { w: 25, h: 33 }, back: { w: 25, h: 33 }, half: { w: 23.0, h: 13.5 }, full: { w: 23, h: 28 }, rHalf: { w: 22.5, h: 19.0 }, rFull: { w: 22.5, h: 32 }, nn: { w: 12, h: 12 } },

@@ -5,7 +5,7 @@ import {
   CreditCard, CheckCircle2, FileSpreadsheet, Plus, Trash2, 
   ShieldCheck, ChevronDown, ChevronUp, Type, Hash, Layers,
   SlidersHorizontal, CheckCircle, Image as ImageIcon, Shirt,
-  Sliders, Ruler, Bookmark, Save
+  Sliders, Ruler, Bookmark, Save, Settings
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import JSZip from 'jszip';
@@ -534,11 +534,11 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
       physicalH = 21;
     } else if (activePanel === 'sleeveLeft' || activePanel === 'sleeveRight') {
       if (previewSleeveType === 'full') {
-        physicalW = 14;
-        physicalH = 18;
+        physicalW = 19;
+        physicalH = 25;
       } else {
-        physicalW = 7;
-        physicalH = 7;
+        physicalW = 19;
+        physicalH = 11;
       }
     } else if (activePanel === 'collar') {
       physicalW = 18;
@@ -1290,7 +1290,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                       cursor: 'pointer'
                     }}
                   >
-                    Half Sleeve (7"×7")
+                    Half Sleeve (19"×11")
                   </button>
                   <button
                     onClick={() => setPreviewSleeveType('full')}
@@ -1305,7 +1305,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                       cursor: 'pointer'
                     }}
                   >
-                    Full Sleeve (14"×18")
+                    Full Sleeve (19"×25")
                   </button>
                 </div>
               </div>
@@ -1329,8 +1329,8 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                 <span style={{ fontSize: '12px', fontWeight: '800', color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   {activePanel === 'front' && 'Front Panel (15" × 21")'}
                   {activePanel === 'back' && 'Back Panel (15" × 21")'}
-                  {activePanel === 'sleeveLeft' && `Left Sleeve (${previewSleeveType === 'full' ? '14" × 18"' : '7" × 7"'})`}
-                  {activePanel === 'sleeveRight' && `Right Sleeve (${previewSleeveType === 'full' ? '14" × 18"' : '7" × 7"'})`}
+                  {activePanel === 'sleeveLeft' && `Left Sleeve (${previewSleeveType === 'full' ? '19" × 25"' : '19" × 11"'})`}
+                  {activePanel === 'sleeveRight' && `Right Sleeve (${previewSleeveType === 'full' ? '19" × 25"' : '19" × 11"'})`}
                   {activePanel === 'collar' && 'Collar Band (18" × 4.5")'}
                 </span>
                 <span style={{ fontSize: '10px', color: '#94A3B8', background: 'rgba(255,255,255,0.08)', padding: '2px 6px', borderRadius: '4px' }}>
@@ -2171,115 +2171,40 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
         )}
 
         {/* ════════════════════════════════════════════════════════
-            TAB 2: 📋 PLAYERS DATA & JOB DETAILS (With Import Sheet)
+            TAB 2: 📋 ORDER DETAILS, IMPORT & PLAYERS DATA
            ════════════════════════════════════════════════════════ */}
         {activeTab === 'roster' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             
-            {/* Import Sheet Action Card */}
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.12) 0%, rgba(30, 41, 59, 0.8) 100%)',
-              border: '1.5px dashed rgba(34, 197, 94, 0.45)',
-              borderRadius: '14px',
-              padding: '16px',
-              position: 'relative'
-            }}>
-              <input
-                ref={sheetFileInputRef}
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                onChange={handleSheetFileChange}
-                disabled={sheetImportLoading}
-                style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer', zIndex: 10 }}
-              />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{
-                  width: '44px',
-                  height: '44px',
-                  borderRadius: '12px',
-                  background: 'rgba(34, 197, 94, 0.2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#4ADE80',
-                  flexShrink: 0
-                }}>
-                  {sheetImportLoading ? <RefreshCw size={22} className="animate-spin" /> : <FileSpreadsheet size={22} />}
-                </div>
-                <div>
-                  <div style={{ fontSize: '14px', fontWeight: '800', color: '#FFFFFF' }}>
-                    {sheetImportLoading ? 'Processing Sheet...' : 'Import Sheet (Excel / CSV)'}
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#94A3B8' }}>
-                    Tap to upload players data (.xlsx, .xls, .csv). Auto-detects names, numbers, sizes & sleeves.
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {sheetImportMessage && (
-              <div style={{ background: 'rgba(30, 41, 59, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: sheetImportMessage.startsWith('✅') ? '#4ADE80' : '#FACC15', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>{sheetImportMessage}</span>
-                <button onClick={() => setSheetImportMessage(null)} style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer' }}><X size={12} /></button>
-              </div>
-            )}
-
-            {/* Quick Size Editor & Dimensions Card */}
-            <div 
-              onClick={() => setShowSizeModal(true)}
-              style={{
-                background: 'linear-gradient(135deg, rgba(228,87,46,0.12) 0%, rgba(30,41,59,0.8) 100%)',
-                border: '1.5px solid rgba(228, 87, 46, 0.4)',
-                borderRadius: '12px',
-                padding: '12px 14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                cursor: 'pointer'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '8px',
-                  background: 'rgba(228,87,46,0.2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#FF7A45',
-                  flexShrink: 0
-                }}>
-                  <Ruler size={18} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: '800', color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span>Size Editor & Customisation</span>
-                    <span style={{ fontSize: '9px', background: 'rgba(228,87,46,0.25)', color: '#FF7A45', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>18–60</span>
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#94A3B8' }}>
-                    Preset: <strong style={{ color: '#FF7A45' }}>{activeSizePreset}</strong> • Tap to edit or manage presets
-                  </div>
-                </div>
-              </div>
-              <div style={{
-                background: '#E4572E',
-                borderRadius: '6px',
-                padding: '5px 10px',
-                fontSize: '11px',
-                fontWeight: '800',
-                color: '#FFFFFF',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}>
-                <SlidersHorizontal size={12} /> Edit Sizes
-              </div>
-            </div>
-
-            {/* Job Metadata Card */}
+            {/* ── 1. ORDER DETAILS (FIRST) ── */}
             <div style={{ background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ fontSize: '14px', fontWeight: '800', color: '#F8FAFC' }}>Order Details</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ fontSize: '14px', fontWeight: '800', color: '#F8FAFC' }}>
+                  Order Details
+                </div>
+                {/* Size Editor minimized as setting icon */}
+                <button
+                  type="button"
+                  onClick={() => setShowSizeModal(true)}
+                  title={`Size Settings & Presets (${activeSizePreset})`}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    borderRadius: '8px',
+                    padding: '5px 10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    color: '#FF7A45',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Settings size={14} />
+                  <span>Sizes ({activeSizePreset})</span>
+                </button>
+              </div>
 
               <div>
                 <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Customer / Team Name</label>
@@ -2337,7 +2262,55 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
               </div>
             </div>
 
-            {/* Players Data List Card */}
+            {/* ── 2. EXCEL / CSV IMPORT (SECOND) ── */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.12) 0%, rgba(30, 41, 59, 0.8) 100%)',
+              border: '1.5px dashed rgba(34, 197, 94, 0.45)',
+              borderRadius: '14px',
+              padding: '16px',
+              position: 'relative'
+            }}>
+              <input
+                ref={sheetFileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleSheetFileChange}
+                disabled={sheetImportLoading}
+                style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer', zIndex: 10 }}
+              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '12px',
+                  background: 'rgba(34, 197, 94, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#4ADE80',
+                  flexShrink: 0
+                }}>
+                  {sheetImportLoading ? <RefreshCw size={22} className="animate-spin" /> : <FileSpreadsheet size={22} />}
+                </div>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: '800', color: '#FFFFFF' }}>
+                    {sheetImportLoading ? 'Processing Sheet...' : 'Import Sheet (Excel / CSV)'}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                    Tap to upload players data (.xlsx, .xls, .csv). Auto-detects names, numbers, sizes & sleeves.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {sheetImportMessage && (
+              <div style={{ background: 'rgba(30, 41, 59, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: sheetImportMessage.startsWith('✅') ? '#4ADE80' : '#FACC15', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>{sheetImportMessage}</span>
+                <button onClick={() => setSheetImportMessage(null)} style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer' }}><X size={12} /></button>
+              </div>
+            )}
+
+            {/* ── 3. PLAYERS DATA LIST (THIRD) ── */}
             <div style={{ background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
@@ -2347,25 +2320,24 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {/* Minimized Size Settings Icon Button */}
                   <button
                     onClick={() => setShowSizeModal(true)}
                     style={{
                       background: 'rgba(255, 255, 255, 0.08)',
                       border: '1px solid rgba(255, 255, 255, 0.15)',
-                      color: '#F8FAFC',
-                      padding: '6px 10px',
+                      color: '#FF7A45',
+                      width: '32px',
+                      height: '32px',
                       borderRadius: '8px',
-                      fontSize: '11px',
-                      fontWeight: '700',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '4px',
+                      justifyContent: 'center',
                       cursor: 'pointer'
                     }}
-                    title="Size Editor & Customisation"
+                    title={`Size Settings & Presets (${activeSizePreset})`}
                   >
-                    <Ruler size={13} style={{ color: '#FF7A45' }} />
-                    <span>Size Editor</span>
+                    <Settings size={16} />
                   </button>
 
                   <button
@@ -3204,7 +3176,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                       <input
                         type="number"
                         step="0.1"
-                        value={currentEditingConfig?.half?.w ?? 20}
+                        value={currentEditingConfig?.half?.w ?? 19}
                         onChange={(e) => handleUpdateDimension('half', 'w', parseFloat(e.target.value) || 0)}
                         style={{ width: '100%', background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '6px', padding: '7px 10px', color: '#FFFFFF', fontSize: '12px', outline: 'none' }}
                       />
@@ -3233,7 +3205,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                       <input
                         type="number"
                         step="0.1"
-                        value={currentEditingConfig?.full?.w ?? 20}
+                        value={currentEditingConfig?.full?.w ?? 19}
                         onChange={(e) => handleUpdateDimension('full', 'w', parseFloat(e.target.value) || 0)}
                         style={{ width: '100%', background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '6px', padding: '7px 10px', color: '#FFFFFF', fontSize: '12px', outline: 'none' }}
                       />
@@ -3243,7 +3215,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                       <input
                         type="number"
                         step="0.1"
-                        value={currentEditingConfig?.full?.h ?? 26}
+                        value={currentEditingConfig?.full?.h ?? 25}
                         onChange={(e) => handleUpdateDimension('full', 'h', parseFloat(e.target.value) || 0)}
                         style={{ width: '100%', background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '6px', padding: '7px 10px', color: '#FFFFFF', fontSize: '12px', outline: 'none' }}
                       />
