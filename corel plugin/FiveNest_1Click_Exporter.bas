@@ -4,15 +4,12 @@ Attribute VB_Name = "FiveNest_1Click_Exporter"
 ' ==============================================================================
 ' Features:
 ' 1. Smart Fuzzy Search:
-'    - Finds shapes named "Front", "2 Front", "Front_Panel", etc.
-'    - Finds shapes named "Back", "2 Back", "Back_Panel", etc.
-'    - Finds sleeves named "Left Sleeve", "Right Sleeve", "Sleeve", etc.
-'    - Finds collar named "Collar", "Rib", "Neck", etc.
-'    - Also checks Layer names and Page names!
+'    - Automatically detects "2 Front", "Front", "Front_Panel", etc.
+'    - Automatically detects "2 Back", "Back", "Back_Panel", etc.
+'    - Detects sleeves and collar
 ' 2. Interactive Selection Fallback:
-'    - If any panel is not named, prompts you to simply select it on screen!
-'    - Automatically tags it so next time it runs 100% automatically.
-' 3. Strict 300 DPI RGB JPG Export (cdrJPEG + cdrRGBColorImage)
+'    - If any sleeve isn't named yet, prompts you to simply click it on screen!
+' 3. Strict 300 DPI RGB JPG Export
 ' 4. Packages into Desktop ZIP and launches FiveNest Studio in browser
 ' ==============================================================================
 
@@ -41,9 +38,9 @@ Public Sub ExportToFiveNestStudio()
     Dim isFullSleeve As Boolean
     isFullSleeve = (sleeveChoice = vbYes)
     
-    Dim fso As Object, sh As Object
+    Dim fso As Object, wShell As Object
     Set fso = CreateObject("Scripting.FileSystemObject")
-    Set sh = CreateObject("WScript.Shell")
+    Set wShell = CreateObject("WScript.Shell")
     
     ' Create Temp Export Directory
     Dim tempPath As String
@@ -68,8 +65,8 @@ Public Sub ExportToFiveNestStudio()
         If MsgBox("Front panel was not found by name ('Front' or '2 Front')." & vbCrLf & vbCrLf & _
                   "Please SELECT your Front Panel graphic on screen, then click 'OK'." & vbCrLf & _
                   "(Or click Cancel to skip Front)", vbOKCancel + vbInformation, "Select Front Panel") = vbOK Then
-            If doc.ActiveSelection.Shapes.Count > 0 Then
-                Set shFront = doc.ActiveSelection.Shapes(1)
+            If ActiveSelectionRange.Count > 0 Then
+                Set shFront = ActiveSelectionRange(1)
                 shFront.Name = "Front"
             End If
         End If
@@ -92,8 +89,8 @@ Public Sub ExportToFiveNestStudio()
         If MsgBox("Back panel was not found by name ('Back' or '2 Back')." & vbCrLf & vbCrLf & _
                   "Please SELECT your Back Panel graphic on screen, then click 'OK'." & vbCrLf & _
                   "(Or click Cancel to skip Back)", vbOKCancel + vbInformation, "Select Back Panel") = vbOK Then
-            If doc.ActiveSelection.Shapes.Count > 0 Then
-                Set shBack = doc.ActiveSelection.Shapes(1)
+            If ActiveSelectionRange.Count > 0 Then
+                Set shBack = ActiveSelectionRange(1)
                 shBack.Name = "Back"
             End If
         End If
@@ -113,7 +110,7 @@ Public Sub ExportToFiveNestStudio()
     Set shLeftSleeve = FindPanelShape(p, Array("left sleeve", "sleeve left", "sleeve l", "l sleeve", "hsl l", "fsl l", "lhs"))
     Set shRightSleeve = FindPanelShape(p, Array("right sleeve", "sleeve right", "sleeve r", "r sleeve", "hsl r", "fsl r", "rhs"))
     
-    ' If not found separately, look for general "sleeve" or prompt
+    ' If not found separately, look for general "sleeve"
     If shLeftSleeve Is Nothing And shRightSleeve Is Nothing Then
         Dim shGeneralSleeve As Shape
         Set shGeneralSleeve = FindPanelShape(p, Array("sleeve", "sleev", "slv", "sleve"))
@@ -127,8 +124,8 @@ Public Sub ExportToFiveNestStudio()
         If MsgBox("Left Sleeve was not detected by name." & vbCrLf & vbCrLf & _
                   "Please SELECT your Left Sleeve graphic on screen, then click 'OK'." & vbCrLf & _
                   "(Or click Cancel to skip)", vbOKCancel + vbInformation, "Select Left Sleeve") = vbOK Then
-            If doc.ActiveSelection.Shapes.Count > 0 Then
-                Set shLeftSleeve = doc.ActiveSelection.Shapes(1)
+            If ActiveSelectionRange.Count > 0 Then
+                Set shLeftSleeve = ActiveSelectionRange(1)
                 shLeftSleeve.Name = "Left Sleeve"
             End If
         End If
@@ -142,13 +139,12 @@ Public Sub ExportToFiveNestStudio()
     End If
     
     If shRightSleeve Is Nothing And Not shLeftSleeve Is Nothing Then
-        ' Ask if right sleeve is identical or separate
         If MsgBox("Is the Right Sleeve different from the Left Sleeve?" & vbCrLf & vbCrLf & _
                   "Click 'Yes' to select a separate Right Sleeve." & vbCrLf & _
                   "Click 'No' to use the same artwork for both sleeves.", vbYesNo + vbQuestion, "Right Sleeve") = vbYes Then
             If MsgBox("Please SELECT your Right Sleeve graphic on screen, then click 'OK'.", vbOKCancel + vbInformation, "Select Right Sleeve") = vbOK Then
-                If doc.ActiveSelection.Shapes.Count > 0 Then
-                    Set shRightSleeve = doc.ActiveSelection.Shapes(1)
+                If ActiveSelectionRange.Count > 0 Then
+                    Set shRightSleeve = ActiveSelectionRange(1)
                     shRightSleeve.Name = "Right Sleeve"
                 End If
             End If
@@ -202,7 +198,7 @@ Public Sub ExportToFiveNestStudio()
     
     ' Destination ZIP Path on Desktop
     Dim desktopPath As String
-    desktopPath = sh.SpecialFolders("Desktop")
+    desktopPath = wShell.SpecialFolders("Desktop")
     Dim docTitle As String
     docTitle = doc.FileName
     If Len(docTitle) > 0 Then
@@ -217,13 +213,13 @@ Public Sub ExportToFiveNestStudio()
     ' Compress via Windows PowerShell native Compress-Archive
     Dim psCmd As String
     psCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ""Compress-Archive -Path '" & tempPath & "\*' -DestinationPath '" & zipFile & "' -Force"""
-    sh.Run psCmd, 0, True
+    wShell.Run psCmd, 0, True
     
     ' Launch FiveNest Web Studio in default browser
-    sh.Run "https://canvas.fivenest.com"
+    wShell.Run "https://canvas.fivenest.com"
     
     ' Highlight ZIP in Windows File Explorer
-    sh.Run "explorer.exe /select,""" & zipFile & """"
+    wShell.Run "explorer.exe /select,""" & zipFile & """"
     
     ' Cleanup temp directory
     On Error Resume Next
@@ -251,8 +247,12 @@ Private Function ExportSingleShape(doc As Document, sh As Shape, outPath As Stri
     doc.ClearSelection
     sh.Selected = True
     
+    Dim expFltr As ExportFilter
     ' 774 = cdrJPEG, 1 = cdrSelection, 4 = cdrRGBColorImage, 300 DPI, EmbedProfile = True
-    doc.ExportBitmap outPath, 774, 1, 4, 0, 0, 300, 300, 1, False, False, True, False, 0
+    Set expFltr = doc.ExportBitmap(outPath, 774, 1, 4, 0, 0, 300, 300, 1, False, False, True, False, 0)
+    If Not expFltr Is Nothing Then
+        expFltr.Finish
+    End If
     
     doc.ClearSelection
     ExportSingleShape = True
