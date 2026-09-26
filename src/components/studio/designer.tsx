@@ -2858,10 +2858,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     return null;
   };
 
-  const handleZipImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processZipFile = async (file: File) => {
     try {
       const JSZip = (await import('jszip')).default;
       const zip = new JSZip();
@@ -3030,6 +3027,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     } catch (err) {
       console.error('Failed to import ZIP:', err);
       alert('Error parsing ZIP file. Make sure it is a valid zip archive.');
+    }
+  };
+
+  const handleZipImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      await processZipFile(file);
     } finally {
       e.target.value = '';
     }
@@ -3470,11 +3475,19 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         onDragLeave={() => {
           setIsDragging(false);
         }}
-        onDrop={(e) => {
+        onDrop={async (e) => {
           e.preventDefault();
           setIsDragging(false);
           const file = e.dataTransfer.files?.[0];
-          if (file && file.type.startsWith('image/')) {
+          if (!file) return;
+
+          // Support direct drop of CorelDRAW exported ZIP package
+          if (file.name.toLowerCase().endsWith('.zip') || file.type.includes('zip')) {
+            await processZipFile(file);
+            return;
+          }
+
+          if (file.type.startsWith('image/')) {
             const reader = new FileReader();
             reader.onload = (event) => {
               const url = event.target?.result as string;

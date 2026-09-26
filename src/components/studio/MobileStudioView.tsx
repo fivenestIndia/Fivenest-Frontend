@@ -742,14 +742,14 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
           newConfig.back = { ...newConfig.back, uploadedFileUrl: dataUrl, backgroundType: 'upload' };
           loadedPanels.push('Back');
         } else if (target === 'sleeve_left') {
-          newConfig.sleeveLeft = { ...newConfig.sleeveLeft, uploadedFileUrl: dataUrl, backgroundType: 'upload' };
+          newConfig.sleeveLeft = { ...newConfig.sleeveLeft, uploadedFileUrl: dataUrl, uploadedFileHalfUrl: dataUrl, uploadedFileFullUrl: dataUrl, backgroundType: 'upload' };
           loadedPanels.push('Left Sleeve');
         } else if (target === 'sleeve_right') {
-          newConfig.sleeveRight = { ...newConfig.sleeveRight, uploadedFileUrl: dataUrl, backgroundType: 'upload' };
+          newConfig.sleeveRight = { ...newConfig.sleeveRight, uploadedFileUrl: dataUrl, uploadedFileHalfUrl: dataUrl, uploadedFileFullUrl: dataUrl, backgroundType: 'upload' };
           loadedPanels.push('Right Sleeve');
         } else if (target === 'sleeve_both' || target === 'sleeve_both_all') {
-          newConfig.sleeveLeft = { ...newConfig.sleeveLeft, uploadedFileUrl: dataUrl, backgroundType: 'upload' };
-          newConfig.sleeveRight = { ...newConfig.sleeveRight, uploadedFileUrl: dataUrl, backgroundType: 'upload' };
+          newConfig.sleeveLeft = { ...newConfig.sleeveLeft, uploadedFileUrl: dataUrl, uploadedFileHalfUrl: dataUrl, uploadedFileFullUrl: dataUrl, backgroundType: 'upload' };
+          newConfig.sleeveRight = { ...newConfig.sleeveRight, uploadedFileUrl: dataUrl, uploadedFileHalfUrl: dataUrl, uploadedFileFullUrl: dataUrl, backgroundType: 'upload' };
           loadedPanels.push('Sleeves (L+R)');
         } else if (target === 'collar') {
           if (newConfig.collar) {

@@ -179,8 +179,42 @@
                     </div>
                 </div>
             </div>
+        <!-- Option B: 1-Click Send to FiveNest Studio -->
+        <div class="box" style="border: 1px solid rgba(228,87,46,0.6); background: rgba(228,87,46,0.06); margin-bottom: 6px; padding: 6px 8px;">
+            <div class="box-header-row" style="margin-bottom: 4px; border-bottom: none; display: flex; justify-content: space-between; align-items: center;">
+                <div style="font-weight: 800; font-size: 10px; color: #FF7A45; display: flex; align-items: center; gap: 4px;">
+                    <span>🌐 FiveNest Web Studio</span>
+                </div>
+                <span style="font-size: 7.5px; background: rgba(228,87,46,0.25); color: #FF7A45; padding: 1px 5px; border-radius: 3px; font-weight: bold;">JPG 300 DPI RGB</span>
+            </div>
+            <div style="font-size: 8.5px; color: #94A3B8; margin-bottom: 6px; line-height: 1.3;">
+                Auto-renders Front, Back, Sleeves & Collar in 300 DPI RGB JPG, zips & opens FiveNest Studio in 1 click.
+            </div>
+            
+            <div style="display: flex; gap: 4px; margin-bottom: 6px;">
+                <div style="flex: 1; display: flex; align-items: center; gap: 3px; font-size: 8.5px; color: #CBD5E1;">
+                    <span>Sleeve:</span>
+                    <select id="selStudioSleeveType" style="flex: 1; height: 18px; font-size: 8.5px; background: #222; border: 1px solid #444; color: #fff;">
+                        <option value="half">Half Sleeve (19"×11")</option>
+                        <option value="full">Full Sleeve (19"×25")</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 3px; margin-bottom: 6px; flex-wrap: wrap;">
+                <span style="font-size: 8px; color: #777; width: 100%; margin-bottom: 1px;">Tag Selection (Optional):</span>
+                <button type="button" id="btnTagFront" class="btn-tiny-action" style="font-size: 7.5px; padding: 2px 4px;">Front</button>
+                <button type="button" id="btnTagBack" class="btn-tiny-action" style="font-size: 7.5px; padding: 2px 4px;">Back</button>
+                <button type="button" id="btnTagLeftSlv" class="btn-tiny-action" style="font-size: 7.5px; padding: 2px 4px;">L. Sleeve</button>
+                <button type="button" id="btnTagRightSlv" class="btn-tiny-action" style="font-size: 7.5px; padding: 2px 4px;">R. Sleeve</button>
+                <button type="button" id="btnTagCollar" class="btn-tiny-action" style="font-size: 7.5px; padding: 2px 4px;">Collar</button>
+            </div>
+
+            <button type="button" id="btnSendToFiveNest" class="btn-main" style="background: linear-gradient(135deg, #FF6B3D 0%, #E4572E 100%); margin: 0; padding: 7px 8px; font-size: 10px !important; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(228,87,46,0.35); cursor: pointer;">
+                🚀 EXPORT & SEND TO FIVENEST
+            </button>
         </div>
-        
+
         <button id="btnRun" class="btn-main">▶ RUN AUTOMATION</button>
 
         <div class="progress-container">

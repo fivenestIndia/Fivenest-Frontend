@@ -89,6 +89,18 @@ document.addEventListener("DOMContentLoaded", async function() {
 
     document.getElementById("exportFormat").addEventListener("change", updateUIOptions);
 
+    // FiveNest Web Studio 1-Click Send
+    if (document.getElementById("btnSendToFiveNest")) {
+        document.getElementById("btnSendToFiveNest").onclick = exportAndSendToFiveNest;
+    }
+    if (document.getElementById("btnTagFront")) {
+        document.getElementById("btnTagFront").onclick = function() { tagSelectionAs("front"); };
+        document.getElementById("btnTagBack").onclick = function() { tagSelectionAs("back"); };
+        document.getElementById("btnTagLeftSlv").onclick = function() { tagSelectionAs("sleeve_left"); };
+        document.getElementById("btnTagRightSlv").onclick = function() { tagSelectionAs("sleeve_right"); };
+        document.getElementById("btnTagCollar").onclick = function() { tagSelectionAs("collar"); };
+    }
+
     // --- 4-TAB LOGIC ---
     var tabs = ["Run", "Edit", "Manual", "Help"];
     function switchTab(target) {
@@ -1343,5 +1355,272 @@ function updateUsageDisplay() {
     var tag = document.getElementById("versionTag");
     if (tag) {
         tag.innerText = "PREMIUM V1.0 | Usage: " + currentUsage + "/" + PRODUCTION_LIMIT + " pcs";
+    }
+}
+
+// --- 🌐 FIVENEST 1-CLICK STUDIO EXPORTER (OPTION B) ---
+
+function tagSelectionAs(panelKey) {
+    try {
+        var app = window.external.Application;
+        var doc = app.ActiveDocument;
+        if (!doc) {
+            alert("Please open an artwork document in CorelDRAW first.");
+            return;
+        }
+        var sel = doc.ActiveSelection;
+        if (!sel || sel.Shapes.Count === 0) {
+            alert("Please select the " + panelKey + " shape or group in CorelDRAW first.");
+            return;
+        }
+        var sh = sel.Shapes.Item(1);
+        sh.Name = "FN_" + panelKey.toUpperCase();
+        log("✅ Selected shape tagged as: " + panelKey + " (Name: " + sh.Name + ")");
+    } catch(e) {
+        log("❌ Error tagging selection: " + e.message);
+    }
+}
+
+async function exportAndSendToFiveNest() {
+    try {
+        var app = window.external.Application;
+        var doc = app.ActiveDocument;
+        if (!doc) {
+            alert("Please open an artwork document in CorelDRAW first.");
+            return;
+        }
+
+        log("\n>>> 🚀 STARTING 1-CLICK EXPORT TO FIVENEST STUDIO...");
+        var fso = new ActiveXObject("Scripting.FileSystemObject");
+        var sh = new ActiveXObject("WScript.Shell");
+
+        var tempBase = fso.GetSpecialFolder(2).Path; // %TEMP%
+        var timestamp = Date.now();
+        var tempExportDir = tempBase + "\\FiveNest_Export_" + timestamp;
+        if (!fso.FolderExists(tempExportDir)) {
+            fso.CreateFolder(tempExportDir);
+        }
+
+        var sleeveType = document.getElementById("selStudioSleeveType") ? document.getElementById("selStudioSleeveType").value : "half";
+        log("Export Specs: Format = JPG | Color Profile = RGB (cdrRGBColorImage) | DPI = 300 | Sleeve = " + sleeveType);
+
+        var cdrJPEG = 774;
+        var cdrRGBColorImage = 4; // 24-bit RGB
+        var res = 300; // 300 DPI
+        var antiAlias = 1; // Normal Antialiasing
+        var shouldEmbed = true; // Embed RGB color profile
+
+        var panelDefs = [
+            {
+                key: "front",
+                filename: "front.jpg",
+                w: 22,
+                h: 30,
+                layerNames: ["Front", "front", "FRONT", "Front Layer"],
+                tagNames: ["FN_FRONT", "FRONT", "front"]
+            },
+            {
+                key: "back",
+                filename: "back.jpg",
+                w: 22,
+                h: 30,
+                layerNames: ["Back", "back", "BACK", "Back Layer"],
+                tagNames: ["FN_BACK", "BACK", "back"]
+            },
+            {
+                key: "sleeve_left",
+                filename: "sleeve_left.jpg",
+                w: 19,
+                h: sleeveType === "full" ? 25 : 11,
+                layerNames: [
+                    sleeveType === "full" ? "Full Left SL" : "Half Left SL",
+                    "Left Sleeve", "Sleeve Left", "Half Left SL", "Full Left SL", "Left SL", "HSL L", "FSL L"
+                ],
+                tagNames: ["FN_SLEEVE_LEFT", "SLEEVE_LEFT", "LEFT_SLEEVE", "left_sleeve"]
+            },
+            {
+                key: "sleeve_right",
+                filename: "sleeve_right.jpg",
+                w: 19,
+                h: sleeveType === "full" ? 25 : 11,
+                layerNames: [
+                    sleeveType === "full" ? "Full Right SL" : "Half Right SL",
+                    "Right Sleeve", "Sleeve Right", "Half Right SL", "Full Right SL", "Right SL", "HSL R", "FSL R"
+                ],
+                tagNames: ["FN_SLEEVE_RIGHT", "SLEEVE_RIGHT", "RIGHT_SLEEVE", "right_sleeve"]
+            },
+            {
+                key: "collar",
+                filename: "collar.jpg",
+                w: 18,
+                h: 4.5,
+                layerNames: ["Collar", "collar", "COLLAR", "Rib", "Neck", "Collar Band"],
+                tagNames: ["FN_COLLAR", "COLLAR", "collar", "RIB", "rib"]
+            }
+        ];
+
+        var origVis = {};
+        var layers = doc.ActivePage.Layers;
+        for (var l = 1; l <= layers.Count; l++) {
+            var lyr = layers.Item(l);
+            origVis[lyr.Name] = lyr.Visible;
+        }
+
+        var exportedCount = 0;
+        var exportedList = [];
+
+        function findLayerByCandidates(candidates) {
+            for (var i = 0; i < candidates.length; i++) {
+                var c = candidates[i].toLowerCase();
+                for (var j = 1; j <= layers.Count; j++) {
+                    var lItem = layers.Item(j);
+                    if (lItem.Name.toLowerCase() === c || lItem.Name.toLowerCase().indexOf(c) > -1) {
+                        return lItem;
+                    }
+                }
+            }
+            return null;
+        }
+
+        function findTaggedShape(candidates) {
+            for (var i = 0; i < candidates.length; i++) {
+                var shFound = findShapeRecursive(doc.ActivePage, candidates[i]);
+                if (shFound) return shFound;
+            }
+            return null;
+        }
+
+        function findPageByCandidates(candidates) {
+            for (var p = 1; p <= doc.Pages.Count; p++) {
+                var page = doc.Pages.Item(p);
+                for (var i = 0; i < candidates.length; i++) {
+                    if (page.Name.toLowerCase().indexOf(candidates[i].toLowerCase()) > -1) {
+                        return page;
+                    }
+                }
+            }
+            return null;
+        }
+
+        for (var pIdx = 0; pIdx < panelDefs.length; pIdx++) {
+            var pDef = panelDefs[pIdx];
+            var outPath = tempExportDir + "\\" + pDef.filename;
+            var success = false;
+
+            var taggedShape = findTaggedShape(pDef.tagNames);
+            if (taggedShape) {
+                try {
+                    doc.ClearSelection();
+                    taggedShape.Selected = true;
+                    doc.ExportBitmap(outPath, cdrJPEG, 1 /* cdrSelection */, cdrRGBColorImage, 0, 0, res, res, antiAlias, false, false, shouldEmbed, false, 0);
+                    success = true;
+                    log("✓ Exported " + pDef.key + " (Tagged Shape) to JPG 300 DPI RGB");
+                } catch(e) {
+                    log("⚠️ Failed export selection for " + pDef.key + ": " + e.message);
+                }
+            }
+
+            if (!success) {
+                var targetLayer = findLayerByCandidates(pDef.layerNames);
+                if (targetLayer) {
+                    try {
+                        for (var k = 1; k <= layers.Count; k++) {
+                            layers.Item(k).Visible = false;
+                        }
+                        targetLayer.Visible = true;
+                        doc.ActivePage.SetSize(pDef.w, pDef.h);
+
+                        doc.ExportBitmap(outPath, cdrJPEG, 0 /* cdrCurrentPage */, cdrRGBColorImage, 0, 0, res, res, antiAlias, false, false, shouldEmbed, false, 0);
+                        success = true;
+                        log("✓ Exported " + pDef.key + " (Layer: " + targetLayer.Name + ") to JPG 300 DPI RGB");
+                    } catch(e) {
+                        log("⚠️ Failed layer export for " + pDef.key + ": " + e.message);
+                    }
+                }
+            }
+
+            if (!success && doc.Pages.Count > 1) {
+                var targetPage = findPageByCandidates(pDef.layerNames);
+                if (targetPage) {
+                    try {
+                        var origPage = doc.ActivePage;
+                        targetPage.Activate();
+                        doc.ExportBitmap(outPath, cdrJPEG, 0 /* cdrCurrentPage */, cdrRGBColorImage, 0, 0, res, res, antiAlias, false, false, shouldEmbed, false, 0);
+                        origPage.Activate();
+                        success = true;
+                        log("✓ Exported " + pDef.key + " (Page: " + targetPage.Name + ") to JPG 300 DPI RGB");
+                    } catch(e) {
+                        log("⚠️ Failed page export for " + pDef.key + ": " + e.message);
+                    }
+                }
+            }
+
+            if (success) {
+                exportedCount++;
+                exportedList.push(pDef.key + " (" + pDef.filename + ")");
+            } else if (pDef.key !== "collar") {
+                log("ℹ️ Panel '" + pDef.key + "' not detected by layer name or tag.");
+            }
+        }
+
+        for (var r = 1; r <= layers.Count; r++) {
+            var rLyr = layers.Item(r);
+            if (origVis[rLyr.Name] !== undefined) {
+                rLyr.Visible = origVis[rLyr.Name];
+            }
+        }
+
+        if (exportedCount === 0) {
+            alert("No panels could be exported!\n\nPlease make sure:\n1. Your layers are named 'Front', 'Back', 'Half Left SL', 'Half Right SL', etc.\nOR\n2. Select your panel graphics and click the 'Tag Selection' buttons (Front, Back, etc.).");
+            return;
+        }
+
+        var manifestPath = tempExportDir + "\\manifest.json";
+        var manifestContent = JSON.stringify({
+            generator: "FiveNest CorelDRAW Plugin",
+            version: "5.2",
+            exportDate: new Date().toISOString(),
+            format: "JPG",
+            colorProfile: "RGB",
+            dpi: 300,
+            sleeveType: sleeveType,
+            exportedPanels: exportedList
+        }, null, 2);
+        
+        var mFile = fso.CreateTextFile(manifestPath, true);
+        mFile.Write(manifestContent);
+        mFile.Close();
+
+        var desktopPath = sh.SpecialFolders("Desktop");
+        var docTitle = (doc.FileName && doc.FileName !== "") ? doc.FileName.replace(/\.[^/.]+$/, "") : "FiveNest_Jersey";
+        docTitle = docTitle.replace(/[\/\\:*?"<>|]/g, "_");
+        var zipPath = desktopPath + "\\" + docTitle + "_FiveNest.zip";
+
+        log("📦 Creating pre-formatted ZIP package on Desktop: " + zipPath);
+        var psCmd = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Compress-Archive -Path \'' + tempExportDir + '\\*\' -DestinationPath \'' + zipPath + '\' -Force"';
+        sh.Run(psCmd, 0, true);
+
+        log("🌐 Launching FiveNest Web Studio in browser...");
+        var studioUrl = "https://canvas.fivenest.com";
+        sh.Run(studioUrl);
+
+        try {
+            sh.Run('explorer.exe /select,"' + zipPath + '"');
+        } catch(e) {}
+
+        log("🎉 SUCCESS! Exported " + exportedCount + " panels in 300 DPI RGB JPG.");
+        log("ZIP Saved: " + zipPath);
+        alert(
+            "🎉 1-Click Export Complete!\n\n" +
+            "• " + exportedCount + " panels exported in JPG (RGB @ 300 DPI):\n" +
+            exportedList.map(function(n) { return "  ✔ " + n; }).join("\n") + "\n\n" +
+            "• ZIP Package saved to Desktop:\n  " + zipPath + "\n\n" +
+            "• FiveNest Studio is opening in your browser!\n" +
+            "Simply DRAG & DROP the ZIP file into the studio to load your 3D jersey model & print roll."
+        );
+
+    } catch(err) {
+        log("❌ Export to FiveNest failed: " + err.message);
+        alert("Error during 1-click export: " + err.message);
     }
 }
