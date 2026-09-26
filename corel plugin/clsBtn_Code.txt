@@ -1,0 +1,8 @@
+Option Explicit
+
+Public WithEvents btn As MSForms.CommandButton
+Public panelKey As String
+
+Private Sub btn_Click()
+    UserForm1.HandleButtonClick panelKey
+End Sub

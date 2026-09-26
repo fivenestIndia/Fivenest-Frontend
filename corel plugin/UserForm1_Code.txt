@@ -1,0 +1,345 @@
+Option Explicit
+
+Private colButtons As Collection
+Private btnFront As MSForms.CommandButton
+Private btnBack As MSForms.CommandButton
+Private btnLeftHalf As MSForms.CommandButton
+Private btnRightHalf As MSForms.CommandButton
+Private btnLeftFull As MSForms.CommandButton
+Private btnRightFull As MSForms.CommandButton
+Private btnCollar As MSForms.CommandButton
+Private btnRun As MSForms.CommandButton
+
+Private isFrontAssigned As Boolean
+Private isBackAssigned As Boolean
+Private isLeftHalfAssigned As Boolean
+Private isRightHalfAssigned As Boolean
+Private isLeftFullAssigned As Boolean
+Private isRightFullAssigned As Boolean
+Private isCollarAssigned As Boolean
+
+Private Sub UserForm_Initialize()
+    Me.Caption = "FiveNest Studio - Panel Assigner"
+    Me.Width = 260
+    Me.Height = 350
+    Me.BackColor = RGB(248, 249, 250)
+    
+    Set colButtons = New Collection
+    
+    ' Create 7 panel buttons + 1 Run button dynamically
+    Set btnFront = CreatePanelButton("FRONT", "1. Assign Front (22"" x 30"")", 10, 10)
+    Set btnBack = CreatePanelButton("BACK", "2. Assign Back (22"" x 30"")", 10, 42)
+    Set btnLeftHalf = CreatePanelButton("L_HALF", "3. Assign Left Half SL (19"" x 11"")", 10, 74)
+    Set btnRightHalf = CreatePanelButton("R_HALF", "4. Assign Right Half SL (19"" x 11"")", 10, 106)
+    Set btnLeftFull = CreatePanelButton("L_FULL", "5. Assign Left Full SL (19"" x 25"")", 10, 138)
+    Set btnRightFull = CreatePanelButton("R_FULL", "6. Assign Right Full SL (19"" x 25"")", 10, 170)
+    Set btnCollar = CreatePanelButton("COLLAR", "7. Assign Collar (18"" x 4.5"")", 10, 202)
+    Set btnRun = CreatePanelButton("RUN", "🚀 SEND TO FIVENEST STUDIO", 10, 246)
+    
+    ' Style RUN button
+    With btnRun
+        .Height = 36
+        .BackColor = RGB(228, 87, 46) ' FiveNest Brand Orange
+        .ForeColor = RGB(255, 255, 255)
+        .Font.Bold = True
+        .Font.Size = 10
+    End With
+    
+    ' Auto-check if document already has shapes with "Front" or "Back"
+    AutoDetectInitialShapes
+End Sub
+
+Private Function CreatePanelButton(key As String, cap As String, l As Single, t As Single) As MSForms.CommandButton
+    Dim b As MSForms.CommandButton
+    Set b = Me.Controls.Add("Forms.CommandButton.1", "btn_" & key, True)
+    With b
+        .Left = l
+        .Top = t
+        .Width = 224
+        .Height = 26
+        .Caption = cap
+        .Font.Name = "Segoe UI"
+        .Font.Size = 9
+        .BackColor = RGB(238, 238, 238)
+        .ForeColor = RGB(50, 50, 50)
+    End With
+    
+    Dim h As clsBtn
+    Set h = New clsBtn
+    Set h.btn = b
+    h.panelKey = key
+    colButtons.Add h
+    
+    Set CreatePanelButton = b
+End Function
+
+Private Sub AutoDetectInitialShapes()
+    On Error Resume Next
+    Dim doc As Document
+    Set doc = ActiveDocument
+    If doc Is Nothing Then Exit Sub
+    
+    Dim p As Page
+    Set p = doc.ActivePage
+    If p Is Nothing Then Exit Sub
+    
+    Dim sh As Shape, sName As String
+    For Each sh In p.Shapes.All
+        sName = LCase(Trim(sh.Name))
+        If InStr(1, sName, "front") > 0 And Not isFrontAssigned Then
+            sh.Name = "FN_FRONT"
+            MarkButtonAssigned btnFront, "✔ Front: " & sh.Name & " (22""x30"")"
+            isFrontAssigned = True
+        ElseIf InStr(1, sName, "back") > 0 And Not isBackAssigned Then
+            sh.Name = "FN_BACK"
+            MarkButtonAssigned btnBack, "✔ Back: " & sh.Name & " (22""x30"")"
+            isBackAssigned = True
+        End If
+    Next sh
+End Sub
+
+Public Sub HandleButtonClick(key As String)
+    If key = "RUN" Then
+        ExecuteExport
+        Exit Sub
+    End If
+    
+    If ActiveSelectionRange.Count = 0 Then
+        MsgBox "Please SELECT your graphic on screen first," & vbCrLf & _
+               "then click this button to assign it.", vbExclamation, "No Artwork Selected"
+        Exit Sub
+    End If
+    
+    Dim sh As Shape
+    If ActiveSelectionRange.Count = 1 Then
+        Set sh = ActiveSelectionRange(1)
+    Else
+        Set sh = ActiveSelectionRange.Group
+    End If
+    
+    Select Case key
+        Case "FRONT"
+            sh.Name = "FN_FRONT"
+            MarkButtonAssigned btnFront, "✔ Front Assigned (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+            isFrontAssigned = True
+            
+        Case "BACK"
+            sh.Name = "FN_BACK"
+            MarkButtonAssigned btnBack, "✔ Back Assigned (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+            isBackAssigned = True
+            
+        Case "L_HALF"
+            sh.Name = "FN_SLEEVE_LEFT_HALF"
+            MarkButtonAssigned btnLeftHalf, "✔ Left Half SL Assigned (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+            isLeftHalfAssigned = True
+            isLeftFullAssigned = False
+            ResetButton btnLeftFull, "5. Assign Left Full SL (19"" x 25"")"
+            
+        Case "R_HALF"
+            sh.Name = "FN_SLEEVE_RIGHT_HALF"
+            MarkButtonAssigned btnRightHalf, "✔ Right Half SL Assigned (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+            isRightHalfAssigned = True
+            isRightFullAssigned = False
+            ResetButton btnRightFull, "6. Assign Right Full SL (19"" x 25"")"
+            
+        Case "L_FULL"
+            sh.Name = "FN_SLEEVE_LEFT_FULL"
+            MarkButtonAssigned btnLeftFull, "✔ Left Full SL Assigned (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+            isLeftFullAssigned = True
+            isLeftHalfAssigned = False
+            ResetButton btnLeftHalf, "3. Assign Left Half SL (19"" x 11"")"
+            
+        Case "R_FULL"
+            sh.Name = "FN_SLEEVE_RIGHT_FULL"
+            MarkButtonAssigned btnRightFull, "✔ Right Full SL Assigned (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+            isRightFullAssigned = True
+            isRightHalfAssigned = False
+            ResetButton btnRightHalf, "4. Assign Right Half SL (19"" x 11"")"
+            
+        Case "COLLAR"
+            sh.Name = "FN_COLLAR"
+            MarkButtonAssigned btnCollar, "✔ Collar Assigned (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+            isCollarAssigned = True
+    End Select
+End Sub
+
+Private Sub MarkButtonAssigned(b As MSForms.CommandButton, text As String)
+    b.Caption = text
+    b.BackColor = RGB(46, 125, 50) ' Vibrant Material Green
+    b.ForeColor = RGB(255, 255, 255)
+    b.Font.Bold = True
+End Sub
+
+Private Sub ResetButton(b As MSForms.CommandButton, text As String)
+    b.Caption = text
+    b.BackColor = RGB(238, 238, 238)
+    b.ForeColor = RGB(50, 50, 50)
+    b.Font.Bold = False
+End Sub
+
+Private Sub ExecuteExport()
+    Dim doc As Document
+    Set doc = ActiveDocument
+    If doc Is Nothing Then
+        MsgBox "Please open a jersey artwork document in CorelDRAW first.", vbExclamation, "FiveNest"
+        Exit Sub
+    End If
+    
+    Dim p As Page
+    Set p = doc.ActivePage
+    
+    ' Find tagged shapes
+    Dim shFront As Shape, shBack As Shape
+    Dim shLeftSleeve As Shape, shRightSleeve As Shape
+    Dim shCollar As Shape
+    Dim isFullSleeve As Boolean
+    
+    Set shFront = FindTaggedShape(p, "FN_FRONT")
+    Set shBack = FindTaggedShape(p, "FN_BACK")
+    
+    If shFront Is Nothing Then
+        MsgBox "Please assign the FRONT panel first (click graphic, then click Front button).", vbExclamation, "Front Missing"
+        Exit Sub
+    End If
+    If shBack Is Nothing Then
+        MsgBox "Please assign the BACK panel first (click graphic, then click Back button).", vbExclamation, "Back Missing"
+        Exit Sub
+    End If
+    
+    ' Check sleeves
+    If isLeftFullAssigned Or isRightFullAssigned Then
+        isFullSleeve = True
+        Set shLeftSleeve = FindTaggedShape(p, "FN_SLEEVE_LEFT_FULL")
+        Set shRightSleeve = FindTaggedShape(p, "FN_SLEEVE_RIGHT_FULL")
+    Else
+        isFullSleeve = False
+        Set shLeftSleeve = FindTaggedShape(p, "FN_SLEEVE_LEFT_HALF")
+        Set shRightSleeve = FindTaggedShape(p, "FN_SLEEVE_RIGHT_HALF")
+    End If
+    
+    If shLeftSleeve Is Nothing And Not shRightSleeve Is Nothing Then Set shLeftSleeve = shRightSleeve
+    If shRightSleeve Is Nothing And Not shLeftSleeve Is Nothing Then Set shRightSleeve = shLeftSleeve
+    
+    ' Collar
+    Set shCollar = FindTaggedShape(p, "FN_COLLAR")
+    
+    ' Export
+    Dim fso As Object, wShell As Object
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    Set wShell = CreateObject("WScript.Shell")
+    
+    Dim tempPath As String
+    tempPath = fso.GetSpecialFolder(2) & "\FiveNest_Export_" & Format(Now, "yyyymmdd_hhnnss")
+    If Not fso.FolderExists(tempPath) Then fso.CreateFolder tempPath
+    
+    Dim count As Long
+    count = 0
+    Dim report As String
+    report = ""
+    
+    If ExportShape(doc, shFront, tempPath & "\front.jpg") Then
+        count = count + 1
+        report = report & vbCrLf & "  ✔ Front Panel (22"" x 30"")"
+    End If
+    If ExportShape(doc, shBack, tempPath & "\back.jpg") Then
+        count = count + 1
+        report = report & vbCrLf & "  ✔ Back Panel (22"" x 30"")"
+    End If
+    If Not shLeftSleeve Is Nothing Then
+        If ExportShape(doc, shLeftSleeve, tempPath & "\sleeve_left.jpg") Then
+            count = count + 1
+            report = report & vbCrLf & "  ✔ Left Sleeve (" & IIf(isFullSleeve, "19"" x 25""", "19"" x 11""") & ")"
+        End If
+    End If
+    If Not shRightSleeve Is Nothing Then
+        If ExportShape(doc, shRightSleeve, tempPath & "\sleeve_right.jpg") Then
+            count = count + 1
+            report = report & vbCrLf & "  ✔ Right Sleeve (" & IIf(isFullSleeve, "19"" x 25""", "19"" x 11""") & ")"
+        End If
+    End If
+    If Not shCollar Is Nothing Then
+        If ExportShape(doc, shCollar, tempPath & "\collar.jpg") Then
+            count = count + 1
+            report = report & vbCrLf & "  ✔ Collar Band (18"" x 4.5"")"
+        End If
+    End If
+    
+    doc.ClearSelection
+    
+    ' Write Manifest JSON
+    Dim ts As Object
+    Set ts = fso.CreateTextFile(tempPath & "\manifest.json", True)
+    ts.WriteLine "{"
+    ts.WriteLine "  ""source"": ""FiveNest Corel Popup Assigner"","
+    ts.WriteLine "  ""format"": ""JPG"","
+    ts.WriteLine "  ""colorProfile"": ""RGB"","
+    ts.WriteLine "  ""dpi"": 300,"
+    ts.WriteLine "  ""sleeveType"": """ & IIf(isFullSleeve, "full", "half") & ""","
+    ts.WriteLine "  ""exportedCount"": " & count & ","
+    ts.WriteLine "  ""timestamp"": """ & Now & """"
+    ts.WriteLine "}"
+    ts.Close
+    
+    ' Zip on Desktop
+    Dim desktopPath As String
+    desktopPath = wShell.SpecialFolders("Desktop")
+    Dim docTitle As String
+    docTitle = doc.FileName
+    If Len(docTitle) > 0 Then
+        If InStrRev(docTitle, ".") > 0 Then docTitle = Left(docTitle, InStrRev(docTitle, ".") - 1)
+    Else
+        docTitle = "FiveNest_Jersey"
+    End If
+    
+    Dim zipFile As String
+    zipFile = desktopPath & "\" & docTitle & "_FiveNest.zip"
+    
+    Dim psCmd As String
+    psCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ""Compress-Archive -Path '" & tempPath & "\*' -DestinationPath '" & zipFile & "' -Force"""
+    wShell.Run psCmd, 0, True
+    
+    ' Launch Studio
+    wShell.Run "https://canvas.fivenest.com"
+    wShell.Run "explorer.exe /select,""" & zipFile & """"
+    
+    On Error Resume Next
+    fso.DeleteFolder tempPath, True
+    On Error GoTo 0
+    
+    MsgBox "🚀 FiveNest Export Complete!" & vbCrLf & vbCrLf & _
+           count & " panels exported in 300 DPI RGB JPG:" & report & vbCrLf & vbCrLf & _
+           "Desktop ZIP Ready:" & vbCrLf & _
+           zipFile & vbCrLf & vbCrLf & _
+           "FiveNest Studio is open in your browser!" & vbCrLf & _
+           "Drag & Drop the ZIP into the canvas to view your 3D jersey.", vbInformation, "FiveNest Exporter"
+           
+    Unload Me
+End Sub
+
+Private Function FindTaggedShape(p As Page, tag As String) As Shape
+    Set FindTaggedShape = Nothing
+    On Error Resume Next
+    Dim sh As Shape
+    For Each sh In p.Shapes.All
+        If StrComp(sh.Name, tag, vbTextCompare) = 0 Then
+            Set FindTaggedShape = sh
+            Exit Function
+        End If
+    Next sh
+End Function
+
+Private Function ExportShape(doc As Document, sh As Shape, outPath As String) As Boolean
+    ExportShape = False
+    On Error GoTo CatchErr
+    doc.ClearSelection
+    sh.Selected = True
+    Dim expFltr As ExportFilter
+    ' 774 = cdrJPEG, 1 = cdrSelection, 4 = cdrRGBColorImage, 300 DPI, EmbedProfile = True
+    Set expFltr = doc.ExportBitmap(outPath, 774, 1, 4, 0, 0, 300, 300, 1, False, False, True, False, 0)
+    If Not expFltr Is Nothing Then expFltr.Finish
+    doc.ClearSelection
+    ExportShape = True
+    Exit Function
+CatchErr:
+    ExportShape = False
+End Function
