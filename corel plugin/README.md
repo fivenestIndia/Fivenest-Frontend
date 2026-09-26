@@ -20,7 +20,7 @@ Export your CorelDRAW jersey designs directly into **FiveNest Web Studio** in 1 
 
 3. **1-Click Packaging & Studio Launch**:
    - Automatically packages all exported JPG files into `<YourDocumentName>_FiveNest.zip` directly on your **Desktop**.
-   - Automatically opens **FiveNest Design Studio** (`https://canvas.fivenest.com`) in your browser.
+   - Automatically opens **FiveNest Production Studio** (`https://www.fivenest.in/production`) in your browser.
    - Highlights the `.zip` file in Windows Explorer so you can immediately **Drag & Drop** it onto the studio canvas!
 
 ---

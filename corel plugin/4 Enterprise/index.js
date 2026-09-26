@@ -1917,7 +1917,7 @@ async function exportAndSendToFiveNest() {
 
         // Open FiveNest Studio in default browser
         log("🌐 Launching FiveNest Web Studio in browser...");
-        var studioUrl = "https://canvas.fivenest.com";
+        var studioUrl = "https://www.fivenest.in/production?corel_export=ready";
         sh.Run(studioUrl);
 
         // Highlight zip in Windows Explorer

@@ -294,6 +294,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [previewSleeveType, setPreviewSleeveType] = useState<'half' | 'full'>('half');
   const [prefTrigger, setPrefTrigger] = useState<number>(0);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [isWindowDragging, setIsWindowDragging] = useState<boolean>(false);
   const [newGuideType, setNewGuideType] = useState<'vertical' | 'horizontal'>('vertical');
   const [newGuideValue, setNewGuideValue] = useState<string>("");
 
@@ -427,13 +428,19 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       return true;
     }
   });
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
-    zip: true,
-    overlays: true,
-    presets: true,
-    trim: true,
-    guidelines: true,
-    fonts: true,
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
+    const isFromCorel = typeof window !== 'undefined' && (
+      window.location.search.includes('corel_export') ||
+      window.location.search.includes('source=corel')
+    );
+    return {
+      zip: !isFromCorel,
+      overlays: true,
+      presets: true,
+      trim: true,
+      guidelines: true,
+      fonts: true,
+    };
   });
 
   const logoImagesRef = useRef<Record<string, HTMLImageElement>>({});
@@ -2876,6 +2883,22 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       let importedCount = 0;
       const importedNames: string[] = [];
 
+      // Check for manifest.json
+      const manifestEntry = loadedZip.file('manifest.json') || Object.values(loadedZip.files).find(f => f.name.toLowerCase().endsWith('manifest.json'));
+      if (manifestEntry) {
+        try {
+          const manifestText = await manifestEntry.async('text');
+          const manifestData = JSON.parse(manifestText);
+          if (manifestData.sleeveType === 'full') {
+            setPreviewSleeveType('full');
+          } else if (manifestData.sleeveType === 'half') {
+            setPreviewSleeveType('half');
+          }
+        } catch (mErr) {
+          console.warn('Failed to parse manifest.json from zip:', mErr);
+        }
+      }
+
       for (const [filename, zipEntry] of Object.entries(loadedZip.files)) {
         if (zipEntry.dir) continue;
         if (filename.includes('__MACOSX') || filename.split('/').some(p => p.startsWith('.'))) continue;
@@ -2936,6 +2959,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
           case 'sleeveLeft_half':
             newConfig.sleeveLeft.uploadedFileHalfUrl = dataUrl;
+            newConfig.sleeveLeft.uploadedFileUrl = dataUrl;
             newConfig.sleeveLeft.backgroundType = 'upload';
             importedCount++;
             importedNames.push(`Left Half Sleeve (${baseFilename})`);
@@ -2943,6 +2967,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
           case 'sleeveLeft_full':
             newConfig.sleeveLeft.uploadedFileFullUrl = dataUrl;
+            newConfig.sleeveLeft.uploadedFileUrl = dataUrl;
             newConfig.sleeveLeft.backgroundType = 'upload';
             importedCount++;
             importedNames.push(`Left Full Sleeve (${baseFilename})`);
@@ -2951,6 +2976,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           case 'sleeveLeft_both':
             newConfig.sleeveLeft.uploadedFileHalfUrl = dataUrl;
             newConfig.sleeveLeft.uploadedFileFullUrl = dataUrl;
+            newConfig.sleeveLeft.uploadedFileUrl = dataUrl;
             newConfig.sleeveLeft.backgroundType = 'upload';
             importedCount++;
             importedNames.push(`Left Sleeve (${baseFilename})`);
@@ -2958,6 +2984,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
           case 'sleeveRight_half':
             newConfig.sleeveRight.uploadedFileHalfUrl = dataUrl;
+            newConfig.sleeveRight.uploadedFileUrl = dataUrl;
             newConfig.sleeveRight.backgroundType = 'upload';
             importedCount++;
             importedNames.push(`Right Half Sleeve (${baseFilename})`);
@@ -2965,6 +2992,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
           case 'sleeveRight_full':
             newConfig.sleeveRight.uploadedFileFullUrl = dataUrl;
+            newConfig.sleeveRight.uploadedFileUrl = dataUrl;
             newConfig.sleeveRight.backgroundType = 'upload';
             importedCount++;
             importedNames.push(`Right Full Sleeve (${baseFilename})`);
@@ -2973,6 +3001,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           case 'sleeveRight_both':
             newConfig.sleeveRight.uploadedFileHalfUrl = dataUrl;
             newConfig.sleeveRight.uploadedFileFullUrl = dataUrl;
+            newConfig.sleeveRight.uploadedFileUrl = dataUrl;
             newConfig.sleeveRight.backgroundType = 'upload';
             importedCount++;
             importedNames.push(`Right Sleeve (${baseFilename})`);
@@ -3039,6 +3068,48 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       e.target.value = '';
     }
   };
+
+  // Global Window Drag & Drop for CorelDRAW ZIP packages
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('corel_export')) {
+      toast.info('⚡ CorelDRAW Exporter connected! Drop your ZIP file anywhere on screen to load all panels into 3D.', { duration: 8000 });
+    }
+
+    const handleWindowDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')) {
+        setIsWindowDragging(true);
+      }
+    };
+
+    const handleWindowDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      if (e.clientX <= 0 || e.clientY <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
+        setIsWindowDragging(false);
+      }
+    };
+
+    const handleWindowDrop = async (e: DragEvent) => {
+      e.preventDefault();
+      setIsWindowDragging(false);
+      const file = e.dataTransfer?.files?.[0];
+      if (!file) return;
+
+      if (file.name.toLowerCase().endsWith('.zip') || file.type.includes('zip')) {
+        await processZipFile(file);
+      }
+    };
+
+    window.addEventListener('dragover', handleWindowDragOver);
+    window.addEventListener('dragleave', handleWindowDragLeave);
+    window.addEventListener('drop', handleWindowDrop);
+
+    return () => {
+      window.removeEventListener('dragover', handleWindowDragOver);
+      window.removeEventListener('dragleave', handleWindowDragLeave);
+      window.removeEventListener('drop', handleWindowDrop);
+    };
+  }, []);
 
   const handlePaletteFill = (color: string) => {
     if (activeTool === 'text') {
@@ -3403,6 +3474,40 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
   return (
     <div className="cd-studio-container fade-in">
+      {/* Global Window Drag & Drop Overlay */}
+      {isWindowDragging && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.85)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          zIndex: 99999,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'none',
+        }}>
+          <div style={{
+            padding: '36px 48px',
+            borderRadius: '20px',
+            border: '3px dashed #E4572E',
+            background: 'rgba(255, 255, 255, 0.08)',
+            textAlign: 'center',
+            color: '#FFFFFF',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+          }}>
+            <FolderArchive size={64} style={{ color: '#E4572E', margin: '0 auto 16px' }} />
+            <h2 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '8px' }}>Drop CorelDRAW ZIP Package Here</h2>
+            <p style={{ fontSize: '14px', color: '#CBD5E1' }}>Instantly auto-loads Front, Back, Sleeves, & Collar into 3D Studio!</p>
+          </div>
+        </div>
+      )}
+
       {/* 1. COREL TOP MENU BAR */}
       <MenuBar
         activeTab={activeTab}
@@ -4932,17 +5037,35 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             {collapsed.zip ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
           </h3>
           {!collapsed.zip && (
-            <div style={{ marginTop: '16px' }}>
-              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: '1.45' }}>
-                Upload a `.zip` archive. Smart auto-detect recognizes typos and imports: <strong>Front, Back, Left Sleeve, Right Sleeve, & Collar (18" × 4.5")</strong>.
-              </p>
+            <div style={{ marginTop: '14px' }}>
+              <div
+                onClick={() => zipInputRef.current?.click()}
+                style={{
+                  border: '2px dashed #E4572E',
+                  borderRadius: '10px',
+                  padding: '16px 12px',
+                  textAlign: 'center',
+                  background: 'linear-gradient(180deg, #FFF8F5 0%, #FFFFFF 100%)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  marginBottom: '10px'
+                }}
+              >
+                <FolderArchive size={26} style={{ color: '#E4572E', margin: '0 auto 6px' }} />
+                <div style={{ fontSize: '12px', fontWeight: '700', color: '#1F2937' }}>
+                  Drop CorelDRAW ZIP Here or Click
+                </div>
+                <div style={{ fontSize: '10.5px', color: '#6B7280', marginTop: '2px' }}>
+                  Auto-loads Front, Back, Sleeves & Collar into 3D
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => zipInputRef.current?.click()}
                 className="btn btn-secondary w-full"
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '9px 12px', width: '100%', borderRadius: '8px' }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '9px 12px', width: '100%', borderRadius: '8px', background: '#F9FAFB' }}
               >
-                <Upload size={14} /> Import ZIP File <span style={{ fontSize: '9px', opacity: 0.75, background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: '3px' }}>Ctrl+Shift+I / Ctrl+B</span>
+                <Upload size={14} /> Browse ZIP File <span style={{ fontSize: '9px', opacity: 0.75, background: 'rgba(0,0,0,0.06)', padding: '1px 5px', borderRadius: '3px' }}>Ctrl+Shift+I / Ctrl+B</span>
               </button>
             </div>
           )}
