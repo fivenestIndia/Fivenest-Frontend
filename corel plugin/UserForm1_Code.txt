@@ -9,6 +9,7 @@ Private btnLeftFull As MSForms.CommandButton
 Private btnRightFull As MSForms.CommandButton
 Private btnCollar As MSForms.CommandButton
 Private btnRun As MSForms.CommandButton
+Private lblStatus As MSForms.Label
 
 Private isFrontAssigned As Boolean
 Private isBackAssigned As Boolean
@@ -20,57 +21,100 @@ Private isCollarAssigned As Boolean
 
 Private Sub UserForm_Initialize()
     Me.Caption = "FiveNest Studio - Panel Assigner"
-    Me.Width = 260
-    Me.Height = 350
+    Me.Width = 275
+    Me.Height = 390
     Me.BackColor = RGB(248, 249, 250)
     
     Set colButtons = New Collection
     
-    ' Create 7 panel buttons + 1 Run button dynamically
-    Set btnFront = CreatePanelButton("FRONT", "1. Assign Front (22"" x 30"")", 10, 10)
-    Set btnBack = CreatePanelButton("BACK", "2. Assign Back (22"" x 30"")", 10, 42)
-    Set btnLeftHalf = CreatePanelButton("L_HALF", "3. Assign Left Half SL (19"" x 11"")", 10, 74)
-    Set btnRightHalf = CreatePanelButton("R_HALF", "4. Assign Right Half SL (19"" x 11"")", 10, 106)
-    Set btnLeftFull = CreatePanelButton("L_FULL", "5. Assign Left Full SL (19"" x 25"")", 10, 138)
-    Set btnRightFull = CreatePanelButton("R_FULL", "6. Assign Right Full SL (19"" x 25"")", 10, 170)
-    Set btnCollar = CreatePanelButton("COLLAR", "7. Assign Collar (18"" x 4.5"")", 10, 202)
-    Set btnRun = CreatePanelButton("RUN", "🚀 SEND TO FIVENEST STUDIO", 10, 246)
+    ' Title Header
+    AddHeaderLabel "lblTitle", "FIVENEST JERSEY STUDIO", 12, 10, 240, 16, True, 10, RGB(20, 20, 20)
+    AddHeaderLabel "lblSub", "Select graphic on canvas, then click button to assign", 12, 26, 240, 14, False, 8, RGB(110, 110, 110)
     
-    ' Style RUN button
+    ' Section 1: Body Panels
+    AddHeaderLabel "lblSec1", "JERSEY BODY (22"" x 30"")", 12, 46, 240, 13, True, 8, RGB(90, 90, 90)
+    Set btnFront = CreateBtn("FRONT", "1. Assign Front", 12, 60, 240, 26)
+    Set btnBack = CreateBtn("BACK", "2. Assign Back", 12, 88, 240, 26)
+    
+    ' Section 2: Half Sleeves
+    AddHeaderLabel "lblSec2", "HALF SLEEVES (19"" x 11"")", 12, 120, 240, 13, True, 8, RGB(90, 90, 90)
+    Set btnLeftHalf = CreateBtn("L_HALF", "3. Left Half SL", 12, 134, 117, 26)
+    Set btnRightHalf = CreateBtn("R_HALF", "4. Right Half SL", 135, 134, 117, 26)
+    
+    ' Section 3: Full Sleeves
+    AddHeaderLabel "lblSec3", "FULL SLEEVES (19"" x 25"")", 12, 166, 240, 13, True, 8, RGB(90, 90, 90)
+    Set btnLeftFull = CreateBtn("L_FULL", "5. Left Full SL", 12, 180, 117, 26)
+    Set btnRightFull = CreateBtn("R_FULL", "6. Right Full SL", 135, 180, 117, 26)
+    
+    ' Section 4: Collar
+    AddHeaderLabel "lblSec4", "COLLAR BAND (18"" x 4.5"")", 12, 212, 240, 13, True, 8, RGB(90, 90, 90)
+    Set btnCollar = CreateBtn("COLLAR", "7. Assign Collar Band", 12, 226, 240, 26)
+    
+    ' Status text & RUN Button
+    Set lblStatus = Me.Controls.Add("Forms.Label.1", "lblStatus", True)
+    With lblStatus
+        .Left = 12
+        .Top = 260
+        .Width = 240
+        .Height = 14
+        .Caption = "Status: Assign your panels on screen"
+        .Font.Name = "Segoe UI"
+        .Font.Size = 8
+        .Font.Italic = True
+        .ForeColor = RGB(100, 100, 100)
+    End With
+    
+    Set btnRun = CreateBtn("RUN", "EXPORT & SEND TO FIVENEST", 12, 278, 240, 36)
     With btnRun
-        .Height = 36
-        .BackColor = RGB(228, 87, 46) ' FiveNest Brand Orange
-        .ForeColor = RGB(255, 255, 255)
         .Font.Bold = True
         .Font.Size = 10
+        .BackColor = RGB(228, 87, 46) ' FiveNest Brand Orange
+        .ForeColor = RGB(255, 255, 255)
     End With
     
     ' Auto-check if document already has shapes with "Front" or "Back"
     AutoDetectInitialShapes
+    UpdateStatusLabel
 End Sub
 
-Private Function CreatePanelButton(key As String, cap As String, l As Single, t As Single) As MSForms.CommandButton
+Private Sub AddHeaderLabel(name As String, cap As String, l As Single, t As Single, w As Single, h As Single, bold As Boolean, sz As Single, col As Long)
+    Dim lbl As MSForms.Label
+    Set lbl = Me.Controls.Add("Forms.Label.1", name, True)
+    With lbl
+        .Left = l
+        .Top = t
+        .Width = w
+        .Height = h
+        .Caption = cap
+        .Font.Name = "Segoe UI"
+        .Font.Size = sz
+        .Font.Bold = bold
+        .ForeColor = col
+    End With
+End Sub
+
+Private Function CreateBtn(key As String, cap As String, l As Single, t As Single, w As Single, h As Single) As MSForms.CommandButton
     Dim b As MSForms.CommandButton
     Set b = Me.Controls.Add("Forms.CommandButton.1", "btn_" & key, True)
     With b
         .Left = l
         .Top = t
-        .Width = 224
-        .Height = 26
+        .Width = w
+        .Height = h
         .Caption = cap
         .Font.Name = "Segoe UI"
         .Font.Size = 9
-        .BackColor = RGB(238, 238, 238)
-        .ForeColor = RGB(50, 50, 50)
+        .BackColor = RGB(240, 240, 240)
+        .ForeColor = RGB(40, 40, 40)
     End With
     
-    Dim h As clsBtn
-    Set h = New clsBtn
-    Set h.btn = b
-    h.panelKey = key
-    colButtons.Add h
+    Dim hHandler As clsBtn
+    Set hHandler = New clsBtn
+    Set hHandler.btn = b
+    hHandler.panelKey = key
+    colButtons.Add hHandler
     
-    Set CreatePanelButton = b
+    Set CreateBtn = b
 End Function
 
 Private Sub AutoDetectInitialShapes()
@@ -88,11 +132,11 @@ Private Sub AutoDetectInitialShapes()
         sName = LCase(Trim(sh.Name))
         If InStr(1, sName, "front") > 0 And Not isFrontAssigned Then
             sh.Name = "FN_FRONT"
-            MarkButtonAssigned btnFront, "✔ Front: " & sh.Name & " (22""x30"")"
+            MarkButtonAssigned btnFront, "[OK] Front: " & sh.Name
             isFrontAssigned = True
         ElseIf InStr(1, sName, "back") > 0 And Not isBackAssigned Then
             sh.Name = "FN_BACK"
-            MarkButtonAssigned btnBack, "✔ Back: " & sh.Name & " (22""x30"")"
+            MarkButtonAssigned btnBack, "[OK] Back: " & sh.Name
             isBackAssigned = True
         End If
     Next sh
@@ -105,7 +149,7 @@ Public Sub HandleButtonClick(key As String)
     End If
     
     If ActiveSelectionRange.Count = 0 Then
-        MsgBox "Please SELECT your graphic on screen first," & vbCrLf & _
+        MsgBox "Please SELECT your graphic on the Corel canvas first," & vbCrLf & _
                "then click this button to assign it.", vbExclamation, "No Artwork Selected"
         Exit Sub
     End If
@@ -120,61 +164,81 @@ Public Sub HandleButtonClick(key As String)
     Select Case key
         Case "FRONT"
             sh.Name = "FN_FRONT"
-            MarkButtonAssigned btnFront, "✔ Front Assigned (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+            MarkButtonAssigned btnFront, "[OK] Front (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
             isFrontAssigned = True
             
         Case "BACK"
             sh.Name = "FN_BACK"
-            MarkButtonAssigned btnBack, "✔ Back Assigned (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+            MarkButtonAssigned btnBack, "[OK] Back (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
             isBackAssigned = True
             
         Case "L_HALF"
             sh.Name = "FN_SLEEVE_LEFT_HALF"
-            MarkButtonAssigned btnLeftHalf, "✔ Left Half SL Assigned (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+            MarkButtonAssigned btnLeftHalf, "[OK] Left Half"
             isLeftHalfAssigned = True
             isLeftFullAssigned = False
-            ResetButton btnLeftFull, "5. Assign Left Full SL (19"" x 25"")"
+            ResetButton btnLeftFull, "5. Left Full SL"
             
         Case "R_HALF"
             sh.Name = "FN_SLEEVE_RIGHT_HALF"
-            MarkButtonAssigned btnRightHalf, "✔ Right Half SL Assigned (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+            MarkButtonAssigned btnRightHalf, "[OK] Right Half"
             isRightHalfAssigned = True
             isRightFullAssigned = False
-            ResetButton btnRightFull, "6. Assign Right Full SL (19"" x 25"")"
+            ResetButton btnRightFull, "6. Right Full SL"
             
         Case "L_FULL"
             sh.Name = "FN_SLEEVE_LEFT_FULL"
-            MarkButtonAssigned btnLeftFull, "✔ Left Full SL Assigned (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+            MarkButtonAssigned btnLeftFull, "[OK] Left Full"
             isLeftFullAssigned = True
             isLeftHalfAssigned = False
-            ResetButton btnLeftHalf, "3. Assign Left Half SL (19"" x 11"")"
+            ResetButton btnLeftHalf, "3. Left Half SL"
             
         Case "R_FULL"
             sh.Name = "FN_SLEEVE_RIGHT_FULL"
-            MarkButtonAssigned btnRightFull, "✔ Right Full SL Assigned (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+            MarkButtonAssigned btnRightFull, "[OK] Right Full"
             isRightFullAssigned = True
             isRightHalfAssigned = False
-            ResetButton btnRightHalf, "4. Assign Right Half SL (19"" x 11"")"
+            ResetButton btnRightHalf, "4. Right Half SL"
             
         Case "COLLAR"
             sh.Name = "FN_COLLAR"
-            MarkButtonAssigned btnCollar, "✔ Collar Assigned (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+            MarkButtonAssigned btnCollar, "[OK] Collar (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
             isCollarAssigned = True
     End Select
+    
+    UpdateStatusLabel
 End Sub
 
 Private Sub MarkButtonAssigned(b As MSForms.CommandButton, text As String)
     b.Caption = text
-    b.BackColor = RGB(46, 125, 50) ' Vibrant Material Green
+    b.BackColor = RGB(38, 145, 60) ' Vibrant Emerald Green!
     b.ForeColor = RGB(255, 255, 255)
     b.Font.Bold = True
 End Sub
 
 Private Sub ResetButton(b As MSForms.CommandButton, text As String)
     b.Caption = text
-    b.BackColor = RGB(238, 238, 238)
-    b.ForeColor = RGB(50, 50, 50)
+    b.BackColor = RGB(240, 240, 240)
+    b.ForeColor = RGB(40, 40, 40)
     b.Font.Bold = False
+End Sub
+
+Private Sub UpdateStatusLabel()
+    Dim assignedCount As Long
+    assignedCount = 0
+    If isFrontAssigned Then assignedCount = assignedCount + 1
+    If isBackAssigned Then assignedCount = assignedCount + 1
+    If isLeftHalfAssigned Or isLeftFullAssigned Then assignedCount = assignedCount + 1
+    If isRightHalfAssigned Or isRightFullAssigned Then assignedCount = assignedCount + 1
+    If isCollarAssigned Then assignedCount = assignedCount + 1
+    
+    If assignedCount >= 4 Then
+        lblStatus.Caption = "Status: Ready! (" & assignedCount & " panels assigned)"
+        lblStatus.ForeColor = RGB(38, 145, 60)
+    Else
+        lblStatus.Caption = "Status: " & assignedCount & "/4 required panels assigned"
+        lblStatus.ForeColor = RGB(120, 120, 120)
+    End If
 End Sub
 
 Private Sub ExecuteExport()
@@ -198,11 +262,11 @@ Private Sub ExecuteExport()
     Set shBack = FindTaggedShape(p, "FN_BACK")
     
     If shFront Is Nothing Then
-        MsgBox "Please assign the FRONT panel first (click graphic, then click Front button).", vbExclamation, "Front Missing"
+        MsgBox "Please assign the FRONT panel first (click graphic on canvas, then click Front button).", vbExclamation, "Front Missing"
         Exit Sub
     End If
     If shBack Is Nothing Then
-        MsgBox "Please assign the BACK panel first (click graphic, then click Back button).", vbExclamation, "Back Missing"
+        MsgBox "Please assign the BACK panel first (click graphic on canvas, then click Back button).", vbExclamation, "Back Missing"
         Exit Sub
     End If
     
@@ -239,28 +303,28 @@ Private Sub ExecuteExport()
     
     If ExportShape(doc, shFront, tempPath & "\front.jpg") Then
         count = count + 1
-        report = report & vbCrLf & "  ✔ Front Panel (22"" x 30"")"
+        report = report & vbCrLf & "  [OK] Front Panel (22"" x 30"")"
     End If
     If ExportShape(doc, shBack, tempPath & "\back.jpg") Then
         count = count + 1
-        report = report & vbCrLf & "  ✔ Back Panel (22"" x 30"")"
+        report = report & vbCrLf & "  [OK] Back Panel (22"" x 30"")"
     End If
     If Not shLeftSleeve Is Nothing Then
         If ExportShape(doc, shLeftSleeve, tempPath & "\sleeve_left.jpg") Then
             count = count + 1
-            report = report & vbCrLf & "  ✔ Left Sleeve (" & IIf(isFullSleeve, "19"" x 25""", "19"" x 11""") & ")"
+            report = report & vbCrLf & "  [OK] Left Sleeve (" & IIf(isFullSleeve, "19"" x 25""", "19"" x 11""") & ")"
         End If
     End If
     If Not shRightSleeve Is Nothing Then
         If ExportShape(doc, shRightSleeve, tempPath & "\sleeve_right.jpg") Then
             count = count + 1
-            report = report & vbCrLf & "  ✔ Right Sleeve (" & IIf(isFullSleeve, "19"" x 25""", "19"" x 11""") & ")"
+            report = report & vbCrLf & "  [OK] Right Sleeve (" & IIf(isFullSleeve, "19"" x 25""", "19"" x 11""") & ")"
         End If
     End If
     If Not shCollar Is Nothing Then
         If ExportShape(doc, shCollar, tempPath & "\collar.jpg") Then
             count = count + 1
-            report = report & vbCrLf & "  ✔ Collar Band (18"" x 4.5"")"
+            report = report & vbCrLf & "  [OK] Collar Band (18"" x 4.5"")"
         End If
     End If
     
@@ -298,20 +362,21 @@ Private Sub ExecuteExport()
     psCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ""Compress-Archive -Path '" & tempPath & "\*' -DestinationPath '" & zipFile & "' -Force"""
     wShell.Run psCmd, 0, True
     
-    ' Launch Studio
-    wShell.Run "https://canvas.fivenest.com"
+    ' Launch Production Page: https://www.fivenest.in/production
+    wShell.Run "https://www.fivenest.in/production"
     wShell.Run "explorer.exe /select,""" & zipFile & """"
     
     On Error Resume Next
     fso.DeleteFolder tempPath, True
     On Error GoTo 0
     
-    MsgBox "🚀 FiveNest Export Complete!" & vbCrLf & vbCrLf & _
+    MsgBox "FiveNest Export Complete!" & vbCrLf & vbCrLf & _
            count & " panels exported in 300 DPI RGB JPG:" & report & vbCrLf & vbCrLf & _
            "Desktop ZIP Ready:" & vbCrLf & _
            zipFile & vbCrLf & vbCrLf & _
-           "FiveNest Studio is open in your browser!" & vbCrLf & _
-           "Drag & Drop the ZIP into the canvas to view your 3D jersey.", vbInformation, "FiveNest Exporter"
+           "Production page opened in your browser:" & vbCrLf & _
+           "https://www.fivenest.in/production" & vbCrLf & vbCrLf & _
+           "Simply drag & drop the ZIP into the Bulk ZIP Importer!", vbInformation, "FiveNest Exporter"
            
     Unload Me
 End Sub
