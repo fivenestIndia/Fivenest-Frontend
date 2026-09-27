@@ -489,74 +489,36 @@ Private Sub ExecuteExport()
     ' Create pre-formatted ZIP package in C:\Fivenest_Export\
     Dim zipFile As String
     zipFile = exportDir & "\Fivenest_Artwork_Package.zip"
+    On Error Resume Next
     If fso.FileExists(zipFile) Then fso.DeleteFile zipFile, True
+    On Error GoTo 0
     
     Dim psCmd As String
     psCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ""Compress-Archive -Path '" & tempPath & "\*' -DestinationPath '" & zipFile & "' -Force"""
     wShell.Run psCmd, 0, True
     
-    ' Generate bridge.ps1 for 100% Zero-Hassle Direct Transfer to Web Studio
-    Dim psBridgePath As String
-    psBridgePath = exportDir & "\bridge.ps1"
-    Dim psFile As Object
-    Set psFile = fso.CreateTextFile(psBridgePath, True)
-    psFile.WriteLine "$ErrorActionPreference = 'SilentlyContinue'"
-    psFile.WriteLine "$zip = '" & zipFile & "'"
-    psFile.WriteLine "if (Test-Path $zip) { Set-Clipboard -Path $zip }"
-    psFile.WriteLine "$port = 18234"
-    psFile.WriteLine "$listener = New-Object System.Net.HttpListener"
-    psFile.WriteLine "$listener.Prefixes.Add(""http://127.0.0.1:$port/"")"
-    psFile.WriteLine "try { $listener.Start() } catch { exit }"
-    psFile.WriteLine "$timeout = [DateTime]::Now.AddSeconds(90)"
-    psFile.WriteLine "while ($listener.IsListening -and [DateTime]::Now -lt $timeout) {"
-    psFile.WriteLine "    $ar = $listener.BeginGetContext($null, $null)"
-    psFile.WriteLine "    if ($ar.AsyncWaitHandle.WaitOne(400, $false)) {"
-    psFile.WriteLine "        try {"
-    psFile.WriteLine "            $ctx = $listener.EndGetContext($ar)"
-    psFile.WriteLine "            $req = $ctx.Request"
-    psFile.WriteLine "            $res = $ctx.Response"
-    psFile.WriteLine "            $res.Headers.Add('Access-Control-Allow-Origin', '*')"
-    psFile.WriteLine "            $res.Headers.Add('Access-Control-Allow-Methods', 'GET, OPTIONS, POST')"
-    psFile.WriteLine "            $res.Headers.Add('Access-Control-Allow-Headers', '*')"
-    psFile.WriteLine "            $res.Headers.Add('Access-Control-Allow-Private-Network', 'true')"
-    psFile.WriteLine "            if ($req.HttpMethod -eq 'OPTIONS') { $res.StatusCode = 204; $res.Close(); continue }"
-    psFile.WriteLine "            $data = @{ status = 'success'; panels = @{} }"
-    psFile.WriteLine "            $mPath = '" & tempPath & "\manifest.json'"
-    psFile.WriteLine "            if (Test-Path $mPath) { $data['manifest'] = Get-Content $mPath -Raw | ConvertFrom-Json }"
-    psFile.WriteLine "            Get-ChildItem -Path '" & tempPath & "' -Filter '*.jpg' | ForEach-Object {"
-    psFile.WriteLine "                $b = [System.IO.File]::ReadAllBytes($_.FullName)"
-    psFile.WriteLine "                $data.panels[$_.Name] = 'data:image/jpeg;base64,' + [Convert]::ToBase64String($b)"
-    psFile.WriteLine "            }"
-    psFile.WriteLine "            $json = $data | ConvertTo-Json -Depth 4 -Compress"
-    psFile.WriteLine "            $buf = [System.Text.Encoding]::UTF8.GetBytes($json)"
-    psFile.WriteLine "            $res.ContentType = 'application/json; charset=utf-8'"
-    psFile.WriteLine "            $res.ContentLength64 = $buf.Length"
-    psFile.WriteLine "            $res.OutputStream.Write($buf, 0, $buf.Length)"
-    psFile.WriteLine "            $res.OutputStream.Close()"
-    psFile.WriteLine "            $res.Close()"
-    psFile.WriteLine "            Start-Sleep -Milliseconds 600"
-    psFile.WriteLine "            break"
-    psFile.WriteLine "        } catch { break }"
-    psFile.WriteLine "    }"
-    psFile.WriteLine "}"
-    psFile.WriteLine "$listener.Stop(); $listener.Close()"
-    psFile.Close
+    ' Copy ZIP package to Windows Clipboard for instant Ctrl+V paste in browser
+    Dim psClip As String
+    psClip = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ""if (Test-Path '" & zipFile & "') { Set-Clipboard -Path '" & zipFile & "' }"""
+    wShell.Run psClip, 0, False
+
+    ' Open Windows Explorer with Fivenest_Artwork_Package.zip HIGHLIGHTED & SELECTED
+    wShell.Run "explorer.exe /select,""" & zipFile & """", 1, False
     
-    ' Launch bridge in hidden background window
-    wShell.Run "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File """ & psBridgePath & """", 0, False
-    
-    ' Launch FiveNest Production Studio in browser with direct bridge trigger
+    ' Launch FiveNest Production Studio in browser with direct Corel trigger
     Dim studioUrl As String
-    studioUrl = "https://www.fivenest.in/production?corel_bridge=18234&t=" & Format(Now, "hhnnss")
+    studioUrl = "https://www.fivenest.in/production?corel_export=ready&t=" & Format(Now, "hhnnss")
     wShell.Run "cmd /c start " & studioUrl, 0, False
     
-    MsgBox "FiveNest Artwork Sent Successfully!" & vbCrLf & vbCrLf & _
-           count & " individual cropped panels exported in 300 DPI RGB JPG:" & report & vbCrLf & vbCrLf & _
-           "Production studio is opening in your browser:" & vbCrLf & _
-           "https://www.fivenest.in/production" & vbCrLf & vbCrLf & _
-           "All panels will appear on your 3D Jersey automatically!" & vbCrLf & _
-           "(Zero hassle: Package is also copied to clipboard for instant Ctrl+V paste)", _
-           vbInformation, "FiveNest Exporter"
+    MsgBox "FiveNest Artwork Export Complete!" & vbCrLf & vbCrLf & _
+           count & " individual 300 DPI panels exported:" & report & vbCrLf & vbCrLf & _
+           "Saved Package:" & vbCrLf & _
+           "C:\Fivenest_Export\Fivenest_Artwork_Package.zip" & vbCrLf & vbCrLf & _
+           "1. FiveNest Production Studio opened in your browser" & vbCrLf & _
+           "2. Windows Explorer opened with your package selected" & vbCrLf & vbCrLf & _
+           "👉 Just DRAG Fivenest_Artwork_Package.zip into your browser window," & vbCrLf & _
+           "or click on the browser and press Ctrl+V to paste!", _
+           vbInformation, "FiveNest Studio"
            
     Unload Me
 End Sub
