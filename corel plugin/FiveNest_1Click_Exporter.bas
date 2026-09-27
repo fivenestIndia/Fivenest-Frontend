@@ -1,4 +1,3 @@
-Attribute VB_Name = "FiveNest_1Click_Exporter"
 ' ==============================================================================
 ' FIVENEST 1-CLICK COREL TO STUDIO EXPORTER
 ' POPUP FLOATING PANEL WITH 8 BUTTONS
