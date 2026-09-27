@@ -1,0 +1,60 @@
+================================================================================
+       FIVENEST COREL TO STUDIO 1-CLICK EXPORTER - SETUP GUIDE (WINDOWS)
+================================================================================
+
+STEP 1: Run the Installer
+-------------------------
+Double-click "Install_FiveNest_Macro.bat".
+This automatically creates "FiveNest.gms" in your permanent user folder:
+  %APPDATA%\Corel\CorelDRAW Graphics Suite 2025\Draw\GMS\FiveNest.gms
+(This ensures the macro NEVER vanishes when CorelDRAW restarts!)
+
+
+STEP 2: Open CorelDRAW & VBA Editor
+-----------------------------------
+1. Open CorelDRAW.
+2. Press Alt + F11 (or menu: Tools > Scripts / Macros > Script Editor).
+3. On the left panel (Project Explorer), you will see:
+   FiveNest (FiveNest.gms)
+
+
+STEP 3: Add the 3 Items to FiveNest
+-----------------------------------
+Make sure to right-click on "FiveNest" (NOT CalendarWizard!):
+
+Item 1: Class Module
+  - Right-click "FiveNest" -> Insert -> Class Module.
+  - Press F4, rename (Name) to: clsBtn
+  - Open "clsBtn_Code.txt", copy all, and paste it into the code window.
+
+Item 2: Standard Module
+  - Right-click "FiveNest" -> Insert -> Module.
+  - Press F4, rename (Name) to: FiveNest_1Click_Exporter
+  - Open "FiveNest_1Click_Exporter.bas", copy all, and paste it into the code window.
+
+Item 3: UserForm
+  - Right-click "FiveNest" -> Insert -> UserForm.
+  - Press F4, ensure (Name) is: UserForm1
+  - Right-click UserForm1 -> View Code (or press F7).
+  - Open "UserForm1_Code.txt", copy all, and paste it into the code window.
+
+
+STEP 4: Save (Ctrl + S)
+-----------------------
+Press Ctrl + S in the VBA editor to save FiveNest.gms.
+Close VBA.
+
+
+HOW TO USE:
+-----------
+1. In CorelDRAW, press Alt + F8 (Macro Manager).
+2. Select "ExportToFiveNest" and click Run.
+   (Tip: Drag it to your toolbar via Tools > Options > Customization > Commands > Macros for 1-click access!)
+3. The sleek vertical panel opens:
+   - Select artwork on canvas -> click Front, Back, Sleeves, Collar to assign.
+   - Thumbnails preview each panel.
+   - Click "EXPORT & OPEN PRODUCTION STUDIO".
+4. The macro exports clean 300 DPI RGB cropped panels into a single ZIP file,
+   copies the ZIP to your clipboard, and opens https://www.fivenest.in/production.
+   Simply press Ctrl+V or drag & drop the ZIP to load!
+================================================================================
