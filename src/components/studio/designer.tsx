@@ -295,6 +295,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [prefTrigger, setPrefTrigger] = useState<number>(0);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isWindowDragging, setIsWindowDragging] = useState<boolean>(false);
+  const [isSyncingCorel, setIsSyncingCorel] = useState<boolean>(false);
   const [newGuideType, setNewGuideType] = useState<'vertical' | 'horizontal'>('vertical');
   const [newGuideValue, setNewGuideValue] = useState<string>("");
 
@@ -3111,6 +3112,197 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     };
   }, []);
 
+  const checkAndFetchCorelBridge = async (port: number = 18234, silent: boolean = false): Promise<boolean> => {
+    try {
+      if (!silent) setIsSyncingCorel(true);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4500);
+
+      const res = await fetch(`http://127.0.0.1:${port}/api/panels`, {
+        method: 'GET',
+        signal: controller.signal,
+        headers: { 'Accept': 'application/json' }
+      });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        if (!silent) setIsSyncingCorel(false);
+        return false;
+      }
+
+      const data = await res.json();
+      if (!data || !data.panels || Object.keys(data.panels).length === 0) {
+        if (!silent) setIsSyncingCorel(false);
+        return false;
+      }
+
+      const newConfig = {
+        front: { ...designConfig.front },
+        back: { ...designConfig.back },
+        collar: { ...designConfig.collar },
+        sleeveLeft: { ...designConfig.sleeveLeft },
+        sleeveRight: { ...designConfig.sleeveRight },
+        a4Print: { ...designConfig.a4Print },
+      };
+
+      let importedCount = 0;
+      const importedNames: string[] = [];
+
+      if (data.manifest?.sleeveType === 'full') {
+        setPreviewSleeveType('full');
+      } else if (data.manifest?.sleeveType === 'half') {
+        setPreviewSleeveType('half');
+      }
+
+      for (const [filename, dataUrl] of Object.entries(data.panels as Record<string, string>)) {
+        const target = classifyZipPanelFile(filename);
+        if (!target) continue;
+
+        switch (target) {
+          case 'front':
+            newConfig.front.uploadedFileUrl = dataUrl;
+            newConfig.front.backgroundType = 'upload';
+            importedCount++;
+            importedNames.push('Front');
+            break;
+
+          case 'back':
+            newConfig.back.uploadedFileUrl = dataUrl;
+            newConfig.back.backgroundType = 'upload';
+            importedCount++;
+            importedNames.push('Back');
+            break;
+
+          case 'collar':
+            newConfig.collar.uploadedFileUrl = dataUrl;
+            newConfig.collar.backgroundType = 'upload';
+            importedCount++;
+            importedNames.push('Collar');
+            break;
+
+          case 'sleeveLeft_half':
+            newConfig.sleeveLeft.uploadedFileHalfUrl = dataUrl;
+            newConfig.sleeveLeft.uploadedFileUrl = dataUrl;
+            newConfig.sleeveLeft.backgroundType = 'upload';
+            importedCount++;
+            importedNames.push('Left Half Sleeve');
+            break;
+
+          case 'sleeveLeft_full':
+            newConfig.sleeveLeft.uploadedFileFullUrl = dataUrl;
+            newConfig.sleeveLeft.uploadedFileUrl = dataUrl;
+            newConfig.sleeveLeft.backgroundType = 'upload';
+            importedCount++;
+            importedNames.push('Left Full Sleeve');
+            break;
+
+          case 'sleeveLeft_both':
+            newConfig.sleeveLeft.uploadedFileHalfUrl = dataUrl;
+            newConfig.sleeveLeft.uploadedFileFullUrl = dataUrl;
+            newConfig.sleeveLeft.uploadedFileUrl = dataUrl;
+            newConfig.sleeveLeft.backgroundType = 'upload';
+            importedCount++;
+            importedNames.push('Left Sleeve');
+            break;
+
+          case 'sleeveRight_half':
+            newConfig.sleeveRight.uploadedFileHalfUrl = dataUrl;
+            newConfig.sleeveRight.uploadedFileUrl = dataUrl;
+            newConfig.sleeveRight.backgroundType = 'upload';
+            importedCount++;
+            importedNames.push('Right Half Sleeve');
+            break;
+
+          case 'sleeveRight_full':
+            newConfig.sleeveRight.uploadedFileFullUrl = dataUrl;
+            newConfig.sleeveRight.uploadedFileUrl = dataUrl;
+            newConfig.sleeveRight.backgroundType = 'upload';
+            importedCount++;
+            importedNames.push('Right Full Sleeve');
+            break;
+
+          case 'sleeveRight_both':
+            newConfig.sleeveRight.uploadedFileHalfUrl = dataUrl;
+            newConfig.sleeveRight.uploadedFileFullUrl = dataUrl;
+            newConfig.sleeveRight.uploadedFileUrl = dataUrl;
+            newConfig.sleeveRight.backgroundType = 'upload';
+            importedCount++;
+            importedNames.push('Right Sleeve');
+            break;
+        }
+      }
+
+      if (importedCount > 0) {
+        onDesignConfigChange(newConfig);
+        toast.success(`⚡ CorelDRAW Connected: Successfully auto-loaded ${importedCount} panels into 3D!`);
+        if (!silent) setIsSyncingCorel(false);
+        return true;
+      }
+    } catch (e) {
+      // Loopback fetch not available
+    }
+    if (!silent) {
+      setIsSyncingCorel(false);
+      toast.info('Could not connect to CorelDRAW bridge on port ' + port + '. You can drop or paste (Ctrl+V) the ZIP package directly!');
+    }
+    return false;
+  };
+
+  // Auto-connect to CorelDRAW bridge on mount and on tab focus
+  useEffect(() => {
+    let attempts = 0;
+    const maxAttempts = 6;
+    let timer: NodeJS.Timeout | null = null;
+
+    const trySync = async () => {
+      const ok = await checkAndFetchCorelBridge(18234, attempts > 0);
+      if (ok) return;
+      attempts++;
+      if (attempts < maxAttempts) {
+        timer = setTimeout(trySync, 1200);
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      const isCorelReq = window.location.search.includes('corel_bridge') || window.location.search.includes('corel_export');
+      if (isCorelReq) {
+        trySync();
+      }
+
+      const onWindowFocus = () => {
+        checkAndFetchCorelBridge(18234, true);
+      };
+      window.addEventListener('focus', onWindowFocus);
+
+      return () => {
+        if (timer) clearTimeout(timer);
+        window.removeEventListener('focus', onWindowFocus);
+      };
+    }
+  }, []);
+
+  // Clipboard Paste handler (Ctrl+V)
+  useEffect(() => {
+    const handlePaste = async (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of Array.from(items)) {
+        if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (file) {
+            if (file.name.toLowerCase().endsWith('.zip') || file.type.includes('zip')) {
+              e.preventDefault();
+              await processZipFile(file);
+              return;
+            }
+          }
+        }
+      }
+    };
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, []);
+
   const handlePaletteFill = (color: string) => {
     if (activeTool === 'text') {
       const configKey = activeTextLayer === 'name' ? 'nameConfig' : activeTextLayer === 'number' ? 'numberConfig' : 'sizeTagConfig';
@@ -5038,12 +5230,38 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           </h3>
           {!collapsed.zip && (
             <div style={{ marginTop: '14px' }}>
+              {/* Primary 1-Click Live Sync */}
+              <button
+                type="button"
+                onClick={() => checkAndFetchCorelBridge(18234, false)}
+                disabled={isSyncingCorel}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  width: '100%',
+                  padding: '10px 14px',
+                  marginBottom: '10px',
+                  background: 'linear-gradient(135deg, #E4572E 0%, #C8431C 100%)',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontWeight: '700',
+                  fontSize: '12px',
+                  cursor: isSyncingCorel ? 'wait' : 'pointer',
+                  boxShadow: '0 2px 8px rgba(228, 87, 46, 0.25)'
+                }}
+              >
+                <Sparkles size={15} /> {isSyncingCorel ? 'Connecting to Corel...' : '⚡ 1-Click Sync from CorelDRAW'}
+              </button>
+
               <div
                 onClick={() => zipInputRef.current?.click()}
                 style={{
                   border: '2px dashed #E4572E',
                   borderRadius: '10px',
-                  padding: '16px 12px',
+                  padding: '14px 12px',
                   textAlign: 'center',
                   background: 'linear-gradient(180deg, #FFF8F5 0%, #FFFFFF 100%)',
                   cursor: 'pointer',
@@ -5051,12 +5269,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   marginBottom: '10px'
                 }}
               >
-                <FolderArchive size={26} style={{ color: '#E4572E', margin: '0 auto 6px' }} />
+                <FolderArchive size={24} style={{ color: '#E4572E', margin: '0 auto 6px' }} />
                 <div style={{ fontSize: '12px', fontWeight: '700', color: '#1F2937' }}>
-                  Drop CorelDRAW ZIP Here or Click
+                  Drop Corel ZIP Here or Click to Browse
                 </div>
-                <div style={{ fontSize: '10.5px', color: '#6B7280', marginTop: '2px' }}>
-                  Auto-loads Front, Back, Sleeves & Collar into 3D
+                <div style={{ fontSize: '10px', color: '#6B7280', marginTop: '2px' }}>
+                  Or press <kbd style={{ padding: '1px 4px', background: '#E5E7EB', borderRadius: '3px', fontSize: '9px', fontWeight: '700' }}>Ctrl+V</kbd> to paste package
                 </div>
               </div>
               <button
