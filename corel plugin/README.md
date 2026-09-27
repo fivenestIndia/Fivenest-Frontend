@@ -37,36 +37,50 @@ Export your CorelDRAW jersey designs directly into **FiveNest Production Studio*
 
 ---
 
-## 🛠️ Step-by-Step Setup in CorelDRAW VBA
+## 🔒 Why Macros Vanish on Restart & How to Keep Them Permanently
 
-### Step 1: Open the VBA Editor
-1. In CorelDRAW, press `Alt + F11` (or menu: **Tools > Scripts / Macros > Script Editor**).
-2. In the Project Explorer on the left, expand **`GlobalMacros`** (or your document).
+### Why it vanished:
+In CorelDRAW, `CalendarWizard.gms` is a factory tool located in `C:\Program Files\...`. Windows marks `Program Files` as **Read-Only** for normal apps. Any code added to `CalendarWizard.gms` is discarded when Corel closes because CorelDRAW cannot write to `Program Files` without Administrator privileges.
 
-### Step 2: Add Class Module `clsBtn`
-1. Right-click `GlobalMacros` &rarr; **Insert &rarr; Class Module**.
-2. In the Properties window (press `F4` if hidden), rename it from `Class1` to **`clsBtn`**.
-3. Paste the contents of [`clsBtn_Code.txt`](clsBtn_Code.txt):
-   ```vba
-   Option Explicit
+### How to keep it permanently:
+Any `.gms` file stored in your personal user directory:
+`%APPDATA%\Corel\CorelDRAW Graphics Suite <version>\Draw\GMS\FiveNest.gms`
+is **100% permanently preserved**, has full read/write permissions, and is **automatically loaded by CorelDRAW every time you launch it!**
 
-   Public WithEvents btn As MSForms.CommandButton
-   Public panelKey As String
+---
 
-   Private Sub btn_Click()
-       UserForm1.HandleButtonClick panelKey
-   End Sub
-   ```
+## 🛠️ 1-Minute Permanent Setup
 
-### Step 3: Add UserForm `UserForm1`
-1. Right-click `GlobalMacros` &rarr; **Insert &rarr; UserForm**.
-2. Ensure its name in Properties is **`UserForm1`**.
-3. Right-click the form &rarr; **View Code** (or press `F7`).
-4. Select all and paste the entire contents of [`UserForm1_Code.txt`](UserForm1_Code.txt).
+### Option 1: Automatic Installer (Recommended)
+1. Double-click **`Install_FiveNest_Macro.bat`**.
+2. It automatically creates `FiveNest.gms` in your CorelDRAW user folder (`%APPDATA%\Corel\...\Draw\GMS\`).
+3. Open CorelDRAW &rarr; press `Alt + F11`.
+4. In the left panel, you will now see **`FiveNest (FiveNest.gms)`**. Follow the 3 steps below to paste the code!
 
-### Step 4: Add Standard Module
-1. Right-click `GlobalMacros` &rarr; **Insert &rarr; Module**.
-2. Paste the contents of [`FiveNest_1Click_Exporter.bas`](FiveNest_1Click_Exporter.bas):
+### Option 2: Directly inside CorelDRAW (No batch file needed)
+1. In CorelDRAW main window, open menu: **Window > Dockers > Scripts** (or **Macro Manager**).
+2. Right-click on **Visual Basic for Applications** (top item in the docker).
+3. Click **New Macro Project...** &rarr; Type: **`FiveNest`** &rarr; Press Enter.
+4. Press `Alt + F11` to open the VBA editor. You will see **`FiveNest (FiveNest.gms)`**!
+
+---
+
+### Step-by-Step Code Setup inside `FiveNest (FiveNest.gms)`:
+
+1. In the VBA Project Explorer (left pane), right-click on **`FiveNest`** (or `GlobalMacros`).
+2. **Add Class Module (`clsBtn`)**:
+   - **Insert &rarr; Class Module**.
+   - In Properties (`F4`), change `(Name)` to **`clsBtn`**.
+   - Paste the contents of [`clsBtn_Code.txt`](clsBtn_Code.txt).
+3. **Add UserForm (`UserForm1`)**:
+   - Right-click `FiveNest` &rarr; **Insert &rarr; UserForm**.
+   - In Properties (`F4`), change `(Name)` to **`UserForm1`**.
+   - Right-click the form &rarr; **View Code** (`F7`).
+   - Paste the entire contents of [`UserForm1_Code.txt`](UserForm1_Code.txt).
+4. **Add Standard Module**:
+   - Right-click `FiveNest` &rarr; **Insert &rarr; Module**.
+   - In Properties (`F4`), change `(Name)` to **`FiveNest_1Click_Exporter`**.
+   - Paste:
    ```vba
    Option Explicit
 
@@ -78,7 +92,7 @@ Export your CorelDRAW jersey designs directly into **FiveNest Production Studio*
        End If
    End Sub
    ```
-3. Save changes in VBA (`Ctrl + S`).
+5. Press **`Ctrl + S`** to save `FiveNest.gms`. You're done! It is now permanently installed.
 
 ---
 
