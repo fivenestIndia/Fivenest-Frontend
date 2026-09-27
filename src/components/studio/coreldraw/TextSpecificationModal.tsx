@@ -209,7 +209,7 @@ export const TextSpecificationModal: React.FC<TextSpecificationModalProps> = ({
                   Font Family:
                 </label>
                 <select
-                  value={config.fontFamily}
+                  value={config.fontFamily || 'OldSport02AthleticNcv-E0gj'}
                   onChange={(e) => onUpdate({ fontFamily: e.target.value })}
                   style={{
                     width: '100%',
@@ -221,14 +221,30 @@ export const TextSpecificationModal: React.FC<TextSpecificationModalProps> = ({
                     fontSize: '12px'
                   }}
                 >
-                  <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
-                  <option value="Impact">Impact (Bold Athletic)</option>
-                  <option value="Arial">Arial Black</option>
-                  <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
-                  <option value="Times New Roman">Times (Classic Serif)</option>
-                  {customFonts.map((f) => (
-                    <option key={f.name} value={f.name}>{f.name} (Custom)</option>
-                  ))}
+                  <optgroup label="Default Studio Fonts">
+                    <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
+                    <option value="OldSport01CollegeNcv-aeGm">Old Sport College</option>
+                    <option value="Jersey M54">Jersey M54</option>
+                    <option value="Pop Warner">Pop Warner</option>
+                    <option value="Calligraphy">Calligraphy Script</option>
+                    <option value="Eaglore 2">Eaglore 2</option>
+                    <option value="Khand-Bold">Khand Bold</option>
+                    <option value="Khand-SemiBold">Khand SemiBold</option>
+                    <option value="fhf">FHF Sport</option>
+                  </optgroup>
+                  <optgroup label="System Fonts">
+                    <option value="Impact">Impact (Bold Athletic)</option>
+                    <option value="Arial">Arial Black</option>
+                    <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
+                    <option value="Times New Roman">Times (Classic Serif)</option>
+                  </optgroup>
+                  {customFonts.length > 0 && (
+                    <optgroup label="Custom Uploaded Fonts">
+                      {customFonts.map((f) => (
+                        <option key={f.name} value={f.name}>{f.name} (Custom)</option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               </div>
 

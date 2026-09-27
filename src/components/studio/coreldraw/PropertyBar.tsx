@@ -257,7 +257,7 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               value={activeTextConfig.fontFamily || 'OldSport02AthleticNcv-E0gj'}
               onChange={(e) => updateActiveText({ fontFamily: e.target.value })}
               style={{
-                width: '145px',
+                width: '165px',
                 border: '1px solid #D8D5CF',
                 borderRadius: '6px',
                 fontSize: '11px',
@@ -269,14 +269,22 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
                 cursor: 'pointer'
               }}
             >
-              <optgroup label="Standard Fonts">
-                <option value="OldSport02AthleticNcv-E0gj">Athletic Bold (Default)</option>
+              <optgroup label="Default Studio Fonts">
+                <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
+                <option value="OldSport01CollegeNcv-aeGm">Old Sport College</option>
+                <option value="Jersey M54">Jersey M54</option>
+                <option value="Pop Warner">Pop Warner</option>
+                <option value="Calligraphy">Calligraphy Script</option>
+                <option value="Eaglore 2">Eaglore 2</option>
+                <option value="Khand-Bold">Khand Bold</option>
+                <option value="Khand-SemiBold">Khand SemiBold</option>
+                <option value="fhf">FHF Sport</option>
+              </optgroup>
+              <optgroup label="System Fonts">
                 <option value="Impact">Impact (Bold Athletic)</option>
                 <option value="Arial">Arial Black</option>
                 <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
                 <option value="Times New Roman">Times (Classic Serif)</option>
-                <option value="Roboto">Roboto</option>
-                <option value="Montserrat">Montserrat</option>
               </optgroup>
 
               {effectiveCustomFonts.length > 0 && (
@@ -292,12 +300,18 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               {activeTextConfig.fontFamily &&
                 ![
                   'OldSport02AthleticNcv-E0gj',
+                  'OldSport01CollegeNcv-aeGm',
+                  'Jersey M54',
+                  'Pop Warner',
+                  'Calligraphy',
+                  'Eaglore 2',
+                  'Khand-Bold',
+                  'Khand-SemiBold',
+                  'fhf',
                   'Impact',
                   'Arial',
                   'Trebuchet MS',
                   'Times New Roman',
-                  'Roboto',
-                  'Montserrat',
                   ...effectiveCustomFonts.map(f => f.name)
                 ].includes(activeTextConfig.fontFamily) && (
                   <optgroup label="Current Font">

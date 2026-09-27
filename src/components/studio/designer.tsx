@@ -14,6 +14,7 @@ import { ShortcutsModal } from './coreldraw/ShortcutsModal';
 import { GradientEditorModal } from './coreldraw/GradientEditorModal';
 import { TextSpecificationModal } from './coreldraw/TextSpecificationModal';
 import ArtboardFillModal from './ArtboardFillModal';
+import { RULER_UNITS, DEFAULT_STUDIO_FONTS, type RulerUnit } from './rulerUnits';
 
 export interface TextConfig {
   enabled: boolean;
@@ -428,6 +429,27 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       return true;
     }
   });
+  const [rulerUnit, setRulerUnit] = useState<RulerUnit>(() => {
+    try {
+      const saved = localStorage.getItem('fivenest_pref_ruler_unit');
+      if (saved && saved in RULER_UNITS) return saved as RulerUnit;
+    } catch (e) {}
+    return 'in';
+  });
+
+  const handleSetRulerUnit = (unit: RulerUnit) => {
+    setRulerUnit(unit);
+    try {
+      localStorage.setItem('fivenest_pref_ruler_unit', unit);
+    } catch (e) {}
+    toast.success(`Ruler Unit: ${RULER_UNITS[unit].label}`);
+  };
+
+  const cycleRulerUnit = () => {
+    const units: RulerUnit[] = ['in', 'mm', 'cm', 'pt', 'ft'];
+    const nextIdx = (units.indexOf(rulerUnit) + 1) % units.length;
+    handleSetRulerUnit(units[nextIdx]);
+  };
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
     const isFromCorel = typeof window !== 'undefined' && (
       window.location.search.includes('corel_export') ||
@@ -651,14 +673,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const t2 = e.touches[1];
       const currentDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
       const ratio = currentDistance / touchStartRef.current.distance;
-      const newZoom = Math.min(4.0, Math.max(0.15, Math.round(touchStartRef.current.zoom * ratio * 100) / 100));
+      // Clamped: Max zoom out is 50% (0.50), Zoom In up to 400% (4.0)
+      const newZoom = Math.min(4.0, Math.max(0.50, Math.round(touchStartRef.current.zoom * ratio * 100) / 100));
       if (newZoom !== zoom) {
-        const mouseX = touchStartRef.current.x;
-        const mouseY = touchStartRef.current.y;
-        const worldX = (mouseX - panOffset.x) / zoom;
-        const worldY = (mouseY - panOffset.y) / zoom;
-        const newPanX = Math.round(mouseX - worldX * newZoom);
-        const newPanY = Math.round(mouseY - worldY * newZoom);
+        const wrapper = scrollWrapperRef.current;
+        const rect = wrapper ? wrapper.getBoundingClientRect() : { width: window.innerWidth, height: window.innerHeight };
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        const worldX = (centerX - panOffset.x) / zoom;
+        const worldY = (centerY - panOffset.y) / zoom;
+        const newPanX = Math.round(centerX - worldX * newZoom);
+        const newPanY = Math.round(centerY - worldY * newZoom);
         setZoom(newZoom);
         setPanOffset({ x: newPanX, y: newPanY });
       }
@@ -673,7 +698,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
   const handleZoomChange = (newZoom: number) => {
     const wrapper = scrollWrapperRef.current;
-    const clampedZoom = Math.min(4.0, Math.max(0.15, Math.round(newZoom * 100) / 100));
+    // Clamped: Max zoom out is 50% (0.50), Zoom In up to 400% (4.0)
+    const clampedZoom = Math.min(4.0, Math.max(0.50, Math.round(newZoom * 100) / 100));
     if (clampedZoom === zoom) return;
 
     if (!wrapper) {
@@ -681,6 +707,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       return;
     }
     const rect = wrapper.getBoundingClientRect();
+    // ALWAYS ZOOM FROM THE EXACT CENTER OF THE VIEWPORT
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
 
@@ -730,7 +757,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const availH = Math.max(100, containerH - padY);
 
     const fitRatio = Math.min(availW / contentW, availH / contentH);
-    const optimalZoom = Math.min(2.0, Math.max(0.2, parseFloat(fitRatio.toFixed(2))));
+    const optimalZoom = Math.min(2.0, Math.max(0.50, parseFloat(fitRatio.toFixed(2))));
 
     const newPanX = Math.round((containerW - contentW * optimalZoom) / 2);
     const newPanY = Math.round((containerH - contentH * optimalZoom) / 2);
@@ -1690,9 +1717,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       ctx.setLineDash([]);
 
       // 2. Photoshop-style Ruler Background tracks & ticks
-      const rulerBg = '#2a2a2a';
-      const tickColor = '#e0e0e0';
-      const borderLineColor = '#1a1a1a';
+      const unitCfg = RULER_UNITS[rulerUnit] || RULER_UNITS['in'];
+      const rulerBg = '#222222'; // Photoshop Dark Neutral Ruler
+      const tickColor = '#e2e8f0'; // Crisp white/light gray
+      const subTickColor = '#71717a'; // Sub-ticks
+      const borderLineColor = '#141414';
 
       // Top Ruler track (0 .. rulerOffset y)
       ctx.fillStyle = rulerBg;
@@ -1701,8 +1730,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       // Left Ruler track (0 .. rulerOffset x)
       ctx.fillRect(0, rulerOffset, rulerOffset, height);
 
-      // Top-Left Corner Junction Box
-      ctx.fillStyle = '#242424';
+      // Top-Left Corner Junction Box (Clickable unit badge)
+      ctx.fillStyle = '#181818';
       ctx.fillRect(0, 0, rulerOffset, rulerOffset);
 
       // Divider borders separating ruler from artwork area
@@ -1717,51 +1746,99 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       ctx.lineTo(rulerOffset, rulerOffset + height);
       ctx.stroke();
 
-      // Corner junction text "in"
-      ctx.fillStyle = tickColor;
-      ctx.font = `bold ${Math.max(8, Math.round(0.11 * scale))}px monospace`;
+      // Corner junction text: Unit Symbol in FiveNest Orange
+      ctx.fillStyle = '#E4572E';
+      ctx.font = `bold ${Math.max(9, Math.round(0.12 * scale))}px system-ui, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('in', rulerOffset / 2, rulerOffset / 2);
+      ctx.fillText(unitCfg.symbol.toUpperCase(), rulerOffset / 2, rulerOffset / 2);
 
-      // Top ticks
-      ctx.font = `${Math.max(8, Math.round(0.12 * scale))}px system-ui`;
+      // --- TOP RULER TICKS ---
+      const totalUnitsX = unitCfg.fromInches(physicalW);
+      const stepX = unitCfg.majorStep / unitCfg.subdivisions;
+      const fontSize = Math.max(8, Math.min(10, Math.round(0.10 * scale)));
+      ctx.font = `${fontSize}px Inter, -apple-system, system-ui, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
-      ctx.strokeStyle = tickColor;
-      ctx.fillStyle = tickColor;
 
-      for (let x = 0; x <= physicalW; x += 0.25) {
-        const xPx = rulerOffset + Math.round(x * scale);
-        const isWhole = x % 1 === 0;
-        const isHalf = x % 0.5 === 0 && !isWhole;
-        const tickLen = isWhole ? Math.round(0.12 * scale) : isHalf ? Math.round(0.07 * scale) : Math.round(0.04 * scale);
-        ctx.lineWidth = isWhole ? 1 : 0.5;
+      for (let u = 0; u <= totalUnitsX + 0.0001; u += stepX) {
+        const inVal = unitCfg.toInches(u);
+        const xPx = rulerOffset + Math.round(inVal * scale);
+        if (xPx > rulerOffset + width) break;
+
+        const isMajor = Math.abs(u % unitCfg.majorStep) < 0.001 || Math.abs(u % unitCfg.majorStep - unitCfg.majorStep) < 0.001;
+        const isHalf = !isMajor && (Math.abs(u % (unitCfg.majorStep / 2)) < 0.001);
+        const tickLen = isMajor ? Math.round(rulerOffset * 0.45) : isHalf ? Math.round(rulerOffset * 0.28) : Math.round(rulerOffset * 0.16);
+
+        ctx.strokeStyle = isMajor ? tickColor : isHalf ? '#a1a1aa' : subTickColor;
+        ctx.lineWidth = isMajor ? 1 : 0.5;
         ctx.beginPath();
         ctx.moveTo(xPx, rulerOffset - tickLen);
         ctx.lineTo(xPx, rulerOffset);
         ctx.stroke();
 
-        if (isWhole && x > 0) {
-          ctx.fillText(x.toString(), xPx, 2);
+        if (isMajor && u > 0) {
+          ctx.fillStyle = tickColor;
+          ctx.fillText(Math.round(u).toString(), xPx, 2);
         }
       }
 
-      // Left ticks
+      // --- LEFT RULER TICKS ---
+      const totalUnitsY = unitCfg.fromInches(physicalH);
+      const stepY = unitCfg.majorStep / unitCfg.subdivisions;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      for (let y = 0; y <= physicalH; y += 0.5) {
-        const yPx = rulerOffset + Math.round(y * scale);
-        const isWhole = y % 1 === 0;
-        const tickLen = isWhole ? Math.round(0.10 * scale) : Math.round(0.05 * scale);
+
+      for (let u = 0; u <= totalUnitsY + 0.0001; u += stepY) {
+        const inVal = unitCfg.toInches(u);
+        const yPx = rulerOffset + Math.round(inVal * scale);
+        if (yPx > rulerOffset + height) break;
+
+        const isMajor = Math.abs(u % unitCfg.majorStep) < 0.001 || Math.abs(u % unitCfg.majorStep - unitCfg.majorStep) < 0.001;
+        const isHalf = !isMajor && (Math.abs(u % (unitCfg.majorStep / 2)) < 0.001);
+        const tickLen = isMajor ? Math.round(rulerOffset * 0.45) : isHalf ? Math.round(rulerOffset * 0.28) : Math.round(rulerOffset * 0.16);
+
+        ctx.strokeStyle = isMajor ? tickColor : isHalf ? '#a1a1aa' : subTickColor;
+        ctx.lineWidth = isMajor ? 1 : 0.5;
         ctx.beginPath();
         ctx.moveTo(rulerOffset - tickLen, yPx);
         ctx.lineTo(rulerOffset, yPx);
         ctx.stroke();
 
-        if (isWhole && y > 0) {
-          ctx.fillText(y.toString(), 2, yPx);
+        if (isMajor && u > 0) {
+          ctx.fillStyle = tickColor;
+          ctx.save();
+          ctx.font = `${Math.max(7, fontSize - 1)}px Inter, sans-serif`;
+          ctx.fillText(Math.round(u).toString(), 2, yPx);
+          ctx.restore();
         }
+      }
+
+      // --- PHOTOSHOP MOUSE POSITION TRACKER TICKS ---
+      if (cursorPos) {
+        const cursorXPx = rulerOffset + Math.round(cursorPos.x * scale);
+        const cursorYPx = rulerOffset + Math.round(cursorPos.y * scale);
+
+        ctx.save();
+        ctx.strokeStyle = '#00F0FF'; // Photoshop Cyan mouse tracker
+        ctx.lineWidth = 1;
+
+        // Top ruler cursor tracker
+        if (cursorXPx >= rulerOffset && cursorXPx <= rulerOffset + width) {
+          ctx.beginPath();
+          ctx.moveTo(cursorXPx, 0);
+          ctx.lineTo(cursorXPx, rulerOffset);
+          ctx.stroke();
+        }
+
+        // Left ruler cursor tracker
+        if (cursorYPx >= rulerOffset && cursorYPx <= rulerOffset + height) {
+          ctx.beginPath();
+          ctx.moveTo(0, cursorYPx);
+          ctx.lineTo(rulerOffset, cursorYPx);
+          ctx.stroke();
+        }
+        ctx.restore();
       }
 
       // 3. Custom Guidelines
@@ -1784,14 +1861,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ctx.lineTo(xPx, rulerOffset + height);
             ctx.stroke();
 
-            // Label tag on top ruler
+            // Label tag on top ruler showing formatted value in active unit
+            const unitVal = unitCfg.fromInches(xVal);
+            const tagText = unitCfg.format(unitVal, unitCfg.defaultDecimals);
             ctx.save();
             ctx.fillStyle = 'rgba(0, 240, 255, 0.25)';
-            ctx.fillRect(xPx - 16, 2, 32, rulerOffset - 4);
+            ctx.fillRect(xPx - 20, 2, 40, rulerOffset - 4);
             ctx.fillStyle = '#00f0ff';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(`${xVal.toFixed(1)}"`, xPx, rulerOffset / 2);
+            ctx.fillText(tagText, xPx, rulerOffset / 2);
             ctx.restore();
           }
         });
@@ -1804,14 +1883,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ctx.lineTo(rulerOffset + width, yPx);
             ctx.stroke();
 
-            // Label tag on left ruler
+            // Label tag on left ruler showing formatted value in active unit
+            const unitVal = unitCfg.fromInches(yVal);
+            const tagText = unitCfg.format(unitVal, unitCfg.defaultDecimals);
             ctx.save();
             ctx.fillStyle = 'rgba(0, 240, 255, 0.25)';
-            ctx.fillRect(2, yPx - 8, rulerOffset - 4, 16);
+            ctx.fillRect(2, yPx - 9, rulerOffset - 4, 18);
             ctx.fillStyle = '#00f0ff';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(`${yVal.toFixed(1)}"`, rulerOffset / 2, yPx);
+            ctx.fillText(tagText, rulerOffset / 2, yPx);
             ctx.restore();
           }
         });
@@ -2385,14 +2466,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       // 8. ZOOM IN: Ctrl + '=' or Ctrl + '+'
       if (isCtrl && (e.key === '=' || e.key === '+')) {
         e.preventDefault();
-        setZoom(z => Math.min(3, Math.round((z + 0.25) * 100) / 100));
+        handleZoomChange(zoom + 0.25);
         return;
       }
 
       // 9. ZOOM OUT: Ctrl + '-'
       if (isCtrl && e.key === '-') {
         e.preventDefault();
-        setZoom(z => Math.max(0.5, Math.round((z - 0.25) * 100) / 100));
+        handleZoomChange(zoom - 0.25);
         return;
       }
 
@@ -2603,7 +2684,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     ctx.scale(zoom, zoom);
 
     renderPanelToCanvas(activeTab, ctx, width, height, scale, false);
-  }, [activeTab, dualActivePanel, activePanel, previewName, previewNumber, designConfig, customFonts, metadata, previewSleeveType, prefTrigger, zoom, showGuidelines]);
+  }, [activeTab, dualActivePanel, activePanel, previewName, previewNumber, designConfig, customFonts, metadata, previewSleeveType, prefTrigger, zoom, showGuidelines, rulerUnit, cursorPos]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -3250,8 +3331,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
     const rect = targetCanvas.getBoundingClientRect();
     const currentRulerOffset = (rulersEnabled && targetPanelKey !== 'collar') ? Math.round(0.55 * scale) : 0;
-    const canvasX = (e.clientX - rect.left) / zoom - currentRulerOffset;
-    const canvasY = (e.clientY - rect.top) / zoom - currentRulerOffset;
+    const rawClickX = (e.clientX - rect.left) / zoom;
+    const rawClickY = (e.clientY - rect.top) / zoom;
+
+    // Click Top-Left Corner Junction (0..rulerOffset) to cycle unit (Photoshop-style)!
+    if (currentRulerOffset > 0 && rawClickX <= currentRulerOffset && rawClickY <= currentRulerOffset) {
+      cycleRulerUnit();
+      return;
+    }
+
+    const canvasX = rawClickX - currentRulerOffset;
+    const canvasY = rawClickY - currentRulerOffset;
 
     const pad = 14;
 
@@ -3535,7 +3625,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         zoom={zoom}
-        onSetZoom={setZoom}
+        onSetZoom={handleZoomChange}
         showGuidelines={showGuidelines}
         onToggleGuidelines={() => setShowGuidelines(prev => !prev)}
         rulersEnabled={rulersEnabled}
@@ -3560,7 +3650,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         physicalWidth={physicalWidth}
         physicalHeight={physicalHeight}
         zoom={zoom}
-        onSetZoom={setZoom}
+        onSetZoom={handleZoomChange}
         onUpdatePanel={updateActivePanel}
         activeTextLayer={activeTextLayer as any}
         onSelectTextLayer={(layer) => {
@@ -3917,18 +4007,20 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               if (!wrapper) return;
 
               const rect = wrapper.getBoundingClientRect();
-              const mouseX = e.clientX - rect.left;
-              const mouseY = e.clientY - rect.top;
+              // EXACT CENTER ZOOM AS REQUESTED:
+              const centerX = rect.width / 2;
+              const centerY = rect.height / 2;
 
               const zoomDelta = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-              const newZoom = Math.min(4.0, Math.max(0.15, Math.round(zoom * zoomDelta * 100) / 100));
+              // CLAMPED: Max Zoom Out is 50% (0.50), Zoom In up to 400% (4.0)
+              const newZoom = Math.min(4.0, Math.max(0.50, Math.round(zoom * zoomDelta * 100) / 100));
               if (newZoom === zoom) return;
 
-              const worldX = (mouseX - panOffset.x) / zoom;
-              const worldY = (mouseY - panOffset.y) / zoom;
+              const worldX = (centerX - panOffset.x) / zoom;
+              const worldY = (centerY - panOffset.y) / zoom;
 
-              const newPanX = Math.round(mouseX - worldX * newZoom);
-              const newPanY = Math.round(mouseY - worldY * newZoom);
+              const newPanX = Math.round(centerX - worldX * newZoom);
+              const newPanY = Math.round(centerY - worldY * newZoom);
 
               setZoom(newZoom);
               setPanOffset({ x: newPanX, y: newPanY });
@@ -5351,14 +5443,30 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           onChange={(e) => updateTextConfig('name', { fontFamily: e.target.value })}
                           style={{ padding: '6px' }}
                         >
-                          <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
-                          <option value="Impact">Impact (Bold Athletic)</option>
-                          <option value="Arial">Arial Black</option>
-                          <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
-                          <option value="Times New Roman">Times (Classic Serif)</option>
-                          {customFonts.map(font => (
-                            <option key={font.name} value={font.name}>{font.name} (Custom)</option>
-                          ))}
+                          <optgroup label="Default Studio Fonts">
+                            <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
+                            <option value="OldSport01CollegeNcv-aeGm">Old Sport College</option>
+                            <option value="Jersey M54">Jersey M54</option>
+                            <option value="Pop Warner">Pop Warner</option>
+                            <option value="Calligraphy">Calligraphy Script</option>
+                            <option value="Eaglore 2">Eaglore 2</option>
+                            <option value="Khand-Bold">Khand Bold</option>
+                            <option value="Khand-SemiBold">Khand SemiBold</option>
+                            <option value="fhf">FHF Sport</option>
+                          </optgroup>
+                          <optgroup label="System Fonts">
+                            <option value="Impact">Impact (Bold Athletic)</option>
+                            <option value="Arial">Arial Black</option>
+                            <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
+                            <option value="Times New Roman">Times (Classic Serif)</option>
+                          </optgroup>
+                          {customFonts.length > 0 && (
+                            <optgroup label="Custom Uploaded Fonts">
+                              {customFonts.map(font => (
+                                <option key={font.name} value={font.name}>{font.name}</option>
+                              ))}
+                            </optgroup>
+                          )}
                         </select>
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
@@ -5783,14 +5891,30 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           onChange={(e) => updateTextConfig('number', { fontFamily: e.target.value })}
                           style={{ padding: '6px' }}
                         >
-                          <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
-                          <option value="Impact">Impact (Bold Athletic)</option>
-                          <option value="Arial">Arial Black</option>
-                          <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
-                          <option value="Times New Roman">Times (Classic Serif)</option>
-                          {customFonts.map(font => (
-                            <option key={font.name} value={font.name}>{font.name} (Custom)</option>
-                          ))}
+                          <optgroup label="Default Studio Fonts">
+                            <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
+                            <option value="OldSport01CollegeNcv-aeGm">Old Sport College</option>
+                            <option value="Jersey M54">Jersey M54</option>
+                            <option value="Pop Warner">Pop Warner</option>
+                            <option value="Calligraphy">Calligraphy Script</option>
+                            <option value="Eaglore 2">Eaglore 2</option>
+                            <option value="Khand-Bold">Khand Bold</option>
+                            <option value="Khand-SemiBold">Khand SemiBold</option>
+                            <option value="fhf">FHF Sport</option>
+                          </optgroup>
+                          <optgroup label="System Fonts">
+                            <option value="Impact">Impact (Bold Athletic)</option>
+                            <option value="Arial">Arial Black</option>
+                            <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
+                            <option value="Times New Roman">Times (Classic Serif)</option>
+                          </optgroup>
+                          {customFonts.length > 0 && (
+                            <optgroup label="Custom Uploaded Fonts">
+                              {customFonts.map(font => (
+                                <option key={font.name} value={font.name}>{font.name}</option>
+                              ))}
+                            </optgroup>
+                          )}
                         </select>
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
@@ -6445,14 +6569,30 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                             onChange={(e) => updateTextConfig('sizeTag', { fontFamily: e.target.value })}
                             style={{ padding: '6px' }}
                           >
-                            <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
-                            <option value="Impact">Impact (Bold Athletic)</option>
-                            <option value="Arial">Arial Black</option>
-                            <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
-                            <option value="Times New Roman">Times (Classic Serif)</option>
-                            {customFonts.map(font => (
-                              <option key={font.name} value={font.name}>{font.name} (Custom)</option>
-                            ))}
+                            <optgroup label="Default Studio Fonts">
+                              <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
+                              <option value="OldSport01CollegeNcv-aeGm">Old Sport College</option>
+                              <option value="Jersey M54">Jersey M54</option>
+                              <option value="Pop Warner">Pop Warner</option>
+                              <option value="Calligraphy">Calligraphy Script</option>
+                              <option value="Eaglore 2">Eaglore 2</option>
+                              <option value="Khand-Bold">Khand Bold</option>
+                              <option value="Khand-SemiBold">Khand SemiBold</option>
+                              <option value="fhf">FHF Sport</option>
+                            </optgroup>
+                            <optgroup label="System Fonts">
+                              <option value="Impact">Impact (Bold Athletic)</option>
+                              <option value="Arial">Arial Black</option>
+                              <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
+                              <option value="Times New Roman">Times (Classic Serif)</option>
+                            </optgroup>
+                            {customFonts.length > 0 && (
+                              <optgroup label="Custom Uploaded Fonts">
+                                {customFonts.map(font => (
+                                  <option key={font.name} value={font.name}>{font.name}</option>
+                                ))}
+                              </optgroup>
+                            )}
                           </select>
                         </div>
                         <div className="form-row">
@@ -6592,7 +6732,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             onClick={() => toggleCollapse('guidelines')}
           >
             <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '16px' }}>📏</span> <span style={{ fontSize: '13px', fontWeight: '700' }}>Custom Guidelines (Inches)</span>
+              <span style={{ fontSize: '16px' }}>📏</span> <span style={{ fontSize: '13px', fontWeight: '700' }}>Custom Guidelines ({RULER_UNITS[rulerUnit]?.label || 'Inches'})</span>
             </span>
             {collapsed.guidelines ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
           </h3>
@@ -6600,41 +6740,75 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           {!collapsed.guidelines && (
             <div>
               <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                Add horizontal or vertical guidelines at custom positions on this panel. Guidelines are saved per panel.
+                Add horizontal or vertical guidelines at custom positions. Guidelines are saved per panel.
               </p>
+
+              {/* Photoshop Unit Selector */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '12px', padding: '8px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '14px' }}>📐</span>
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#334155' }}>Unit System:</span>
+                </div>
+                <select 
+                  className="form-select" 
+                  style={{ width: '160px', padding: '4px 8px', fontSize: '11px', fontWeight: '700', color: '#0F172A', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer' }}
+                  value={rulerUnit}
+                  onChange={(e) => handleSetRulerUnit(e.target.value as RulerUnit)}
+                >
+                  <option value="in">Inches (in)</option>
+                  <option value="mm">Millimeters (mm)</option>
+                  <option value="cm">Centimeters (cm)</option>
+                  <option value="pt">Points (pt)</option>
+                  <option value="ft">Feet (ft)</option>
+                </select>
+              </div>
 
               <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
                 <select 
                   className="form-select" 
-                  style={{ width: '120px', padding: '6px' }}
+                  style={{ width: '115px', padding: '6px', fontWeight: '600' }}
                   value={newGuideType}
                   onChange={(e) => setNewGuideType(e.target.value as any)}
                 >
                   <option value="vertical">Vertical</option>
                   <option value="horizontal">Horizontal</option>
                 </select>
-                <input 
-                  type="number" 
-                  step="0.1"
-                  min="0"
-                  className="form-input" 
-                  placeholder="Inches" 
-                  style={{ padding: '6px', flexGrow: 1 }}
-                  value={newGuideValue}
-                  onChange={(e) => setNewGuideValue(e.target.value)}
-                />
+                <div style={{ position: 'relative', flexGrow: 1 }}>
+                  <input 
+                    type="number" 
+                    step={RULER_UNITS[rulerUnit]?.inputStep || 0.1}
+                    min="0"
+                    className="form-input" 
+                    placeholder={`Position (${RULER_UNITS[rulerUnit]?.symbol || 'in'})`} 
+                    style={{ padding: '6px 36px 6px 8px', width: '100%' }}
+                    value={newGuideValue}
+                    onChange={(e) => setNewGuideValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        document.getElementById('fn-add-guide-btn')?.click();
+                      }
+                    }}
+                  />
+                  <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', fontWeight: '700', color: '#94A3B8', pointerEvents: 'none' }}>
+                    {RULER_UNITS[rulerUnit]?.symbol}
+                  </span>
+                </div>
                 <button 
+                  id="fn-add-guide-btn"
                   className="btn btn-primary" 
-                  style={{ padding: '6px 12px', fontSize: '12px' }}
+                  style={{ padding: '6px 14px', fontSize: '12px', fontWeight: '700' }}
                   onClick={() => {
-                    const val = parseFloat(newGuideValue);
-                    if (isNaN(val) || val < 0) {
-                      alert("Please enter a valid position in inches.");
+                    const rawVal = parseFloat(newGuideValue);
+                    const unitCfg = RULER_UNITS[rulerUnit] || RULER_UNITS['in'];
+                    if (isNaN(rawVal) || rawVal < 0) {
+                      alert(`Please enter a valid position in ${unitCfg.label}.`);
                       return;
                     }
-                    const maxVal = newGuideType === 'vertical' ? physicalWidth : physicalHeight;
-                    if (val > maxVal) {
-                      alert(`Position exceeds panel boundary (${maxVal.toFixed(1)} inches).`);
+                    const valInches = Number(unitCfg.toInches(rawVal).toFixed(4));
+                    const maxInches = newGuideType === 'vertical' ? physicalWidth : physicalHeight;
+                    if (valInches > maxInches) {
+                      const maxInUnit = unitCfg.fromInches(maxInches);
+                      alert(`Position exceeds panel boundary (${unitCfg.format(maxInUnit)}).`);
                       return;
                     }
 
@@ -6644,13 +6818,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       ? [...(currentGuides.vertical || [])] 
                       : [...(currentGuides.horizontal || [])];
                     
-                    if (list.includes(val)) {
+                    if (list.some(existing => Math.abs(existing - valInches) < 0.001)) {
                       alert("This guideline already exists.");
                       return;
                     }
 
                     // Sort numerically
-                    list.push(val);
+                    list.push(valInches);
                     list.sort((a, b) => a - b);
 
                     updateActivePanel({
@@ -6670,51 +6844,73 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               {((activePanel.guidelines?.vertical?.length || 0) > 0 || (activePanel.guidelines?.horizontal?.length || 0) > 0) ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <div style={{ borderTop: '1px solid #E8E4DE', paddingTop: '10px' }}>
-                    <p style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '6px', color: 'var(--text-muted)' }}>Active Guides:</p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
+                    <p style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '6px', color: 'var(--text-muted)' }}>
+                      Active Guides ({activePanel.title}):
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '200px', overflowY: 'auto' }}>
                       {/* Vertical Guides */}
-                      {(activePanel.guidelines?.vertical || []).map((val, idx) => (
-                        <div key={`v-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: '#FAF8F5', borderRadius: '6px', border: '1px solid #E8E4DE', fontSize: '11px' }}>
-                          <span style={{ color: '#171717', fontWeight: '600' }}>Vertical: {val.toFixed(1)}"</span>
-                          <button 
-                            className="btn" 
-                            style={{ padding: '2px 6px', fontSize: '9px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#DC2626', cursor: 'pointer' }}
-                            onClick={() => {
-                              const currentGuides = activePanel.guidelines || { vertical: [], horizontal: [] };
-                              updateActivePanel({
-                                guidelines: {
-                                  vertical: (currentGuides.vertical || []).filter(v => v !== val),
-                                  horizontal: currentGuides.horizontal || []
-                                }
-                              });
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      ))}
+                      {(activePanel.guidelines?.vertical || []).map((val, idx) => {
+                        const unitCfg = RULER_UNITS[rulerUnit] || RULER_UNITS['in'];
+                        const inUnit = unitCfg.fromInches(val);
+                        const formatted = unitCfg.format(inUnit);
+                        return (
+                          <div key={`v-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: '#FAF8F5', borderRadius: '6px', border: '1px solid #E8E4DE', fontSize: '11px' }}>
+                            <div>
+                              <span style={{ color: '#171717', fontWeight: '700' }}>Vertical: {formatted}</span>
+                              {rulerUnit !== 'in' && (
+                                <span style={{ color: '#64748B', fontSize: '10px', marginLeft: '6px' }}>({val.toFixed(2)}")</span>
+                              )}
+                            </div>
+                            <button 
+                              className="btn" 
+                              style={{ padding: '2px 6px', fontSize: '9px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#DC2626', cursor: 'pointer' }}
+                              onClick={() => {
+                                const currentGuides = activePanel.guidelines || { vertical: [], horizontal: [] };
+                                updateActivePanel({
+                                  guidelines: {
+                                    vertical: (currentGuides.vertical || []).filter(v => v !== val),
+                                    horizontal: currentGuides.horizontal || []
+                                  }
+                                });
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        );
+                      })}
 
                       {/* Horizontal Guides */}
-                      {(activePanel.guidelines?.horizontal || []).map((val, idx) => (
-                        <div key={`h-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: '#FAF8F5', borderRadius: '6px', border: '1px solid #E8E4DE', fontSize: '11px' }}>
-                          <span style={{ color: '#171717', fontWeight: '600' }}>Horizontal: {val.toFixed(1)}"</span>
-                          <button 
-                            className="btn" 
-                            style={{ padding: '2px 6px', fontSize: '9px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#DC2626', cursor: 'pointer' }}
-                            onClick={() => {
-                              const currentGuides = activePanel.guidelines || { vertical: [], horizontal: [] };
-                              updateActivePanel({
-                                guidelines: {
-                                  vertical: currentGuides.vertical || [],
-                                  horizontal: (currentGuides.horizontal || []).filter(h => h !== val)
-                                }
-                              });
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      ))}
+                      {(activePanel.guidelines?.horizontal || []).map((val, idx) => {
+                        const unitCfg = RULER_UNITS[rulerUnit] || RULER_UNITS['in'];
+                        const inUnit = unitCfg.fromInches(val);
+                        const formatted = unitCfg.format(inUnit);
+                        return (
+                          <div key={`h-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: '#FAF8F5', borderRadius: '6px', border: '1px solid #E8E4DE', fontSize: '11px' }}>
+                            <div>
+                              <span style={{ color: '#171717', fontWeight: '700' }}>Horizontal: {formatted}</span>
+                              {rulerUnit !== 'in' && (
+                                <span style={{ color: '#64748B', fontSize: '10px', marginLeft: '6px' }}>({val.toFixed(2)}")</span>
+                              )}
+                            </div>
+                            <button 
+                              className="btn" 
+                              style={{ padding: '2px 6px', fontSize: '9px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#DC2626', cursor: 'pointer' }}
+                              onClick={() => {
+                                const currentGuides = activePanel.guidelines || { vertical: [], horizontal: [] };
+                                updateActivePanel({
+                                  guidelines: {
+                                    vertical: currentGuides.vertical || [],
+                                    horizontal: (currentGuides.horizontal || []).filter(h => h !== val)
+                                  }
+                                });
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                   <button 

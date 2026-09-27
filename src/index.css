@@ -4,6 +4,81 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   DEFAULT FONTS (Athletic & Production Typography)
+   ========================================================================== */
+@font-face {
+  font-family: 'OldSport02AthleticNcv-E0gj';
+  src: url('/fonts/OldSport02AthleticNcv-E0gj.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OldSport01CollegeNcv-aeGm';
+  src: url('/fonts/OldSport01CollegeNcv-aeGm.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Jersey M54';
+  src: url('/fonts/Jersey M54.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Pop Warner';
+  src: url('/fonts/Pop Warner.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Calligraphy';
+  src: url('/fonts/Calligraphy.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Eaglore 2';
+  src: url('/fonts/Eaglore 2.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Khand-Bold';
+  src: url('/fonts/Khand-Bold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Khand-SemiBold';
+  src: url('/fonts/Khand-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'fhf';
+  src: url('/fonts/fhf.TTF') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --color-primary: #E4572E;
   --color-primary-dark: #C2410C;
