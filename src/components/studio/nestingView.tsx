@@ -389,8 +389,7 @@ export const checkArtworkUploadStatus = (
     (designConfig?.front?.leftChestLogo?.enabled && designConfig?.front?.leftChestLogo?.uploadedUrl) ||
     (designConfig?.front?.rightChestLogo?.enabled && designConfig?.front?.rightChestLogo?.uploadedUrl) ||
     (designConfig?.front?.torsoLogo?.enabled && designConfig?.front?.torsoLogo?.uploadedUrl) ||
-    (designConfig?.front?.bottomLeftLogo?.enabled && designConfig?.front?.bottomLeftLogo?.uploadedUrl) ||
-    (designConfig?.front?.bottomRightLogo?.enabled && designConfig?.front?.bottomRightLogo?.uploadedUrl)
+    (designConfig?.front?.bottomLeftLogo?.enabled && designConfig?.front?.bottomLeftLogo?.uploadedUrl)
   );
 
   const backHasArtwork = Boolean(
@@ -1872,7 +1871,6 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       const rightLogo = conf.rightChestLogo;
       const torsoLogo = conf.torsoLogo;
       const bottomLeftLogo = conf.bottomLeftLogo;
-      const bottomRightLogo = conf.bottomRightLogo;
 
       const loadAllImages = async () => {
         const images: { 
@@ -1881,7 +1879,6 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           rightLogo?: HTMLImageElement; 
           torsoLogo?: HTMLImageElement; 
           bottomLeftLogo?: HTMLImageElement;
-          bottomRightLogo?: HTMLImageElement;
           sleeveStripe?: HTMLImageElement 
         } = {};
         const promises: Promise<void>[] = [];
@@ -1913,12 +1910,6 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
         if (bottomLeftLogo?.enabled && bottomLeftLogo?.uploadedUrl) {
           promises.push(
             getCachedImage(bottomLeftLogo.uploadedUrl).then(img => { if (img) images.bottomLeftLogo = img; })
-          );
-        }
-
-        if (bottomRightLogo?.enabled && bottomRightLogo?.uploadedUrl) {
-          promises.push(
-            getCachedImage(bottomRightLogo.uploadedUrl).then(img => { if (img) images.bottomRightLogo = img; })
           );
         }
 
@@ -2106,7 +2097,6 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
         drawLogo(rightLogo, images.rightLogo);
         drawLogo(torsoLogo, images.torsoLogo, true);
         drawLogo(bottomLeftLogo, images.bottomLeftLogo);
-        drawLogo(bottomRightLogo, images.bottomRightLogo);
 
         // Draw overlays
         drawOverlays();

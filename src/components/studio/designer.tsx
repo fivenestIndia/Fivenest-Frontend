@@ -79,7 +79,6 @@ export interface PanelConfig {
   rightChestLogo?: LogoConfig;
   torsoLogo?: LogoConfig;
   bottomLeftLogo?: LogoConfig;
-  bottomRightLogo?: LogoConfig;
   bgWidth?: number;
   bgHeight?: number;
   bgX?: number;
@@ -201,8 +200,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 15.0, yPos: 8.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 7.0, yPos: 8.5, lockAspectRatio: true },
     torsoLogo: { enabled: false, uploadedUrl: null, width: 8.5, height: 2.6, xPos: 11.0, yPos: 13.3, text: '', lockAspectRatio: true },
-    bottomLeftLogo: { enabled: false, uploadedUrl: null, width: 2.0, height: 2.0, xPos: 3.5, yPos: 26.0, lockAspectRatio: true },
-    bottomRightLogo: { enabled: false, uploadedUrl: null, width: 2.0, height: 2.0, xPos: 18.5, yPos: 26.0, lockAspectRatio: true }
+    bottomLeftLogo: { enabled: false, uploadedUrl: null, width: 2.0, height: 2.0, xPos: 3.5, yPos: 26.0, lockAspectRatio: true }
   },
   back: {
     backgroundType: 'upload',
@@ -441,6 +439,21 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     return 'in';
   });
 
+  interface DraggingGuideState {
+    type: 'vertical' | 'horizontal';
+    isNew: boolean;
+    originalIndex?: number;
+    originalValue?: number;
+    currentValInches: number;
+    isDeleting: boolean;
+    panelKey: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print';
+  }
+
+  const [draggingGuide, setDraggingGuide] = useState<DraggingGuideState | null>(null);
+  const draggingGuideRef = useRef<DraggingGuideState | null>(null);
+  const [mouseClientPos, setMouseClientPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [canvasCursor, setCanvasCursor] = useState<string>('default');
+
   const handleSetRulerUnit = (unit: RulerUnit) => {
     setRulerUnit(unit);
     try {
@@ -511,9 +524,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
       if (panel.bottomLeftLogo?.enabled && panel.bottomLeftLogo.uploadedUrl) {
         urls.push(panel.bottomLeftLogo.uploadedUrl);
-      }
-      if (panel.bottomRightLogo?.enabled && panel.bottomRightLogo.uploadedUrl) {
-        urls.push(panel.bottomRightLogo.uploadedUrl);
       }
     });
 
@@ -742,7 +752,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const containerH = wrapper.clientHeight;
     if (containerW <= 0 || containerH <= 0) return;
 
-    const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
+    const currentRulerOffset = rulersEnabled ? Math.max(26, Math.round(0.75 * scale)) : 0;
     
     let contentW = 0;
     let contentH = 0;
@@ -776,7 +786,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     setPanOffset({ x: newPanX, y: newPanY });
   };
 
-  // Global window listeners for pan dragging
+  // Global window listeners for pan dragging and guideline dragging
   useEffect(() => {
     const handleWindowMouseMove = (e: MouseEvent) => {
       if (panStartRef.current) {
@@ -787,12 +797,18 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           y: panStartRef.current.initialPanY + deltaY
         });
       }
+      if (draggingGuideRef.current) {
+        setMouseClientPos({ x: e.clientX, y: e.clientY });
+      }
     };
 
     const handleWindowMouseUp = () => {
       if (panStartRef.current) {
         panStartRef.current = null;
         setIsPanning(false);
+      }
+      if (draggingGuideRef.current) {
+        handleCanvasMouseUp();
       }
     };
 
@@ -1138,21 +1154,19 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     });
   };
 
-  const updateLogoConfig = (logoType: 'leftChest' | 'rightChest' | 'torso' | 'bottomLeft' | 'bottomRight', fields: Partial<LogoConfig>) => {
+  const updateLogoConfig = (logoType: 'leftChest' | 'rightChest' | 'torso' | 'bottomLeft', fields: Partial<LogoConfig>) => {
     const configKey = logoType === 'leftChest' ? 'leftChestLogo' 
       : logoType === 'rightChest' ? 'rightChestLogo' 
       : logoType === 'torso' ? 'torsoLogo'
-      : logoType === 'bottomLeft' ? 'bottomLeftLogo'
-      : 'bottomRightLogo';
-    const defaultW = (logoType === 'bottomLeft' || logoType === 'bottomRight') ? 2.0 : logoType === 'torso' ? 8.5 : 3.5;
-    const defaultH = (logoType === 'bottomLeft' || logoType === 'bottomRight') ? 2.0 : logoType === 'torso' ? 2.6 : 3.5;
+      : 'bottomLeftLogo';
+    const defaultW = logoType === 'bottomLeft' ? 2.0 : logoType === 'torso' ? 8.5 : 3.5;
+    const defaultH = logoType === 'bottomLeft' ? 2.0 : logoType === 'torso' ? 2.6 : 3.5;
     const defaultX = logoType === 'leftChest' ? 15.0 
       : logoType === 'rightChest' ? 7.0 
       : logoType === 'torso' ? 11.0 
-      : logoType === 'bottomLeft' ? 3.5 
-      : (physicalWidth - 3.5);
+      : 3.5;
     const defaultY = logoType === 'torso' ? 13.3 
-      : (logoType === 'bottomLeft' || logoType === 'bottomRight') ? (physicalHeight - 4.0) 
+      : logoType === 'bottomLeft' ? (physicalHeight - 4.0) 
       : 8.5;
 
     const current = activePanel[configKey] || {
@@ -1706,7 +1720,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       if (savedR !== null) rulersPref = JSON.parse(savedR);
     } catch (e) {}
     const rulersEnabled = !is3DPreview && rulersPref && (panelKey !== 'collar');
-    const rulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
+    const rulerOffset = rulersEnabled ? Math.max(26, Math.round(0.75 * scale)) : 0;
 
     const drawRulersAndGrid = (ctx: CanvasRenderingContext2D) => {
       if (is3DPreview || !rulersEnabled) return;
@@ -1773,7 +1787,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
       // Corner junction text: Unit Symbol in FiveNest Orange
       ctx.fillStyle = '#E4572E';
-      ctx.font = `bold ${Math.max(9, Math.round(0.12 * scale))}px system-ui, sans-serif`;
+      ctx.font = 'bold 9px Inter, system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(unitCfg.symbol.toUpperCase(), rulerOffset / 2, rulerOffset / 2);
@@ -1781,8 +1795,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       // --- TOP RULER TICKS ---
       const totalUnitsX = unitCfg.fromInches(physicalW);
       const stepX = unitCfg.majorStep / unitCfg.subdivisions;
-      const fontSize = Math.max(8, Math.min(10, Math.round(0.09 * scale)));
-      ctx.font = `${fontSize}px Inter, -apple-system, system-ui, sans-serif`;
+      ctx.font = '600 8px Inter, -apple-system, system-ui, sans-serif';
 
       for (let u = 0; u <= totalUnitsX + 0.0001; u += stepX) {
         const inVal = unitCfg.toInches(u);
@@ -1791,7 +1804,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
         const isMajor = Math.abs(u % unitCfg.majorStep) < 0.001 || Math.abs(u % unitCfg.majorStep - unitCfg.majorStep) < 0.001;
         const isHalf = !isMajor && (Math.abs(u % (unitCfg.majorStep / 2)) < 0.001);
-        const tickLen = isMajor ? Math.round(rulerOffset * 0.35) : isHalf ? Math.round(rulerOffset * 0.22) : Math.round(rulerOffset * 0.14);
+        const tickLen = isMajor ? 7 : isHalf ? 4.5 : 2.5;
 
         ctx.strokeStyle = isMajor ? tickColor : isHalf ? '#a1a1aa' : subTickColor;
         ctx.lineWidth = isMajor ? 1 : 0.5;
@@ -1800,12 +1813,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.lineTo(xPx, rulerOffset);
         ctx.stroke();
 
-        // Photoshop Style: Number is placed to the right of the tick mark, sitting in the upper track without overlapping
+        // Photoshop Style: Number placed in the top section, completely separate from tick mark
         if (isMajor && u > 0) {
           ctx.fillStyle = tickColor;
           ctx.textAlign = 'left';
           ctx.textBaseline = 'top';
-          ctx.fillText(Math.round(u).toString(), xPx + 3, 2);
+          ctx.fillText(Math.round(u).toString(), xPx + 3, 3);
         }
       }
 
@@ -1820,7 +1833,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
         const isMajor = Math.abs(u % unitCfg.majorStep) < 0.001 || Math.abs(u % unitCfg.majorStep - unitCfg.majorStep) < 0.001;
         const isHalf = !isMajor && (Math.abs(u % (unitCfg.majorStep / 2)) < 0.001);
-        const tickLen = isMajor ? Math.round(rulerOffset * 0.35) : isHalf ? Math.round(rulerOffset * 0.22) : Math.round(rulerOffset * 0.14);
+        const tickLen = isMajor ? 7 : isHalf ? 4.5 : 2.5;
 
         ctx.strokeStyle = isMajor ? tickColor : isHalf ? '#a1a1aa' : subTickColor;
         ctx.lineWidth = isMajor ? 1 : 0.5;
@@ -1829,15 +1842,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.lineTo(rulerOffset, yPx);
         ctx.stroke();
 
-        // Photoshop Style: Number sits on the left side and above the tick mark, never colliding
+        // Photoshop Style: Number sits on the left section, never colliding with tick mark
         if (isMajor && u > 0) {
           ctx.fillStyle = tickColor;
-          ctx.save();
-          ctx.font = `${Math.max(7, fontSize - 1)}px Inter, sans-serif`;
           ctx.textAlign = 'left';
           ctx.textBaseline = 'bottom';
-          ctx.fillText(Math.round(u).toString(), 2, yPx - 1);
-          ctx.restore();
+          ctx.fillText(Math.round(u).toString(), 3, yPx - 2);
         }
       }
 
@@ -1868,80 +1878,122 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.restore();
       }
 
-      // 3. Custom Guidelines
+      // 3. Custom Guidelines (Non-intrusive hairline cyan lines on artwork, sleek pips on rulers)
       if (showGuidelines) {
         const customGuides = panel.guidelines || { vertical: [], horizontal: [] };
         ctx.save();
-        ctx.strokeStyle = 'rgba(0, 240, 255, 0.85)'; // Crisp cyan
-        ctx.lineWidth = 0.5; // Thinned hairline thickness
-        ctx.setLineDash([3, 3]);
 
-        (customGuides.vertical || []).forEach(xVal => {
+        // A. VERTICAL GUIDELINES
+        (customGuides.vertical || []).forEach((xVal, vIdx) => {
+          // If this guideline is actively being moved, skip drawing it at its static position
+          if (draggingGuide && !draggingGuide.isNew && draggingGuide.panelKey === panelKey && draggingGuide.type === 'vertical' && draggingGuide.originalIndex === vIdx) {
+            return;
+          }
+
           const rawPx = Math.abs(xVal - physicalW / 2) < 0.01 ? Math.round(width / 2) : Math.round(xVal * scale);
           const xPx = rulerOffset + rawPx;
           if (xPx >= rulerOffset && xPx <= rulerOffset + width) {
+            // Crisp hairline dashed cyan line on panel artwork (ZERO text badges on the artboard)
+            ctx.strokeStyle = 'rgba(0, 240, 255, 0.85)';
+            ctx.lineWidth = 0.5;
+            ctx.setLineDash([3, 3]);
             ctx.beginPath();
             ctx.moveTo(xPx, rulerOffset);
             ctx.lineTo(xPx, rulerOffset + height);
             ctx.stroke();
 
-            // Label badge on top ruler: 100% Solid Opaque background to cleanly obscure tick marks/numbers underneath
-            const unitVal = unitCfg.fromInches(xVal);
-            const tagText = unitCfg.format(unitVal, unitCfg.defaultDecimals);
-            ctx.save();
-            ctx.font = `bold ${Math.max(9, Math.min(10, Math.round(fontSize)))}px Inter, system-ui, sans-serif`;
-            const textMetrics = ctx.measureText(tagText);
-            const badgeW = Math.max(34, Math.round(textMetrics.width + 10));
-            const badgeH = Math.max(13, rulerOffset - 4);
-            const badgeX = Math.round(xPx - badgeW / 2);
-            const badgeY = 2;
-
-            ctx.fillStyle = '#090D16'; // 100% Solid opaque dark pill
-            ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
-            ctx.strokeStyle = '#00F0FF';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(badgeX, badgeY, badgeW, badgeH);
-
+            // Subtle cyan triangle pip strictly inside top ruler (Photoshop style)
+            ctx.setLineDash([]);
             ctx.fillStyle = '#00F0FF';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(tagText, xPx, badgeY + badgeH / 2);
-            ctx.restore();
+            ctx.beginPath();
+            ctx.moveTo(xPx - 3.5, rulerOffset - 7);
+            ctx.lineTo(xPx + 3.5, rulerOffset - 7);
+            ctx.lineTo(xPx, rulerOffset - 1);
+            ctx.closePath();
+            ctx.fill();
           }
         });
 
-        (customGuides.horizontal || []).forEach(yVal => {
+        // B. HORIZONTAL GUIDELINES
+        (customGuides.horizontal || []).forEach((yVal, hIdx) => {
+          // If this guideline is actively being moved, skip drawing it at its static position
+          if (draggingGuide && !draggingGuide.isNew && draggingGuide.panelKey === panelKey && draggingGuide.type === 'horizontal' && draggingGuide.originalIndex === hIdx) {
+            return;
+          }
+
           const yPx = rulerOffset + Math.round(yVal * scale);
           if (yPx >= rulerOffset && yPx <= rulerOffset + height) {
+            // Crisp hairline dashed cyan line on panel artwork (ZERO text badges on the artboard)
+            ctx.strokeStyle = 'rgba(0, 240, 255, 0.85)';
+            ctx.lineWidth = 0.5;
+            ctx.setLineDash([3, 3]);
             ctx.beginPath();
             ctx.moveTo(rulerOffset, yPx);
             ctx.lineTo(rulerOffset + width, yPx);
             ctx.stroke();
 
-            // Label badge on left ruler: 100% Solid Opaque background
-            const unitVal = unitCfg.fromInches(yVal);
-            const tagText = unitCfg.format(unitVal, unitCfg.defaultDecimals);
-            ctx.save();
-            ctx.font = `bold ${Math.max(9, Math.min(10, Math.round(fontSize)))}px Inter, system-ui, sans-serif`;
-            const textMetrics = ctx.measureText(tagText);
-            const badgeW = Math.max(rulerOffset - 2, Math.round(textMetrics.width + 8));
-            const badgeH = 14;
-            const badgeX = 1;
-            const badgeY = Math.round(yPx - badgeH / 2);
-
-            ctx.fillStyle = '#090D16'; // 100% Solid opaque
-            ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
-            ctx.strokeStyle = '#00F0FF';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(badgeX, badgeY, badgeW, badgeH);
-
+            // Subtle cyan triangle pip strictly inside left ruler (Photoshop style)
+            ctx.setLineDash([]);
             ctx.fillStyle = '#00F0FF';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(tagText, badgeX + badgeW / 2, yPx);
-            ctx.restore();
+            ctx.beginPath();
+            ctx.moveTo(rulerOffset - 7, yPx - 3.5);
+            ctx.lineTo(rulerOffset - 7, yPx + 3.5);
+            ctx.lineTo(rulerOffset - 1, yPx);
+            ctx.closePath();
+            ctx.fill();
           }
         });
+
+        // C. ACTIVELY DRAGGED GUIDELINE PREVIEW
+        if (draggingGuide && draggingGuide.panelKey === panelKey) {
+          const isDeleting = draggingGuide.isDeleting;
+          const activeColor = isDeleting ? '#FF1744' : '#00F0FF';
+
+          if (draggingGuide.type === 'vertical') {
+            const xPx = rulerOffset + Math.round(draggingGuide.currentValInches * scale);
+            if (xPx >= rulerOffset && xPx <= rulerOffset + width) {
+              ctx.strokeStyle = activeColor;
+              ctx.lineWidth = 1;
+              ctx.setLineDash(isDeleting ? [2, 2] : [4, 4]);
+              ctx.beginPath();
+              ctx.moveTo(xPx, rulerOffset);
+              ctx.lineTo(xPx, rulerOffset + height);
+              ctx.stroke();
+
+              // Pip on top ruler
+              ctx.setLineDash([]);
+              ctx.fillStyle = activeColor;
+              ctx.beginPath();
+              ctx.moveTo(xPx - 4, rulerOffset - 8);
+              ctx.lineTo(xPx + 4, rulerOffset - 8);
+              ctx.lineTo(xPx, rulerOffset - 1);
+              ctx.closePath();
+              ctx.fill();
+            }
+          } else {
+            const yPx = rulerOffset + Math.round(draggingGuide.currentValInches * scale);
+            if (yPx >= rulerOffset && yPx <= rulerOffset + height) {
+              ctx.strokeStyle = activeColor;
+              ctx.lineWidth = 1;
+              ctx.setLineDash(isDeleting ? [2, 2] : [4, 4]);
+              ctx.beginPath();
+              ctx.moveTo(rulerOffset, yPx);
+              ctx.lineTo(rulerOffset + width, yPx);
+              ctx.stroke();
+
+              // Pip on left ruler
+              ctx.setLineDash([]);
+              ctx.fillStyle = activeColor;
+              ctx.beginPath();
+              ctx.moveTo(rulerOffset - 8, yPx - 4);
+              ctx.lineTo(rulerOffset - 8, yPx + 4);
+              ctx.lineTo(rulerOffset - 1, yPx);
+              ctx.closePath();
+              ctx.fill();
+            }
+          }
+        }
+
         ctx.restore();
       }
       ctx.restore();
@@ -2017,8 +2069,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       drawSingleLogo(panel.leftChestLogo, false);
       drawSingleLogo(panel.rightChestLogo, false);
       drawSingleLogo(panel.torsoLogo, true);
-      drawSingleLogo(panel.bottomLeftLogo, false, 'LABEL (LEFT)');
-      drawSingleLogo(panel.bottomRightLogo, false, 'LABEL (RIGHT)');
+      drawSingleLogo(panel.bottomLeftLogo, false, 'LOGO LABEL TAG');
     };
 
     const drawPanelArtwork = () => {
@@ -2683,7 +2734,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const savedR = localStorage.getItem('fivenest_pref_rulers');
       if (savedR !== null) rulersPref = JSON.parse(savedR);
     } catch (e) {}
-    const rulerOffset = rulersPref ? Math.round(0.55 * scale) : 0;
+    const rulerOffset = rulersPref ? Math.max(26, Math.round(0.75 * scale)) : 0;
 
     if (activeTab === 'dual') {
       // 0. Collar Panel (18" x 4.5" at top - fits 100% edge-to-edge without extra ruler offset)
@@ -2750,7 +2801,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     ctx.scale(zoom, zoom);
 
     renderPanelToCanvas(activeTab, ctx, width, height, scale, false);
-  }, [activeTab, dualActivePanel, activePanel, previewName, previewNumber, designConfig, customFonts, metadata, previewSleeveType, prefTrigger, zoom, showGuidelines, rulerUnit, cursorPos]);
+  }, [activeTab, dualActivePanel, activePanel, previewName, previewNumber, designConfig, customFonts, metadata, previewSleeveType, prefTrigger, zoom, showGuidelines, rulerUnit, cursorPos, draggingGuide]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -2813,7 +2864,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   };
 
 
-  const handleLogoFileUpload = (position: 'leftChest' | 'rightChest' | 'torso' | 'bottomLeft' | 'bottomRight', e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoFileUpload = (position: 'leftChest' | 'rightChest' | 'torso' | 'bottomLeft', e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -2822,8 +2873,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const logoKey = position === 'leftChest' ? 'leftChestLogo' 
         : position === 'rightChest' ? 'rightChestLogo' 
         : position === 'torso' ? 'torsoLogo'
-        : position === 'bottomLeft' ? 'bottomLeftLogo'
-        : 'bottomRightLogo';
+        : 'bottomLeftLogo';
       updateActivePanel({ [logoKey]: { ...((activePanel as any)[logoKey] || {}), uploadedUrl: url, enabled: true } });
       setPrefTrigger((prev: number) => prev + 1);
     };
@@ -3400,18 +3450,88 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     }
 
     const rect = targetCanvas.getBoundingClientRect();
-    const currentRulerOffset = (rulersEnabled && targetPanelKey !== 'collar') ? Math.round(0.55 * scale) : 0;
+    const currentRulerOffset = (rulersEnabled && targetPanelKey !== 'collar') ? Math.max(26, Math.round(0.75 * scale)) : 0;
     const rawClickX = (e.clientX - rect.left) / zoom;
     const rawClickY = (e.clientY - rect.top) / zoom;
 
-    // Click Top-Left Corner Junction (0..rulerOffset) to cycle unit (Photoshop-style)!
+    // 1. Click Top-Left Corner Junction (0..rulerOffset) to cycle unit (Photoshop-style)!
     if (currentRulerOffset > 0 && rawClickX <= currentRulerOffset && rawClickY <= currentRulerOffset) {
       cycleRulerUnit();
       return;
     }
 
+    // 2. Drag down from Top Ruler -> Pull new HORIZONTAL guideline
+    if (currentRulerOffset > 0 && rawClickY <= currentRulerOffset && rawClickX > currentRulerOffset) {
+      const newGuide: DraggingGuideState = {
+        type: 'horizontal',
+        isNew: true,
+        currentValInches: 0,
+        isDeleting: false,
+        panelKey: targetPanelKey as any
+      };
+      draggingGuideRef.current = newGuide;
+      setDraggingGuide(newGuide);
+      setMouseClientPos({ x: e.clientX, y: e.clientY });
+      e.preventDefault();
+      return;
+    }
+
+    // 3. Drag right from Left Ruler -> Pull new VERTICAL guideline
+    if (currentRulerOffset > 0 && rawClickX <= currentRulerOffset && rawClickY > currentRulerOffset) {
+      const newGuide: DraggingGuideState = {
+        type: 'vertical',
+        isNew: true,
+        currentValInches: 0,
+        isDeleting: false,
+        panelKey: targetPanelKey as any
+      };
+      draggingGuideRef.current = newGuide;
+      setDraggingGuide(newGuide);
+      setMouseClientPos({ x: e.clientX, y: e.clientY });
+      e.preventDefault();
+      return;
+    }
+
     const canvasX = rawClickX - currentRulerOffset;
     const canvasY = rawClickY - currentRulerOffset;
+
+    // 4. Hit-test existing guidelines on artwork area (within 6px) to drag/edit or remove them!
+    const curGuides = panelConfig.guidelines || { vertical: [], horizontal: [] };
+    const hIndex = (curGuides.horizontal || []).findIndex(val => Math.abs((val * scale) - canvasY) <= 6);
+    if (hIndex !== -1) {
+      const guideState: DraggingGuideState = {
+        type: 'horizontal',
+        isNew: false,
+        originalIndex: hIndex,
+        originalValue: curGuides.horizontal[hIndex],
+        currentValInches: curGuides.horizontal[hIndex],
+        isDeleting: false,
+        panelKey: targetPanelKey as any
+      };
+      draggingGuideRef.current = guideState;
+      setDraggingGuide(guideState);
+      setMouseClientPos({ x: e.clientX, y: e.clientY });
+      e.preventDefault();
+      return;
+    }
+
+    const vIndex = (curGuides.vertical || []).findIndex(val => Math.abs((val * scale) - canvasX) <= 6);
+    if (vIndex !== -1) {
+      const guideState: DraggingGuideState = {
+        type: 'vertical',
+        isNew: false,
+        originalIndex: vIndex,
+        originalValue: curGuides.vertical[vIndex],
+        currentValInches: curGuides.vertical[vIndex],
+        isDeleting: false,
+        panelKey: targetPanelKey as any
+      };
+      draggingGuideRef.current = guideState;
+      setDraggingGuide(guideState);
+      setMouseClientPos({ x: e.clientX, y: e.clientY });
+      e.preventDefault();
+      return;
+    }
 
     const pad = 14;
 
@@ -3462,7 +3582,83 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   };
 
   const handleCanvasMouseUp = () => {
-    // Push ONE undo snapshot for the entire drag operation, ONLY if position actually changed
+    // 1. Finish dragging guideline
+    if (draggingGuideRef.current) {
+      const guide = draggingGuideRef.current;
+      draggingGuideRef.current = null;
+      setDraggingGuide(null);
+
+      const targetKey = guide.panelKey;
+      const targetPanel = (designConfig[targetKey as keyof ArtDesignConfig] || activePanel) as PanelConfig;
+      const curGuides = targetPanel.guidelines || { vertical: [], horizontal: [] };
+
+      if (guide.isDeleting) {
+        if (!guide.isNew && guide.originalIndex !== undefined) {
+          if (guide.type === 'horizontal') {
+            const nextH = (curGuides.horizontal || []).filter((_, idx) => idx !== guide.originalIndex);
+            onDesignConfigChange({
+              ...designConfig,
+              [targetKey]: {
+                ...targetPanel,
+                guidelines: { ...curGuides, horizontal: nextH }
+              }
+            });
+            toast.success('Guideline removed');
+          } else {
+            const nextV = (curGuides.vertical || []).filter((_, idx) => idx !== guide.originalIndex);
+            onDesignConfigChange({
+              ...designConfig,
+              [targetKey]: {
+                ...targetPanel,
+                guidelines: { ...curGuides, vertical: nextV }
+              }
+            });
+            toast.success('Guideline removed');
+          }
+        }
+      } else {
+        const roundedVal = Math.round(guide.currentValInches * 10) / 10;
+        const maxDim = guide.type === 'horizontal' ? physicalHeight : physicalWidth;
+        if (roundedVal >= 0.2 && roundedVal <= maxDim - 0.2) {
+          if (guide.type === 'horizontal') {
+            let nextH = [...(curGuides.horizontal || [])];
+            if (guide.isNew) {
+              nextH.push(roundedVal);
+              toast.success(`Guideline added at ${roundedVal}"`);
+            } else if (guide.originalIndex !== undefined) {
+              nextH[guide.originalIndex] = roundedVal;
+            }
+            nextH = Array.from(new Set(nextH)).sort((a, b) => a - b);
+            onDesignConfigChange({
+              ...designConfig,
+              [targetKey]: {
+                ...targetPanel,
+                guidelines: { ...curGuides, horizontal: nextH }
+              }
+            });
+          } else {
+            let nextV = [...(curGuides.vertical || [])];
+            if (guide.isNew) {
+              nextV.push(roundedVal);
+              toast.success(`Guideline added at ${roundedVal}"`);
+            } else if (guide.originalIndex !== undefined) {
+              nextV[guide.originalIndex] = roundedVal;
+            }
+            nextV = Array.from(new Set(nextV)).sort((a, b) => a - b);
+            onDesignConfigChange({
+              ...designConfig,
+              [targetKey]: {
+                ...targetPanel,
+                guidelines: { ...curGuides, vertical: nextV }
+              }
+            });
+          }
+        }
+      }
+      return;
+    }
+
+    // 2. Push ONE undo snapshot for text dragging, ONLY if position actually changed
     if (isDraggingTextRef.current && dragStartConfigRef.current) {
       const snapshot = dragStartConfigRef.current;
       dragStartConfigRef.current = null;
@@ -3497,7 +3693,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
     const panelConfig = (designConfig[targetPanelKey as keyof ArtDesignConfig] || activePanel) as PanelConfig;
     const rect = targetCanvas.getBoundingClientRect();
-    const currentRulerOffset = (rulersEnabled && targetPanelKey !== 'collar') ? Math.round(0.55 * scale) : 0;
+    const currentRulerOffset = (rulersEnabled && targetPanelKey !== 'collar') ? Math.max(26, Math.round(0.75 * scale)) : 0;
     const canvasX = (e.clientX - rect.left) / zoom - currentRulerOffset;
     const canvasY = (e.clientY - rect.top) / zoom - currentRulerOffset;
     const pad = 16;
@@ -3601,23 +3797,76 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const targetPanelKey = specificPanel || (activeTab === 'dual' ? dualActivePanel : activeTab);
     const panelConfig = (designConfig[targetPanelKey as keyof ArtDesignConfig] || activePanel) as PanelConfig;
 
+    const currentRulerOffset = (rulersEnabled && targetPanelKey !== 'collar') ? Math.max(26, Math.round(0.75 * scale)) : 0;
+    const rawX = mouseX / zoom;
+    const rawY = mouseY / zoom;
+    const canvasX = rawX - currentRulerOffset;
+    const canvasY = rawY - currentRulerOffset;
+
+    setMouseClientPos({ x: e.clientX, y: e.clientY });
+
+    // 1. Actively dragging a guideline (from ruler or existing)
+    if (draggingGuideRef.current) {
+      const guide = draggingGuideRef.current;
+      if (guide.type === 'horizontal') {
+        const valInches = Math.max(0, canvasY / scale);
+        // Dragged onto or above top ruler -> mark as deleting
+        const isDeleting = rawY <= currentRulerOffset + 3 || valInches < 0.1;
+        guide.currentValInches = valInches;
+        guide.isDeleting = isDeleting;
+        setDraggingGuide({ ...guide });
+        setCanvasCursor(isDeleting ? 'not-allowed' : 'row-resize');
+      } else {
+        const valInches = Math.max(0, canvasX / scale);
+        // Dragged onto or left of left ruler -> mark as deleting
+        const isDeleting = rawX <= currentRulerOffset + 3 || valInches < 0.1;
+        guide.currentValInches = valInches;
+        guide.isDeleting = isDeleting;
+        setDraggingGuide({ ...guide });
+        setCanvasCursor(isDeleting ? 'not-allowed' : 'col-resize');
+      }
+      return;
+    }
+
+    // 2. Dynamic hover cursor when not dragging
+    if (!isDraggingTextRef.current) {
+      if (currentRulerOffset > 0) {
+        if (rawY <= currentRulerOffset && rawX > currentRulerOffset) {
+          setCanvasCursor('row-resize');
+        } else if (rawX <= currentRulerOffset && rawY > currentRulerOffset) {
+          setCanvasCursor('col-resize');
+        } else {
+          const curGuides = panelConfig.guidelines || { vertical: [], horizontal: [] };
+          const nearH = (curGuides.horizontal || []).some(val => Math.abs((val * scale) - canvasY) <= 6);
+          const nearV = (curGuides.vertical || []).some(val => Math.abs((val * scale) - canvasX) <= 6);
+          if (nearH) {
+            setCanvasCursor('row-resize');
+          } else if (nearV) {
+            setCanvasCursor('col-resize');
+          } else {
+            setCanvasCursor(activeTextLayer ? 'move' : 'default');
+          }
+        }
+      } else {
+        setCanvasCursor(activeTextLayer ? 'move' : 'default');
+      }
+    }
+
+    // 3. Text dragging
     if (isDraggingTextRef.current && activeTextLayer) {
-      const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
-      // Subtract grab offset so the text follows the cursor smoothly without jumping
-      const canvasY = (mouseY / zoom) - currentRulerOffset - textDragOffsetYRef.current;
+      const canvasYClamped = (mouseY / zoom) - currentRulerOffset - textDragOffsetYRef.current;
       const targetCanvasHeight = height; // panel height in canvas coords
-      const newYPercent = Math.min(95, Math.max(5, Math.round((canvasY / targetCanvasHeight) * 100)));
+      const newYPercent = Math.min(95, Math.max(5, Math.round((canvasYClamped / targetCanvasHeight) * 100)));
       
       const configKey = activeTextLayer === 'name' ? 'nameConfig' : 'numberConfig';
       
       if (targetPanelKey === 'front') {
-        // Front panel: Free 2D Movement (Both Horizontal X% and Vertical Y%)
-        const canvasX = (mouseX / zoom) - currentRulerOffset - textDragOffsetXRef.current;
+        const canvasXClamped = (mouseX / zoom) - currentRulerOffset - textDragOffsetXRef.current;
         const targetCanvasWidth = width;
         const boxKey = `front-${activeTextLayer}`;
         const currentBox = textBoundingBoxesRef.current[boxKey] || textBoundingBoxesRef.current[activeTextLayer];
         const halfW = currentBox ? currentBox.w / 2 : 0;
-        const newXPercent = Math.min(95, Math.max(5, Math.round(((canvasX + halfW) / targetCanvasWidth) * 100)));
+        const newXPercent = Math.min(95, Math.max(5, Math.round(((canvasXClamped + halfW) / targetCanvasWidth) * 100)));
 
         onDesignConfigChange({
           ...designConfig,
@@ -3631,7 +3880,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           } as PanelConfig
         });
       } else {
-        // Back panel: Strictly Vertical Movement (Y% only, Horizontal remains centered)
         onDesignConfigChange({
           ...designConfig,
           [targetPanelKey]: {
@@ -3645,11 +3893,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
     }
 
-    const currentScale = scale * zoom;
-    if (currentScale > 0) {
+    if (scale > 0 && zoom > 0) {
       setCursorPos({
-        x: Math.max(0, mouseX / currentScale),
-        y: Math.max(0, mouseY / currentScale)
+        x: Math.max(0, canvasX / scale),
+        y: Math.max(0, canvasY / scale)
       });
     }
   };
@@ -4275,6 +4522,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         ref={leftSleeveCanvasRef} 
                         onClick={(e) => handleArtboardGestureClick(e, 'sleeveLeft')}
                         onMouseDown={(e) => handleCanvasMouseDown(e, 'sleeveLeft')}
+                        onMouseMove={(e) => handleCanvasMouseMove(e, 'sleeveLeft')}
+                        onMouseUp={handleCanvasMouseUp}
+                        onMouseLeave={() => {
+                          setCursorPos(null);
+                          isDraggingTextRef.current = false;
+                        }}
                         onContextMenu={(e) => handleCanvasContextMenu(e, 'sleeveLeft')}
                         onDoubleClick={(e) => handleCanvasDoubleClick(e, 'sleeveLeft')}
                         title="Left Sleeve - Double left-click to open Popup Editor, double right-click to import image"
@@ -4282,9 +4535,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           borderRadius: '8px', 
                           border: dualActivePanel === 'sleeveLeft' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
                           boxShadow: dualActivePanel === 'sleeveLeft' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
-                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer',
-                          width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
-                          height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : canvasCursor,
+                          width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.max(26, Math.round(0.75 * scale)) : 0)) * zoom)}px`,
+                          height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.max(26, Math.round(0.75 * scale)) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
                           objectFit: 'contain',
@@ -4346,9 +4599,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           borderRadius: '8px', 
                           border: dualActivePanel === 'front' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
                           boxShadow: dualActivePanel === 'front' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
-                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer',
-                          width: `${Math.round((width + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
-                          height: `${Math.round((height + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : canvasCursor,
+                          width: `${Math.round((width + (rulersEnabled ? Math.max(26, Math.round(0.75 * scale)) : 0)) * zoom)}px`,
+                          height: `${Math.round((height + (rulersEnabled ? Math.max(26, Math.round(0.75 * scale)) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
                           objectFit: 'contain',
@@ -4410,9 +4663,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           borderRadius: '8px', 
                           border: dualActivePanel === 'back' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
                           boxShadow: dualActivePanel === 'back' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
-                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer',
-                          width: `${Math.round((width + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
-                          height: `${Math.round((height + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : canvasCursor,
+                          width: `${Math.round((width + (rulersEnabled ? Math.max(26, Math.round(0.75 * scale)) : 0)) * zoom)}px`,
+                          height: `${Math.round((height + (rulersEnabled ? Math.max(26, Math.round(0.75 * scale)) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
                           objectFit: 'contain',
@@ -4491,9 +4744,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           borderRadius: '8px', 
                           border: dualActivePanel === 'sleeveRight' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
                           boxShadow: dualActivePanel === 'sleeveRight' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
-                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer',
-                          width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
-                          height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : canvasCursor,
+                          width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.max(26, Math.round(0.75 * scale)) : 0)) * zoom)}px`,
+                          height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.max(26, Math.round(0.75 * scale)) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
                           objectFit: 'contain',
@@ -4545,9 +4798,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       borderRadius: '8px', 
                       border: '2px solid rgba(0, 240, 255, 0.5)', 
                       boxShadow: '0 0 50px rgba(0,0,0,0.95)',
-                      cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : 'pointer',
-                      width: `${Math.round((width + ((rulersEnabled && activeTab !== 'collar') ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
-                      height: `${Math.round((height + ((rulersEnabled && activeTab !== 'collar') ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                      cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : canvasCursor,
+                      width: `${Math.round((width + ((rulersEnabled && activeTab !== 'collar') ? Math.max(26, Math.round(0.75 * scale)) : 0)) * zoom)}px`,
+                      height: `${Math.round((height + ((rulersEnabled && activeTab !== 'collar') ? Math.max(26, Math.round(0.75 * scale)) : 0)) * zoom)}px`,
                       maxWidth: 'none',
                       maxHeight: 'none',
                       objectFit: activeTab === 'collar' ? 'fill' : 'contain',
@@ -4557,6 +4810,49 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Floating live guideline coordinate tooltip */}
+        {draggingGuide && (
+          <div style={{
+            position: 'fixed',
+            left: mouseClientPos.x + 14,
+            top: mouseClientPos.y + 14,
+            zIndex: 99999,
+            pointerEvents: 'none',
+            background: draggingGuide.isDeleting ? 'rgba(239, 68, 68, 0.95)' : 'rgba(15, 23, 42, 0.95)',
+            color: '#ffffff',
+            border: draggingGuide.isDeleting ? '1px solid #f87171' : '1px solid #00F0FF',
+            borderRadius: '4px',
+            padding: '3px 8px',
+            fontSize: '11px',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            fontWeight: 600,
+            boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            {draggingGuide.isDeleting ? (
+              <>
+                <span style={{ fontSize: '13px' }}>🗑</span>
+                <span>Release on ruler to delete</span>
+              </>
+            ) : (
+              <>
+                <span style={{ color: '#00F0FF' }}>
+                  {draggingGuide.type === 'horizontal' ? 'Y:' : 'X:'}
+                </span>
+                <span>
+                  {(() => {
+                    const uCfg = RULER_UNITS[rulerUnit] || RULER_UNITS['in'];
+                    const valInUnit = uCfg.fromInches(draggingGuide.currentValInches);
+                    return uCfg.format(valInUnit, uCfg.defaultDecimals);
+                  })()}
+                </span>
+              </>
+            )}
           </div>
         )}
         
@@ -6611,13 +6907,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     )}
                   </div>
 
-                  {/* Bottom Left Label Logo (Front Panel Only) */}
+                  {/* Logo Label Tag (Front Panel Only) */}
                   {(activeTab === 'front' || activeTab === 'dual') && (
                     <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <div>
-                          <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Bottom Left Label Logo</span>
-                          <span style={{ fontSize: '10px', color: '#E4572E', marginLeft: '6px', fontWeight: '600' }}>(2.5" Left, 3" Bottom)</span>
+                          <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Logo Label Tag</span>
+                          <span style={{ fontSize: '10px', color: '#E4572E', marginLeft: '6px', fontWeight: '600' }}>(2.5" Left Margin, 3" Bottom Bleed)</span>
                         </div>
                         <label className="checkbox-card" style={{ padding: '2px 6px', margin: 0, fontSize: '11px' }}>
                           <input 
@@ -6666,43 +6962,59 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                               className="btn btn-secondary"
                               style={{ padding: '3px 8px', fontSize: '10px', color: '#E4572E' }}
                               onClick={() => {
+                                const tagW = activePanel.bottomLeftLogo?.width ?? 2.0;
+                                const tagH = activePanel.bottomLeftLogo?.height ?? 2.0;
                                 updateLogoConfig('bottomLeft', { 
                                   width: 2.0, 
                                   height: 2.0, 
-                                  xPos: 3.5, 
-                                  yPos: physicalHeight - 4.0 
+                                  xPos: 2.5 + tagW / 2, 
+                                  yPos: physicalHeight - 3.0 - tagH / 2 
                                 });
                               }}
-                              title="Reset placement to 2.5 in Left and 3.0 in Bottom"
+                              title="Reset placement to 2.5 in Left margin and 3.0 in Bottom bleed"
                             >
-                              Reset Bleed (2.5" L, 3" B)
+                              Reset Position (2.5" L, 3" B)
                             </button>
                           </div>
 
                           <div className="grid-2">
                             <div className="form-group" style={{ margin: 0 }}>
-                              <label className="form-label" style={{ fontSize: '10px' }}>Width (in) [Max 2.5"]: </label>
+                              <label className="form-label" style={{ fontSize: '10px' }}>Width (in) [1.0" - 2.5"]: </label>
                               <input 
                                 type="number" 
                                 step="0.1" 
-                                min="0.5"
+                                min="1.0"
                                 max="2.5"
                                 className="form-input" 
                                 value={activePanel.bottomLeftLogo?.width ?? 2.0} 
-                                onChange={(e) => updateLogoConfig('bottomLeft', { width: Math.min(2.5, Math.max(0.5, parseFloat(e.target.value) || 1.0)) })}
+                                onChange={(e) => {
+                                  const val = Math.min(2.5, Math.max(1.0, parseFloat(e.target.value) || 1.0));
+                                  const updates: Partial<LogoConfig> = { width: val };
+                                  if (activePanel.bottomLeftLogo?.lockAspectRatio) {
+                                    updates.height = val;
+                                  }
+                                  updateLogoConfig('bottomLeft', updates);
+                                }}
                                 style={{ padding: '4px', fontSize: '11px' }}
                               />
                             </div>
                             <div className="form-group" style={{ margin: 0 }}>
-                              <label className="form-label" style={{ fontSize: '10px' }}>Height (in) [Max 2.5"]: </label>
+                              <label className="form-label" style={{ fontSize: '10px' }}>Height (in) [1.0" - 2.5"]: </label>
                               <input 
                                 type="number" 
                                 step="0.1" 
-                                min="0.5"
+                                min="1.0"
                                 max="2.5"
                                 className="form-input" 
                                 value={activePanel.bottomLeftLogo?.height ?? 2.0} 
-                                onChange={(e) => updateLogoConfig('bottomLeft', { height: Math.min(2.5, Math.max(0.5, parseFloat(e.target.value) || 1.0)) })}
+                                onChange={(e) => {
+                                  const val = Math.min(2.5, Math.max(1.0, parseFloat(e.target.value) || 1.0));
+                                  const updates: Partial<LogoConfig> = { height: val };
+                                  if (activePanel.bottomLeftLogo?.lockAspectRatio) {
+                                    updates.width = val;
+                                  }
+                                  updateLogoConfig('bottomLeft', updates);
+                                }}
                                 style={{ padding: '4px', fontSize: '11px' }}
                               />
                             </div>
@@ -6735,137 +7047,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                               step="0.1"
                               value={activePanel.bottomLeftLogo?.yPos ?? (physicalHeight - 4.0)}
                               onChange={(e) => updateLogoConfig('bottomLeft', { yPos: parseFloat(e.target.value) })}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Bottom Right Label Logo (Front Panel Only) */}
-                  {(activeTab === 'front' || activeTab === 'dual') && (
-                    <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <div>
-                          <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Bottom Right Label Logo</span>
-                          <span style={{ fontSize: '10px', color: '#E4572E', marginLeft: '6px', fontWeight: '600' }}>(2.5" Right, 3" Bottom)</span>
-                        </div>
-                        <label className="checkbox-card" style={{ padding: '2px 6px', margin: 0, fontSize: '11px' }}>
-                          <input 
-                            type="checkbox" 
-                            checked={activePanel.bottomRightLogo?.enabled ?? false} 
-                            onChange={(e) => updateLogoConfig('bottomRight', { enabled: e.target.checked })}
-                          />
-                          Enable
-                        </label>
-                      </div>
-
-                      {activePanel.bottomRightLogo?.enabled && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <label className="btn btn-secondary" style={{ flex: 1, padding: '6px', fontSize: '11px', cursor: 'pointer', textAlign: 'center' }}>
-                              Import Logo Image
-                              <input 
-                                type="file" 
-                                accept="image/*" 
-                                onChange={(e) => handleLogoFileUpload('bottomRight', e)} 
-                                style={{ display: 'none' }} 
-                              />
-                            </label>
-                            {activePanel.bottomRightLogo?.uploadedUrl && (
-                              <button 
-                                className="btn" 
-                                style={{ padding: '6px', fontSize: '10px', background: 'rgba(255,23,68,0.2)', border: 'none', color: '#ff1744' }}
-                                onClick={() => updateLogoConfig('bottomRight', { uploadedUrl: null })}
-                              >
-                                Clear
-                              </button>
-                            )}
-                          </div>
-
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '-2px', marginBottom: '4px' }}>
-                            <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', cursor: 'pointer' }}>
-                              <input 
-                                type="checkbox" 
-                                checked={activePanel.bottomRightLogo?.lockAspectRatio ?? true} 
-                                onChange={(e) => updateLogoConfig('bottomRight', { lockAspectRatio: e.target.checked })}
-                              />
-                              Lock Proportions
-                            </label>
-                            <button
-                              type="button"
-                              className="btn btn-secondary"
-                              style={{ padding: '3px 8px', fontSize: '10px', color: '#E4572E' }}
-                              onClick={() => {
-                                updateLogoConfig('bottomRight', { 
-                                  width: 2.0, 
-                                  height: 2.0, 
-                                  xPos: physicalWidth - 3.5, 
-                                  yPos: physicalHeight - 4.0 
-                                });
-                              }}
-                              title="Reset placement to 2.5 in Right and 3.0 in Bottom"
-                            >
-                              Reset Bleed (2.5" R, 3" B)
-                            </button>
-                          </div>
-
-                          <div className="grid-2">
-                            <div className="form-group" style={{ margin: 0 }}>
-                              <label className="form-label" style={{ fontSize: '10px' }}>Width (in) [Max 2.5"]: </label>
-                              <input 
-                                type="number" 
-                                step="0.1" 
-                                min="0.5"
-                                max="2.5"
-                                className="form-input" 
-                                value={activePanel.bottomRightLogo?.width ?? 2.0} 
-                                onChange={(e) => updateLogoConfig('bottomRight', { width: Math.min(2.5, Math.max(0.5, parseFloat(e.target.value) || 1.0)) })}
-                                style={{ padding: '4px', fontSize: '11px' }}
-                              />
-                            </div>
-                            <div className="form-group" style={{ margin: 0 }}>
-                              <label className="form-label" style={{ fontSize: '10px' }}>Height (in) [Max 2.5"]: </label>
-                              <input 
-                                type="number" 
-                                step="0.1" 
-                                min="0.5"
-                                max="2.5"
-                                className="form-input" 
-                                value={activePanel.bottomRightLogo?.height ?? 2.0} 
-                                onChange={(e) => updateLogoConfig('bottomRight', { height: Math.min(2.5, Math.max(0.5, parseFloat(e.target.value) || 1.0)) })}
-                                style={{ padding: '4px', fontSize: '11px' }}
-                              />
-                            </div>
-                          </div>
-
-                          <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)' }}>
-                              <span>Horizontal Pos (X): Right Margin {((physicalWidth - (activePanel.bottomRightLogo?.xPos ?? (physicalWidth - 3.5))) - ((activePanel.bottomRightLogo?.width ?? 2.0) / 2)).toFixed(1)}"</span>
-                              <span>Center: {(activePanel.bottomRightLogo?.xPos ?? (physicalWidth - 3.5)).toFixed(1)}"</span>
-                            </div>
-                            <input 
-                              type="range" 
-                              min="0" 
-                              max={physicalWidth}
-                              step="0.1"
-                              value={activePanel.bottomRightLogo?.xPos ?? (physicalWidth - 3.5)}
-                              onChange={(e) => updateLogoConfig('bottomRight', { xPos: parseFloat(e.target.value) })}
-                            />
-                          </div>
-
-                          <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)' }}>
-                              <span>Vertical Pos (Y): Bottom Margin {(physicalHeight - (activePanel.bottomRightLogo?.yPos ?? (physicalHeight - 4.0)) - ((activePanel.bottomRightLogo?.height ?? 2.0) / 2)).toFixed(1)}"</span>
-                              <span>Center: {(activePanel.bottomRightLogo?.yPos ?? (physicalHeight - 4.0)).toFixed(1)}"</span>
-                            </div>
-                            <input 
-                              type="range" 
-                              min="0" 
-                              max={physicalHeight}
-                              step="0.1"
-                              value={activePanel.bottomRightLogo?.yPos ?? (physicalHeight - 4.0)}
-                              onChange={(e) => updateLogoConfig('bottomRight', { yPos: parseFloat(e.target.value) })}
                             />
                           </div>
                         </div>

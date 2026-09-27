@@ -698,9 +698,6 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
     if (panelConf.bottomLeftLogo?.enabled && panelConf.bottomLeftLogo?.uploadedUrl) {
       drawLogoHelper(panelConf.bottomLeftLogo.uploadedUrl, canvasW * 0.16, canvasH * 0.88, Math.round(canvasW * 0.12));
     }
-    if (panelConf.bottomRightLogo?.enabled && panelConf.bottomRightLogo?.uploadedUrl) {
-      drawLogoHelper(panelConf.bottomRightLogo.uploadedUrl, canvasW * 0.84, canvasH * 0.88, Math.round(canvasW * 0.12));
-    }
 
     // 7. Outline
     ctx.strokeStyle = '#E4572E';
