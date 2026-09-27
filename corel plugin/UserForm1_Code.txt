@@ -2,35 +2,40 @@ Option Explicit
 
 Private colButtons As Collection
 
-' Controls - Column 1: Body & Collar
+' Controls - Header & Job Details
+Private txtJobName As MSForms.TextBox
+Private txtExportFolder As MSForms.TextBox
+Private btnBrowseFolder As MSForms.CommandButton
+Private chkSetDefault As MSForms.CheckBox
+Private chkPromptOnExport As MSForms.CheckBox
+
+' Controls - 7 Vertical Panels (Image + Button)
 Private imgFront As MSForms.Image
 Private btnFront As MSForms.CommandButton
-Private lblFrontDim As MSForms.Label
 
 Private imgBack As MSForms.Image
 Private btnBack As MSForms.CommandButton
-Private lblBackDim As MSForms.Label
+
+Private imgLeftHalf As MSForms.Image
+Private btnLeftHalf As MSForms.CommandButton
+
+Private imgRightHalf As MSForms.Image
+Private btnRightHalf As MSForms.CommandButton
+
+Private imgLeftFull As MSForms.Image
+Private btnLeftFull As MSForms.CommandButton
+
+Private imgRightFull As MSForms.Image
+Private btnRightFull As MSForms.CommandButton
 
 Private imgCollar As MSForms.Image
 Private btnCollar As MSForms.CommandButton
-Private lblCollarDim As MSForms.Label
-
-' Controls - Column 2: Sleeves
-Private imgLeftSleeve As MSForms.Image
-Private btnLeftHalf As MSForms.CommandButton
-Private btnLeftFull As MSForms.CommandButton
-Private lblLeftSleeveDim As MSForms.Label
-
-Private imgRightSleeve As MSForms.Image
-Private btnRightHalf As MSForms.CommandButton
-Private btnRightFull As MSForms.CommandButton
-Private lblRightSleeveDim As MSForms.Label
 
 ' Controls - Footer
 Private lblStatus As MSForms.Label
 Private btnRun As MSForms.CommandButton
 
-' Panel Assignment State
+' Assignment State
 Private isFrontAssigned As Boolean
 Private isBackAssigned As Boolean
 Private isLeftHalfAssigned As Boolean
@@ -40,63 +45,114 @@ Private isRightFullAssigned As Boolean
 Private isCollarAssigned As Boolean
 
 Private Sub UserForm_Initialize()
-    Me.Caption = "FiveNest Studio - Panel Assigner & 300 DPI Exporter"
-    Me.Width = 510
-    Me.Height = 400
+    Me.Caption = "FiveNest Studio - Panel Assigner"
+    Me.Width = 300
+    Me.Height = 550
     Me.BackColor = RGB(246, 247, 249)
     
     Set colButtons = New Collection
     
-    ' Top Header
-    AddLabel "lblTitle", "FIVENEST JERSEY STUDIO - PANEL EXPORTER", 14, 10, 480, 18, True, 10.5, RGB(17, 24, 39)
-    AddLabel "lblSub", "Select artwork on canvas -> Click button to assign -> Individual panel previews below", 14, 28, 480, 14, False, 8, RGB(107, 114, 128)
+    ' ================= 1. HEADER =================
+    AddLabel "lblTitle", "FIVENEST JERSEY EXPORTER", 14, 8, 265, 16, True, 10, RGB(17, 24, 39)
+    AddLabel "lblSub", "Select artwork on canvas -> Click button to assign", 14, 24, 265, 14, False, 8, RGB(107, 114, 128)
     
-    ' ================= COLUMN 1: BODY PANELS & COLLAR =================
-    AddLabel "lblCol1", "BODY & COLLAR PANELS", 14, 48, 220, 14, True, 8.5, RGB(55, 65, 81)
+    ' ================= 2. JOB DETAILS & EXPORT FOLDER =================
+    AddLabel "lblJobLabel", "Job Name (File + Date + Time):", 14, 42, 265, 13, True, 8, RGB(55, 65, 81)
+    Set txtJobName = Me.Controls.Add("Forms.TextBox.1", "txtJobName", True)
+    With txtJobName
+        .Left = 14
+        .Top = 56
+        .Width = 265
+        .Height = 20
+        .Font.Name = "Segoe UI"
+        .Font.Size = 8.5
+        .Text = DetectDefaultJobName()
+    End With
     
-    ' Front Panel Card
-    Set imgFront = CreateImage("imgFront", 14, 66, 56, 70)
-    Set btnFront = CreateBtn("FRONT", "1. Assign Front", 76, 66, 150, 28)
-    Set lblFrontDim = AddLabel("lblFrontDim", "Target: 22"" x 30""", 76, 98, 150, 15, False, 8, RGB(120, 120, 120))
+    AddLabel "lblFolderLabel", "Export Folder:", 14, 80, 265, 13, True, 8, RGB(55, 65, 81)
+    Set txtExportFolder = Me.Controls.Add("Forms.TextBox.1", "txtExportFolder", True)
+    With txtExportFolder
+        .Left = 14
+        .Top = 94
+        .Width = 196
+        .Height = 20
+        .Font.Name = "Segoe UI"
+        .Font.Size = 8
+        .Text = GetDefaultExportFolder()
+    End With
     
-    ' Back Panel Card
-    Set imgBack = CreateImage("imgBack", 14, 144, 56, 70)
-    Set btnBack = CreateBtn("BACK", "2. Assign Back", 76, 144, 150, 28)
-    Set lblBackDim = AddLabel("lblBackDim", "Target: 22"" x 30""", 76, 176, 150, 15, False, 8, RGB(120, 120, 120))
+    Set btnBrowseFolder = CreateBtn("BROWSE", "Browse...", 214, 94, 65, 20)
+    With btnBrowseFolder
+        .Font.Size = 8
+    End With
     
-    ' Collar Panel Card
-    Set imgCollar = CreateImage("imgCollar", 14, 222, 56, 32)
-    Set btnCollar = CreateBtn("COLLAR", "7. Assign Collar", 76, 222, 150, 26)
-    Set lblCollarDim = AddLabel("lblCollarDim", "Target: 18"" x 4.5""", 76, 250, 150, 15, False, 8, RGB(120, 120, 120))
+    Set chkSetDefault = Me.Controls.Add("Forms.CheckBox.1", "chkSetDefault", True)
+    With chkSetDefault
+        .Left = 14
+        .Top = 117
+        .Width = 265
+        .Height = 16
+        .Caption = "Save as default export folder"
+        .Font.Name = "Segoe UI"
+        .Font.Size = 8
+        .Value = True
+    End With
     
-    ' ================= COLUMN 2: SLEEVE PANELS =================
-    AddLabel "lblCol2", "SLEEVE PANELS", 248, 48, 240, 14, True, 8.5, RGB(55, 65, 81)
+    Set chkPromptOnExport = Me.Controls.Add("Forms.CheckBox.1", "chkPromptOnExport", True)
+    With chkPromptOnExport
+        .Left = 14
+        .Top = 134
+        .Width = 265
+        .Height = 16
+        .Caption = "Choose folder each time on export"
+        .Font.Name = "Segoe UI"
+        .Font.Size = 8
+        .Value = (GetSetting("FiveNest", "Settings", "PromptOnExport", "0") = "1")
+    End With
     
-    ' Left Sleeve Card
-    Set imgLeftSleeve = CreateImage("imgLeftSleeve", 248, 66, 54, 66)
-    Set btnLeftHalf = CreateBtn("L_HALF", "3. Left Half (19x11)", 308, 66, 176, 23)
-    Set btnLeftFull = CreateBtn("L_FULL", "5. Left Full (19x25)", 308, 92, 176, 23)
-    Set lblLeftSleeveDim = AddLabel("lblLeftSleeveDim", "Target: 19"" x 11"" or 25""", 308, 118, 176, 14, False, 8, RGB(120, 120, 120))
+    ' ================= 3. VERTICAL 7-PANEL ASSIGNMENT LIST =================
+    AddLabel "lblPanelSec", "PANELS (CLICK BUTTON TO ASSIGN GRAPHIC):", 14, 154, 265, 13, True, 8, RGB(75, 85, 99)
     
-    ' Right Sleeve Card
-    Set imgRightSleeve = CreateImage("imgRightSleeve", 248, 144, 54, 66)
-    Set btnRightHalf = CreateBtn("R_HALF", "4. Right Half (19x11)", 308, 144, 176, 23)
-    Set btnRightFull = CreateBtn("R_FULL", "6. Right Full (19x25)", 308, 170, 176, 23)
-    Set lblRightSleeveDim = AddLabel("lblRightSleeveDim", "Target: 19"" x 11"" or 25""", 308, 196, 176, 14, False, 8, RGB(120, 120, 120))
+    ' Row 1: Front Panel
+    Set imgFront = CreateImage("imgFront", 14, 170, 38, 32)
+    Set btnFront = CreateBtn("FRONT", "1. Assign Front (22"" x 30"")", 56, 170, 223, 32)
     
-    ' ================= FOOTER / STATUS & RUN =================
-    Set lblStatus = AddLabel("lblStatus", "Status: Select artwork on canvas & click buttons to assign", 14, 276, 470, 16, False, 8.5, RGB(100, 100, 100))
+    ' Row 2: Back Panel
+    Set imgBack = CreateImage("imgBack", 14, 205, 38, 32)
+    Set btnBack = CreateBtn("BACK", "2. Assign Back (22"" x 30"")", 56, 205, 223, 32)
+    
+    ' Row 3: Left Half Sleeve
+    Set imgLeftHalf = CreateImage("imgLeftHalf", 14, 240, 38, 32)
+    Set btnLeftHalf = CreateBtn("L_HALF", "3. Left Half (19"" x 11"")", 56, 240, 223, 32)
+    
+    ' Row 4: Right Half Sleeve
+    Set imgRightHalf = CreateImage("imgRightHalf", 14, 275, 38, 32)
+    Set btnRightHalf = CreateBtn("R_HALF", "4. Right Half (19"" x 11"")", 56, 275, 223, 32)
+    
+    ' Row 5: Left Full Sleeve
+    Set imgLeftFull = CreateImage("imgLeftFull", 14, 310, 38, 32)
+    Set btnLeftFull = CreateBtn("L_FULL", "5. Left Full (19"" x 25"")", 56, 310, 223, 32)
+    
+    ' Row 6: Right Full Sleeve
+    Set imgRightFull = CreateImage("imgRightFull", 14, 345, 38, 32)
+    Set btnRightFull = CreateBtn("R_FULL", "6. Right Full (19"" x 25"")", 56, 345, 223, 32)
+    
+    ' Row 7: Collar Band
+    Set imgCollar = CreateImage("imgCollar", 14, 380, 38, 32)
+    Set btnCollar = CreateBtn("COLLAR", "7. Assign Collar (18"" x 4.5"")", 56, 380, 223, 32)
+    
+    ' ================= 4. FOOTER / STATUS & RUN =================
+    Set lblStatus = AddLabel("lblStatus", "Status: Select graphic & click panel button", 14, 418, 265, 16, False, 8, RGB(100, 100, 100))
     lblStatus.Font.Italic = True
     
-    Set btnRun = CreateBtn("RUN", "EXPORT & SEND TO FIVENEST PRODUCTION", 14, 298, 470, 42)
+    Set btnRun = CreateBtn("RUN", "EXPORT & OPEN PRODUCTION STUDIO", 14, 438, 265, 38)
     With btnRun
         .Font.Bold = True
-        .Font.Size = 10
+        .Font.Size = 9.5
         .BackColor = RGB(228, 87, 46) ' FiveNest Brand Orange
         .ForeColor = RGB(255, 255, 255)
     End With
     
-    ' Only restore previously assigned tagged shapes (FN_FRONT, etc.)
     RestoreTaggedShapes
     UpdateStatusLabel
 End Sub
@@ -158,7 +214,79 @@ Private Function CreateBtn(key As String, cap As String, l As Single, t As Singl
     Set CreateBtn = b
 End Function
 
-' Only restore shapes that were ALREADY tagged by clicking an assign button
+' Detect Active Document Name + Date + Time automatically
+Private Function DetectDefaultJobName() As String
+    On Error Resume Next
+    Dim doc As Document
+    Set doc = ActiveDocument
+    
+    Dim docBaseName As String
+    docBaseName = "Jersey_Job"
+    
+    If Not doc Is Nothing Then
+        Dim fName As String
+        fName = doc.FileName
+        If Len(Trim(fName)) > 0 And Not (LCase(fName) Like "untitled*") Then
+            If InStrRev(fName, ".") > 0 Then
+                docBaseName = Left(fName, InStrRev(fName, ".") - 1)
+            Else
+                docBaseName = fName
+            End If
+        End If
+    End If
+    
+    Dim badChars As String, j As Long
+    badChars = "\/:*?""<>|"
+    For j = 1 To Len(badChars)
+        docBaseName = Replace(docBaseName, Mid(badChars, j, 1), "_")
+    Next j
+    
+    Dim dtStr As String
+    dtStr = Format(Now, "yyyy-mm-dd_hh-nn")
+    
+    DetectDefaultJobName = docBaseName & "_" & dtStr
+End Function
+
+' Read default export folder from Windows Registry or fallback to C:\Fivenest_Export
+Private Function GetDefaultExportFolder() As String
+    On Error Resume Next
+    Dim savedFolder As String
+    savedFolder = GetSetting("FiveNest", "Settings", "DefaultFolder", "")
+    If Len(Trim(savedFolder)) = 0 Then
+        savedFolder = "C:\Fivenest_Export"
+    End If
+    GetDefaultExportFolder = savedFolder
+End Function
+
+' Browse for Folder dialog using Windows Shell
+Private Function BrowseForFolder(promptText As String, initialPath As String) As String
+    On Error Resume Next
+    BrowseForFolder = ""
+    Dim shApp As Object, fldItem As Object
+    Set shApp = CreateObject("Shell.Application")
+    ' 1 = BIF_RETURNONLYFSDIRS, 64 = BIF_NEWDIALOGSTYLE
+    Set fldItem = shApp.BrowseForFolder(0, promptText, 65, initialPath)
+    If Not fldItem Is Nothing Then
+        BrowseForFolder = fldItem.Self.Path
+    End If
+End Function
+
+Private Sub BrowseExportFolder()
+    On Error Resume Next
+    Dim curPath As String
+    curPath = Trim(txtExportFolder.Text)
+    If Len(curPath) = 0 Then curPath = "C:\Fivenest_Export"
+    
+    Dim newPath As String
+    newPath = BrowseForFolder("Select FiveNest Export Folder:", curPath)
+    If Len(newPath) > 0 Then
+        txtExportFolder.Text = newPath
+        If chkSetDefault.Value = True Then
+            SaveSetting "FiveNest", "Settings", "DefaultFolder", newPath
+        End If
+    End If
+End Sub
+
 Private Sub RestoreTaggedShapes()
     On Error Resume Next
     Dim doc As Document
@@ -173,51 +301,37 @@ Private Sub RestoreTaggedShapes()
     For Each sh In p.Shapes.All
         Select Case UCase(Trim(sh.Name))
             Case "FN_FRONT"
-                MarkButtonAssigned btnFront, "[OK] Front Assigned"
-                lblFrontDim.Caption = "[OK] " & Round(sh.SizeWidth, 1) & """ x " & Round(sh.SizeHeight, 1) & """"
-                lblFrontDim.ForeColor = RGB(38, 145, 60)
+                MarkButtonAssigned btnFront, "[OK] Front (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
                 GenerateThumbnail sh, imgFront, "front"
                 isFrontAssigned = True
                 
             Case "FN_BACK"
-                MarkButtonAssigned btnBack, "[OK] Back Assigned"
-                lblBackDim.Caption = "[OK] " & Round(sh.SizeWidth, 1) & """ x " & Round(sh.SizeHeight, 1) & """"
-                lblBackDim.ForeColor = RGB(38, 145, 60)
+                MarkButtonAssigned btnBack, "[OK] Back (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
                 GenerateThumbnail sh, imgBack, "back"
                 isBackAssigned = True
                 
             Case "FN_SLEEVE_LEFT_HALF"
-                MarkButtonAssigned btnLeftHalf, "[OK] Left Half"
-                lblLeftSleeveDim.Caption = "[OK] " & Round(sh.SizeWidth, 1) & """ x " & Round(sh.SizeHeight, 1) & """"
-                lblLeftSleeveDim.ForeColor = RGB(38, 145, 60)
-                GenerateThumbnail sh, imgLeftSleeve, "slv_l"
+                MarkButtonAssigned btnLeftHalf, "[OK] Left Half (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+                GenerateThumbnail sh, imgLeftHalf, "slv_lh"
                 isLeftHalfAssigned = True
                 
-            Case "FN_SLEEVE_LEFT_FULL"
-                MarkButtonAssigned btnLeftFull, "[OK] Left Full"
-                lblLeftSleeveDim.Caption = "[OK] " & Round(sh.SizeWidth, 1) & """ x " & Round(sh.SizeHeight, 1) & """"
-                lblLeftSleeveDim.ForeColor = RGB(38, 145, 60)
-                GenerateThumbnail sh, imgLeftSleeve, "slv_l"
-                isLeftFullAssigned = True
-                
             Case "FN_SLEEVE_RIGHT_HALF"
-                MarkButtonAssigned btnRightHalf, "[OK] Right Half"
-                lblRightSleeveDim.Caption = "[OK] " & Round(sh.SizeWidth, 1) & """ x " & Round(sh.SizeHeight, 1) & """"
-                lblRightSleeveDim.ForeColor = RGB(38, 145, 60)
-                GenerateThumbnail sh, imgRightSleeve, "slv_r"
+                MarkButtonAssigned btnRightHalf, "[OK] Right Half (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+                GenerateThumbnail sh, imgRightHalf, "slv_rh"
                 isRightHalfAssigned = True
                 
+            Case "FN_SLEEVE_LEFT_FULL"
+                MarkButtonAssigned btnLeftFull, "[OK] Left Full (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+                GenerateThumbnail sh, imgLeftFull, "slv_lf"
+                isLeftFullAssigned = True
+                
             Case "FN_SLEEVE_RIGHT_FULL"
-                MarkButtonAssigned btnRightFull, "[OK] Right Full"
-                lblRightSleeveDim.Caption = "[OK] " & Round(sh.SizeWidth, 1) & """ x " & Round(sh.SizeHeight, 1) & """"
-                lblRightSleeveDim.ForeColor = RGB(38, 145, 60)
-                GenerateThumbnail sh, imgRightSleeve, "slv_r"
+                MarkButtonAssigned btnRightFull, "[OK] Right Full (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+                GenerateThumbnail sh, imgRightFull, "slv_rf"
                 isRightFullAssigned = True
                 
             Case "FN_COLLAR"
-                MarkButtonAssigned btnCollar, "[OK] Collar Assigned"
-                lblCollarDim.Caption = "[OK] " & Round(sh.SizeWidth, 1) & """ x " & Round(sh.SizeHeight, 1) & """"
-                lblCollarDim.ForeColor = RGB(38, 145, 60)
+                MarkButtonAssigned btnCollar, "[OK] Collar (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
                 GenerateThumbnail sh, imgCollar, "collar"
                 isCollarAssigned = True
         End Select
@@ -227,6 +341,11 @@ End Sub
 Public Sub HandleButtonClick(key As String)
     If key = "RUN" Then
         ExecuteExport
+        Exit Sub
+    End If
+    
+    If key = "BROWSE" Then
+        BrowseExportFolder
         Exit Sub
     End If
     
@@ -246,65 +365,55 @@ Public Sub HandleButtonClick(key As String)
     Select Case key
         Case "FRONT"
             sh.Name = "FN_FRONT"
-            MarkButtonAssigned btnFront, "[OK] Front Assigned"
-            lblFrontDim.Caption = "[OK] " & Round(sh.SizeWidth, 1) & """ x " & Round(sh.SizeHeight, 1) & """"
-            lblFrontDim.ForeColor = RGB(38, 145, 60)
+            MarkButtonAssigned btnFront, "[OK] Front (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
             GenerateThumbnail sh, imgFront, "front"
             isFrontAssigned = True
             
         Case "BACK"
             sh.Name = "FN_BACK"
-            MarkButtonAssigned btnBack, "[OK] Back Assigned"
-            lblBackDim.Caption = "[OK] " & Round(sh.SizeWidth, 1) & """ x " & Round(sh.SizeHeight, 1) & """"
-            lblBackDim.ForeColor = RGB(38, 145, 60)
+            MarkButtonAssigned btnBack, "[OK] Back (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
             GenerateThumbnail sh, imgBack, "back"
             isBackAssigned = True
             
         Case "L_HALF"
             sh.Name = "FN_SLEEVE_LEFT_HALF"
-            MarkButtonAssigned btnLeftHalf, "[OK] Left Half"
-            lblLeftSleeveDim.Caption = "[OK] " & Round(sh.SizeWidth, 1) & """ x " & Round(sh.SizeHeight, 1) & """"
-            lblLeftSleeveDim.ForeColor = RGB(38, 145, 60)
-            GenerateThumbnail sh, imgLeftSleeve, "slv_l"
+            MarkButtonAssigned btnLeftHalf, "[OK] Left Half (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+            GenerateThumbnail sh, imgLeftHalf, "slv_lh"
             isLeftHalfAssigned = True
             isLeftFullAssigned = False
-            ResetButton btnLeftFull, "5. Left Full (19x25)"
+            ResetButton btnLeftFull, "5. Left Full (19"" x 25"")"
+            imgLeftFull.Picture = Nothing
             
         Case "R_HALF"
             sh.Name = "FN_SLEEVE_RIGHT_HALF"
-            MarkButtonAssigned btnRightHalf, "[OK] Right Half"
-            lblRightSleeveDim.Caption = "[OK] " & Round(sh.SizeWidth, 1) & """ x " & Round(sh.SizeHeight, 1) & """"
-            lblRightSleeveDim.ForeColor = RGB(38, 145, 60)
-            GenerateThumbnail sh, imgRightSleeve, "slv_r"
+            MarkButtonAssigned btnRightHalf, "[OK] Right Half (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+            GenerateThumbnail sh, imgRightHalf, "slv_rh"
             isRightHalfAssigned = True
             isRightFullAssigned = False
-            ResetButton btnRightFull, "6. Right Full (19x25)"
+            ResetButton btnRightFull, "6. Right Full (19"" x 25"")"
+            imgRightFull.Picture = Nothing
             
         Case "L_FULL"
             sh.Name = "FN_SLEEVE_LEFT_FULL"
-            MarkButtonAssigned btnLeftFull, "[OK] Left Full"
-            lblLeftSleeveDim.Caption = "[OK] " & Round(sh.SizeWidth, 1) & """ x " & Round(sh.SizeHeight, 1) & """"
-            lblLeftSleeveDim.ForeColor = RGB(38, 145, 60)
-            GenerateThumbnail sh, imgLeftSleeve, "slv_l"
+            MarkButtonAssigned btnLeftFull, "[OK] Left Full (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+            GenerateThumbnail sh, imgLeftFull, "slv_lf"
             isLeftFullAssigned = True
             isLeftHalfAssigned = False
-            ResetButton btnLeftHalf, "3. Left Half (19x11)"
+            ResetButton btnLeftHalf, "3. Left Half (19"" x 11"")"
+            imgLeftHalf.Picture = Nothing
             
         Case "R_FULL"
             sh.Name = "FN_SLEEVE_RIGHT_FULL"
-            MarkButtonAssigned btnRightFull, "[OK] Right Full"
-            lblRightSleeveDim.Caption = "[OK] " & Round(sh.SizeWidth, 1) & """ x " & Round(sh.SizeHeight, 1) & """"
-            lblRightSleeveDim.ForeColor = RGB(38, 145, 60)
-            GenerateThumbnail sh, imgRightSleeve, "slv_r"
+            MarkButtonAssigned btnRightFull, "[OK] Right Full (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
+            GenerateThumbnail sh, imgRightFull, "slv_rf"
             isRightFullAssigned = True
             isRightHalfAssigned = False
-            ResetButton btnRightHalf, "4. Right Half (19x11)"
+            ResetButton btnRightHalf, "4. Right Half (19"" x 11"")"
+            imgRightHalf.Picture = Nothing
             
         Case "COLLAR"
             sh.Name = "FN_COLLAR"
-            MarkButtonAssigned btnCollar, "[OK] Collar Assigned"
-            lblCollarDim.Caption = "[OK] " & Round(sh.SizeWidth, 1) & """ x " & Round(sh.SizeHeight, 1) & """"
-            lblCollarDim.ForeColor = RGB(38, 145, 60)
+            MarkButtonAssigned btnCollar, "[OK] Collar (" & Round(sh.SizeWidth, 1) & """x" & Round(sh.SizeHeight, 1) & """)"
             GenerateThumbnail sh, imgCollar, "collar"
             isCollarAssigned = True
     End Select
@@ -366,10 +475,10 @@ Private Sub UpdateStatusLabel()
     If isCollarAssigned Then assignedCount = assignedCount + 1
     
     If isFrontAssigned And isBackAssigned And (isLeftHalfAssigned Or isLeftFullAssigned) Then
-        lblStatus.Caption = "Status: Ready! (" & assignedCount & " panels assigned). Click RUN below!"
+        lblStatus.Caption = "Ready! (" & assignedCount & " panels assigned). Click EXPORT below."
         lblStatus.ForeColor = RGB(38, 145, 60)
     Else
-        lblStatus.Caption = "Status: " & assignedCount & "/4 required panels assigned (Need: Front, Back, Left Sleeve, Right Sleeve)"
+        lblStatus.Caption = assignedCount & "/4 required panels assigned (Front, Back, Sleeves)"
         lblStatus.ForeColor = RGB(120, 120, 120)
     End If
 End Sub
@@ -424,17 +533,46 @@ Private Sub ExecuteExport()
     ' Collar
     Set shCollar = FindTaggedShape(p, "FN_COLLAR")
     
-    ' Export
+    ' ================= 1. EXPORT FOLDER SELECTION =================
+    If chkPromptOnExport.Value = True Then
+        Dim selectedFolder As String
+        selectedFolder = BrowseForFolder("Select Destination Folder for " & Trim(txtJobName.Text) & ":", Trim(txtExportFolder.Text))
+        If Len(selectedFolder) = 0 Then
+            ' User cancelled folder picker
+            Exit Sub
+        End If
+        txtExportFolder.Text = selectedFolder
+    End If
+    
+    Dim exportDir As String
+    exportDir = Trim(txtExportFolder.Text)
+    If Len(exportDir) = 0 Then exportDir = "C:\Fivenest_Export"
+    
+    ' Save default folder setting if checked
+    If chkSetDefault.Value = True Then
+        SaveSetting "FiveNest", "Settings", "DefaultFolder", exportDir
+    End If
+    SaveSetting "FiveNest", "Settings", "PromptOnExport", IIf(chkPromptOnExport.Value, "1", "0")
+    
+    ' ================= 2. JOB NAME & PATHS =================
+    Dim jobName As String
+    jobName = Trim(txtJobName.Text)
+    If Len(jobName) = 0 Then jobName = DetectDefaultJobName()
+    
+    Dim badChars As String, k As Long
+    badChars = "\/:*?""<>|"
+    For k = 1 To Len(badChars)
+        jobName = Replace(jobName, Mid(badChars, k, 1), "_")
+    Next k
+    
     Dim fso As Object, wShell As Object
     Set fso = CreateObject("Scripting.FileSystemObject")
     Set wShell = CreateObject("WScript.Shell")
     
-    Dim exportDir As String
-    exportDir = "C:\Fivenest_Export"
     If Not fso.FolderExists(exportDir) Then fso.CreateFolder(exportDir)
     
     Dim tempPath As String
-    tempPath = exportDir & "\Panels"
+    tempPath = exportDir & "\" & jobName & "_Panels"
     If fso.FolderExists(tempPath) Then fso.DeleteFolder tempPath, True
     fso.CreateFolder tempPath
     
@@ -443,7 +581,7 @@ Private Sub ExecuteExport()
     Dim report As String
     report = ""
     
-    ' Export ONLY selected shape (Range = 2 = cdrSelection)
+    ' ================= 3. EXPORT 300 DPI RGB JPGs (Range=2 cdrSelection) =================
     If ExportShape(doc, shFront, tempPath & "\front.jpg") Then
         count = count + 1
         report = report & vbCrLf & "  [OK] Front Panel (22"" x 30"")"
@@ -480,45 +618,48 @@ Private Sub ExecuteExport()
     Set ts = fso.CreateTextFile(tempPath & "\manifest.json", True)
     ts.WriteLine "{"
     ts.WriteLine "  ""version"": ""1.0"","
-    ts.WriteLine "  ""source"": ""corel_vba_exporter"","
+    ts.WriteLine "  ""jobName"": """ & jobName & ""","
     ts.WriteLine "  ""sleeveType"": """ & IIf(isFullSleeve, "full", "half") & ""","
     ts.WriteLine "  ""exportedAt"": """ & Format(Now, "yyyy-mm-dd hh:nn:ss") & """"
     ts.WriteLine "}"
     ts.Close
     
-    ' Create pre-formatted ZIP package in C:\Fivenest_Export\
+    ' ================= 4. CREATE ZIP PACKAGE =================
     Dim zipFile As String
-    zipFile = exportDir & "\Fivenest_Artwork_Package.zip"
-    On Error Resume Next
+    zipFile = exportDir & "\" & jobName & ".zip"
     If fso.FileExists(zipFile) Then fso.DeleteFile zipFile, True
-    On Error GoTo 0
     
     Dim psCmd As String
     psCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ""Compress-Archive -Path '" & tempPath & "\*' -DestinationPath '" & zipFile & "' -Force"""
     wShell.Run psCmd, 0, True
     
-    ' Copy ZIP package to Windows Clipboard for instant Ctrl+V paste in browser
-    Dim psClip As String
-    psClip = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ""if (Test-Path '" & zipFile & "') { Set-Clipboard -Path '" & zipFile & "' }"""
-    wShell.Run psClip, 0, False
-
-    ' Open Windows Explorer with Fivenest_Artwork_Package.zip HIGHLIGHTED & SELECTED
-    wShell.Run "explorer.exe /select,""" & zipFile & """", 1, False
+    ' Copy ZIP to clipboard for instant Ctrl+V paste on production webpage
+    On Error Resume Next
+    Dim clipCmd As String
+    clipCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ""Set-Clipboard -Path '" & zipFile & "'"""
+    wShell.Run clipCmd, 0, True
+    On Error GoTo 0
     
-    ' Launch FiveNest Production Studio in browser with direct Corel trigger
+    ' ================= 5. OPEN PRODUCTION STUDIO & HIGHLIGHT ZIP =================
     Dim studioUrl As String
-    studioUrl = "https://www.fivenest.in/production?corel_export=ready&t=" & Format(Now, "hhnnss")
+    studioUrl = "https://www.fivenest.in/production?corel_export=ready"
     wShell.Run "cmd /c start " & studioUrl, 0, False
     
-    MsgBox "FiveNest Artwork Export Complete!" & vbCrLf & vbCrLf & _
-           count & " individual 300 DPI panels exported:" & report & vbCrLf & vbCrLf & _
-           "Saved Package:" & vbCrLf & _
-           "C:\Fivenest_Export\Fivenest_Artwork_Package.zip" & vbCrLf & vbCrLf & _
-           "1. FiveNest Production Studio opened in your browser" & vbCrLf & _
-           "2. Windows Explorer opened with your package selected" & vbCrLf & vbCrLf & _
-           "👉 Just DRAG Fivenest_Artwork_Package.zip into your browser window," & vbCrLf & _
-           "or click on the browser and press Ctrl+V to paste!", _
-           vbInformation, "FiveNest Studio"
+    On Error Resume Next
+    wShell.Run "explorer.exe /select,""" & zipFile & """", 1, False
+    On Error GoTo 0
+    
+    MsgBox "FiveNest Export Complete!" & vbCrLf & vbCrLf & _
+           "Job Name: " & jobName & vbCrLf & _
+           count & " individual cropped panels exported in 300 DPI RGB JPG:" & report & vbCrLf & vbCrLf & _
+           "Saved ZIP Package:" & vbCrLf & _
+           zipFile & vbCrLf & vbCrLf & _
+           "Production studio opened in browser:" & vbCrLf & _
+           "https://www.fivenest.in/production" & vbCrLf & vbCrLf & _
+           "HOW TO LOAD IN 1 SECOND:" & vbCrLf & _
+           "• The ZIP file is already highlighted in your folder — simply DRAG it into the browser window," & vbCrLf & _
+           "• OR press Ctrl+V directly on the webpage to paste it!", _
+           vbInformation, "FiveNest Exporter"
            
     Unload Me
 End Sub

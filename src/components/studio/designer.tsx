@@ -295,7 +295,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [prefTrigger, setPrefTrigger] = useState<number>(0);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isWindowDragging, setIsWindowDragging] = useState<boolean>(false);
-  const [isSyncingCorel, setIsSyncingCorel] = useState<boolean>(false);
   const [newGuideType, setNewGuideType] = useState<'vertical' | 'horizontal'>('vertical');
   const [newGuideValue, setNewGuideValue] = useState<string>("");
 
@@ -429,15 +428,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       return true;
     }
   });
-  const isFromCorelUrl = typeof window !== 'undefined' && (
-    window.location.search.includes('corel') ||
-    window.location.search.includes('source=corel')
-  );
-
-  const [importedPanelsSummary, setImportedPanelsSummary] = useState<string[]>([]);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
+    const isFromCorel = typeof window !== 'undefined' && (
+      window.location.search.includes('corel_export') ||
+      window.location.search.includes('source=corel')
+    );
     return {
-      zip: !isFromCorelUrl,
+      zip: !isFromCorel,
       overlays: true,
       presets: true,
       trim: true,
@@ -2721,8 +2718,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     | null;
 
   const classifyZipPanelFile = (rawPath: string): ZipPanelTarget => {
-    const normalizedPath = rawPath.replace(/\\/g, '/');
-    const pathParts = normalizedPath.split('/');
+    const pathParts = rawPath.split('/');
     const baseFilename = pathParts[pathParts.length - 1];
     const nameWithoutExt = baseFilename.replace(/\.[a-zA-Z0-9]+$/, '').toLowerCase();
     const folder = pathParts.length > 1 ? pathParts[pathParts.length - 2].toLowerCase() : '';
@@ -2869,167 +2865,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     return null;
   };
 
-  const processMultipleFiles = async (files: File[]) => {
-    try {
-      const newConfig = {
-        front: { ...designConfig.front },
-        back: { ...designConfig.back },
-        collar: { ...designConfig.collar },
-        sleeveLeft: { ...designConfig.sleeveLeft },
-        sleeveRight: { ...designConfig.sleeveRight },
-        a4Print: { ...designConfig.a4Print },
-      };
-
-      let importedCount = 0;
-      const importedNames: string[] = [];
-      const imageLoadPromises: Promise<void>[] = [];
-
-      for (const file of files) {
-        const lowerName = file.name.toLowerCase();
-        if (!lowerName.endsWith('.png') && !lowerName.endsWith('.jpg') && !lowerName.endsWith('.jpeg') && !lowerName.endsWith('.webp')) {
-          continue;
-        }
-
-        const target = classifyZipPanelFile(file.name);
-        if (!target) continue;
-
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-
-        const imgPromise = new Promise<void>((resolve) => {
-          const img = new Image();
-          img.onload = () => {
-            logoImagesRef.current[dataUrl] = img;
-            resolve();
-          };
-          img.onerror = () => resolve();
-          img.src = dataUrl;
-        });
-        imageLoadPromises.push(imgPromise);
-
-        switch (target) {
-          case 'front':
-            newConfig.front.uploadedFileUrl = dataUrl;
-            newConfig.front.backgroundType = 'upload';
-            importedCount++;
-            importedNames.push(`Front (${file.name})`);
-            break;
-          case 'back':
-            newConfig.back.uploadedFileUrl = dataUrl;
-            newConfig.back.backgroundType = 'upload';
-            importedCount++;
-            importedNames.push(`Back (${file.name})`);
-            break;
-          case 'collar':
-            newConfig.collar.uploadedFileUrl = dataUrl;
-            newConfig.collar.backgroundType = 'upload';
-            importedCount++;
-            importedNames.push(`Collar (${file.name})`);
-            break;
-          case 'sleeveLeft_half':
-            newConfig.sleeveLeft.uploadedFileHalfUrl = dataUrl;
-            newConfig.sleeveLeft.uploadedFileUrl = dataUrl;
-            newConfig.sleeveLeft.backgroundType = 'upload';
-            setPreviewSleeveType('half');
-            importedCount++;
-            importedNames.push(`Left Half Sleeve (${file.name})`);
-            break;
-          case 'sleeveLeft_full':
-            newConfig.sleeveLeft.uploadedFileFullUrl = dataUrl;
-            newConfig.sleeveLeft.uploadedFileUrl = dataUrl;
-            newConfig.sleeveLeft.backgroundType = 'upload';
-            setPreviewSleeveType('full');
-            importedCount++;
-            importedNames.push(`Left Full Sleeve (${file.name})`);
-            break;
-          case 'sleeveLeft_both':
-            newConfig.sleeveLeft.uploadedFileHalfUrl = dataUrl;
-            newConfig.sleeveLeft.uploadedFileFullUrl = dataUrl;
-            newConfig.sleeveLeft.uploadedFileUrl = dataUrl;
-            newConfig.sleeveLeft.backgroundType = 'upload';
-            importedCount++;
-            importedNames.push(`Left Sleeve (${file.name})`);
-            break;
-          case 'sleeveRight_half':
-            newConfig.sleeveRight.uploadedFileHalfUrl = dataUrl;
-            newConfig.sleeveRight.uploadedFileUrl = dataUrl;
-            newConfig.sleeveRight.backgroundType = 'upload';
-            setPreviewSleeveType('half');
-            importedCount++;
-            importedNames.push(`Right Half Sleeve (${file.name})`);
-            break;
-          case 'sleeveRight_full':
-            newConfig.sleeveRight.uploadedFileFullUrl = dataUrl;
-            newConfig.sleeveRight.uploadedFileUrl = dataUrl;
-            newConfig.sleeveRight.backgroundType = 'upload';
-            setPreviewSleeveType('full');
-            importedCount++;
-            importedNames.push(`Right Full Sleeve (${file.name})`);
-            break;
-          case 'sleeveRight_both':
-            newConfig.sleeveRight.uploadedFileHalfUrl = dataUrl;
-            newConfig.sleeveRight.uploadedFileFullUrl = dataUrl;
-            newConfig.sleeveRight.uploadedFileUrl = dataUrl;
-            newConfig.sleeveRight.backgroundType = 'upload';
-            importedCount++;
-            importedNames.push(`Right Sleeve (${file.name})`);
-            break;
-          case 'sleeve_both_half':
-            newConfig.sleeveLeft.uploadedFileHalfUrl = dataUrl;
-            newConfig.sleeveLeft.uploadedFileUrl = dataUrl;
-            newConfig.sleeveLeft.backgroundType = 'upload';
-            newConfig.sleeveRight.uploadedFileHalfUrl = dataUrl;
-            newConfig.sleeveRight.uploadedFileUrl = dataUrl;
-            newConfig.sleeveRight.backgroundType = 'upload';
-            setPreviewSleeveType('half');
-            importedCount += 2;
-            importedNames.push(`Both Sleeves (Half) (${file.name})`);
-            break;
-          case 'sleeve_both_full':
-            newConfig.sleeveLeft.uploadedFileFullUrl = dataUrl;
-            newConfig.sleeveLeft.uploadedFileUrl = dataUrl;
-            newConfig.sleeveLeft.backgroundType = 'upload';
-            newConfig.sleeveRight.uploadedFileFullUrl = dataUrl;
-            newConfig.sleeveRight.uploadedFileUrl = dataUrl;
-            newConfig.sleeveRight.backgroundType = 'upload';
-            setPreviewSleeveType('full');
-            importedCount += 2;
-            importedNames.push(`Both Sleeves (Full) (${file.name})`);
-            break;
-          case 'sleeve_both_all':
-            newConfig.sleeveLeft.uploadedFileHalfUrl = dataUrl;
-            newConfig.sleeveLeft.uploadedFileFullUrl = dataUrl;
-            newConfig.sleeveLeft.uploadedFileUrl = dataUrl;
-            newConfig.sleeveLeft.backgroundType = 'upload';
-            newConfig.sleeveRight.uploadedFileHalfUrl = dataUrl;
-            newConfig.sleeveRight.uploadedFileFullUrl = dataUrl;
-            newConfig.sleeveRight.uploadedFileUrl = dataUrl;
-            newConfig.sleeveRight.backgroundType = 'upload';
-            importedCount += 2;
-            importedNames.push(`Both Sleeves (${file.name})`);
-            break;
-        }
-      }
-
-      await Promise.all(imageLoadPromises);
-
-      if (importedCount > 0) {
-        onDesignConfigChange(newConfig);
-        setImportedPanelsSummary(importedNames);
-        toast.success(`⚡ Successfully loaded ${importedCount} panels into 3D!`);
-      } else {
-        toast.error('No matching panel graphics recognized in selected images.');
-      }
-    } catch (err) {
-      console.error('Failed to process image files:', err);
-      toast.error('Error reading image files.');
-    }
-  };
-
   const processZipFile = async (file: File) => {
     try {
       const JSZip = (await import('jszip')).default;
@@ -3049,7 +2884,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const importedNames: string[] = [];
 
       // Check for manifest.json
-      const manifestEntry = loadedZip.file('manifest.json') || Object.values(loadedZip.files).find(f => f.name.replace(/\\/g, '/').toLowerCase().endsWith('manifest.json'));
+      const manifestEntry = loadedZip.file('manifest.json') || Object.values(loadedZip.files).find(f => f.name.toLowerCase().endsWith('manifest.json'));
       if (manifestEntry) {
         try {
           const manifestText = await manifestEntry.async('text');
@@ -3064,18 +2899,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         }
       }
 
-      // Check if ZIP only contains raw .cdr / .ai / vector files
-      const cdrFiles = Object.keys(loadedZip.files).filter(name => {
-        const lower = name.toLowerCase();
-        return lower.endsWith('.cdr') || lower.endsWith('.ai') || lower.endsWith('.eps');
-      });
-
-      const extractedPanels: { target: ZipPanelTarget; baseFilename: string; dataUrl: string }[] = [];
-      const imageLoadPromises: Promise<void>[] = [];
-
-      for (const [rawFilename, zipEntry] of Object.entries(loadedZip.files)) {
+      for (const [filename, zipEntry] of Object.entries(loadedZip.files)) {
         if (zipEntry.dir) continue;
-        const filename = rawFilename.replace(/\\/g, '/');
         if (filename.includes('__MACOSX') || filename.split('/').some(p => p.startsWith('.'))) continue;
         
         const pathParts = filename.split('/');
@@ -3093,34 +2918,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         const mimeType = lowerBase.endsWith('.png') ? 'image/png' : lowerBase.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
         const dataUrl = `data:${mimeType};base64,${base64Data}`;
 
-        extractedPanels.push({ target, baseFilename, dataUrl });
-
-        const imgPromise = new Promise<void>((resolve) => {
-          const img = new Image();
-          img.onload = () => {
-            logoImagesRef.current[dataUrl] = img;
-            resolve();
-          };
-          img.onerror = () => resolve();
-          img.src = dataUrl;
-        });
-        imageLoadPromises.push(imgPromise);
-      }
-
-      if (extractedPanels.length === 0 && cdrFiles.length > 0) {
-        const fileNames = cdrFiles.slice(0, 3).map(f => f.split(/[/\\]/).pop()).join(', ');
-        alert(
-          `⚠️ Corel Vector File Detected (${fileNames})\n\n` +
-          `You selected a raw Corel .cdr file, not the exported 300 DPI image panels.\n\n` +
-          `👉 In CorelDRAW, open your artwork and click RUN on the FiveNest Macro.\n` +
-          `Your exported 300 DPI package is saved at:\n` +
-          `📂 C:\\Fivenest_Export\\Fivenest_Artwork_Package.zip\n\n` +
-          `Please select Fivenest_Artwork_Package.zip to import into 3D!`
-        );
-        return;
-      }
-
-      for (const { target, baseFilename, dataUrl } of extractedPanels) {
         switch (target) {
           case 'front':
             newConfig.front.uploadedFileUrl = dataUrl;
@@ -3141,13 +2938,29 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             newConfig.collar.backgroundType = 'upload';
             importedCount++;
             importedNames.push(`Collar (${baseFilename})`);
+            if (typeof Image !== 'undefined') {
+              const img = new Image();
+              img.onload = () => {
+                logoImagesRef.current[dataUrl] = img;
+                const edgeColor = sampleImageEdgeColor(img);
+                if (edgeColor) {
+                  onDesignConfigChange({
+                    ...newConfig,
+                    collar: {
+                      ...newConfig.collar,
+                      generatedColor1: edgeColor
+                    }
+                  });
+                }
+              };
+              img.src = dataUrl;
+            }
             break;
 
           case 'sleeveLeft_half':
             newConfig.sleeveLeft.uploadedFileHalfUrl = dataUrl;
             newConfig.sleeveLeft.uploadedFileUrl = dataUrl;
             newConfig.sleeveLeft.backgroundType = 'upload';
-            setPreviewSleeveType('half');
             importedCount++;
             importedNames.push(`Left Half Sleeve (${baseFilename})`);
             break;
@@ -3156,7 +2969,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             newConfig.sleeveLeft.uploadedFileFullUrl = dataUrl;
             newConfig.sleeveLeft.uploadedFileUrl = dataUrl;
             newConfig.sleeveLeft.backgroundType = 'upload';
-            setPreviewSleeveType('full');
             importedCount++;
             importedNames.push(`Left Full Sleeve (${baseFilename})`);
             break;
@@ -3174,7 +2986,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             newConfig.sleeveRight.uploadedFileHalfUrl = dataUrl;
             newConfig.sleeveRight.uploadedFileUrl = dataUrl;
             newConfig.sleeveRight.backgroundType = 'upload';
-            setPreviewSleeveType('half');
             importedCount++;
             importedNames.push(`Right Half Sleeve (${baseFilename})`);
             break;
@@ -3183,7 +2994,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             newConfig.sleeveRight.uploadedFileFullUrl = dataUrl;
             newConfig.sleeveRight.uploadedFileUrl = dataUrl;
             newConfig.sleeveRight.backgroundType = 'upload';
-            setPreviewSleeveType('full');
             importedCount++;
             importedNames.push(`Right Full Sleeve (${baseFilename})`);
             break;
@@ -3199,24 +3009,18 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
           case 'sleeve_both_half':
             newConfig.sleeveLeft.uploadedFileHalfUrl = dataUrl;
-            newConfig.sleeveLeft.uploadedFileUrl = dataUrl;
             newConfig.sleeveLeft.backgroundType = 'upload';
             newConfig.sleeveRight.uploadedFileHalfUrl = dataUrl;
-            newConfig.sleeveRight.uploadedFileUrl = dataUrl;
             newConfig.sleeveRight.backgroundType = 'upload';
-            setPreviewSleeveType('half');
             importedCount += 2;
             importedNames.push(`Both Sleeves (Half) (${baseFilename})`);
             break;
 
           case 'sleeve_both_full':
             newConfig.sleeveLeft.uploadedFileFullUrl = dataUrl;
-            newConfig.sleeveLeft.uploadedFileUrl = dataUrl;
             newConfig.sleeveLeft.backgroundType = 'upload';
             newConfig.sleeveRight.uploadedFileFullUrl = dataUrl;
-            newConfig.sleeveRight.uploadedFileUrl = dataUrl;
             newConfig.sleeveRight.backgroundType = 'upload';
-            setPreviewSleeveType('full');
             importedCount += 2;
             importedNames.push(`Both Sleeves (Full) (${baseFilename})`);
             break;
@@ -3224,11 +3028,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           case 'sleeve_both_all':
             newConfig.sleeveLeft.uploadedFileHalfUrl = dataUrl;
             newConfig.sleeveLeft.uploadedFileFullUrl = dataUrl;
-            newConfig.sleeveLeft.uploadedFileUrl = dataUrl;
             newConfig.sleeveLeft.backgroundType = 'upload';
             newConfig.sleeveRight.uploadedFileHalfUrl = dataUrl;
             newConfig.sleeveRight.uploadedFileFullUrl = dataUrl;
-            newConfig.sleeveRight.uploadedFileUrl = dataUrl;
             newConfig.sleeveRight.backgroundType = 'upload';
             importedCount += 2;
             importedNames.push(`Both Sleeves (${baseFilename})`);
@@ -3236,12 +3038,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         }
       }
 
-      await Promise.all(imageLoadPromises);
-
       if (importedCount > 0) {
         onDesignConfigChange(newConfig);
-        setImportedPanelsSummary(importedNames);
-        toast.success(`⚡ Successfully loaded ${importedCount} panels into 3D!`);
+        toast.success(`Successfully imported ${importedCount} panels from ZIP!`);
+        alert(`Successfully imported ${importedCount} panels from ZIP:\n\n` + importedNames.map(n => `• ${n}`).join('\n'));
       } else {
         alert(
           'No matching panel graphics found in ZIP file.\n\n' +
@@ -3260,14 +3060,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   };
 
   const handleZipImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
     try {
-      if (files.length === 1 && (files[0].name.toLowerCase().endsWith('.zip') || files[0].type.includes('zip'))) {
-        await processZipFile(files[0]);
-      } else {
-        await processMultipleFiles(Array.from(files));
-      }
+      await processZipFile(file);
     } finally {
       e.target.value = '';
     }
@@ -3296,13 +3092,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const handleWindowDrop = async (e: DragEvent) => {
       e.preventDefault();
       setIsWindowDragging(false);
-      const files = e.dataTransfer?.files;
-      if (!files || files.length === 0) return;
+      const file = e.dataTransfer?.files?.[0];
+      if (!file) return;
 
-      if (files.length === 1 && (files[0].name.toLowerCase().endsWith('.zip') || files[0].type.includes('zip'))) {
-        await processZipFile(files[0]);
-      } else {
-        await processMultipleFiles(Array.from(files));
+      if (file.name.toLowerCase().endsWith('.zip') || file.type.includes('zip')) {
+        await processZipFile(file);
       }
     };
 
@@ -3317,196 +3111,20 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     };
   }, []);
 
-  const checkAndFetchCorelBridge = async (port: number = 18234, silent: boolean = false): Promise<boolean> => {
-    try {
-      if (!silent) setIsSyncingCorel(true);
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4500);
-
-      const res = await fetch(`http://127.0.0.1:${port}/api/panels`, {
-        method: 'GET',
-        signal: controller.signal,
-        headers: { 'Accept': 'application/json' }
-      });
-      clearTimeout(timeoutId);
-
-      if (!res.ok) {
-        if (!silent) setIsSyncingCorel(false);
-        return false;
-      }
-
-      const data = await res.json();
-      if (!data || !data.panels || Object.keys(data.panels).length === 0) {
-        if (!silent) setIsSyncingCorel(false);
-        return false;
-      }
-
-      const newConfig = {
-        front: { ...designConfig.front },
-        back: { ...designConfig.back },
-        collar: { ...designConfig.collar },
-        sleeveLeft: { ...designConfig.sleeveLeft },
-        sleeveRight: { ...designConfig.sleeveRight },
-        a4Print: { ...designConfig.a4Print },
-      };
-
-      let importedCount = 0;
-      const importedNames: string[] = [];
-
-      if (data.manifest?.sleeveType === 'full') {
-        setPreviewSleeveType('full');
-      } else if (data.manifest?.sleeveType === 'half') {
-        setPreviewSleeveType('half');
-      }
-
-      for (const [filename, dataUrl] of Object.entries(data.panels as Record<string, string>)) {
-        const target = classifyZipPanelFile(filename);
-        if (!target) continue;
-
-        switch (target) {
-          case 'front':
-            newConfig.front.uploadedFileUrl = dataUrl;
-            newConfig.front.backgroundType = 'upload';
-            importedCount++;
-            importedNames.push('Front');
-            break;
-
-          case 'back':
-            newConfig.back.uploadedFileUrl = dataUrl;
-            newConfig.back.backgroundType = 'upload';
-            importedCount++;
-            importedNames.push('Back');
-            break;
-
-          case 'collar':
-            newConfig.collar.uploadedFileUrl = dataUrl;
-            newConfig.collar.backgroundType = 'upload';
-            importedCount++;
-            importedNames.push('Collar');
-            break;
-
-          case 'sleeveLeft_half':
-            newConfig.sleeveLeft.uploadedFileHalfUrl = dataUrl;
-            newConfig.sleeveLeft.uploadedFileUrl = dataUrl;
-            newConfig.sleeveLeft.backgroundType = 'upload';
-            importedCount++;
-            importedNames.push('Left Half Sleeve');
-            break;
-
-          case 'sleeveLeft_full':
-            newConfig.sleeveLeft.uploadedFileFullUrl = dataUrl;
-            newConfig.sleeveLeft.uploadedFileUrl = dataUrl;
-            newConfig.sleeveLeft.backgroundType = 'upload';
-            importedCount++;
-            importedNames.push('Left Full Sleeve');
-            break;
-
-          case 'sleeveLeft_both':
-            newConfig.sleeveLeft.uploadedFileHalfUrl = dataUrl;
-            newConfig.sleeveLeft.uploadedFileFullUrl = dataUrl;
-            newConfig.sleeveLeft.uploadedFileUrl = dataUrl;
-            newConfig.sleeveLeft.backgroundType = 'upload';
-            importedCount++;
-            importedNames.push('Left Sleeve');
-            break;
-
-          case 'sleeveRight_half':
-            newConfig.sleeveRight.uploadedFileHalfUrl = dataUrl;
-            newConfig.sleeveRight.uploadedFileUrl = dataUrl;
-            newConfig.sleeveRight.backgroundType = 'upload';
-            importedCount++;
-            importedNames.push('Right Half Sleeve');
-            break;
-
-          case 'sleeveRight_full':
-            newConfig.sleeveRight.uploadedFileFullUrl = dataUrl;
-            newConfig.sleeveRight.uploadedFileUrl = dataUrl;
-            newConfig.sleeveRight.backgroundType = 'upload';
-            importedCount++;
-            importedNames.push('Right Full Sleeve');
-            break;
-
-          case 'sleeveRight_both':
-            newConfig.sleeveRight.uploadedFileHalfUrl = dataUrl;
-            newConfig.sleeveRight.uploadedFileFullUrl = dataUrl;
-            newConfig.sleeveRight.uploadedFileUrl = dataUrl;
-            newConfig.sleeveRight.backgroundType = 'upload';
-            importedCount++;
-            importedNames.push('Right Sleeve');
-            break;
-        }
-      }
-
-      if (importedCount > 0) {
-        onDesignConfigChange(newConfig);
-        toast.success(`⚡ CorelDRAW Connected: Successfully auto-loaded ${importedCount} panels into 3D!`);
-        if (!silent) setIsSyncingCorel(false);
-        return true;
-      }
-    } catch (e) {
-      // Loopback fetch not available
-    }
-    if (!silent) {
-      setIsSyncingCorel(false);
-      toast.info('Could not connect to CorelDRAW bridge on port ' + port + '. You can drop or paste (Ctrl+V) the ZIP package directly!');
-    }
-    return false;
-  };
-
-  // Auto-connect to CorelDRAW bridge on mount and on tab focus
-  useEffect(() => {
-    let attempts = 0;
-    const maxAttempts = 6;
-    let timer: NodeJS.Timeout | null = null;
-
-    const trySync = async () => {
-      const ok = await checkAndFetchCorelBridge(18234, attempts > 0);
-      if (ok) return;
-      attempts++;
-      if (attempts < maxAttempts) {
-        timer = setTimeout(trySync, 1200);
-      }
-    };
-
-    if (typeof window !== 'undefined') {
-      const isCorelReq = window.location.search.includes('corel_bridge') || window.location.search.includes('corel_export');
-      if (isCorelReq) {
-        trySync();
-      }
-
-      const onWindowFocus = () => {
-        checkAndFetchCorelBridge(18234, true);
-      };
-      window.addEventListener('focus', onWindowFocus);
-
-      return () => {
-        if (timer) clearTimeout(timer);
-        window.removeEventListener('focus', onWindowFocus);
-      };
-    }
-  }, []);
-
   // Clipboard Paste handler (Ctrl+V)
   useEffect(() => {
     const handlePaste = async (e: ClipboardEvent) => {
       const items = e.clipboardData?.items;
       if (!items) return;
-      const fileList: File[] = [];
       for (const item of Array.from(items)) {
         if (item.kind === 'file') {
           const file = item.getAsFile();
-          if (file) fileList.push(file);
-        }
-      }
-      if (fileList.length > 0) {
-        if (fileList.length === 1 && (fileList[0].name.toLowerCase().endsWith('.zip') || fileList[0].type.includes('zip'))) {
-          e.preventDefault();
-          await processZipFile(fileList[0]);
-        } else {
-          const hasImageOrZip = fileList.some(f => /\.(zip|png|jpg|jpeg|webp)$/i.test(f.name) || f.type.startsWith('image/'));
-          if (hasImageOrZip) {
-            e.preventDefault();
-            await processMultipleFiles(fileList);
+          if (file) {
+            if (file.name.toLowerCase().endsWith('.zip') || file.type.includes('zip')) {
+              e.preventDefault();
+              await processZipFile(file);
+              return;
+            }
           }
         }
       }
@@ -4254,70 +3872,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         <input 
           ref={zipInputRef} 
           type="file" 
-          accept=".zip,.png,.jpg,.jpeg,.webp" 
-          multiple
+          accept=".zip" 
           id="zip-importer-input" 
           style={{ display: 'none' }} 
           onChange={handleZipImport} 
           onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
         />
-
-        {/* CorelDRAW Status Banner when opened from Corel macro */}
-        {isFromCorelUrl && (
-          <div style={{
-            margin: '8px 12px 10px',
-            padding: '10px 16px',
-            background: 'linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%)',
-            border: '2px dashed #EA580C',
-            borderRadius: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-            zIndex: 30,
-            boxShadow: '0 2px 8px rgba(234, 88, 12, 0.12)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#EA580C', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
-                <Sparkles size={18} />
-              </div>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: '800', color: '#9A3412', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>⚡ CorelDRAW Exporter Connected</span>
-                  {importedPanelsSummary.length > 0 && (
-                    <span style={{ fontSize: '10px', background: '#16A34A', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>
-                      {importedPanelsSummary.length} PANELS LOADED
-                    </span>
-                  )}
-                </div>
-                <div style={{ fontSize: '11px', color: '#431407', marginTop: '1px' }}>
-                  Drop <strong>Fivenest_Artwork_Package.zip</strong> here, press <kbd style={{ background: '#fff', padding: '1px 5px', borderRadius: '4px', border: '1px solid #fed7aa', fontWeight: 'bold' }}>Ctrl+V</kbd>, or click Browse:
-                </div>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => zipInputRef.current?.click()}
-              style={{
-                background: '#EA580C',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '7px 14px',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                whiteSpace: 'nowrap',
-                boxShadow: '0 2px 6px rgba(234, 88, 12, 0.25)'
-              }}
-            >
-              <Upload size={14} /> Browse Package
-            </button>
-          </div>
-        )}
 
         {/* 3D VIEWPORT: 100% Locked Container (Zero DOM zoom, Three.js OrbitControls only) */}
         {activeTab === 'threeD' ? (
@@ -5500,86 +5060,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           </h3>
           {!collapsed.zip && (
             <div style={{ marginTop: '14px' }}>
-              {/* 1-Click Browse or Sync */}
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    if (typeof window !== 'undefined' && 'showOpenFilePicker' in window) {
-                      const handles = await (window as any).showOpenFilePicker({
-                        multiple: true,
-                        types: [
-                          {
-                            description: 'CorelDRAW Package (*.zip) or Artwork JPGs',
-                            accept: {
-                              'application/zip': ['.zip'],
-                              'image/jpeg': ['.jpg', '.jpeg'],
-                              'image/png': ['.png']
-                            }
-                          }
-                        ]
-                      });
-                      if (handles && handles.length > 0) {
-                        const files: File[] = [];
-                        for (const h of handles) {
-                          const f = await h.getFile();
-                          files.push(f);
-                        }
-                        if (files.length === 1 && (files[0].name.toLowerCase().endsWith('.zip') || files[0].type.includes('zip'))) {
-                          await processZipFile(files[0]);
-                        } else {
-                          await processMultipleFiles(files);
-                        }
-                        return;
-                      }
-                    }
-                  } catch (e) {
-                    // User cancelled or picker not permitted, fallback to input
-                  }
-                  zipInputRef.current?.click();
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  width: '100%',
-                  padding: '10px 14px',
-                  marginBottom: '10px',
-                  background: 'linear-gradient(135deg, #E4572E 0%, #C8431C 100%)',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontWeight: '700',
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(228, 87, 46, 0.25)'
-                }}
-              >
-                <Upload size={15} /> 📁 Load Package from C:\Fivenest_Export
-              </button>
-
-              {/* Status Badge when panels are loaded */}
-              {importedPanelsSummary.length > 0 && (
-                <div style={{
-                  marginBottom: '10px',
-                  padding: '8px 12px',
-                  background: '#F0FDF4',
-                  border: '1px solid #BBF7D0',
-                  borderRadius: '8px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: '800', color: '#15803D' }}>
-                    <span>✅ {importedPanelsSummary.length} Panels Active in 3D:</span>
-                  </div>
-                  <div style={{ fontSize: '10px', color: '#166534', marginTop: '3px', lineHeight: '1.4' }}>
-                    {importedPanelsSummary.map((n, i) => (
-                      <span key={i} style={{ display: 'inline-block', background: '#DCFCE7', borderRadius: '4px', padding: '1px 5px', margin: '1px 3px 1px 0' }}>
-                        {n}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               <div
                 onClick={() => zipInputRef.current?.click()}
@@ -5596,41 +5076,20 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               >
                 <FolderArchive size={24} style={{ color: '#E4572E', margin: '0 auto 6px' }} />
                 <div style={{ fontSize: '12px', fontWeight: '700', color: '#1F2937' }}>
-                  Drop Corel ZIP or JPGs Here
+                  Drop Corel ZIP Here or Click to Browse
                 </div>
                 <div style={{ fontSize: '10px', color: '#6B7280', marginTop: '2px' }}>
-                  Location: <code style={{ background: '#F3F4F6', padding: '1px 4px', borderRadius: '3px' }}>C:\Fivenest_Export</code>
-                </div>
-                <div style={{ fontSize: '10px', color: '#E4572E', marginTop: '4px', fontWeight: '600' }}>
-                  Or press <kbd style={{ padding: '1px 4px', background: '#E5E7EB', borderRadius: '3px', fontSize: '9px', fontWeight: '700', color: '#111' }}>Ctrl+V</kbd> to paste
+                  Or press <kbd style={{ padding: '1px 4px', background: '#E5E7EB', borderRadius: '3px', fontSize: '9px', fontWeight: '700' }}>Ctrl+V</kbd> to paste package
                 </div>
               </div>
-
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <button
-                  type="button"
-                  onClick={() => zipInputRef.current?.click()}
-                  className="btn btn-secondary"
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer', padding: '8px 10px', borderRadius: '8px', background: '#F9FAFB', fontSize: '11px', fontWeight: '600' }}
-                >
-                  <Upload size={13} /> Browse Files
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      if (navigator.clipboard) {
-                        toast.info('Press Ctrl+V anywhere on the page to paste your exported package!', { duration: 5000 });
-                      }
-                    } catch (e) {}
-                  }}
-                  className="btn btn-secondary"
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer', padding: '8px 10px', borderRadius: '8px', background: '#F9FAFB', fontSize: '11px', fontWeight: '600' }}
-                  title="Press Ctrl+V on keyboard to paste package"
-                >
-                  📋 Paste (Ctrl+V)
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => zipInputRef.current?.click()}
+                className="btn btn-secondary w-full"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '9px 12px', width: '100%', borderRadius: '8px', background: '#F9FAFB' }}
+              >
+                <Upload size={14} /> Browse ZIP File <span style={{ fontSize: '9px', opacity: 0.75, background: 'rgba(0,0,0,0.06)', padding: '1px 5px', borderRadius: '3px' }}>Ctrl+Shift+I / Ctrl+B</span>
+              </button>
             </div>
           )}
         </div>
