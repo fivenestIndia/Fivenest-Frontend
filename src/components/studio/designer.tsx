@@ -752,7 +752,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const containerH = wrapper.clientHeight;
     if (containerW <= 0 || containerH <= 0) return;
 
-    const currentRulerOffset = rulersEnabled ? Math.max(26, Math.round(0.75 * scale)) : 0;
+    const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
     
     let contentW = 0;
     let contentH = 0;
@@ -1720,7 +1720,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       if (savedR !== null) rulersPref = JSON.parse(savedR);
     } catch (e) {}
     const rulersEnabled = !is3DPreview && rulersPref && (panelKey !== 'collar');
-    const rulerOffset = rulersEnabled ? Math.max(26, Math.round(0.75 * scale)) : 0;
+    const rulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
 
     const drawRulersAndGrid = (ctx: CanvasRenderingContext2D) => {
       if (is3DPreview || !rulersEnabled) return;
@@ -1787,7 +1787,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
       // Corner junction text: Unit Symbol in FiveNest Orange
       ctx.fillStyle = '#E4572E';
-      ctx.font = 'bold 9px Inter, system-ui, sans-serif';
+      ctx.font = 'bold 8px Inter, system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(unitCfg.symbol.toUpperCase(), rulerOffset / 2, rulerOffset / 2);
@@ -1795,7 +1795,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       // --- TOP RULER TICKS ---
       const totalUnitsX = unitCfg.fromInches(physicalW);
       const stepX = unitCfg.majorStep / unitCfg.subdivisions;
-      ctx.font = '600 8px Inter, -apple-system, system-ui, sans-serif';
+      // Smaller, crisp 7px font for unobtrusive scale numbers
+      ctx.font = '600 7px Inter, -apple-system, system-ui, sans-serif';
 
       for (let u = 0; u <= totalUnitsX + 0.0001; u += stepX) {
         const inVal = unitCfg.toInches(u);
@@ -1804,7 +1805,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
         const isMajor = Math.abs(u % unitCfg.majorStep) < 0.001 || Math.abs(u % unitCfg.majorStep - unitCfg.majorStep) < 0.001;
         const isHalf = !isMajor && (Math.abs(u % (unitCfg.majorStep / 2)) < 0.001);
-        const tickLen = isMajor ? 7 : isHalf ? 4.5 : 2.5;
+        const tickLen = isMajor ? 6 : isHalf ? 3.5 : 2;
 
         ctx.strokeStyle = isMajor ? tickColor : isHalf ? '#a1a1aa' : subTickColor;
         ctx.lineWidth = isMajor ? 1 : 0.5;
@@ -1813,12 +1814,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.lineTo(xPx, rulerOffset);
         ctx.stroke();
 
-        // Photoshop Style: Number placed in the top section, completely separate from tick mark
+        // Write number exact before the bigger line (major tick)
         if (isMajor && u > 0) {
           ctx.fillStyle = tickColor;
-          ctx.textAlign = 'left';
+          ctx.textAlign = 'right';
           ctx.textBaseline = 'top';
-          ctx.fillText(Math.round(u).toString(), xPx + 3, 3);
+          ctx.fillText(Math.round(u).toString(), xPx - 2, 2);
         }
       }
 
@@ -1833,7 +1834,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
         const isMajor = Math.abs(u % unitCfg.majorStep) < 0.001 || Math.abs(u % unitCfg.majorStep - unitCfg.majorStep) < 0.001;
         const isHalf = !isMajor && (Math.abs(u % (unitCfg.majorStep / 2)) < 0.001);
-        const tickLen = isMajor ? 7 : isHalf ? 4.5 : 2.5;
+        const tickLen = isMajor ? 6 : isHalf ? 3.5 : 2;
 
         ctx.strokeStyle = isMajor ? tickColor : isHalf ? '#a1a1aa' : subTickColor;
         ctx.lineWidth = isMajor ? 1 : 0.5;
@@ -1842,12 +1843,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.lineTo(rulerOffset, yPx);
         ctx.stroke();
 
-        // Photoshop Style: Number sits on the left section, never colliding with tick mark
+        // Write number exact before the bigger line (major tick, above it)
         if (isMajor && u > 0) {
           ctx.fillStyle = tickColor;
           ctx.textAlign = 'left';
           ctx.textBaseline = 'bottom';
-          ctx.fillText(Math.round(u).toString(), 3, yPx - 2);
+          ctx.fillText(Math.round(u).toString(), 2, yPx - 2);
         }
       }
 
@@ -1906,8 +1907,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ctx.setLineDash([]);
             ctx.fillStyle = '#00F0FF';
             ctx.beginPath();
-            ctx.moveTo(xPx - 3.5, rulerOffset - 7);
-            ctx.lineTo(xPx + 3.5, rulerOffset - 7);
+            ctx.moveTo(xPx - 3, rulerOffset - 5.5);
+            ctx.lineTo(xPx + 3, rulerOffset - 5.5);
             ctx.lineTo(xPx, rulerOffset - 1);
             ctx.closePath();
             ctx.fill();
@@ -1936,8 +1937,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ctx.setLineDash([]);
             ctx.fillStyle = '#00F0FF';
             ctx.beginPath();
-            ctx.moveTo(rulerOffset - 7, yPx - 3.5);
-            ctx.lineTo(rulerOffset - 7, yPx + 3.5);
+            ctx.moveTo(rulerOffset - 5.5, yPx - 3);
+            ctx.lineTo(rulerOffset - 5.5, yPx + 3);
             ctx.lineTo(rulerOffset - 1, yPx);
             ctx.closePath();
             ctx.fill();
@@ -1964,8 +1965,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               ctx.setLineDash([]);
               ctx.fillStyle = activeColor;
               ctx.beginPath();
-              ctx.moveTo(xPx - 4, rulerOffset - 8);
-              ctx.lineTo(xPx + 4, rulerOffset - 8);
+              ctx.moveTo(xPx - 3, rulerOffset - 6);
+              ctx.lineTo(xPx + 3, rulerOffset - 6);
               ctx.lineTo(xPx, rulerOffset - 1);
               ctx.closePath();
               ctx.fill();
@@ -1985,8 +1986,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               ctx.setLineDash([]);
               ctx.fillStyle = activeColor;
               ctx.beginPath();
-              ctx.moveTo(rulerOffset - 8, yPx - 4);
-              ctx.lineTo(rulerOffset - 8, yPx + 4);
+              ctx.moveTo(rulerOffset - 6, yPx - 3);
+              ctx.lineTo(rulerOffset - 6, yPx + 3);
               ctx.lineTo(rulerOffset - 1, yPx);
               ctx.closePath();
               ctx.fill();
@@ -2734,7 +2735,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const savedR = localStorage.getItem('fivenest_pref_rulers');
       if (savedR !== null) rulersPref = JSON.parse(savedR);
     } catch (e) {}
-    const rulerOffset = rulersPref ? Math.max(26, Math.round(0.75 * scale)) : 0;
+    const rulerOffset = rulersPref ? Math.round(0.55 * scale) : 0;
 
     if (activeTab === 'dual') {
       // 0. Collar Panel (18" x 4.5" at top - fits 100% edge-to-edge without extra ruler offset)
@@ -3450,7 +3451,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     }
 
     const rect = targetCanvas.getBoundingClientRect();
-    const currentRulerOffset = (rulersEnabled && targetPanelKey !== 'collar') ? Math.max(26, Math.round(0.75 * scale)) : 0;
+    const currentRulerOffset = (rulersEnabled && targetPanelKey !== 'collar') ? Math.round(0.55 * scale) : 0;
     const rawClickX = (e.clientX - rect.left) / zoom;
     const rawClickY = (e.clientY - rect.top) / zoom;
 
@@ -3693,7 +3694,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
     const panelConfig = (designConfig[targetPanelKey as keyof ArtDesignConfig] || activePanel) as PanelConfig;
     const rect = targetCanvas.getBoundingClientRect();
-    const currentRulerOffset = (rulersEnabled && targetPanelKey !== 'collar') ? Math.max(26, Math.round(0.75 * scale)) : 0;
+    const currentRulerOffset = (rulersEnabled && targetPanelKey !== 'collar') ? Math.round(0.55 * scale) : 0;
     const canvasX = (e.clientX - rect.left) / zoom - currentRulerOffset;
     const canvasY = (e.clientY - rect.top) / zoom - currentRulerOffset;
     const pad = 16;
@@ -3797,7 +3798,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const targetPanelKey = specificPanel || (activeTab === 'dual' ? dualActivePanel : activeTab);
     const panelConfig = (designConfig[targetPanelKey as keyof ArtDesignConfig] || activePanel) as PanelConfig;
 
-    const currentRulerOffset = (rulersEnabled && targetPanelKey !== 'collar') ? Math.max(26, Math.round(0.75 * scale)) : 0;
+    const currentRulerOffset = (rulersEnabled && targetPanelKey !== 'collar') ? Math.round(0.55 * scale) : 0;
     const rawX = mouseX / zoom;
     const rawY = mouseY / zoom;
     const canvasX = rawX - currentRulerOffset;
@@ -4536,8 +4537,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           border: dualActivePanel === 'sleeveLeft' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
                           boxShadow: dualActivePanel === 'sleeveLeft' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
                           cursor: (spaceKeyPressed || isPanning) ? 'inherit' : canvasCursor,
-                          width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.max(26, Math.round(0.75 * scale)) : 0)) * zoom)}px`,
-                          height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.max(26, Math.round(0.75 * scale)) : 0)) * zoom)}px`,
+                          width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
                           objectFit: 'contain',
@@ -4600,8 +4601,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           border: dualActivePanel === 'front' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
                           boxShadow: dualActivePanel === 'front' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
                           cursor: (spaceKeyPressed || isPanning) ? 'inherit' : canvasCursor,
-                          width: `${Math.round((width + (rulersEnabled ? Math.max(26, Math.round(0.75 * scale)) : 0)) * zoom)}px`,
-                          height: `${Math.round((height + (rulersEnabled ? Math.max(26, Math.round(0.75 * scale)) : 0)) * zoom)}px`,
+                          width: `${Math.round((width + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((height + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
                           objectFit: 'contain',
@@ -4664,8 +4665,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           border: dualActivePanel === 'back' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
                           boxShadow: dualActivePanel === 'back' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
                           cursor: (spaceKeyPressed || isPanning) ? 'inherit' : canvasCursor,
-                          width: `${Math.round((width + (rulersEnabled ? Math.max(26, Math.round(0.75 * scale)) : 0)) * zoom)}px`,
-                          height: `${Math.round((height + (rulersEnabled ? Math.max(26, Math.round(0.75 * scale)) : 0)) * zoom)}px`,
+                          width: `${Math.round((width + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((height + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
                           objectFit: 'contain',
@@ -4745,8 +4746,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           border: dualActivePanel === 'sleeveRight' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
                           boxShadow: dualActivePanel === 'sleeveRight' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
                           cursor: (spaceKeyPressed || isPanning) ? 'inherit' : canvasCursor,
-                          width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.max(26, Math.round(0.75 * scale)) : 0)) * zoom)}px`,
-                          height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.max(26, Math.round(0.75 * scale)) : 0)) * zoom)}px`,
+                          width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
                           objectFit: 'contain',
@@ -4799,8 +4800,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       border: '2px solid rgba(0, 240, 255, 0.5)', 
                       boxShadow: '0 0 50px rgba(0,0,0,0.95)',
                       cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : canvasCursor,
-                      width: `${Math.round((width + ((rulersEnabled && activeTab !== 'collar') ? Math.max(26, Math.round(0.75 * scale)) : 0)) * zoom)}px`,
-                      height: `${Math.round((height + ((rulersEnabled && activeTab !== 'collar') ? Math.max(26, Math.round(0.75 * scale)) : 0)) * zoom)}px`,
+                      width: `${Math.round((width + ((rulersEnabled && activeTab !== 'collar') ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                      height: `${Math.round((height + ((rulersEnabled && activeTab !== 'collar') ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                       maxWidth: 'none',
                       maxHeight: 'none',
                       objectFit: activeTab === 'collar' ? 'fill' : 'contain',
