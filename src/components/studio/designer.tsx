@@ -78,6 +78,8 @@ export interface PanelConfig {
   leftChestLogo?: LogoConfig;
   rightChestLogo?: LogoConfig;
   torsoLogo?: LogoConfig;
+  bottomLeftLogo?: LogoConfig;
+  bottomRightLogo?: LogoConfig;
   bgWidth?: number;
   bgHeight?: number;
   bgX?: number;
@@ -198,7 +200,9 @@ export const defaultDesignConfig: ArtDesignConfig = {
     guidelines: { vertical: [2.0, 8.5, 11.0, 13.5, 20.0], horizontal: [7.0, 10.0, 12.0, 27.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 15.0, yPos: 8.5, lockAspectRatio: true },
     rightChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 7.0, yPos: 8.5, lockAspectRatio: true },
-    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.5, height: 2.6, xPos: 11.0, yPos: 13.3, text: '', lockAspectRatio: true }
+    torsoLogo: { enabled: false, uploadedUrl: null, width: 8.5, height: 2.6, xPos: 11.0, yPos: 13.3, text: '', lockAspectRatio: true },
+    bottomLeftLogo: { enabled: false, uploadedUrl: null, width: 2.0, height: 2.0, xPos: 3.5, yPos: 26.0, lockAspectRatio: true },
+    bottomRightLogo: { enabled: false, uploadedUrl: null, width: 2.0, height: 2.0, xPos: 18.5, yPos: 26.0, lockAspectRatio: true }
   },
   back: {
     backgroundType: 'upload',
@@ -504,6 +508,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
       if (panel.torsoLogo?.enabled && panel.torsoLogo.uploadedUrl) {
         urls.push(panel.torsoLogo.uploadedUrl);
+      }
+      if (panel.bottomLeftLogo?.enabled && panel.bottomLeftLogo.uploadedUrl) {
+        urls.push(panel.bottomLeftLogo.uploadedUrl);
+      }
+      if (panel.bottomRightLogo?.enabled && panel.bottomRightLogo.uploadedUrl) {
+        urls.push(panel.bottomRightLogo.uploadedUrl);
       }
     });
 
@@ -1128,15 +1138,30 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     });
   };
 
-  const updateLogoConfig = (logoType: 'leftChest' | 'rightChest' | 'torso', fields: Partial<LogoConfig>) => {
-    const configKey = logoType === 'leftChest' ? 'leftChestLogo' : logoType === 'rightChest' ? 'rightChestLogo' : 'torsoLogo';
+  const updateLogoConfig = (logoType: 'leftChest' | 'rightChest' | 'torso' | 'bottomLeft' | 'bottomRight', fields: Partial<LogoConfig>) => {
+    const configKey = logoType === 'leftChest' ? 'leftChestLogo' 
+      : logoType === 'rightChest' ? 'rightChestLogo' 
+      : logoType === 'torso' ? 'torsoLogo'
+      : logoType === 'bottomLeft' ? 'bottomLeftLogo'
+      : 'bottomRightLogo';
+    const defaultW = (logoType === 'bottomLeft' || logoType === 'bottomRight') ? 2.0 : logoType === 'torso' ? 8.5 : 3.5;
+    const defaultH = (logoType === 'bottomLeft' || logoType === 'bottomRight') ? 2.0 : logoType === 'torso' ? 2.6 : 3.5;
+    const defaultX = logoType === 'leftChest' ? 15.0 
+      : logoType === 'rightChest' ? 7.0 
+      : logoType === 'torso' ? 11.0 
+      : logoType === 'bottomLeft' ? 3.5 
+      : (physicalWidth - 3.5);
+    const defaultY = logoType === 'torso' ? 13.3 
+      : (logoType === 'bottomLeft' || logoType === 'bottomRight') ? (physicalHeight - 4.0) 
+      : 8.5;
+
     const current = activePanel[configKey] || {
       enabled: false,
       uploadedUrl: null,
-      width: logoType === 'torso' ? 8.5 : 3.5,
-      height: logoType === 'torso' ? 2.6 : 3.5,
-      xPos: logoType === 'leftChest' ? 15.0 : logoType === 'rightChest' ? 7.0 : 11.0,
-      yPos: logoType === 'torso' ? 13.3 : 8.5,
+      width: defaultW,
+      height: defaultH,
+      xPos: defaultX,
+      yPos: defaultY,
       lockAspectRatio: true
     };
 
@@ -1756,10 +1781,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       // --- TOP RULER TICKS ---
       const totalUnitsX = unitCfg.fromInches(physicalW);
       const stepX = unitCfg.majorStep / unitCfg.subdivisions;
-      const fontSize = Math.max(8, Math.min(10, Math.round(0.10 * scale)));
+      const fontSize = Math.max(8, Math.min(10, Math.round(0.09 * scale)));
       ctx.font = `${fontSize}px Inter, -apple-system, system-ui, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
 
       for (let u = 0; u <= totalUnitsX + 0.0001; u += stepX) {
         const inVal = unitCfg.toInches(u);
@@ -1768,7 +1791,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
         const isMajor = Math.abs(u % unitCfg.majorStep) < 0.001 || Math.abs(u % unitCfg.majorStep - unitCfg.majorStep) < 0.001;
         const isHalf = !isMajor && (Math.abs(u % (unitCfg.majorStep / 2)) < 0.001);
-        const tickLen = isMajor ? Math.round(rulerOffset * 0.45) : isHalf ? Math.round(rulerOffset * 0.28) : Math.round(rulerOffset * 0.16);
+        const tickLen = isMajor ? Math.round(rulerOffset * 0.35) : isHalf ? Math.round(rulerOffset * 0.22) : Math.round(rulerOffset * 0.14);
 
         ctx.strokeStyle = isMajor ? tickColor : isHalf ? '#a1a1aa' : subTickColor;
         ctx.lineWidth = isMajor ? 1 : 0.5;
@@ -1777,17 +1800,18 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.lineTo(xPx, rulerOffset);
         ctx.stroke();
 
+        // Photoshop Style: Number is placed to the right of the tick mark, sitting in the upper track without overlapping
         if (isMajor && u > 0) {
           ctx.fillStyle = tickColor;
-          ctx.fillText(Math.round(u).toString(), xPx, 2);
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          ctx.fillText(Math.round(u).toString(), xPx + 3, 2);
         }
       }
 
       // --- LEFT RULER TICKS ---
       const totalUnitsY = unitCfg.fromInches(physicalH);
       const stepY = unitCfg.majorStep / unitCfg.subdivisions;
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
 
       for (let u = 0; u <= totalUnitsY + 0.0001; u += stepY) {
         const inVal = unitCfg.toInches(u);
@@ -1796,7 +1820,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
         const isMajor = Math.abs(u % unitCfg.majorStep) < 0.001 || Math.abs(u % unitCfg.majorStep - unitCfg.majorStep) < 0.001;
         const isHalf = !isMajor && (Math.abs(u % (unitCfg.majorStep / 2)) < 0.001);
-        const tickLen = isMajor ? Math.round(rulerOffset * 0.45) : isHalf ? Math.round(rulerOffset * 0.28) : Math.round(rulerOffset * 0.16);
+        const tickLen = isMajor ? Math.round(rulerOffset * 0.35) : isHalf ? Math.round(rulerOffset * 0.22) : Math.round(rulerOffset * 0.14);
 
         ctx.strokeStyle = isMajor ? tickColor : isHalf ? '#a1a1aa' : subTickColor;
         ctx.lineWidth = isMajor ? 1 : 0.5;
@@ -1805,11 +1829,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.lineTo(rulerOffset, yPx);
         ctx.stroke();
 
+        // Photoshop Style: Number sits on the left side and above the tick mark, never colliding
         if (isMajor && u > 0) {
           ctx.fillStyle = tickColor;
           ctx.save();
           ctx.font = `${Math.max(7, fontSize - 1)}px Inter, sans-serif`;
-          ctx.fillText(Math.round(u).toString(), 2, yPx);
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(Math.round(u).toString(), 2, yPx - 1);
           ctx.restore();
         }
       }
@@ -1845,12 +1872,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       if (showGuidelines) {
         const customGuides = panel.guidelines || { vertical: [], horizontal: [] };
         ctx.save();
-        ctx.strokeStyle = '#00f0ff'; // Cyan guideline color
-        ctx.lineWidth = 0.6;
-        ctx.setLineDash([4, 4]);
-
-        ctx.fillStyle = '#00f0ff';
-        ctx.font = `bold ${Math.max(9, Math.round(0.12 * scale))}px system-ui`;
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.85)'; // Crisp cyan
+        ctx.lineWidth = 0.5; // Thinned hairline thickness
+        ctx.setLineDash([3, 3]);
 
         (customGuides.vertical || []).forEach(xVal => {
           const rawPx = Math.abs(xVal - physicalW / 2) < 0.01 ? Math.round(width / 2) : Math.round(xVal * scale);
@@ -1861,16 +1885,27 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ctx.lineTo(xPx, rulerOffset + height);
             ctx.stroke();
 
-            // Label tag on top ruler showing formatted value in active unit
+            // Label badge on top ruler: 100% Solid Opaque background to cleanly obscure tick marks/numbers underneath
             const unitVal = unitCfg.fromInches(xVal);
             const tagText = unitCfg.format(unitVal, unitCfg.defaultDecimals);
             ctx.save();
-            ctx.fillStyle = 'rgba(0, 240, 255, 0.25)';
-            ctx.fillRect(xPx - 20, 2, 40, rulerOffset - 4);
-            ctx.fillStyle = '#00f0ff';
+            ctx.font = `bold ${Math.max(9, Math.min(10, Math.round(fontSize)))}px Inter, system-ui, sans-serif`;
+            const textMetrics = ctx.measureText(tagText);
+            const badgeW = Math.max(34, Math.round(textMetrics.width + 10));
+            const badgeH = Math.max(13, rulerOffset - 4);
+            const badgeX = Math.round(xPx - badgeW / 2);
+            const badgeY = 2;
+
+            ctx.fillStyle = '#090D16'; // 100% Solid opaque dark pill
+            ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+            ctx.strokeStyle = '#00F0FF';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(badgeX, badgeY, badgeW, badgeH);
+
+            ctx.fillStyle = '#00F0FF';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(tagText, xPx, rulerOffset / 2);
+            ctx.fillText(tagText, xPx, badgeY + badgeH / 2);
             ctx.restore();
           }
         });
@@ -1883,16 +1918,27 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ctx.lineTo(rulerOffset + width, yPx);
             ctx.stroke();
 
-            // Label tag on left ruler showing formatted value in active unit
+            // Label badge on left ruler: 100% Solid Opaque background
             const unitVal = unitCfg.fromInches(yVal);
             const tagText = unitCfg.format(unitVal, unitCfg.defaultDecimals);
             ctx.save();
-            ctx.fillStyle = 'rgba(0, 240, 255, 0.25)';
-            ctx.fillRect(2, yPx - 9, rulerOffset - 4, 18);
-            ctx.fillStyle = '#00f0ff';
+            ctx.font = `bold ${Math.max(9, Math.min(10, Math.round(fontSize)))}px Inter, system-ui, sans-serif`;
+            const textMetrics = ctx.measureText(tagText);
+            const badgeW = Math.max(rulerOffset - 2, Math.round(textMetrics.width + 8));
+            const badgeH = 14;
+            const badgeX = 1;
+            const badgeY = Math.round(yPx - badgeH / 2);
+
+            ctx.fillStyle = '#090D16'; // 100% Solid opaque
+            ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+            ctx.strokeStyle = '#00F0FF';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(badgeX, badgeY, badgeW, badgeH);
+
+            ctx.fillStyle = '#00F0FF';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(tagText, rulerOffset / 2, yPx);
+            ctx.fillText(tagText, badgeX + badgeW / 2, yPx);
             ctx.restore();
           }
         });
@@ -1905,7 +1951,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const hideOverlays = metadata?.blankKit ?? false;
       if (hideOverlays) return;
 
-      const drawSingleLogo = (logo: LogoConfig | undefined, isTorso: boolean = false) => {
+      const drawSingleLogo = (logo: LogoConfig | undefined, isTorso: boolean = false, placeholderLabel?: string) => {
         if (!logo || !logo.enabled) return;
 
         if (isTorso && logo.text && logo.text.trim()) {
@@ -1928,7 +1974,30 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           return;
         }
 
-        if (!logo.uploadedUrl) return;
+        const wPx = logo.width * scale;
+        const hPx = logo.height * scale;
+        const xPx = logo.xPos * scale;
+        const yPx = logo.yPos * scale;
+
+        if (!logo.uploadedUrl) {
+          if (placeholderLabel) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(228, 87, 46, 0.7)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.fillStyle = 'rgba(228, 87, 46, 0.08)';
+            ctx.fillRect(xPx - wPx / 2, yPx - hPx / 2, wPx, hPx);
+            ctx.strokeRect(xPx - wPx / 2, yPx - hPx / 2, wPx, hPx);
+            ctx.fillStyle = '#E4572E';
+            ctx.font = `600 ${Math.max(8, Math.round(0.08 * scale))}px system-ui, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(placeholderLabel, xPx, yPx);
+            ctx.restore();
+          }
+          return;
+        }
+
         const cachedImg = logoImagesRef.current[logo.uploadedUrl];
         if (!cachedImg) {
           const img = new Image();
@@ -1941,11 +2010,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         }
 
         ctx.save();
-        const wPx = logo.width * scale;
-        const hPx = logo.height * scale;
-        const xPx = logo.xPos * scale;
-        const yPx = logo.yPos * scale;
-
         ctx.drawImage(cachedImg, xPx - wPx / 2, yPx - hPx / 2, wPx, hPx);
         ctx.restore();
       };
@@ -1953,6 +2017,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       drawSingleLogo(panel.leftChestLogo, false);
       drawSingleLogo(panel.rightChestLogo, false);
       drawSingleLogo(panel.torsoLogo, true);
+      drawSingleLogo(panel.bottomLeftLogo, false, 'LABEL (LEFT)');
+      drawSingleLogo(panel.bottomRightLogo, false, 'LABEL (RIGHT)');
     };
 
     const drawPanelArtwork = () => {
@@ -2747,13 +2813,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   };
 
 
-  const handleLogoFileUpload = (position: 'leftChest' | 'rightChest' | 'torso', e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoFileUpload = (position: 'leftChest' | 'rightChest' | 'torso' | 'bottomLeft' | 'bottomRight', e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       const url = ev.target?.result as string;
-      const logoKey = position === 'leftChest' ? 'leftChestLogo' : position === 'rightChest' ? 'rightChestLogo' : 'torsoLogo';
+      const logoKey = position === 'leftChest' ? 'leftChestLogo' 
+        : position === 'rightChest' ? 'rightChestLogo' 
+        : position === 'torso' ? 'torsoLogo'
+        : position === 'bottomLeft' ? 'bottomLeftLogo'
+        : 'bottomRightLogo';
       updateActivePanel({ [logoKey]: { ...((activePanel as any)[logoKey] || {}), uploadedUrl: url, enabled: true } });
       setPrefTrigger((prev: number) => prev + 1);
     };
@@ -6540,6 +6610,268 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       </div>
                     )}
                   </div>
+
+                  {/* Bottom Left Label Logo (Front Panel Only) */}
+                  {(activeTab === 'front' || activeTab === 'dual') && (
+                    <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <div>
+                          <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Bottom Left Label Logo</span>
+                          <span style={{ fontSize: '10px', color: '#E4572E', marginLeft: '6px', fontWeight: '600' }}>(2.5" Left, 3" Bottom)</span>
+                        </div>
+                        <label className="checkbox-card" style={{ padding: '2px 6px', margin: 0, fontSize: '11px' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={activePanel.bottomLeftLogo?.enabled ?? false} 
+                            onChange={(e) => updateLogoConfig('bottomLeft', { enabled: e.target.checked })}
+                          />
+                          Enable
+                        </label>
+                      </div>
+
+                      {activePanel.bottomLeftLogo?.enabled && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <label className="btn btn-secondary" style={{ flex: 1, padding: '6px', fontSize: '11px', cursor: 'pointer', textAlign: 'center' }}>
+                              Import Logo Image
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={(e) => handleLogoFileUpload('bottomLeft', e)} 
+                                style={{ display: 'none' }} 
+                              />
+                            </label>
+                            {activePanel.bottomLeftLogo?.uploadedUrl && (
+                              <button 
+                                className="btn" 
+                                style={{ padding: '6px', fontSize: '10px', background: 'rgba(255,23,68,0.2)', border: 'none', color: '#ff1744' }}
+                                onClick={() => updateLogoConfig('bottomLeft', { uploadedUrl: null })}
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '-2px', marginBottom: '4px' }}>
+                            <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', cursor: 'pointer' }}>
+                              <input 
+                                type="checkbox" 
+                                checked={activePanel.bottomLeftLogo?.lockAspectRatio ?? true} 
+                                onChange={(e) => updateLogoConfig('bottomLeft', { lockAspectRatio: e.target.checked })}
+                              />
+                              Lock Proportions
+                            </label>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{ padding: '3px 8px', fontSize: '10px', color: '#E4572E' }}
+                              onClick={() => {
+                                updateLogoConfig('bottomLeft', { 
+                                  width: 2.0, 
+                                  height: 2.0, 
+                                  xPos: 3.5, 
+                                  yPos: physicalHeight - 4.0 
+                                });
+                              }}
+                              title="Reset placement to 2.5 in Left and 3.0 in Bottom"
+                            >
+                              Reset Bleed (2.5" L, 3" B)
+                            </button>
+                          </div>
+
+                          <div className="grid-2">
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label className="form-label" style={{ fontSize: '10px' }}>Width (in) [Max 2.5"]: </label>
+                              <input 
+                                type="number" 
+                                step="0.1" 
+                                min="0.5"
+                                max="2.5"
+                                className="form-input" 
+                                value={activePanel.bottomLeftLogo?.width ?? 2.0} 
+                                onChange={(e) => updateLogoConfig('bottomLeft', { width: Math.min(2.5, Math.max(0.5, parseFloat(e.target.value) || 1.0)) })}
+                                style={{ padding: '4px', fontSize: '11px' }}
+                              />
+                            </div>
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label className="form-label" style={{ fontSize: '10px' }}>Height (in) [Max 2.5"]: </label>
+                              <input 
+                                type="number" 
+                                step="0.1" 
+                                min="0.5"
+                                max="2.5"
+                                className="form-input" 
+                                value={activePanel.bottomLeftLogo?.height ?? 2.0} 
+                                onChange={(e) => updateLogoConfig('bottomLeft', { height: Math.min(2.5, Math.max(0.5, parseFloat(e.target.value) || 1.0)) })}
+                                style={{ padding: '4px', fontSize: '11px' }}
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)' }}>
+                              <span>Horizontal Pos (X): Left Margin {((activePanel.bottomLeftLogo?.xPos ?? 3.5) - ((activePanel.bottomLeftLogo?.width ?? 2.0) / 2)).toFixed(1)}"</span>
+                              <span>Center: {(activePanel.bottomLeftLogo?.xPos ?? 3.5).toFixed(1)}"</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min="0" 
+                              max={physicalWidth}
+                              step="0.1"
+                              value={activePanel.bottomLeftLogo?.xPos ?? 3.5}
+                              onChange={(e) => updateLogoConfig('bottomLeft', { xPos: parseFloat(e.target.value) })}
+                            />
+                          </div>
+
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)' }}>
+                              <span>Vertical Pos (Y): Bottom Margin {(physicalHeight - (activePanel.bottomLeftLogo?.yPos ?? (physicalHeight - 4.0)) - ((activePanel.bottomLeftLogo?.height ?? 2.0) / 2)).toFixed(1)}"</span>
+                              <span>Center: {(activePanel.bottomLeftLogo?.yPos ?? (physicalHeight - 4.0)).toFixed(1)}"</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min="0" 
+                              max={physicalHeight}
+                              step="0.1"
+                              value={activePanel.bottomLeftLogo?.yPos ?? (physicalHeight - 4.0)}
+                              onChange={(e) => updateLogoConfig('bottomLeft', { yPos: parseFloat(e.target.value) })}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Bottom Right Label Logo (Front Panel Only) */}
+                  {(activeTab === 'front' || activeTab === 'dual') && (
+                    <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <div>
+                          <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Bottom Right Label Logo</span>
+                          <span style={{ fontSize: '10px', color: '#E4572E', marginLeft: '6px', fontWeight: '600' }}>(2.5" Right, 3" Bottom)</span>
+                        </div>
+                        <label className="checkbox-card" style={{ padding: '2px 6px', margin: 0, fontSize: '11px' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={activePanel.bottomRightLogo?.enabled ?? false} 
+                            onChange={(e) => updateLogoConfig('bottomRight', { enabled: e.target.checked })}
+                          />
+                          Enable
+                        </label>
+                      </div>
+
+                      {activePanel.bottomRightLogo?.enabled && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <label className="btn btn-secondary" style={{ flex: 1, padding: '6px', fontSize: '11px', cursor: 'pointer', textAlign: 'center' }}>
+                              Import Logo Image
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={(e) => handleLogoFileUpload('bottomRight', e)} 
+                                style={{ display: 'none' }} 
+                              />
+                            </label>
+                            {activePanel.bottomRightLogo?.uploadedUrl && (
+                              <button 
+                                className="btn" 
+                                style={{ padding: '6px', fontSize: '10px', background: 'rgba(255,23,68,0.2)', border: 'none', color: '#ff1744' }}
+                                onClick={() => updateLogoConfig('bottomRight', { uploadedUrl: null })}
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '-2px', marginBottom: '4px' }}>
+                            <label className="checkbox-card" style={{ padding: '4px 8px', margin: 0, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', cursor: 'pointer' }}>
+                              <input 
+                                type="checkbox" 
+                                checked={activePanel.bottomRightLogo?.lockAspectRatio ?? true} 
+                                onChange={(e) => updateLogoConfig('bottomRight', { lockAspectRatio: e.target.checked })}
+                              />
+                              Lock Proportions
+                            </label>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{ padding: '3px 8px', fontSize: '10px', color: '#E4572E' }}
+                              onClick={() => {
+                                updateLogoConfig('bottomRight', { 
+                                  width: 2.0, 
+                                  height: 2.0, 
+                                  xPos: physicalWidth - 3.5, 
+                                  yPos: physicalHeight - 4.0 
+                                });
+                              }}
+                              title="Reset placement to 2.5 in Right and 3.0 in Bottom"
+                            >
+                              Reset Bleed (2.5" R, 3" B)
+                            </button>
+                          </div>
+
+                          <div className="grid-2">
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label className="form-label" style={{ fontSize: '10px' }}>Width (in) [Max 2.5"]: </label>
+                              <input 
+                                type="number" 
+                                step="0.1" 
+                                min="0.5"
+                                max="2.5"
+                                className="form-input" 
+                                value={activePanel.bottomRightLogo?.width ?? 2.0} 
+                                onChange={(e) => updateLogoConfig('bottomRight', { width: Math.min(2.5, Math.max(0.5, parseFloat(e.target.value) || 1.0)) })}
+                                style={{ padding: '4px', fontSize: '11px' }}
+                              />
+                            </div>
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label className="form-label" style={{ fontSize: '10px' }}>Height (in) [Max 2.5"]: </label>
+                              <input 
+                                type="number" 
+                                step="0.1" 
+                                min="0.5"
+                                max="2.5"
+                                className="form-input" 
+                                value={activePanel.bottomRightLogo?.height ?? 2.0} 
+                                onChange={(e) => updateLogoConfig('bottomRight', { height: Math.min(2.5, Math.max(0.5, parseFloat(e.target.value) || 1.0)) })}
+                                style={{ padding: '4px', fontSize: '11px' }}
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)' }}>
+                              <span>Horizontal Pos (X): Right Margin {((physicalWidth - (activePanel.bottomRightLogo?.xPos ?? (physicalWidth - 3.5))) - ((activePanel.bottomRightLogo?.width ?? 2.0) / 2)).toFixed(1)}"</span>
+                              <span>Center: {(activePanel.bottomRightLogo?.xPos ?? (physicalWidth - 3.5)).toFixed(1)}"</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min="0" 
+                              max={physicalWidth}
+                              step="0.1"
+                              value={activePanel.bottomRightLogo?.xPos ?? (physicalWidth - 3.5)}
+                              onChange={(e) => updateLogoConfig('bottomRight', { xPos: parseFloat(e.target.value) })}
+                            />
+                          </div>
+
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)' }}>
+                              <span>Vertical Pos (Y): Bottom Margin {(physicalHeight - (activePanel.bottomRightLogo?.yPos ?? (physicalHeight - 4.0)) - ((activePanel.bottomRightLogo?.height ?? 2.0) / 2)).toFixed(1)}"</span>
+                              <span>Center: {(activePanel.bottomRightLogo?.yPos ?? (physicalHeight - 4.0)).toFixed(1)}"</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min="0" 
+                              max={physicalHeight}
+                              step="0.1"
+                              value={activePanel.bottomRightLogo?.yPos ?? (physicalHeight - 4.0)}
+                              onChange={(e) => updateLogoConfig('bottomRight', { yPos: parseFloat(e.target.value) })}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
 
