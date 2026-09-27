@@ -28,12 +28,12 @@ Export your CorelDRAW jersey designs directly into **FiveNest Production Studio*
    - **Crop**: Individual shape bounding box cropped (`Range = 2` / `cdrSelection`)
    - **Color Profile**: **RGB** (`cdrRGBColorImage` / `4`, sRGB Profile Embedded)
    - **Resolution**: **300 DPI**
-6. **1-Click Packaging & Studio Launch**:
-   - Exports all panels into `<ExportFolder>\<JobName>_Panels\`.
-   - Packages into `<ExportFolder>\<JobName>.zip`.
+6. **Clean ZIP Package Output & Studio Launch**:
+   - Uses Windows system `%TEMP%` for intermediate files, then deletes them immediately.
+   - Saves **ONLY** `<ExportFolder>\<JobName>.zip` (no loose folder of JPGs cluttering your folder!).
    - Copies the ZIP package to the Windows clipboard (`Set-Clipboard`).
    - Automatically opens **FiveNest Production Studio** (`https://www.fivenest.in/production?corel_export=ready`).
-   - Selects the ZIP in Windows Explorer so you can drag-and-drop or press **Ctrl+V** to paste.
+   - Highlights the `.zip` file in Windows Explorer so you can drag-and-drop or press **Ctrl+V** to paste.
 
 ---
 

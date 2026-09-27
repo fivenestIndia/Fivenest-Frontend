@@ -571,8 +571,18 @@ Private Sub ExecuteExport()
     
     If Not fso.FolderExists(exportDir) Then fso.CreateFolder(exportDir)
     
+    ' Clean up any legacy _Panels folder in export directory if present
+    On Error Resume Next
+    If fso.FolderExists(exportDir & "\" & jobName & "_Panels") Then
+        fso.DeleteFolder exportDir & "\" & jobName & "_Panels", True
+    End If
+    On Error GoTo 0
+    
+    ' Use Windows system %TEMP% folder for intermediate JPGs so export folder gets ONLY the .zip file
+    Dim tempSysDir As String
+    tempSysDir = fso.GetSpecialFolder(2)
     Dim tempPath As String
-    tempPath = exportDir & "\" & jobName & "_Panels"
+    tempPath = tempSysDir & "\FN_Panels_" & jobName & "_" & Format(Now, "hhnnss")
     If fso.FolderExists(tempPath) Then fso.DeleteFolder tempPath, True
     fso.CreateFolder tempPath
     
@@ -624,7 +634,7 @@ Private Sub ExecuteExport()
     ts.WriteLine "}"
     ts.Close
     
-    ' ================= 4. CREATE ZIP PACKAGE =================
+    ' ================= 4. CREATE ZIP PACKAGE IN DESTINATION FOLDER =================
     Dim zipFile As String
     zipFile = exportDir & "\" & jobName & ".zip"
     If fso.FileExists(zipFile) Then fso.DeleteFile zipFile, True
@@ -632,6 +642,11 @@ Private Sub ExecuteExport()
     Dim psCmd As String
     psCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ""Compress-Archive -Path '" & tempPath & "\*' -DestinationPath '" & zipFile & "' -Force"""
     wShell.Run psCmd, 0, True
+    
+    ' Delete intermediate JPG folder immediately — ONLY the .zip file remains in export folder
+    On Error Resume Next
+    If fso.FolderExists(tempPath) Then fso.DeleteFolder tempPath, True
+    On Error GoTo 0
     
     ' Copy ZIP to clipboard for instant Ctrl+V paste on production webpage
     On Error Resume Next
@@ -651,8 +666,8 @@ Private Sub ExecuteExport()
     
     MsgBox "FiveNest Export Complete!" & vbCrLf & vbCrLf & _
            "Job Name: " & jobName & vbCrLf & _
-           count & " individual cropped panels exported in 300 DPI RGB JPG:" & report & vbCrLf & vbCrLf & _
-           "Saved ZIP Package:" & vbCrLf & _
+           count & " individual cropped panels packaged inside ZIP (300 DPI RGB):" & report & vbCrLf & vbCrLf & _
+           "Saved ZIP File:" & vbCrLf & _
            zipFile & vbCrLf & vbCrLf & _
            "Production studio opened in browser:" & vbCrLf & _
            "https://www.fivenest.in/production" & vbCrLf & vbCrLf & _
