@@ -1,5 +1,5 @@
 import React from 'react';
-import { MousePointer, Hand, ZoomIn, Type, Image as ImageIcon, Pipette, Grid } from 'lucide-react';
+import { MousePointer, Hand, ZoomIn, Type, Image as ImageIcon, Pipette, Grid, Lock, Unlock } from 'lucide-react';
 
 export type CorelTool = 'pick' | 'pan' | 'zoom' | 'text' | 'logo' | 'eyedrop';
 
@@ -8,13 +8,17 @@ interface ToolBoxProps {
   onSelectTool: (tool: CorelTool) => void;
   showGuidelines: boolean;
   onToggleGuidelines: () => void;
+  lockGuidelines?: boolean;
+  onToggleLockGuidelines?: () => void;
 }
 
 export const ToolBox: React.FC<ToolBoxProps> = ({
   activeTool,
   onSelectTool,
   showGuidelines,
-  onToggleGuidelines
+  onToggleGuidelines,
+  lockGuidelines,
+  onToggleLockGuidelines
 }) => {
   const tools: { id: CorelTool; name: string; shortcut: string; icon: React.FC<any> }[] = [
     { id: 'pick', name: 'Pick Tool', shortcut: 'V', icon: MousePointer },
@@ -52,6 +56,18 @@ export const ToolBox: React.FC<ToolBoxProps> = ({
       >
         <Grid size={18} />
       </button>
+
+      {/* Guidelines Lock / Unlock Toggle */}
+      {onToggleLockGuidelines && (
+        <button
+          className={`cd-tool-btn ${lockGuidelines ? 'active' : ''}`}
+          onClick={onToggleLockGuidelines}
+          title={lockGuidelines ? "Guidelines Locked (Default) • Click to Unlock (Ctrl+;)" : "Guidelines Unlocked (Draggable) • Click to Lock (Ctrl+;)"}
+          style={lockGuidelines ? { color: '#E4572E' } : undefined}
+        >
+          {lockGuidelines ? <Lock size={17} /> : <Unlock size={17} />}
+        </button>
+      )}
     </div>
   );
 };

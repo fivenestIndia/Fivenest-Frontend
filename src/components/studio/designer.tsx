@@ -439,6 +439,25 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     return 'in';
   });
 
+  // Default: Guidelines are LOCKED so users cannot accidentally displace them
+  const [lockGuidelines, setLockGuidelines] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('fivenest_pref_lock_guidelines');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch (e) {
+      return true;
+    }
+  });
+
+  const handleToggleLockGuidelines = () => {
+    setLockGuidelines(prev => {
+      const next = !prev;
+      localStorage.setItem('fivenest_pref_lock_guidelines', JSON.stringify(next));
+      toast.success(next ? 'Guidelines Locked (Default)' : 'Guidelines Unlocked (Draggable)');
+      return next;
+    });
+  };
+
   interface DraggingGuideState {
     type: 'vertical' | 'horizontal';
     isNew: boolean;
@@ -446,7 +465,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     originalValue?: number;
     currentValInches: number;
     isDeleting: boolean;
-    panelKey: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print';
+    panelKey: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'collar';
   }
 
   const [draggingGuide, setDraggingGuide] = useState<DraggingGuideState | null>(null);
@@ -1283,14 +1302,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
   // Parameters-based Canvas Drawing Helper for both 2D and 3D
   const renderPanelToCanvas = (
-    panelKey: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print',
+    panelKey: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'collar',
     ctx: CanvasRenderingContext2D,
     customWidth: number,
     customHeight: number,
     customScale: number,
     is3DPreview: boolean = false
   ) => {
-    const panel = designConfig[panelKey];
+    const panel = (designConfig[panelKey as keyof ArtDesignConfig] || activePanel) as PanelConfig;
     if (!panel) return;
 
     const width = customWidth;
@@ -1311,6 +1330,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     } else if (panelKey === 'a4Print') {
       physicalW = 10;
       physicalH = 11;
+    } else if (panelKey === 'collar') {
+      physicalW = 18;
+      physicalH = 4.5;
     }
 
     const drawTechnicalMarks = (ctx: CanvasRenderingContext2D) => {
@@ -1719,7 +1741,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const savedR = localStorage.getItem('fivenest_pref_rulers');
       if (savedR !== null) rulersPref = JSON.parse(savedR);
     } catch (e) {}
-    const rulersEnabled = !is3DPreview && rulersPref && (panelKey !== 'collar');
+    const rulersEnabled = !is3DPreview && rulersPref;
     const rulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
 
     const drawRulersAndGrid = (ctx: CanvasRenderingContext2D) => {
@@ -2530,6 +2552,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         return;
       }
 
+      // 2b. LOCK / UNLOCK GUIDELINES SHORTCUT: Ctrl+; or Ctrl+Alt+; or Alt+L
+      if ((isCtrl && (e.key === ';' || e.key === ':')) || (e.altKey && key === 'L')) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleToggleLockGuidelines();
+        return;
+      }
+
       // 3. UNDO: Ctrl+Z / Cmd+Z (only if not typing in an input)
       if (isCtrl && key === 'Z' && !e.shiftKey) {
         if (!isInputActive) {
@@ -2738,12 +2768,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const rulerOffset = rulersPref ? Math.round(0.55 * scale) : 0;
 
     if (activeTab === 'dual') {
-      // 0. Collar Panel (18" x 4.5" at top - fits 100% edge-to-edge without extra ruler offset)
+      // 0. Collar Panel (18" x 4.5" at top)
       if (collarCanvasRef.current) {
         const cCtx = collarCanvasRef.current.getContext('2d');
         if (cCtx) {
-          collarCanvasRef.current.width = Math.round(collarSpreadWidth * zoom);
-          collarCanvasRef.current.height = Math.round(collarSpreadHeight * zoom);
+          collarCanvasRef.current.width = Math.round((collarSpreadWidth + rulerOffset) * zoom);
+          collarCanvasRef.current.height = Math.round((collarSpreadHeight + rulerOffset) * zoom);
           cCtx.scale(zoom, zoom);
           renderPanelToCanvas('collar', cCtx, collarSpreadWidth, collarSpreadHeight, scale, false);
         }
@@ -2796,13 +2826,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const currentRulerOffset = activeTab === 'collar' ? 0 : rulerOffset;
+    const currentRulerOffset = rulerOffset;
     canvas.width = Math.round((width + currentRulerOffset) * zoom);
     canvas.height = Math.round((height + currentRulerOffset) * zoom);
     ctx.scale(zoom, zoom);
 
     renderPanelToCanvas(activeTab, ctx, width, height, scale, false);
-  }, [activeTab, dualActivePanel, activePanel, previewName, previewNumber, designConfig, customFonts, metadata, previewSleeveType, prefTrigger, zoom, showGuidelines, rulerUnit, cursorPos, draggingGuide]);
+  }, [activeTab, dualActivePanel, activePanel, previewName, previewNumber, designConfig, customFonts, metadata, previewSleeveType, prefTrigger, zoom, showGuidelines, lockGuidelines, rulersEnabled, rulerUnit, cursorPos, draggingGuide]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -3451,7 +3481,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     }
 
     const rect = targetCanvas.getBoundingClientRect();
-    const currentRulerOffset = (rulersEnabled && targetPanelKey !== 'collar') ? Math.round(0.55 * scale) : 0;
+    const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
     const rawClickX = (e.clientX - rect.left) / zoom;
     const rawClickY = (e.clientY - rect.top) / zoom;
 
@@ -3463,6 +3493,15 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
     // 2. Drag down from Top Ruler -> Pull new HORIZONTAL guideline
     if (currentRulerOffset > 0 && rawClickY <= currentRulerOffset && rawClickX > currentRulerOffset) {
+      if (lockGuidelines) {
+        toast.info('Guidelines are locked (Default). Unlock guidelines to add or drag them.', {
+          action: {
+            label: 'Unlock',
+            onClick: () => handleToggleLockGuidelines()
+          }
+        });
+        return;
+      }
       const newGuide: DraggingGuideState = {
         type: 'horizontal',
         isNew: true,
@@ -3479,6 +3518,15 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
     // 3. Drag right from Left Ruler -> Pull new VERTICAL guideline
     if (currentRulerOffset > 0 && rawClickX <= currentRulerOffset && rawClickY > currentRulerOffset) {
+      if (lockGuidelines) {
+        toast.info('Guidelines are locked (Default). Unlock guidelines to add or drag them.', {
+          action: {
+            label: 'Unlock',
+            onClick: () => handleToggleLockGuidelines()
+          }
+        });
+        return;
+      }
       const newGuide: DraggingGuideState = {
         type: 'vertical',
         isNew: true,
@@ -3496,42 +3544,44 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const canvasX = rawClickX - currentRulerOffset;
     const canvasY = rawClickY - currentRulerOffset;
 
-    // 4. Hit-test existing guidelines on artwork area (within 6px) to drag/edit or remove them!
-    const curGuides = panelConfig.guidelines || { vertical: [], horizontal: [] };
-    const hIndex = (curGuides.horizontal || []).findIndex(val => Math.abs((val * scale) - canvasY) <= 6);
-    if (hIndex !== -1) {
-      const guideState: DraggingGuideState = {
-        type: 'horizontal',
-        isNew: false,
-        originalIndex: hIndex,
-        originalValue: curGuides.horizontal[hIndex],
-        currentValInches: curGuides.horizontal[hIndex],
-        isDeleting: false,
-        panelKey: targetPanelKey as any
-      };
-      draggingGuideRef.current = guideState;
-      setDraggingGuide(guideState);
-      setMouseClientPos({ x: e.clientX, y: e.clientY });
-      e.preventDefault();
-      return;
-    }
+    // 4. Hit-test existing guidelines on artwork area (within 6px) to drag/edit or remove them (only when unlocked)!
+    if (!lockGuidelines) {
+      const curGuides = panelConfig.guidelines || { vertical: [], horizontal: [] };
+      const hIndex = (curGuides.horizontal || []).findIndex(val => Math.abs((val * scale) - canvasY) <= 6);
+      if (hIndex !== -1) {
+        const guideState: DraggingGuideState = {
+          type: 'horizontal',
+          isNew: false,
+          originalIndex: hIndex,
+          originalValue: curGuides.horizontal[hIndex],
+          currentValInches: curGuides.horizontal[hIndex],
+          isDeleting: false,
+          panelKey: targetPanelKey as any
+        };
+        draggingGuideRef.current = guideState;
+        setDraggingGuide(guideState);
+        setMouseClientPos({ x: e.clientX, y: e.clientY });
+        e.preventDefault();
+        return;
+      }
 
-    const vIndex = (curGuides.vertical || []).findIndex(val => Math.abs((val * scale) - canvasX) <= 6);
-    if (vIndex !== -1) {
-      const guideState: DraggingGuideState = {
-        type: 'vertical',
-        isNew: false,
-        originalIndex: vIndex,
-        originalValue: curGuides.vertical[vIndex],
-        currentValInches: curGuides.vertical[vIndex],
-        isDeleting: false,
-        panelKey: targetPanelKey as any
-      };
-      draggingGuideRef.current = guideState;
-      setDraggingGuide(guideState);
-      setMouseClientPos({ x: e.clientX, y: e.clientY });
-      e.preventDefault();
-      return;
+      const vIndex = (curGuides.vertical || []).findIndex(val => Math.abs((val * scale) - canvasX) <= 6);
+      if (vIndex !== -1) {
+        const guideState: DraggingGuideState = {
+          type: 'vertical',
+          isNew: false,
+          originalIndex: vIndex,
+          originalValue: curGuides.vertical[vIndex],
+          currentValInches: curGuides.vertical[vIndex],
+          isDeleting: false,
+          panelKey: targetPanelKey as any
+        };
+        draggingGuideRef.current = guideState;
+        setDraggingGuide(guideState);
+        setMouseClientPos({ x: e.clientX, y: e.clientY });
+        e.preventDefault();
+        return;
+      }
     }
 
     const pad = 14;
@@ -3694,7 +3744,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
     const panelConfig = (designConfig[targetPanelKey as keyof ArtDesignConfig] || activePanel) as PanelConfig;
     const rect = targetCanvas.getBoundingClientRect();
-    const currentRulerOffset = (rulersEnabled && targetPanelKey !== 'collar') ? Math.round(0.55 * scale) : 0;
+    const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
     const canvasX = (e.clientX - rect.left) / zoom - currentRulerOffset;
     const canvasY = (e.clientY - rect.top) / zoom - currentRulerOffset;
     const pad = 16;
@@ -3788,7 +3838,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     }
   };
 
-  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>, specificPanel?: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print') => {
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>, specificPanel?: 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'collar') => {
     const targetCanvas = e.currentTarget;
     if (!targetCanvas) return;
     const rect = targetCanvas.getBoundingClientRect();
@@ -3798,7 +3848,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const targetPanelKey = specificPanel || (activeTab === 'dual' ? dualActivePanel : activeTab);
     const panelConfig = (designConfig[targetPanelKey as keyof ArtDesignConfig] || activePanel) as PanelConfig;
 
-    const currentRulerOffset = (rulersEnabled && targetPanelKey !== 'collar') ? Math.round(0.55 * scale) : 0;
+    const currentRulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
     const rawX = mouseX / zoom;
     const rawY = mouseY / zoom;
     const canvasX = rawX - currentRulerOffset;
@@ -3832,11 +3882,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     // 2. Dynamic hover cursor when not dragging
     if (!isDraggingTextRef.current) {
       if (currentRulerOffset > 0) {
-        if (rawY <= currentRulerOffset && rawX > currentRulerOffset) {
+        if (!lockGuidelines && rawY <= currentRulerOffset && rawX > currentRulerOffset) {
           setCanvasCursor('row-resize');
-        } else if (rawX <= currentRulerOffset && rawY > currentRulerOffset) {
+        } else if (!lockGuidelines && rawX <= currentRulerOffset && rawY > currentRulerOffset) {
           setCanvasCursor('col-resize');
-        } else {
+        } else if (!lockGuidelines) {
           const curGuides = panelConfig.guidelines || { vertical: [], horizontal: [] };
           const nearH = (curGuides.horizontal || []).some(val => Math.abs((val * scale) - canvasY) <= 6);
           const nearV = (curGuides.vertical || []).some(val => Math.abs((val * scale) - canvasX) <= 6);
@@ -3847,6 +3897,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           } else {
             setCanvasCursor(activeTextLayer ? 'move' : 'default');
           }
+        } else {
+          setCanvasCursor(activeTextLayer ? 'move' : 'default');
         }
       } else {
         setCanvasCursor(activeTextLayer ? 'move' : 'default');
@@ -3946,6 +3998,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         onSetZoom={handleZoomChange}
         showGuidelines={showGuidelines}
         onToggleGuidelines={() => setShowGuidelines(prev => !prev)}
+        lockGuidelines={lockGuidelines}
+        onToggleLockGuidelines={handleToggleLockGuidelines}
         rulersEnabled={rulersEnabled}
         onToggleRulers={() => {
           setRulersEnabled(prev => {
@@ -3982,6 +4036,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
       {/* 3. MAIN WORKSPACE: CANVAS + RIGHT DOCKERS */}
       <div className="cd-workspace-main">
+        {/* Left CorelDRAW ToolBox */}
+        <ToolBox
+          activeTool={activeTool}
+          onSelectTool={setActiveTool}
+          showGuidelines={showGuidelines}
+          onToggleGuidelines={() => setShowGuidelines(prev => !prev)}
+          lockGuidelines={lockGuidelines}
+          onToggleLockGuidelines={handleToggleLockGuidelines}
+        />
+
         <div className="cd-canvas-area" style={{ background: 'radial-gradient(ellipse at 50% 20%, rgba(228, 87, 46, 0.04) 0%, transparent 65%), repeating-linear-gradient(0deg, transparent, transparent 23px, rgba(0, 0, 0, 0.035) 23px, rgba(0, 0, 0, 0.035) 24px), repeating-linear-gradient(90deg, transparent, transparent 23px, rgba(0, 0, 0, 0.035) 23px, rgba(0, 0, 0, 0.035) 24px), #EDE9E3' }}>
 
 
@@ -4447,6 +4511,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         ref={collarCanvasRef} 
                         onClick={(e) => handleArtboardGestureClick(e, 'collar')}
                         onMouseDown={(e) => handleCanvasMouseDown(e, 'collar')}
+                        onMouseMove={(e) => handleCanvasMouseMove(e, 'collar')}
+                        onMouseUp={handleCanvasMouseUp}
+                        onMouseLeave={() => {
+                          setCursorPos(null);
+                          isDraggingTextRef.current = false;
+                        }}
                         onContextMenu={(e) => handleCanvasContextMenu(e, 'collar')}
                         onDoubleClick={(e) => handleCanvasDoubleClick(e, 'collar')}
                         title="Collar Panel (18&quot; × 4.5&quot;) - Double left-click to open Popup Editor, double right-click to import image"
@@ -4454,12 +4524,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           borderRadius: '8px', 
                           border: dualActivePanel === 'collar' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
                           boxShadow: dualActivePanel === 'collar' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
-                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : 'pointer',
-                          width: `${Math.round(collarSpreadWidth * zoom)}px`,
-                          height: `${Math.round(collarSpreadHeight * zoom)}px`,
+                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : canvasCursor,
+                          width: `${Math.round((collarSpreadWidth + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                          height: `${Math.round((collarSpreadHeight + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
-                          objectFit: 'fill',
+                          objectFit: 'contain',
                           display: 'block',
                           flexShrink: 0
                         }} 
@@ -4800,11 +4870,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       border: '2px solid rgba(0, 240, 255, 0.5)', 
                       boxShadow: '0 0 50px rgba(0,0,0,0.95)',
                       cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : canvasCursor,
-                      width: `${Math.round((width + ((rulersEnabled && activeTab !== 'collar') ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
-                      height: `${Math.round((height + ((rulersEnabled && activeTab !== 'collar') ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                      width: `${Math.round((width + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
+                      height: `${Math.round((height + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                       maxWidth: 'none',
                       maxHeight: 'none',
-                      objectFit: activeTab === 'collar' ? 'fill' : 'contain',
+                      objectFit: 'contain',
                       flexShrink: 0
                     }} 
                   />
@@ -7543,6 +7613,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         physicalWidth={physicalWidth}
         physicalHeight={physicalHeight}
         zoom={zoom}
+        lockGuidelines={lockGuidelines}
+        onToggleLockGuidelines={handleToggleLockGuidelines}
       />
 
       {/* 6. SHORTCUTS HELP MODAL */}

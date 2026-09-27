@@ -1,4 +1,5 @@
 import React from 'react';
+import { Lock, Unlock } from 'lucide-react';
 import type { CorelTool } from './ToolBox';
 
 interface StatusBarProps {
@@ -8,6 +9,8 @@ interface StatusBarProps {
   physicalWidth: number;
   physicalHeight: number;
   zoom: number;
+  lockGuidelines?: boolean;
+  onToggleLockGuidelines?: () => void;
 }
 
 export const StatusBar: React.FC<StatusBarProps> = ({
@@ -16,7 +19,9 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   activeTab,
   physicalWidth,
   physicalHeight,
-  zoom
+  zoom,
+  lockGuidelines,
+  onToggleLockGuidelines
 }) => {
   const toolDescriptions: Record<CorelTool, string> = {
     pick: 'Pick Tool: Click objects to select. Hold Space to pan canvas.',
@@ -43,6 +48,33 @@ export const StatusBar: React.FC<StatusBarProps> = ({
           <span style={{ opacity: 0.4 }}>X: --.--" Y: --.--"</span>
         )}
       </div>
+
+      {/* Guidelines Lock Status Toggle */}
+      {onToggleLockGuidelines && (
+        <button
+          type="button"
+          onClick={onToggleLockGuidelines}
+          className="cd-statusbar-item"
+          style={{
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px',
+            padding: '2px 8px',
+            borderRadius: '4px',
+            border: 'none',
+            background: lockGuidelines ? 'rgba(228, 87, 46, 0.12)' : 'rgba(0, 0, 0, 0.05)',
+            color: lockGuidelines ? '#E4572E' : '#64748B',
+            fontWeight: 600,
+            fontSize: '11px',
+            transition: 'all 0.15s ease'
+          }}
+          title={lockGuidelines ? "Guidelines Locked (Default: Locked) • Click to Unlock (Ctrl+;)" : "Guidelines Unlocked (Draggable) • Click to Lock (Ctrl+;)"}
+        >
+          {lockGuidelines ? <Lock size={12} /> : <Unlock size={12} />}
+          <span>{lockGuidelines ? 'Guides: Locked' : 'Guides: Unlocked'}</span>
+        </button>
+      )}
 
       {/* Panel Info */}
       <div className="cd-statusbar-item" style={{ width: '180px', justifyContent: 'flex-end', gap: '12px' }}>

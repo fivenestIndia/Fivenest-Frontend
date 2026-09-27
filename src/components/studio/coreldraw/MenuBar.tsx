@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   FileUp, Save, Trash2, RotateCcw, ZoomIn, ZoomOut, Maximize2, 
-  Eye, Grid, Keyboard, Layers, HardDrive, Check 
+  Eye, Grid, Keyboard, Layers, HardDrive, Check, Lock, Unlock 
 } from 'lucide-react';
 import { exportAllLocalData } from '../localDataManager';
 
@@ -12,6 +12,8 @@ interface MenuBarProps {
   onSetZoom: (zoom: number) => void;
   showGuidelines: boolean;
   onToggleGuidelines: () => void;
+  lockGuidelines?: boolean;
+  onToggleLockGuidelines?: () => void;
   rulersEnabled: boolean;
   onToggleRulers: () => void;
   onOpenImport: () => void;
@@ -27,6 +29,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   onSetZoom,
   showGuidelines,
   onToggleGuidelines,
+  lockGuidelines,
+  onToggleLockGuidelines,
   rulersEnabled,
   onToggleRulers,
   onOpenImport,
@@ -134,6 +138,15 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Grid size={13} /> Toggle Guidelines</span>
               {showGuidelines ? <Check size={13} style={{ color: '#E4572E' }} /> : <span style={{ opacity: 0.5 }}>G</span>}
             </div>
+            {onToggleLockGuidelines && (
+              <div className="cd-dropdown-action" onClick={() => { onToggleLockGuidelines(); close(); }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {lockGuidelines ? <Lock size={13} style={{ color: '#E4572E' }} /> : <Unlock size={13} />} 
+                  {lockGuidelines ? 'Unlock Guidelines' : 'Lock Guidelines'}
+                </span>
+                {lockGuidelines ? <Check size={13} style={{ color: '#E4572E' }} /> : <span style={{ opacity: 0.5 }}>Ctrl+;</span>}
+              </div>
+            )}
             <div className="cd-dropdown-action" onClick={() => { onToggleRulers(); close(); }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Eye size={13} /> Toggle Rulers</span>
               {rulersEnabled ? <Check size={13} style={{ color: '#E4572E' }} /> : <span style={{ opacity: 0.5 }}>R</span>}

@@ -11,6 +11,7 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ onClose }) => {
     { key: 'Ctrl + Shift + Z / Ctrl + Y', desc: 'Redo move or edit action' },
     { key: 'Ctrl + R', desc: 'Toggle Show / Hide Rulers' },
     { key: 'Ctrl + G', desc: 'Toggle Show / Hide Guidelines' },
+    { key: 'Ctrl + ; / Alt + L', desc: 'Toggle Lock / Unlock Guidelines (Default: Locked)' },
     { key: 'Double Left-Click Canvas', desc: 'Open Popup Editor (Colors, Gradients, Stripes, Presets)' },
     { key: 'Double Right-Click Canvas', desc: 'Import / Upload Graphic Image for that Panel' },
     { key: 'Double Click Text', desc: 'Open Text Editor Popup for Name/Number Specification' },
