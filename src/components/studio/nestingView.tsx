@@ -558,6 +558,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
   });
   
   const [nestingSheets, setNestingSheets] = useState<NestingSheet[]>([]);
+  const nestingSheetsRef = useRef<NestingSheet[]>([]);
   const [isNesting, setIsNesting] = useState<boolean>(false);
 
   // Payment states
@@ -949,15 +950,16 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
   };
 
   // Trigger Nesting layout calculations
-  const runNesting = () => {
+  const runNesting = (forceNesting?: boolean): NestingSheet[] => {
+    const isNestingAllowed = forceNesting ?? enableNesting;
     if (!anyArtworkUploaded) {
       alert("Artwork file is not detected!\n\nNo uploaded artwork found in Step 1: Artwork. Please upload an artwork file for at least one panel (Front, Back, or Sleeves) before generating nested rolls.");
-      return;
+      return [];
     }
 
     if (records.length === 0) {
       alert("No items in order to nest. Please import a CSV or add quick size quantities first.");
-      return;
+      return [];
     }
 
     setIsNesting(true);
@@ -966,12 +968,12 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
     if (itemsToPack.length === 0) {
       alert("Artwork file is not detected!\n\nNo printable panels found to nest. Please upload an artwork file in Step 1: Artwork.");
       setIsNesting(false);
-      return;
+      return [];
     }
 
-    if (!enableNesting) {
+    if (!isNestingAllowed) {
       setIsNesting(false);
-      return;
+      return [];
     }
 
     // Sort items by height descending for optimal packing
@@ -987,6 +989,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       sheets = packItemsShelf(itemsToPack, effectiveRollH);
     }
 
+    nestingSheetsRef.current = sheets;
     setNestingSheets(sheets);
     setActiveSheetIndex(0);
     setIsNesting(false);
@@ -998,6 +1001,8 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       origin: { y: 0.8 },
       colors: ['#9b4dff', '#ff8c00', '#00e676']
     });
+
+    return sheets;
   };
 
   // --- 2D packing algorithms ---
@@ -1370,10 +1375,6 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
         };
 
         const collarPhysicalH = item.h || 4.5;
-        const offscreen = document.createElement('canvas');
-        offscreen.width = widthPx;
-        offscreen.height = heightPx;
-        const offCtx = offscreen.getContext('2d')!;
 
         const renderCollarContent = (bgImg?: HTMLImageElement) => {
           // 1. Determine background color, sampling image edge color if image is uploaded
@@ -1383,9 +1384,15 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             if (sampled) collarBgColor = sampled;
           }
 
-          // Fill the WHOLE box with background colour (guarantees entire box is filled!)
+          // 1a. Clip artwork area so strokes and fills touch borders flush without bleeding outside
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(0, 0, widthPx, heightPx);
+          ctx.clip();
+
+          // 1b. Fill the WHOLE box with background colour (guarantees entire box is filled!)
           ctx.fillStyle = collarBgColor;
-          ctx.fillRect(0, 0, widthPx, heightPx);
+          ctx.fillRect(-2, 0, widthPx + 4, heightPx);
 
           // If gradient is used (and not upload mode), apply gradient to whole box
           if (collarConf.backgroundType !== 'upload') {
@@ -1395,7 +1402,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
             if (style === 'solid') {
               ctx.fillStyle = c1;
-              ctx.fillRect(0, 0, widthPx, heightPx);
+              ctx.fillRect(-2, 0, widthPx + 4, heightPx);
             } else if (style.includes('gradient')) {
               let grad: CanvasGradient;
               if (style === 'gradient-linear-lr') {
@@ -1418,43 +1425,80 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                 grad.addColorStop(1, c2);
               }
               ctx.fillStyle = grad;
-              ctx.fillRect(0, 0, widthPx, heightPx);
+              ctx.fillRect(-2, 0, widthPx + 4, heightPx);
+            }
+          } else if (bgImg) {
+            // Uploaded image background
+            if (!collarConf.curved) {
+              ctx.drawImage(bgImg, 0, 0, widthPx, heightPx);
+            } else {
+              const archAmountInches = collarConf.curveAmount ?? 0.8;
+              const archH = Math.round(archAmountInches * (heightPx / collarPhysicalH));
+              ctx.save();
+              ctx.imageSmoothingEnabled = true;
+              ctx.imageSmoothingQuality = 'high';
+              const sliceStep = 0.5;
+              for (let x = 0; x < widthPx; x += sliceStep) {
+                const u = (x - widthPx / 2) / (widthPx / 2);
+                const dy = archH * (u * u);
+                const srcX = (x / widthPx) * bgImg.naturalWidth;
+                const srcW = (sliceStep / widthPx) * bgImg.naturalWidth;
+                ctx.drawImage(
+                  bgImg,
+                  srcX, 0, srcW, bgImg.naturalHeight,
+                  x, dy, sliceStep + 0.2, heightPx
+                );
+              }
+              ctx.restore();
             }
           }
 
-          // 2. Offscreen transparent canvas for stripes & uploaded graphic
-          offCtx.clearRect(0, 0, widthPx, heightPx);
-
-          if (bgImg) {
-            offCtx.drawImage(bgImg, 0, 0, widthPx, heightPx);
-          }
-
+          // 2. Horizontal Collar Stripes - Continuous Subpixel Vector Paths (Razor-Sharp, Safe)
           if (collarConf.stripes && collarConf.stripes.length > 0) {
+            const archAmountInches = collarConf.curveAmount ?? 0.8;
+            const archH = archAmountInches * (heightPx / collarPhysicalH);
+
             collarConf.stripes.forEach(st => {
-              const stripeY = Math.round((st.yOffset / collarPhysicalH) * heightPx);
-              const stripeH = Math.max(2, Math.round((st.height / collarPhysicalH) * heightPx));
-              offCtx.fillStyle = st.color;
-              offCtx.fillRect(0, stripeY, widthPx, stripeH);
+              if (!st) return;
+              const sHeight = typeof st.height === 'number' ? st.height : 0.15;
+              const sYOffset = typeof st.yOffset === 'number' ? st.yOffset : 0.50;
+              const stripeY = (sYOffset / collarPhysicalH) * heightPx;
+              const stripeH = Math.max(2, (sHeight / collarPhysicalH) * heightPx);
+
+              ctx.save();
+              ctx.fillStyle = st.color || '#ffffff';
+              ctx.beginPath();
+
+              if (collarConf.curved) {
+                const step = 0.5;
+                const uLeft = (-2 - widthPx / 2) / (widthPx / 2);
+                ctx.moveTo(-2, stripeY + archH * (uLeft * uLeft));
+
+                for (let x = -2; x <= widthPx + 2; x += step) {
+                  const u = (x - widthPx / 2) / (widthPx / 2);
+                  ctx.lineTo(x, stripeY + archH * (u * u));
+                }
+
+                const uRight = (widthPx + 2 - widthPx / 2) / (widthPx / 2);
+                ctx.lineTo(widthPx + 2, stripeY + stripeH + archH * (uRight * uRight));
+
+                for (let x = widthPx + 2; x >= -2; x -= step) {
+                  const u = (x - widthPx / 2) / (widthPx / 2);
+                  ctx.lineTo(x, stripeY + stripeH + archH * (u * u));
+                }
+
+                ctx.closePath();
+                ctx.fill();
+              } else {
+                ctx.fillRect(-2, stripeY, widthPx + 4, stripeH);
+              }
+              ctx.restore();
             });
           }
 
-          // 3. Render onto main canvas (Curve ONLY the stripes/artwork! The background remains 100% filled!)
-          // Preserves 0.5" bleed space at the top apex (dy = 0 at center u = 0)
-          if (collarConf.curved) {
-            const archAmountInches = collarConf.curveAmount ?? 0.8;
-            const archH = Math.round(archAmountInches * (heightPx / collarPhysicalH));
+          ctx.restore(); // Restore clip
 
-            // Arc warp vertical slices
-            for (let x = 0; x < widthPx; x++) {
-              const u = (x - widthPx / 2) / (widthPx / 2); // -1 to +1
-              const dy = Math.round(archH * (u * u));
-              ctx.drawImage(offscreen, x, 0, 1, heightPx, x, dy, 1, heightPx);
-            }
-          } else {
-            ctx.drawImage(offscreen, 0, 0);
-          }
-
-          // 4. Test mode watermark if active
+          // 3. Test mode watermark if active
           if (testMode) {
             ctx.save();
             ctx.strokeStyle = 'rgba(255, 23, 68, 0.18)';
@@ -2061,12 +2105,17 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
         // Draw customizable logos (Left Chest, Right Chest, Torso)
         const drawLogo = (logoConf: any, logoImg: HTMLImageElement | undefined, isTorso: boolean = false) => {
           if (logoConf && logoConf.enabled) {
+            const safeW = typeof logoConf.width === 'number' ? logoConf.width : 2.5;
+            const safeH = typeof logoConf.height === 'number' ? logoConf.height : 2.5;
+            const safeX = typeof logoConf.xPos === 'number' ? logoConf.xPos : 0;
+            const safeY = typeof logoConf.yPos === 'number' ? logoConf.yPos : 0;
+
             if (isTorso && logoConf.text && logoConf.text.trim()) {
               ctx.save();
-              const logoX = Math.round(logoConf.xPos * scaleDpi);
-              const logoY = Math.round(logoConf.yPos * scaleDpi);
-              const maxW = Math.round(logoConf.width * scaleDpi);
-              const logoH = Math.round(logoConf.height * scaleDpi);
+              const logoX = Math.round(safeX * scaleDpi);
+              const logoY = Math.round(safeY * scaleDpi);
+              const maxW = Math.round(safeW * scaleDpi);
+              const logoH = Math.round(safeH * scaleDpi);
 
               ctx.font = `bold ${logoH}px OldSport02AthleticNcv-E0gj, Impact, sans-serif`;
               ctx.textAlign = 'center';
@@ -2083,10 +2132,10 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
             if (logoImg) {
               ctx.save();
-              const logoW = Math.round(logoConf.width * scaleDpi);
-              const logoH = Math.round(logoConf.height * scaleDpi);
-              const logoX = Math.round(logoConf.xPos * scaleDpi) - Math.round(logoW / 2);
-              const logoY = Math.round(logoConf.yPos * scaleDpi) - Math.round(logoH / 2);
+              const logoW = Math.round(safeW * scaleDpi);
+              const logoH = Math.round(safeH * scaleDpi);
+              const logoX = Math.round(safeX * scaleDpi) - Math.round(logoW / 2);
+              const logoY = Math.round(safeY * scaleDpi) - Math.round(logoH / 2);
               ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
               ctx.restore();
             }
@@ -2161,11 +2210,17 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       return;
     }
 
-    if (isNestingActive && nestingSheets.length === 0) {
-      // Auto-run nesting calculation so user doesn't get blocked
-      runNesting();
-      // Allow state update
-      await new Promise(r => setTimeout(r, 100));
+    if (isNestingActive) {
+      let currentSheets = (nestingSheetsRef.current && nestingSheetsRef.current.length > 0)
+        ? nestingSheetsRef.current
+        : (nestingSheets && nestingSheets.length > 0 ? nestingSheets : []);
+      if (currentSheets.length === 0) {
+        currentSheets = runNesting(true);
+      }
+      if (!currentSheets || currentSheets.length === 0) {
+        alert("No nesting sheets could be generated. Please ensure order items have valid sizes.");
+        return;
+      }
     }
 
     const items = getItemsToExport();
@@ -2322,16 +2377,21 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           if (collarItems.length > 0) {
             const youthCollars = collarItems.filter(it => isYouthCollarSize(it.size));
             const adultCollars = collarItems.filter(it => !isYouthCollarSize(it.size));
+            const sW = collarSizes?.small?.w ?? 18;
+            const sH = collarSizes?.small?.h ?? 4.5;
+            const bW = collarSizes?.big?.w ?? 20;
+            const bH = collarSizes?.big?.h ?? 4.5;
+
             if (youthCollars.length > 0) {
               testPdfPages.push({
-                item: { ...youthCollars[0], w: collarSizes.small.w, h: collarSizes.small.h, qty: youthCollars.length },
-                label: `[Collar] Small Collars = ${youthCollars.length} pcs (dimention = ${collarSizes.small.w} x ${collarSizes.small.h})`
+                item: { ...youthCollars[0], w: sW, h: sH, qty: youthCollars.length },
+                label: `[Collar] Small Collars = ${youthCollars.length} pcs (dimention = ${sW} x ${sH})`
               });
             }
             if (adultCollars.length > 0) {
               testPdfPages.push({
-                item: { ...adultCollars[0], w: collarSizes.big.w, h: collarSizes.big.h, qty: adultCollars.length },
-                label: `[Collar] Big Collar = ${adultCollars.length} pcs (dimention = ${collarSizes.big.w} x ${collarSizes.big.h})`
+                item: { ...adultCollars[0], w: bW, h: bH, qty: adultCollars.length },
+                label: `[Collar] Big Collar = ${adultCollars.length} pcs (dimention = ${bW} x ${bH})`
               });
             }
           }
@@ -2428,6 +2488,11 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                 undefined, 
                 'FAST'
               );
+
+              // Immediately release memory and yield to browser
+              previewItemCanvas.width = 0;
+              previewItemCanvas.height = 0;
+              await new Promise(r => setTimeout(r, 0));
             }
 
             testPdf.save(`${cleanCust}_${cleanOrder}_72DPI_Test.pdf`);
@@ -2610,17 +2675,21 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           if (collarItems.length > 0) {
             const youthCollars = collarItems.filter(it => isYouthCollarSize(it.size));
             const adultCollars = collarItems.filter(it => !isYouthCollarSize(it.size));
+            const sW = collarSizes?.small?.w ?? 18;
+            const sH = collarSizes?.small?.h ?? 4.5;
+            const bW = collarSizes?.big?.w ?? 20;
+            const bH = collarSizes?.big?.h ?? 4.5;
 
             if (youthCollars.length > 0) {
               const youthQty = youthCollars.length;
               renderActions.push({
                 representativeItem: {
                   ...youthCollars[0],
-                  w: collarSizes.small.w,
-                  h: collarSizes.small.h,
+                  w: sW,
+                  h: sH,
                   qty: youthQty
                 },
-                fileName: `Small Collars = ${youthQty} pcs (dimention = ${collarSizes.small.w} x ${collarSizes.small.h}).jpg`,
+                fileName: `Small Collars = ${youthQty} pcs (dimention = ${sW} x ${sH}).jpg`,
                 folder: 'Sleeve'
               });
             }
@@ -2630,11 +2699,11 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               renderActions.push({
                 representativeItem: {
                   ...adultCollars[0],
-                  w: collarSizes.big.w,
-                  h: collarSizes.big.h,
+                  w: bW,
+                  h: bH,
                   qty: adultQty
                 },
-                fileName: `Big Collar = ${adultQty} pcs (dimention = ${collarSizes.big.w} x ${collarSizes.big.h}).jpg`,
+                fileName: `Big Collar = ${adultQty} pcs (dimention = ${bW} x ${bH}).jpg`,
                 folder: 'Sleeve'
               });
             }
@@ -2727,16 +2796,21 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             if (collarPreviewList.length > 0) {
               const youthCollars = collarPreviewList.filter(it => isYouthCollarSize(it.size));
               const adultCollars = collarPreviewList.filter(it => !isYouthCollarSize(it.size));
+              const sW = collarSizes?.small?.w ?? 18;
+              const sH = collarSizes?.small?.h ?? 4.5;
+              const bW = collarSizes?.big?.w ?? 20;
+              const bH = collarSizes?.big?.h ?? 4.5;
+
               if (youthCollars.length > 0) {
                 previewPages.push({
-                  item: { ...youthCollars[0], w: collarSizes.small.w, h: collarSizes.small.h, qty: youthCollars.length },
-                  label: `[Collar] Small Collars = ${youthCollars.length} pcs (dimention = ${collarSizes.small.w} x ${collarSizes.small.h})`
+                  item: { ...youthCollars[0], w: sW, h: sH, qty: youthCollars.length },
+                  label: `[Collar] Small Collars = ${youthCollars.length} pcs (dimention = ${sW} x ${sH})`
                 });
               }
               if (adultCollars.length > 0) {
                 previewPages.push({
-                  item: { ...adultCollars[0], w: collarSizes.big.w, h: collarSizes.big.h, qty: adultCollars.length },
-                  label: `[Collar] Big Collar = ${adultCollars.length} pcs (dimention = ${collarSizes.big.w} x ${collarSizes.big.h})`
+                  item: { ...adultCollars[0], w: bW, h: bH, qty: adultCollars.length },
+                  label: `[Collar] Big Collar = ${adultCollars.length} pcs (dimention = ${bW} x ${bH})`
                 });
               }
               collarPreviewList.forEach(it => processedItemIds.add(it.recordId));
@@ -2816,6 +2890,11 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                   ((item.h * 72) + 20) / zipUUnit,
                   { align: 'center' }
                 );
+
+                // Release memory immediately
+                previewItemCanvas.width = 0;
+                previewItemCanvas.height = 0;
+                await new Promise(r => setTimeout(r, 0));
               }
               previewPdf.save(`${cleanCust}_${cleanOrder}_Preview_72dpi.pdf`);
             }
@@ -2840,16 +2919,29 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
         }
 
         // Standard Nested Roll export
-        const firstSheet = nestingSheets[0];
+        let sheetsToExport = (nestingSheetsRef.current && nestingSheetsRef.current.length > 0)
+          ? nestingSheetsRef.current
+          : (nestingSheets && nestingSheets.length > 0 ? nestingSheets : []);
+
+        if (sheetsToExport.length === 0) {
+          sheetsToExport = runNesting(true);
+        }
+
+        if (sheetsToExport.length === 0) {
+          throw new Error("No nesting sheets could be generated. Please make sure order items have valid sizes.");
+        }
+
+        const firstSheet = sheetsToExport[0];
         // Calculate userUnit scaling factor to bypass PDF 200-inch limit (14400 points)
-        const maxSheetHeight = nestingSheets.reduce((max, s) => Math.max(max, s.height), 0);
+        const maxSheetHeight = sheetsToExport.reduce((max, s) => Math.max(max, s?.height || 0), 0) || 50;
+        const firstSheetH = firstSheet?.height || maxSheetHeight || 50;
         const maxSheetHeightPt = maxSheetHeight * 72;
         const uUnit = maxSheetHeightPt > 14400 ? Math.ceil(maxSheetHeightPt / 14400) : 1.0;
 
         const pdf = new jsPDF({
           orientation: 'portrait',
           unit: 'pt',
-          format: [ (rollW * 72) / uUnit, (firstSheet.height * 72) / uUnit ],
+          format: [ (rollW * 72) / uUnit, (firstSheetH * 72) / uUnit ],
           userUnit: uUnit
         });
 
@@ -2860,15 +2952,15 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           previewPdf = new jsPDF({
             orientation: 'portrait',
             unit: 'pt',
-            format: [ (rollW * 72) / uUnit, (firstSheet.height * 72) / uUnit ],
+            format: [ (rollW * 72) / uUnit, (firstSheetH * 72) / uUnit ],
             userUnit: uUnit
           });
         }
 
-        for (let s = 0; s < nestingSheets.length; s++) {
-          const sheet = nestingSheets[s];
+        for (let s = 0; s < sheetsToExport.length; s++) {
+          const sheet = sheetsToExport[s];
           const widthPt = rollW * 72;
-          const heightPt = sheet.height * 72;
+          const heightPt = (sheet?.height || firstSheetH) * 72;
 
           if (s > 0) {
             pdf.addPage([ widthPt / uUnit, heightPt / uUnit ], 'portrait');
@@ -2880,8 +2972,8 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           // Directly draw each nested panel onto the PDF document
           for (let i = 0; i < sheet.items.length; i++) {
             const item = sheet.items[i];
-            const totalItems = nestingSheets.reduce((acc, sh) => acc + sh.items.length, 0);
-            const globalIdx = nestingSheets.slice(0, s).reduce((acc, sh) => acc + sh.items.length, 0) + i;
+            const totalItems = sheetsToExport.reduce((acc, sh) => acc + sh.items.length, 0);
+            const globalIdx = sheetsToExport.slice(0, s).reduce((acc, sh) => acc + sh.items.length, 0) + i;
             setExportProgressPct(Math.round(15 + ((globalIdx / Math.max(totalItems, 1)) * 68)));
             setExportProgress(`Rendering panel ${i + 1}/${sheet.items.length} on Sheet ${s + 1} at ${activeDpi} DPI...`);
 
@@ -2942,6 +3034,25 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               const previewImgData = finalPreviewCanvas.toDataURL('image/jpeg', 0.75);
               previewPdf.addImage(previewImgData, 'JPEG', targetXPt / uUnit, targetYPt / uUnit, targetWPt / uUnit, targetHPt / uUnit, undefined, 'FAST');
             }
+
+            // Immediately release canvas GPU memory
+            itemCanvas.width = 0;
+            itemCanvas.height = 0;
+            if (previewItemCanvas) {
+              previewItemCanvas.width = 0;
+              previewItemCanvas.height = 0;
+            }
+            if (finalCanvas !== itemCanvas) {
+              finalCanvas.width = 0;
+              finalCanvas.height = 0;
+            }
+            if (finalPreviewCanvas && finalPreviewCanvas !== previewItemCanvas) {
+              finalPreviewCanvas.width = 0;
+              finalPreviewCanvas.height = 0;
+            }
+
+            // Yield control to main thread so browser repaints progress text and doesn't freeze
+            await new Promise(r => setTimeout(r, 0));
           }
         }
 
