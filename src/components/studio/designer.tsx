@@ -1736,16 +1736,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
     };
 
-    let rulersPref = true;
-    try {
-      const savedR = localStorage.getItem('fivenest_pref_rulers');
-      if (savedR !== null) rulersPref = JSON.parse(savedR);
-    } catch (e) {}
-    const rulersEnabled = !is3DPreview && rulersPref;
-    const rulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
+    const showRulers = !is3DPreview && rulersEnabled;
+    const rulerOffset = showRulers ? Math.round(0.55 * scale) : 0;
 
     const drawRulersAndGrid = (ctx: CanvasRenderingContext2D) => {
-      if (is3DPreview || !rulersEnabled) return;
+      if (is3DPreview || !showRulers) return;
 
       const isLightMode = document.querySelector('.app-layout')?.classList.contains('light');
 
@@ -2176,9 +2171,15 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           }
         }
 
-        // Fill the WHOLE box with background colour (guarantees entire box is filled!)
+        // 1. Clip artwork area so strokes and fills touch borders flush without bleeding outside
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, width, height);
+        ctx.clip();
+
+        // 1a. Fill the WHOLE collar box with background colour (guarantees entire box is filled edge-to-edge!)
         ctx.fillStyle = collarBgColor;
-        ctx.fillRect(0, 0, width, height);
+        ctx.fillRect(-2, 0, width + 4, height);
 
         // If gradient fill is selected and not in upload mode, fill the whole box with the gradient
         if (collarConf.backgroundType !== 'upload') {
@@ -2188,7 +2189,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
           if (style === 'solid') {
             ctx.fillStyle = c1;
-            ctx.fillRect(0, 0, width, height);
+            ctx.fillRect(-2, 0, width + 4, height);
           } else if (style.includes('gradient')) {
             let grad: CanvasGradient;
             if (style === 'gradient-linear-lr') {
@@ -2211,77 +2212,108 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               grad.addColorStop(1, c2);
             }
             ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, width, height);
+            ctx.fillRect(-2, 0, width + 4, height);
+          }
+        } else if (collarConf.backgroundType === 'upload' && collarConf.uploadedFileUrl) {
+          // Uploaded background graphic
+          const cachedImg = logoImagesRef.current[collarConf.uploadedFileUrl];
+          if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
+            if (!collarConf.curved) {
+              ctx.drawImage(cachedImg, 0, 0, width, height);
+            } else {
+              const archAmountInches = collarConf.curveAmount ?? 0.8;
+              const archH = archAmountInches * (height / collarPhysicalH);
+              ctx.save();
+              ctx.imageSmoothingEnabled = true;
+              ctx.imageSmoothingQuality = 'high';
+              const sliceStep = 0.5;
+              for (let x = 0; x < width; x += sliceStep) {
+                const u = (x - width / 2) / (width / 2);
+                const dy = archH * (u * u);
+                const srcX = (x / width) * cachedImg.naturalWidth;
+                const srcW = (sliceStep / width) * cachedImg.naturalWidth;
+                ctx.drawImage(
+                  cachedImg,
+                  srcX, 0, srcW, cachedImg.naturalHeight,
+                  x, dy, sliceStep + 0.2, height
+                );
+              }
+              ctx.restore();
+            }
           }
         }
 
-        // 2. Render stripes and/or uploaded graphic on a transparent offscreen canvas
-        const offscreen = document.createElement('canvas');
-        offscreen.width = width;
-        offscreen.height = height;
-        const offCtx = offscreen.getContext('2d');
-        if (offCtx) {
-          offCtx.clearRect(0, 0, width, height);
+        // 2. Horizontal Collar Stripes - Continuous Subpixel Vector Paths (Razor-Sharp, Zero Pixelation)
+        if (collarConf.stripes && collarConf.stripes.length > 0) {
+          const archAmountInches = collarConf.curveAmount ?? 0.8;
+          const archH = archAmountInches * (height / collarPhysicalH);
 
-          // If uploaded image exists, draw it onto the offscreen canvas
-          if (collarConf.backgroundType === 'upload' && collarConf.uploadedFileUrl) {
-            const cachedImg = logoImagesRef.current[collarConf.uploadedFileUrl];
-            if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
-              offCtx.drawImage(cachedImg, 0, 0, width, height);
-            }
-          }
+          collarConf.stripes.forEach(st => {
+            const stripeY = (st.yOffset / collarPhysicalH) * height;
+            const stripeH = Math.max(1.5, (st.height / collarPhysicalH) * height);
 
-          // Horizontal Collar Stripes
-          if (collarConf.stripes && collarConf.stripes.length > 0) {
-            collarConf.stripes.forEach(st => {
-              const stripeY = Math.round((st.yOffset / collarPhysicalH) * height);
-              const stripeH = Math.max(2, Math.round((st.height / collarPhysicalH) * height));
-              offCtx.fillStyle = st.color;
-              offCtx.fillRect(0, stripeY, width, stripeH);
-            });
-          }
-
-          // 3. Render onto main canvas (Curve ONLY the stripes/artwork! The background remains 100% filled!)
-          if (collarConf.curved) {
-            const archAmountInches = collarConf.curveAmount ?? 0.8;
-            const archH = Math.round(archAmountInches * (height / collarPhysicalH));
-
-            // Arc warp only the stripes/artwork offscreen canvas
-            // Preserves 0.5" bleed space at the top apex (dy = 0 at center u = 0)
-            for (let x = 0; x < width; x++) {
-              const u = (x - width / 2) / (width / 2); // -1 to +1
-              const dy = Math.round(archH * (u * u));
-              ctx.drawImage(offscreen, x, 0, 1, height, x, dy, 1, height);
-            }
-          } else {
-            ctx.drawImage(offscreen, 0, 0);
-          }
-
-          // 4. Border outline & 0.5" Bleed Space Guide Line
-          if (!is3DPreview) {
             ctx.save();
-            ctx.strokeStyle = collarConf.curved ? 'rgba(255, 255, 255, 0.35)' : '#1a1a1a';
-            ctx.lineWidth = 1;
-            if (collarConf.curved) {
-              ctx.setLineDash([4, 4]);
-              ctx.strokeRect(0, 0, width, height);
-              ctx.setLineDash([]);
-            } else {
-              ctx.strokeRect(0, 0, width, height);
-            }
-
-            // 0.5" Bleed Space Guide Line (top margin for sewing / fold seam - clean line without text inside panel)
-            const bleedY = Math.round((0.5 / collarPhysicalH) * height);
-            ctx.strokeStyle = 'rgba(234, 88, 12, 0.55)';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([4, 4]);
+            ctx.fillStyle = st.color;
             ctx.beginPath();
-            ctx.moveTo(0, bleedY);
-            ctx.lineTo(width, bleedY);
-            ctx.stroke();
-            ctx.setLineDash([]);
+
+            if (collarConf.curved) {
+              // Smooth quadratic curve evaluated with 0.5px subpixel steps
+              const step = 0.5;
+              const uLeft = (-2 - width / 2) / (width / 2);
+              ctx.moveTo(-2, stripeY + archH * (uLeft * uLeft));
+
+              // Trace top curve from left (-2) to right (width + 2)
+              for (let x = -2; x <= width + 2; x += step) {
+                const u = (x - width / 2) / (width / 2);
+                ctx.lineTo(x, stripeY + archH * (u * u));
+              }
+
+              // Drop to bottom curve at right edge
+              const uRight = (width + 2 - width / 2) / (width / 2);
+              ctx.lineTo(width + 2, stripeY + stripeH + archH * (uRight * uRight));
+
+              // Trace bottom curve from right (width + 2) back to left (-2)
+              for (let x = width + 2; x >= -2; x -= step) {
+                const u = (x - width / 2) / (width / 2);
+                ctx.lineTo(x, stripeY + stripeH + archH * (u * u));
+              }
+
+              ctx.closePath();
+              ctx.fill();
+            } else {
+              // Flat vector rectangle across full artboard
+              ctx.fillRect(-2, stripeY, width + 4, stripeH);
+            }
             ctx.restore();
+          });
+        }
+
+        ctx.restore(); // Restore clip
+
+        // 3. Border outline & 0.5" Bleed Space Guide Line
+        if (!is3DPreview) {
+          ctx.save();
+          ctx.strokeStyle = collarConf.curved ? 'rgba(255, 255, 255, 0.35)' : '#1a1a1a';
+          ctx.lineWidth = 1;
+          if (collarConf.curved) {
+            ctx.setLineDash([4, 4]);
+            ctx.strokeRect(0, 0, width, height);
+            ctx.setLineDash([]);
+          } else {
+            ctx.strokeRect(0, 0, width, height);
           }
+
+          // 0.5" Bleed Space Guide Line (top margin for sewing / fold seam - clean line without text inside panel)
+          const bleedY = Math.round((0.5 / collarPhysicalH) * height);
+          ctx.strokeStyle = 'rgba(234, 88, 12, 0.55)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(0, bleedY);
+          ctx.lineTo(width, bleedY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
         }
 
         ctx.restore();
@@ -2760,12 +2792,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   useEffect(() => {
     if (activeTab === 'threeD') return;
 
-    let rulersPref = true;
-    try {
-      const savedR = localStorage.getItem('fivenest_pref_rulers');
-      if (savedR !== null) rulersPref = JSON.parse(savedR);
-    } catch (e) {}
-    const rulerOffset = rulersPref ? Math.round(0.55 * scale) : 0;
+    const rulerOffset = rulersEnabled ? Math.round(0.55 * scale) : 0;
 
     if (activeTab === 'dual') {
       // 0. Collar Panel (18" x 4.5" at top)
@@ -4529,7 +4556,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           height: `${Math.round((collarSpreadHeight + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
-                          objectFit: 'contain',
+                          objectFit: 'fill',
                           display: 'block',
                           flexShrink: 0
                         }} 
@@ -4611,7 +4638,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
-                          objectFit: 'contain',
+                          objectFit: 'fill',
                           flexShrink: 0
                         }} 
                       />
@@ -4675,7 +4702,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           height: `${Math.round((height + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
-                          objectFit: 'contain',
+                          objectFit: 'fill',
                           flexShrink: 0
                         }} 
                       />
@@ -4739,7 +4766,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           height: `${Math.round((height + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
-                          objectFit: 'contain',
+                          objectFit: 'fill',
                           flexShrink: 0
                         }} 
                       />
@@ -4820,7 +4847,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
                           maxHeight: 'none',
-                          objectFit: 'contain',
+                          objectFit: 'fill',
                           flexShrink: 0
                         }} 
                       />
@@ -4874,7 +4901,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       height: `${Math.round((height + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                       maxWidth: 'none',
                       maxHeight: 'none',
-                      objectFit: 'contain',
+                      objectFit: 'fill',
                       flexShrink: 0
                     }} 
                   />
