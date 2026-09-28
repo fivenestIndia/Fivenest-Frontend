@@ -519,7 +519,22 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 }, ref) {
   const artworkStatus = checkArtworkUploadStatus(designConfig, metadata);
   const { anyArtworkUploaded, frontHasArtwork, backHasArtwork, sleeveHasArtwork, collarHasArtwork } = artworkStatus;
-  const [enableNesting, setEnableNesting] = useState<boolean>(true);
+  const [enableNesting, setEnableNesting] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('fivenest_pref_enable_nesting');
+      return saved !== null ? JSON.parse(saved) : false; // Default: Individual Panels (ZIP)
+    } catch {
+      return false;
+    }
+  });
+  const [includePreviewPdf, setIncludePreviewPdf] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('fivenest_pref_preview_pdf');
+      return saved !== null ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
   const [rollW, setRollW] = useState<number>(64);
   const [rollH, setRollH] = useState<number>(100); // Max paper height before page split
   const [itemGap, setItemGap] = useState<number>(0.25);
@@ -744,8 +759,14 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
     // Nesting options persistence
     const savedEnable = localStorage.getItem('fivenest_pref_enable_nesting');
-    if (savedEnable) {
+    if (savedEnable !== null) {
       try { setEnableNesting(JSON.parse(savedEnable)); } catch (e) {}
+    } else {
+      setEnableNesting(false);
+    }
+    const savedPreview = localStorage.getItem('fivenest_pref_preview_pdf');
+    if (savedPreview !== null) {
+      try { setIncludePreviewPdf(JSON.parse(savedPreview)); } catch (e) {}
     }
     const savedRollW = localStorage.getItem('fivenest_pref_roll_w');
     if (savedRollW) {
@@ -2198,11 +2219,15 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
     }, 0);
   };
 
-  // Compile full nesting sheets and save PDF
-  const handleExportPDF = async (overrideNesting?: boolean) => {
-    const isNestingActive = overrideNesting !== undefined ? overrideNesting : enableNesting;
-    if (overrideNesting !== undefined) {
+  // Compile full nesting sheets and save PDF or Individual Panels ZIP
+  const handleExportPDF = async (overrideNesting?: boolean | unknown) => {
+    // Strictly require a boolean; ignore MouseEvent/SyntheticEvent passed by React onClick
+    const isNestingActive = typeof overrideNesting === 'boolean' ? overrideNesting : enableNesting;
+    if (typeof overrideNesting === 'boolean') {
       setEnableNesting(overrideNesting);
+      try {
+        localStorage.setItem('fivenest_pref_enable_nesting', JSON.stringify(overrideNesting));
+      } catch {}
     }
 
     if (!anyArtworkUploaded) {
@@ -2754,8 +2779,8 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
           // Billing is logged once at end of full export (not here, to avoid duplicates)
 
-          // Now, generate and download a 72 DPI preview PDF alongside if activeDpi > 72 and not in testMode
-          const needPreviewPdf = !testMode && activeDpi > 72;
+          // Now, generate and download a 72 DPI preview PDF alongside only if requested and activeDpi > 72
+          const needPreviewPdf = !testMode && activeDpi > 72 && includePreviewPdf;
           if (needPreviewPdf && renderActions.length > 0) {
             setExportProgressPct(90);
             setExportProgress("Generating preview PDF at 72 DPI...");
@@ -2945,8 +2970,8 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           userUnit: uUnit
         });
 
-        // Create the 72 DPI preview PDF if activeDpi is not 72
-        const needPreviewPdf = !testMode && activeDpi > 72;
+        // Create the 72 DPI preview PDF if activeDpi is not 72 and requested
+        const needPreviewPdf = !testMode && activeDpi > 72 && includePreviewPdf;
         let previewPdf: jsPDF | null = null;
         if (needPreviewPdf) {
           previewPdf = new jsPDF({
@@ -3481,6 +3506,17 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                 />
                 <span>Include Collars inside Sleeve folder</span>
               </label>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', color: '#374151' }}>
+                <input 
+                  type="checkbox" 
+                  checked={includePreviewPdf} 
+                  onChange={(e) => {
+                    setIncludePreviewPdf(e.target.checked);
+                    localStorage.setItem('fivenest_pref_preview_pdf', JSON.stringify(e.target.checked));
+                  }} 
+                />
+                <span>Also generate 72 DPI Client Proofing PDF</span>
+              </label>
             </div>
           )}
         </div>
@@ -3687,7 +3723,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             <button 
               type="button"
               className="btn"
-              onClick={handleExportPDF} 
+              onClick={() => handleExportPDF()} 
               style={{ 
                 width: '100%', 
                 padding: '13px 20px', 
