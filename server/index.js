@@ -6,6 +6,7 @@ import paymentRoutes from "./routes/payment.js";
 import licenseRoutes from "./routes/license.js";
 import agentRoutes from "./routes/agent.js";
 import ordersRoutes from "./routes/orders.js";
+import sizesRoutes from "./routes/sizes.js";
 
 // Load environment variables
 dotenv.config();
@@ -65,6 +66,7 @@ app.use("/api/payment", paymentRoutes);
 app.use("/api/license", licenseRoutes);
 app.use("/api/agent", agentRoutes);
 app.use("/api/orders", ordersRoutes);
+app.use("/api/sizes", sizesRoutes);
 
 // Custom Error Handler Middleware
 app.use((err, req, res, next) => {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Save, RotateCcw, Trash2, CheckCircle2, Bookmark, Grid, Lock, Unlock } from 'lucide-react';
+import { Save, RotateCcw, Trash2, CheckCircle2, Bookmark, Grid, Lock, Unlock, Cloud } from 'lucide-react';
+import { fetchCloudSizesData, queueCloudSizesSave } from '../../lib/sizesSyncService';
 
 export interface Dimension {
   w: number;
@@ -205,6 +206,7 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
         }
       };
       saveCollarExportSizes(next);
+      triggerCloudSync(sizeDB);
       return next;
     });
   };
@@ -212,12 +214,32 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
   const handleResetCollarExportSizes = () => {
     setCollarExportSizes(DEFAULT_COLLAR_EXPORT_SIZES);
     saveCollarExportSizes(DEFAULT_COLLAR_EXPORT_SIZES);
+    triggerCloudSync(sizeDB);
     setSaveMessage("Collar export dimensions reset to factory defaults (16\"×4.5\" & 18\"×4.5\")!");
     setTimeout(() => setSaveMessage(""), 3500);
   };
 
-  // Load active size database from localStorage on mount
+  // Helper to persist Size Editor Data to Supabase database
+  const triggerCloudSync = (
+    newSizeDB: SizeDatabase,
+    newPresets?: Record<string, SizeDatabase>,
+    newActivePreset?: string,
+    newAgeMap?: Record<string, string>
+  ) => {
+    queueCloudSizesSave({
+      sizeDB: newSizeDB,
+      savedPresets: newPresets !== undefined ? newPresets : savedPresets,
+      activePreset: newActivePreset !== undefined ? newActivePreset : activePreset,
+      ageMap: newAgeMap !== undefined ? newAgeMap : ageMap,
+      collarSizes: getCollarExportSizes(),
+      centerMarks,
+      sizeWatermarks
+    });
+  };
+
+  // Load active size database from localStorage on mount & synchronize with Supabase
   useEffect(() => {
+    let isMounted = true;
     const saved = localStorage.getItem('teedex_size_database');
     if (saved) {
       try {
@@ -228,6 +250,35 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
         console.error("Failed to parse saved size database", e);
       }
     }
+
+    // Pull calibrated factory sizing from Supabase database
+    async function loadCloud() {
+      try {
+        const cloudData = await fetchCloudSizesData();
+        if (cloudData && isMounted) {
+          if (cloudData.sizeDB) {
+            setSizeDB(cloudData.sizeDB);
+            if (onDatabaseChange) onDatabaseChange(cloudData.sizeDB);
+          }
+          if (cloudData.savedPresets) {
+            setSavedPresets(cloudData.savedPresets);
+          }
+          if (cloudData.activePreset) {
+            setActivePreset(cloudData.activePreset);
+          }
+          if (cloudData.ageMap) {
+            setAgeMap(cloudData.ageMap);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load cloud sizes:", err);
+      }
+    }
+    loadCloud();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Update a single cell dimension in real time
@@ -258,7 +309,9 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
         }
       };
       localStorage.setItem('teedex_size_database', JSON.stringify(updated));
+      localStorage.setItem('fivenest_size_db', JSON.stringify(updated));
       if (onDatabaseChange) onDatabaseChange(updated);
+      triggerCloudSync(updated);
       return updated;
     });
   };
@@ -278,7 +331,9 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
     localStorage.setItem('fivenest_active_size_preset', name);
     setSizeDB(targetDb);
     localStorage.setItem('teedex_size_database', JSON.stringify(targetDb));
+    localStorage.setItem('fivenest_size_db', JSON.stringify(targetDb));
     if (onDatabaseChange) onDatabaseChange(targetDb);
+    triggerCloudSync(targetDb, savedPresets, name);
     setSaveMessage(`Loaded preset "${name}" into all 22 sizes!`);
     setTimeout(() => setSaveMessage(""), 3500);
   };
@@ -295,6 +350,7 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
       return;
     }
     localStorage.setItem('teedex_size_database', JSON.stringify(sizeDB));
+    localStorage.setItem('fivenest_size_db', JSON.stringify(sizeDB));
     if (onDatabaseChange) onDatabaseChange(sizeDB);
 
     const updatedPresets = { ...savedPresets, [trimmed]: sizeDB };
@@ -302,6 +358,7 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
     localStorage.setItem('fivenest_size_presets', JSON.stringify(updatedPresets));
     setActivePreset(trimmed);
     localStorage.setItem('fivenest_active_size_preset', trimmed);
+    triggerCloudSync(sizeDB, updatedPresets, trimmed);
     setPresetName('');
     setSaveMessage(`Preset "${trimmed}" saved and added to Sizing Presets Manager!`);
     setTimeout(() => setSaveMessage(""), 3500);
@@ -327,7 +384,9 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
       localStorage.setItem('fivenest_active_size_preset', 'Default Size');
       setSizeDB(defaultSizes);
       localStorage.setItem('teedex_size_database', JSON.stringify(defaultSizes));
+      localStorage.setItem('fivenest_size_db', JSON.stringify(defaultSizes));
       if (onDatabaseChange) onDatabaseChange(defaultSizes);
+      triggerCloudSync(defaultSizes, updated, 'Default Size');
       setSaveMessage(`Preset "${name}" deleted. Reverted to Default Size.`);
       setTimeout(() => setSaveMessage(""), 3500);
     }
@@ -341,7 +400,9 @@ export const SizesDb: React.FC<SizesDbProps> = ({ onDatabaseChange }) => {
       setActivePreset("Default Size");
       localStorage.setItem('fivenest_active_size_preset', 'Default Size');
       localStorage.setItem('teedex_size_database', JSON.stringify(defaultSizes));
+      localStorage.setItem('fivenest_size_db', JSON.stringify(defaultSizes));
       if (onDatabaseChange) onDatabaseChange(defaultSizes);
+      triggerCloudSync(defaultSizes, savedPresets, 'Default Size', DEFAULT_SIZE_AGE_MAP);
       setSaveMessage("Reset all sizes to Default Size.");
       setTimeout(() => setSaveMessage(""), 3500);
     }

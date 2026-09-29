@@ -9,6 +9,7 @@ import { OrderEntry } from '../components/studio/orderEntry';
 import type { PlayerRecord, OrderMetadata } from '../components/studio/orderEntry';
 import { SizesDb, defaultSizes } from '../components/studio/sizesDb';
 import type { SizeDatabase } from '../components/studio/sizesDb';
+import { fetchCloudSizesData } from '../lib/sizesSyncService';
 import { NestingView, type NestingViewHandle } from '../components/studio/nestingView';
 import { MobileStudioView } from '../components/studio/MobileStudioView';
 import { HelpCenter } from '../components/studio/helpCenter';
@@ -71,6 +72,13 @@ export default function WebStudio() {
         console.error("Failed to parse saved size database", e);
       }
     }
+
+    // Pull calibrated factory sizes from Supabase database
+    fetchCloudSizesData().then((cloudData) => {
+      if (cloudData?.sizeDB) {
+        setSizeDB(cloudData.sizeDB);
+      }
+    }).catch(() => {});
 
     const savedTestMode = localStorage.getItem('fivenest_test_mode');
     if (savedTestMode) {

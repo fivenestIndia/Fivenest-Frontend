@@ -14,10 +14,11 @@ import confetti from 'canvas-confetti';
 import { supabase, fetchUserWallet } from '../../lib/supabaseClient';
 import { sampleImageEdgeColor, type ArtDesignConfig, type TextConfig, type PanelConfig, type LogoConfig } from './designer';
 import type { PlayerRecord, OrderMetadata } from './orderEntry';
-import { defaultSizes, DEFAULT_SIZE_AGE_MAP, type SizeDatabase, type SizeConfig } from './sizesDb';
+import { defaultSizes, DEFAULT_SIZE_AGE_MAP, getCollarExportSizes, type SizeDatabase, type SizeConfig } from './sizesDb';
 import type { NestingViewHandle } from './nestingView';
 import { classifyZipPanelFile } from './zipHelper';
 import { initiateRazorpayRecharge } from '../../lib/razorpayService';
+import { queueCloudSizesSave } from '../../lib/sizesSyncService';
 
 const FONT_OPTIONS = [
   { id: 'OldSport02AthleticNcv-E0gj', label: 'Old Sport Athletic' },
@@ -177,6 +178,13 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
     localStorage.setItem('teedex_size_database', JSON.stringify(localSizeDB));
     localStorage.setItem('fivenest_size_db', JSON.stringify(localSizeDB));
     if (onSizeDBChange) onSizeDBChange(localSizeDB);
+    queueCloudSizesSave({
+      sizeDB: localSizeDB,
+      savedPresets: updatedPresets,
+      activePreset: trimmed,
+      ageMap: DEFAULT_SIZE_AGE_MAP,
+      collarSizes: getCollarExportSizes(),
+    });
     setNewSizePresetName('');
     setSizePresetFeedback(`Preset "${trimmed}" saved successfully!`);
     setTimeout(() => setSizePresetFeedback(null), 3500);
@@ -198,6 +206,13 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
         localStorage.setItem('fivenest_size_db', JSON.stringify(defaultSizes));
         if (onSizeDBChange) onSizeDBChange(defaultSizes);
       }
+      queueCloudSizesSave({
+        sizeDB: defaultSizes,
+        savedPresets: updated,
+        activePreset: 'Default Size',
+        ageMap: DEFAULT_SIZE_AGE_MAP,
+        collarSizes: getCollarExportSizes(),
+      });
       setSizePresetFeedback(`Preset "${presetToDelete}" deleted.`);
       setTimeout(() => setSizePresetFeedback(null), 3000);
     }
@@ -207,12 +222,20 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
     localStorage.setItem('teedex_size_database', JSON.stringify(localSizeDB));
     localStorage.setItem('fivenest_size_db', JSON.stringify(localSizeDB));
     // Also if a custom preset is active, update it
+    let updatedPresets = savedSizePresets;
     if (activeSizePreset !== 'Default Size' && savedSizePresets[activeSizePreset]) {
-      const updatedPresets = { ...savedSizePresets, [activeSizePreset]: localSizeDB };
+      updatedPresets = { ...savedSizePresets, [activeSizePreset]: localSizeDB };
       setSavedSizePresets(updatedPresets);
       localStorage.setItem('fivenest_size_presets', JSON.stringify(updatedPresets));
     }
     if (onSizeDBChange) onSizeDBChange(localSizeDB);
+    queueCloudSizesSave({
+      sizeDB: localSizeDB,
+      savedPresets: updatedPresets,
+      activePreset: activeSizePreset,
+      ageMap: DEFAULT_SIZE_AGE_MAP,
+      collarSizes: getCollarExportSizes(),
+    });
     confetti({ particleCount: 35, spread: 45 });
     setShowSizeModal(false);
   };
@@ -225,6 +248,13 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
       localStorage.setItem('teedex_size_database', JSON.stringify(defaultSizes));
       localStorage.setItem('fivenest_size_db', JSON.stringify(defaultSizes));
       if (onSizeDBChange) onSizeDBChange(defaultSizes);
+      queueCloudSizesSave({
+        sizeDB: defaultSizes,
+        savedPresets: savedSizePresets,
+        activePreset: 'Default Size',
+        ageMap: DEFAULT_SIZE_AGE_MAP,
+        collarSizes: getCollarExportSizes(),
+      });
       confetti({ particleCount: 20, spread: 30 });
     }
   };
