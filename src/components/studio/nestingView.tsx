@@ -8,6 +8,7 @@ import { supabase, fetchUserWallet } from '../../lib/supabaseClient';
 import { fivenestLabelTagDataUrl } from '../../assets/labelTagBase64';
 import { ExportProcessingModal } from './ExportProcessingModal';
 import { recordBillingExport } from './billingSystem';
+import { initiateRazorpayRecharge } from '../../lib/razorpayService';
 
 // ---- Export format utilities ----
 type ExportFormat = 'jpg' | 'png' | 'tiff';
@@ -737,13 +738,13 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
     }, 1500);
   };
 
-  // Add a custom amount to wallet via Supabase
+  // Add funds to wallet via Razorpay
   const [topupLoading, setTopupLoading] = useState(false);
   const [topupMessage, setTopupMessage] = useState<{ text: string; ok: boolean } | null>(null);
 
   const handleCustomTopup = async () => {
     const amt = parseFloat(customTopupAmount);
-    if (!amt || amt <= 0) {
+    if (!amt || amt <= 0 || isNaN(amt)) {
       setTopupMessage({ text: 'Enter a valid amount (e.g. ₹100)', ok: false });
       return;
     }
@@ -755,46 +756,34 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       setTopupMessage({ text: 'Please sign in first.', ok: false });
       return;
     }
+
     setTopupLoading(true);
-    setTopupMessage(null);
+    setTopupMessage({ text: 'Connecting to Razorpay...', ok: true });
+
     try {
-      let serverBalance: number | null = null;
-      try {
-        let userId = (currentUser as any)?.id;
-        try {
-          const { data: authData } = await supabase.auth.getUser();
-          if (authData?.user?.id) userId = authData.user.id;
-        } catch {}
-
-        if (userId) {
-          await supabase.from('credit_transactions').insert({
-            user_id: userId,
-            amount: amt,
-            transaction_type: 'topup',
-            description: `Manual wallet top-up ₹${amt}`
-          });
-          const details = await fetchUserWallet(userId);
-          if (details && typeof details.balance === 'number' && !isNaN(details.balance)) {
-            serverBalance = details.balance;
-          }
+      await initiateRazorpayRecharge({
+        amount: amt,
+        currentUser,
+        onSuccess: (newBalance) => {
+          setTopupLoading(false);
+          const updatedUser = { ...currentUser, balance: newBalance };
+          onUserChange(updatedUser);
+          setCustomTopupAmount('');
+          setTopupMessage({ text: `✅ Added ₹${amt}! New balance: ₹${newBalance.toFixed(2)}`, ok: true });
+          setTimeout(() => setTopupMessage(null), 4000);
+        },
+        onError: (errMsg) => {
+          setTopupLoading(false);
+          setTopupMessage({ text: errMsg, ok: false });
+        },
+        onDismiss: () => {
+          setTopupLoading(false);
+          setTopupMessage(null);
         }
-      } catch (topupErr) {
-        console.warn("Supabase top-up sync warning:", topupErr);
-      }
-
-      const newBalance = serverBalance !== null ? serverBalance : Number((currentUser.balance + amt).toFixed(2));
-      const updatedUser = { ...currentUser, balance: newBalance };
-      localStorage.setItem('fivenest_active_user', JSON.stringify(updatedUser));
-      onUserChange(updatedUser);
-      window.dispatchEvent(new CustomEvent('fivenest_user_updated', { detail: updatedUser }));
-      
-      setCustomTopupAmount('');
-      setTopupMessage({ text: `✅ ₹${amt} added! New balance: ₹${newBalance.toFixed(2)}`, ok: true });
-      setTimeout(() => setTopupMessage(null), 4000);
+      });
     } catch (err: any) {
-      setTopupMessage({ text: err.message || 'Top-up failed', ok: false });
-    } finally {
       setTopupLoading(false);
+      setTopupMessage({ text: err.message || 'Payment initiation failed', ok: false });
     }
   };
   const [activeSheetIndex, setActiveSheetIndex] = useState<number>(0);

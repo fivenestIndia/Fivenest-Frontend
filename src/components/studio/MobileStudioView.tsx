@@ -17,6 +17,7 @@ import type { PlayerRecord, OrderMetadata } from './orderEntry';
 import { defaultSizes, DEFAULT_SIZE_AGE_MAP, type SizeDatabase, type SizeConfig } from './sizesDb';
 import type { NestingViewHandle } from './nestingView';
 import { classifyZipPanelFile } from './zipHelper';
+import { initiateRazorpayRecharge } from '../../lib/razorpayService';
 
 const FONT_OPTIONS = [
   { id: 'OldSport02AthleticNcv-E0gj', label: 'Old Sport Athletic' },
@@ -269,6 +270,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
   const [topupMessage, setTopupMessage] = useState<string | null>(null);
   const [copiedUpi, setCopiedUpi] = useState<boolean>(false);
   const [showQrCode, setShowQrCode] = useState<boolean>(true);
+  const [mobileCustomAmt, setMobileCustomAmt] = useState<string>('');
 
   // Quick player add modal
   const [showAddPlayer, setShowAddPlayer] = useState<boolean>(false);
@@ -1048,39 +1050,47 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
     onRecordsChange(records.filter(r => r.id !== id));
   };
 
-  // Recharge Wallet
+  // Recharge Wallet via Razorpay
   const handleRechargeWallet = async (amount: number) => {
     if (!currentUser) {
       onOpenLogin();
       return;
     }
 
+    if (!amount || amount <= 0 || isNaN(amount)) {
+      setTopupMessage('❌ Please enter a valid recharge amount (min. ₹1).');
+      return;
+    }
+
     setTopupLoading(true);
-    setTopupMessage(null);
+    setTopupMessage('⏳ Connecting to Razorpay...');
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Please sign in first.");
-
-      const { error } = await supabase.from('credit_transactions').insert({
-        user_id: user.id,
-        amount: amount,
-        transaction_type: 'topup',
-        description: `Mobile wallet top-up ₹${amount}`
+      await initiateRazorpayRecharge({
+        amount,
+        currentUser,
+        onSuccess: (newBalance) => {
+          setTopupLoading(false);
+          const updatedUser = { ...currentUser, balance: newBalance };
+          onUserChange(updatedUser);
+          setMobileCustomAmt('');
+          setTopupMessage(`✅ Successfully added ₹${amount}! New balance: ₹${newBalance.toFixed(2)}`);
+          confetti({ particleCount: 60, spread: 60 });
+          setTimeout(() => setTopupMessage(null), 5000);
+        },
+        onError: (errMsg) => {
+          setTopupLoading(false);
+          setTopupMessage(`❌ ${errMsg}`);
+          setTimeout(() => setTopupMessage(null), 5000);
+        },
+        onDismiss: () => {
+          setTopupLoading(false);
+          setTopupMessage(null);
+        }
       });
-
-      if (error) throw new Error(error.message);
-
-      const details = await fetchUserWallet(user.id);
-      const updatedUser = { ...currentUser, balance: details.balance };
-      localStorage.setItem('fivenest_active_user', JSON.stringify(updatedUser));
-      onUserChange(updatedUser);
-      setTopupMessage(`✅ Added ₹${amount}! New balance: ₹${details.balance.toFixed(2)}`);
-      confetti({ particleCount: 50, spread: 50 });
     } catch (err: any) {
-      setTopupMessage(`❌ Top-up failed: ${err.message || err}`);
-    } finally {
       setTopupLoading(false);
+      setTopupMessage(`❌ ${err.message || 'Payment initiation failed'}`);
     }
   };
 
@@ -2663,32 +2673,107 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
               </div>
             </div>
 
-            {/* Quick Wallet Recharge Presets */}
+            {/* Quick Wallet Recharge Presets via Razorpay */}
             <div style={{ background: '#0F172A', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                 <div style={{ fontSize: '13px', fontWeight: '700', color: '#F8FAFC' }}>
-                  Recharge Wallet via GPay
+                  Recharge Wallet
                 </div>
-                <span style={{ fontSize: '10px', background: 'rgba(59, 130, 246, 0.15)', color: '#60A5FA', padding: '2px 8px', borderRadius: '4px', fontWeight: '800' }}>
-                  Google Pay
+                <span style={{ fontSize: '10px', background: 'rgba(228, 87, 46, 0.15)', color: '#FF7A45', border: '1px solid rgba(228, 87, 46, 0.3)', padding: '2px 8px', borderRadius: '4px', fontWeight: '800' }}>
+                  Razorpay • UPI / Cards
                 </span>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
                 {[100, 500, 1000, 2000].map(amt => (
                   <button
                     key={amt}
+                    type="button"
                     onClick={() => handleRechargeWallet(amt)}
                     disabled={topupLoading}
-                    style={{ background: '#1E293B', border: '1px solid rgba(255, 255, 255, 0.1)', color: '#FFFFFF', padding: '10px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                    style={{ 
+                      background: '#1E293B', 
+                      border: '1px solid rgba(255, 255, 255, 0.1)', 
+                      color: '#FFFFFF', 
+                      padding: '11px', 
+                      borderRadius: '8px', 
+                      fontSize: '13px', 
+                      fontWeight: '700', 
+                      cursor: topupLoading ? 'not-allowed' : 'pointer', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      gap: '6px',
+                      opacity: topupLoading ? 0.6 : 1,
+                      transition: 'all 0.15s ease'
+                    }}
                   >
                     <span>+ ₹{amt}</span>
                   </button>
                 ))}
               </div>
 
+              {/* Custom Amount input */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', fontWeight: '700', fontSize: '13px' }}>₹</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={5}
+                    placeholder="Other amount"
+                    value={mobileCustomAmt}
+                    onChange={(e) => setMobileCustomAmt(e.target.value.replace(/[^0-9]/g, '').slice(0, 5))}
+                    style={{
+                      width: '100%',
+                      padding: '10px 10px 10px 24px',
+                      background: '#1E293B',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: '8px',
+                      color: '#FFFFFF',
+                      fontSize: '13px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const parsed = parseInt(mobileCustomAmt, 10);
+                    if (parsed > 0) {
+                      handleRechargeWallet(parsed);
+                    }
+                  }}
+                  disabled={topupLoading || !mobileCustomAmt}
+                  style={{
+                    background: 'linear-gradient(135deg, #E4572E 0%, #EA580C 100%)',
+                    border: 'none',
+                    color: '#FFFFFF',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: '800',
+                    cursor: (topupLoading || !mobileCustomAmt) ? 'not-allowed' : 'pointer',
+                    opacity: (topupLoading || !mobileCustomAmt) ? 0.6 : 1,
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  Pay with Razorpay
+                </button>
+              </div>
+
               {topupMessage && (
-                <div style={{ fontSize: '11px', color: topupMessage.startsWith('✅') ? '#4ADE80' : '#EF4444', textAlign: 'center', marginTop: '6px' }}>
+                <div style={{ 
+                  fontSize: '11px', 
+                  color: topupMessage.startsWith('✅') ? '#4ADE80' : (topupMessage.startsWith('⏳') ? '#60A5FA' : '#EF4444'), 
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  textAlign: 'center', 
+                  marginTop: '8px' 
+                }}>
                   {topupMessage}
                 </div>
               )}
