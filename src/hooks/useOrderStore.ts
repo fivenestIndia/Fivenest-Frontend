@@ -10,6 +10,11 @@ import {
   deleteDesignerBillFromProduction,
   updateProductionBillingPayment
 } from '../lib/designerProductionSync';
+import {
+  queueCloudOrderSave,
+  fetchCloudOrderStore,
+  mergeOrderStores
+} from '../lib/orderSyncService';
 
 // ─────────────── TYPES ───────────────────────────────────────────────────────
 
@@ -631,6 +636,10 @@ function reducer(state: OrderStore, action: Action): OrderStore {
 
   // Persist after every action
   try { localStorage.setItem('fn_orders_v1', JSON.stringify(next)); } catch { /* quota error ignored */ }
+  // Persist order definitions into Supabase database (cloud sync)
+  if (action.type !== 'LOAD_STATE') {
+    queueCloudOrderSave(next);
+  }
   return next;
 }
 
@@ -819,6 +828,43 @@ export function useOrderStore() {
     return () => {
       window.removeEventListener('fivenest-billing-updated', handleSync);
       window.removeEventListener('storage', handleSync);
+    };
+  }, []);
+
+  // Fetch and synchronize latest order definitions from Supabase database
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCloudOrders() {
+      try {
+        const cloudStore = await fetchCloudOrderStore();
+        if (cloudStore && isMounted) {
+          const merged = mergeOrderStores(state, cloudStore);
+          const synced = syncProductionBillingToStore(merged);
+          const allocated = applyAllocations(synced);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(allocated));
+          dispatch({ type: 'LOAD_STATE', payload: allocated });
+        }
+      } catch (err) {
+        console.warn('Error loading cloud orders from Supabase:', err);
+      }
+    }
+
+    loadCloudOrders();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        loadCloudOrders();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('fivenest_user_updated', loadCloudOrders);
+
+    return () => {
+      isMounted = false;
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('fivenest_user_updated', loadCloudOrders);
     };
   }, []);
 

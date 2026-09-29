@@ -5,6 +5,7 @@ import connectDB from "./config/db.js";
 import paymentRoutes from "./routes/payment.js";
 import licenseRoutes from "./routes/license.js";
 import agentRoutes from "./routes/agent.js";
+import ordersRoutes from "./routes/orders.js";
 
 // Load environment variables
 dotenv.config();
@@ -63,6 +64,7 @@ app.get("/health", (req, res) => {
 app.use("/api/payment", paymentRoutes);
 app.use("/api/license", licenseRoutes);
 app.use("/api/agent", agentRoutes);
+app.use("/api/orders", ordersRoutes);
 
 // Custom Error Handler Middleware
 app.use((err, req, res, next) => {

@@ -3,11 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, Bell, Filter, Download, Settings, Factory, Palette, Printer,
   LayoutDashboard, Users, ShoppingBag, FileText, CreditCard, AlertTriangle,
-  BookOpen, BarChart3, X, CheckCircle, ChevronDown, ChevronRight
+  BookOpen, BarChart3, X, CheckCircle, ChevronDown, ChevronRight, Cloud, RefreshCw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { useOrderStore, BusinessType, fmt, STATUS_COLORS, STATUS_LABELS } from '../hooks/useOrderStore';
+import { subscribeSyncStatus, type CloudSyncStatus } from '../lib/orderSyncService';
 import KPICards from '../components/orders/KPICards';
 import CustomerPanel from '../components/orders/CustomerPanel';
 import TransactionTable, { Column } from '../components/orders/TransactionTable';
@@ -517,6 +518,11 @@ export default function OrderManagement() {
   const [showPaymentDrawer, setShowPaymentDrawer] = useState(false);
   const [paymentCustomerId, setPaymentCustomerId] = useState<string | undefined>();
   const [toast, setToast] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>('synced');
+
+  React.useEffect(() => {
+    return subscribeSyncStatus((st) => setSyncStatus(st));
+  }, []);
 
   const nav = getNav(businessMode);
   const stats = store.getKPIStats(businessMode);
@@ -669,7 +675,27 @@ export default function OrderManagement() {
           })}
 
           {/* Consolidated stats in switcher bar */}
-          <div className="ml-auto flex items-center gap-4 text-xs sm:text-sm shrink-0">
+          <div className="ml-auto flex items-center gap-3 sm:gap-4 text-xs sm:text-sm shrink-0">
+            {/* Cloud Sync Status Indicator */}
+            <div 
+              title={syncStatus === 'synced' ? 'Order definitions (~2 KB JSON) backed up in Supabase database' : (syncStatus === 'syncing' ? 'Syncing orders with Supabase...' : 'Saved in local storage')}
+              className={cn(
+                'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors',
+                syncStatus === 'synced' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                syncStatus === 'syncing' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                'bg-zinc-100 text-zinc-600 border-zinc-200'
+              )}
+            >
+              {syncStatus === 'syncing' ? (
+                <RefreshCw size={11} className="animate-spin text-blue-600" />
+              ) : (
+                <Cloud size={12} className={syncStatus === 'synced' ? 'text-emerald-600' : 'text-zinc-500'} />
+              )}
+              <span className="hidden sm:inline">
+                {syncStatus === 'synced' ? 'Supabase Synced' : syncStatus === 'syncing' ? 'Syncing...' : 'Local Cache'}
+              </span>
+            </div>
+
             <span className="text-[#71717A]">
               Outstanding: <span className="font-black text-red-600">{fmt(stats.outstanding)}</span>
             </span>

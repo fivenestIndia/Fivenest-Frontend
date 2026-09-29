@@ -752,21 +752,18 @@ export const HelpCenter: React.FC<HelpCenterProps> = ({ onImportRecords }) => {
     try {
       // 1. Preprocess image
       const processedImage = await preprocessImage(imageSource);
-      setOcrProgress(25);
-      setOcrStatusText("Initializing AI OCR engine...");
+      setOcrProgress(30);
+      setOcrStatusText("Connecting to high-speed AI OCR engine...");
 
       const { createWorker } = await import('tesseract.js');
       let worker: any = null;
 
-      // Attempt 1: Local offline-ready assets (fastest & immune to CDN blocks)
       try {
-        const origin = window.location.origin;
         worker = await createWorker('eng', 1, {
-          workerPath: `${origin}/tesseract/worker.min.js`,
-          corePath: `${origin}/tesseract`,
-          langPath: `${origin}/tesseract/tessdata`,
+          workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
+          corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5',
+          langPath: 'https://raw.githubusercontent.com/naptha/tessdata/gh-pages/4.0.0_fast',
           gzip: true,
-          workerBlobURL: false,
           logger: (m) => {
             if (m.status === 'recognizing text') {
               const p = Math.min(98, Math.round((m.progress || 0) * 100));
@@ -775,10 +772,8 @@ export const HelpCenter: React.FC<HelpCenterProps> = ({ onImportRecords }) => {
             }
           }
         });
-      } catch (localWorkerErr) {
-        console.warn("Local OCR worker failed, falling back to GitHub raw mirror:", localWorkerErr);
-        setOcrStatusText("Connecting to online OCR engine...");
-        // Attempt 2: GitHub Raw fast traineddata fallback
+      } catch (cdnErr) {
+        console.warn("CDN OCR worker failed, falling back to default tesseract worker:", cdnErr);
         worker = await createWorker('eng', 1, {
           langPath: 'https://raw.githubusercontent.com/naptha/tessdata/gh-pages/4.0.0_fast',
           gzip: true,
