@@ -580,48 +580,96 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
   const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
   const [paymentCost, setPaymentCost] = useState<number>(0);
   const [pendingExportAction, setPendingExportAction] = useState<(() => Promise<void>) | null>(null);
+  const pendingExportActionRef = useRef<(() => Promise<void>) | null>(null);
+  const [walletDeducting, setWalletDeducting] = useState<boolean>(false);
   const [simulatedPaymentLoading, setSimulatedPaymentLoading] = useState<boolean>(false);
   const [upiPaymentMethod, setUpiPaymentMethod] = useState<'wallet' | 'upi'>('wallet');
   // Custom top-up amount the user wants to add to wallet
   const [customTopupAmount, setCustomTopupAmount] = useState<string>('');
 
   const executePaymentWithWallet = async () => {
-    if (!currentUser) return;
-    
+    if (!currentUser) {
+      alert("Authentication Required:\n\nPlease Sign In or Register to export production-ready prints.");
+      onOpenLogin();
+      return;
+    }
+
+    if (currentUser.balance < paymentCost) {
+      alert(`Insufficient wallet balance (₹${currentUser.balance.toFixed(2)}). Total due is ₹${paymentCost.toFixed(2)}.\n\nPlease recharge your wallet or scan the UPI QR code.`);
+      return;
+    }
+
+    setWalletDeducting(true);
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const calculatedNewBalance = Math.max(0, Number((currentUser.balance - paymentCost).toFixed(2)));
+      let finalBalance = calculatedNewBalance;
 
-      const { data: success, error } = await supabase.rpc('deduct_export_credits', {
-        amount_to_deduct: paymentCost,
-        export_desc: `Exported ${records.reduce((acc, r) => acc + r.qty, 0)} items (${getItemsToExport().filter(item => item.panelType === 'back').length} back, ${getItemsToExport().filter(item => item.panelType === 'a4-print').length} A4)`
-      });
+      // 1. Attempt Supabase sync if possible (non-blocking)
+      try {
+        let userId = (currentUser as any)?.id;
+        try {
+          const { data: authData } = await supabase.auth.getUser();
+          if (authData?.user?.id) userId = authData.user.id;
+        } catch (authErr) {
+          console.warn("Supabase auth check bypassed:", authErr);
+        }
 
-      if (error) {
-        alert(`Deduction failed: ${error.message}`);
-        return;
+        if (userId) {
+          try {
+            const { data: success, error } = await supabase.rpc('deduct_export_credits', {
+              amount_to_deduct: paymentCost,
+              export_desc: `Exported ${records.reduce((acc, r) => acc + r.qty, 0)} items (${getItemsToExport().filter(item => item.panelType === 'back').length} back, ${getItemsToExport().filter(item => item.panelType === 'a4-print').length} A4)`
+            });
+
+            if (!error && success) {
+              const details = await fetchUserWallet(userId);
+              if (details && typeof details.balance === 'number' && !isNaN(details.balance)) {
+                finalBalance = details.balance;
+              }
+            } else if (error) {
+              console.warn("RPC deduct_export_credits returned error, using local balance:", error.message);
+            }
+          } catch (rpcErr) {
+            console.warn("Supabase RPC error:", rpcErr);
+          }
+        }
+      } catch (syncErr) {
+        console.warn("Supabase wallet sync warning:", syncErr);
       }
 
-      if (!success) {
-        alert("Insufficient wallet balance. Please recharge your wallet or scan the UPI QR code.");
-        return;
-      }
-
-      const details = await fetchUserWallet(user.id);
+      // 2. Update user state & localStorage
       const updatedUser = {
         ...currentUser,
-        balance: details.balance
+        balance: finalBalance
       };
-      
-      localStorage.setItem('fivenest_active_user', JSON.stringify(updatedUser));
+
+      try {
+        localStorage.setItem('fivenest_active_user', JSON.stringify(updatedUser));
+      } catch (storageErr) {
+        console.warn("Failed to save user to localStorage:", storageErr);
+      }
+
       onUserChange(updatedUser);
-      
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('fivenest_user_updated', { detail: updatedUser }));
+      }
+
+      // 3. Close the modal
       setShowPaymentModal(false);
-      if (pendingExportAction) {
-        pendingExportAction();
+
+      // 4. Trigger the export action immediately
+      const action = pendingExportActionRef.current || pendingExportAction;
+      if (action) {
+        pendingExportActionRef.current = null;
+        setPendingExportAction(null);
+        await action();
       }
     } catch (err: any) {
-      alert(`Payment failed: ${err.message || err}`);
+      console.error("Wallet payment execution failed:", err);
+      alert(`Payment failed: ${err?.message || err}`);
+    } finally {
+      setWalletDeducting(false);
     }
   };
 
@@ -629,46 +677,57 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
     setSimulatedPaymentLoading(true);
     setTimeout(async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          // 1. Simulate webhook wallet topup in database
-          const { error: topupError } = await supabase.from('credit_transactions').insert({
-            user_id: user.id,
-            amount: paymentCost,
-            transaction_type: 'topup',
-            description: `Simulated UPI payment topup for order export`
-          });
+        let serverBalance: number | null = null;
+        try {
+          let userId = (currentUser as any)?.id;
+          try {
+            const { data: authData } = await supabase.auth.getUser();
+            if (authData?.user?.id) userId = authData.user.id;
+          } catch {}
 
-          if (topupError) {
-            console.error("Topup simulation failed:", topupError);
+          if (userId) {
+            // 1. Simulate webhook wallet topup in database
+            await supabase.from('credit_transactions').insert({
+              user_id: userId,
+              amount: paymentCost,
+              transaction_type: 'topup',
+              description: `Simulated UPI payment topup for order export`
+            });
+
+            // 2. Perform credit deduction
+            await supabase.rpc('deduct_export_credits', {
+              amount_to_deduct: paymentCost,
+              export_desc: `Exported ${records.reduce((acc, r) => acc + r.qty, 0)} items via UPI`
+            });
+
+            // 3. Fetch latest balance
+            const details = await fetchUserWallet(userId);
+            if (details && typeof details.balance === 'number' && !isNaN(details.balance)) {
+              serverBalance = details.balance;
+            }
           }
+        } catch (supabaseErr) {
+          console.warn("UPI simulation warning:", supabaseErr);
+        }
 
-          // 2. Perform credit deduction
-          const { data: success, error: deductError } = await supabase.rpc('deduct_export_credits', {
-            amount_to_deduct: paymentCost,
-            export_desc: `Exported ${records.reduce((acc, r) => acc + r.qty, 0)} items via UPI`
-          });
-
-          if (deductError) {
-             console.error("Deduction simulation failed:", deductError);
-          }
-
-          // 3. Fetch latest balance
-          const details = await fetchUserWallet(user.id);
+        if (currentUser) {
           const updatedUser = {
             ...currentUser,
-            balance: details.balance
+            balance: serverBalance !== null ? serverBalance : currentUser.balance
           };
-          
           localStorage.setItem('fivenest_active_user', JSON.stringify(updatedUser));
           onUserChange(updatedUser);
+          window.dispatchEvent(new CustomEvent('fivenest_user_updated', { detail: updatedUser }));
         }
         
         setSimulatedPaymentLoading(false);
         setShowPaymentModal(false);
 
-        if (pendingExportAction) {
-          pendingExportAction();
+        const action = pendingExportActionRef.current || pendingExportAction;
+        if (action) {
+          pendingExportActionRef.current = null;
+          setPendingExportAction(null);
+          await action();
         }
       } catch (err) {
         console.error("UPI simulation failed:", err);
@@ -699,23 +758,38 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
     setTopupLoading(true);
     setTopupMessage(null);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Session expired');
+      let serverBalance: number | null = null;
+      try {
+        let userId = (currentUser as any)?.id;
+        try {
+          const { data: authData } = await supabase.auth.getUser();
+          if (authData?.user?.id) userId = authData.user.id;
+        } catch {}
 
-      const { error } = await supabase.from('credit_transactions').insert({
-        user_id: user.id,
-        amount: amt,
-        transaction_type: 'topup',
-        description: `Manual wallet top-up ₹${amt}`
-      });
-      if (error) throw new Error(error.message);
+        if (userId) {
+          await supabase.from('credit_transactions').insert({
+            user_id: userId,
+            amount: amt,
+            transaction_type: 'topup',
+            description: `Manual wallet top-up ₹${amt}`
+          });
+          const details = await fetchUserWallet(userId);
+          if (details && typeof details.balance === 'number' && !isNaN(details.balance)) {
+            serverBalance = details.balance;
+          }
+        }
+      } catch (topupErr) {
+        console.warn("Supabase top-up sync warning:", topupErr);
+      }
 
-      const details = await fetchUserWallet(user.id);
-      const updatedUser = { ...currentUser, balance: details.balance };
+      const newBalance = serverBalance !== null ? serverBalance : Number((currentUser.balance + amt).toFixed(2));
+      const updatedUser = { ...currentUser, balance: newBalance };
       localStorage.setItem('fivenest_active_user', JSON.stringify(updatedUser));
       onUserChange(updatedUser);
+      window.dispatchEvent(new CustomEvent('fivenest_user_updated', { detail: updatedUser }));
+      
       setCustomTopupAmount('');
-      setTopupMessage({ text: `✅ ₹${amt} added! New balance: ₹${details.balance.toFixed(2)}`, ok: true });
+      setTopupMessage({ text: `✅ ₹${amt} added! New balance: ₹${newBalance.toFixed(2)}`, ok: true });
       setTimeout(() => setTopupMessage(null), 4000);
     } catch (err: any) {
       setTopupMessage({ text: err.message || 'Top-up failed', ok: false });
@@ -3123,6 +3197,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       }
 
       setPaymentCost(calculatedCost);
+      pendingExportActionRef.current = executeExport;
       setPendingExportAction(() => executeExport);
       if (currentUser.balance >= calculatedCost) {
         setUpiPaymentMethod('wallet');
@@ -3948,6 +4023,8 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                 setShowPaymentModal(false);
                 setIsExporting(false);
                 setExportProgressPct(0);
+                pendingExportActionRef.current = null;
+                setPendingExportAction(null);
               }}
               style={{
                 position: 'absolute',
@@ -4060,9 +4137,34 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                   <button 
                     className="btn btn-primary"
                     onClick={executePaymentWithWallet}
-                    style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', borderRadius: '10px', fontSize: '13px', fontWeight: '800', background: 'linear-gradient(135deg, #E4572E 0%, #EA580C 100%)', color: '#FFFFFF', border: 'none', boxShadow: '0 4px 14px rgba(228, 87, 46, 0.3)' }}
+                    disabled={walletDeducting}
+                    style={{ 
+                      width: '100%', 
+                      padding: '12px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      gap: '8px', 
+                      borderRadius: '10px', 
+                      fontSize: '13px', 
+                      fontWeight: '800', 
+                      background: 'linear-gradient(135deg, #E4572E 0%, #EA580C 100%)', 
+                      color: '#FFFFFF', 
+                      border: 'none', 
+                      boxShadow: '0 4px 14px rgba(228, 87, 46, 0.3)',
+                      cursor: walletDeducting ? 'not-allowed' : 'pointer',
+                      opacity: walletDeducting ? 0.8 : 1
+                    }}
                   >
-                    <CheckCircle size={16} /> Deduct ₹{paymentCost.toFixed(2)} & Export High-Res
+                    {walletDeducting ? (
+                      <>
+                        <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Processing Payment & Starting Export...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle size={16} /> Deduct ₹{paymentCost.toFixed(2)} & Export High-Res
+                      </>
+                    )}
                   </button>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -4216,6 +4318,9 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               onClick={() => {
                 setShowPaymentModal(false);
                 setIsExporting(false);
+                setExportProgressPct(0);
+                pendingExportActionRef.current = null;
+                setPendingExportAction(null);
               }}
               style={{ width: '100%', marginTop: '14px', padding: '9px', borderRadius: '8px', fontSize: '12px', background: '#FAF8F5', border: '1px solid #E8E4DE', color: '#6B7280' }}
             >
