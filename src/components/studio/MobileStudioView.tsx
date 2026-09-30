@@ -12,7 +12,7 @@ import JSZip from 'jszip';
 import Papa from 'papaparse';
 import confetti from 'canvas-confetti';
 import { supabase, fetchUserWallet } from '../../lib/supabaseClient';
-import { sampleImageEdgeColor, type ArtDesignConfig, type TextConfig, type PanelConfig, type LogoConfig } from './designer';
+import { sampleImageEdgeColor, type ArtDesignConfig, type TextConfig, type PanelConfig, type LogoConfig, getEffectiveStrokes, getStrokeFillStyle } from './designer';
 import type { PlayerRecord, OrderMetadata } from './orderEntry';
 import { defaultSizes, DEFAULT_SIZE_AGE_MAP, getCollarExportSizes, type SizeDatabase, type SizeConfig } from './sizesDb';
 import type { NestingViewHandle } from './nestingView';
@@ -671,10 +671,21 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
       ctx.textBaseline = 'middle';
       const yPos = (panelConf.nameConfig.yPos / 100) * canvasH;
 
-      if (panelConf.nameConfig.strokeWidth > 0) {
-        ctx.strokeStyle = panelConf.nameConfig.strokeColor || '#000000';
-        ctx.lineWidth = Math.max(1, Math.round((panelConf.nameConfig.strokeWidth / 50) * fontSizePx));
-        ctx.lineJoin = 'round';
+      const nameStrokes = getEffectiveStrokes(panelConf.nameConfig).filter(s => (s.width ?? 0) > 0);
+      let runningNameW = 0;
+      const cumNameStrokes = nameStrokes.map(s => {
+        runningNameW += s.width;
+        return {
+          ...s,
+          cumulativePx: Math.max(1, Math.round((runningNameW / 50) * fontSizePx)),
+        };
+      });
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      for (let sIdx = cumNameStrokes.length - 1; sIdx >= 0; sIdx--) {
+        const s = cumNameStrokes[sIdx];
+        ctx.strokeStyle = getStrokeFillStyle(ctx, s, fontSizePx * (nameText.length || 6) * 0.6, fontSizePx, '#000000');
+        ctx.lineWidth = s.cumulativePx * 2;
         ctx.strokeText(nameText, canvasW / 2, yPos);
       }
       ctx.fillStyle = panelConf.nameConfig.color || '#FFFFFF';
@@ -691,10 +702,21 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
       ctx.textBaseline = 'middle';
       const yPos = (panelConf.numberConfig.yPos / 100) * canvasH;
 
-      if (panelConf.numberConfig.strokeWidth > 0) {
-        ctx.strokeStyle = panelConf.numberConfig.strokeColor || '#000000';
-        ctx.lineWidth = Math.max(1, Math.round((panelConf.numberConfig.strokeWidth / 50) * fontSizePx));
-        ctx.lineJoin = 'round';
+      const numStrokes = getEffectiveStrokes(panelConf.numberConfig).filter(s => (s.width ?? 0) > 0);
+      let runningNumW = 0;
+      const cumNumStrokes = numStrokes.map(s => {
+        runningNumW += s.width;
+        return {
+          ...s,
+          cumulativePx: Math.max(1, Math.round((runningNumW / 50) * fontSizePx)),
+        };
+      });
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      for (let sIdx = cumNumStrokes.length - 1; sIdx >= 0; sIdx--) {
+        const s = cumNumStrokes[sIdx];
+        ctx.strokeStyle = getStrokeFillStyle(ctx, s, fontSizePx * (numText.length || 2) * 0.7, fontSizePx, '#000000');
+        ctx.lineWidth = s.cumulativePx * 2;
         ctx.strokeText(numText, canvasW / 2, yPos);
       }
       ctx.fillStyle = panelConf.numberConfig.color || '#FFFFFF';

@@ -357,7 +357,7 @@ import {
   getCollarExportSizes 
 } from './sizesDb';
 import type { PlayerRecord, OrderMetadata } from './orderEntry';
-import { sampleImageEdgeColor, type ArtDesignConfig, type TextConfig } from './designer';
+import { sampleImageEdgeColor, type ArtDesignConfig, type TextConfig, type StrokeConfig, getEffectiveStrokes, getStrokeFillStyle } from './designer';
 
 /** Helper to determine if a size falls into Youth range (18 to 30) for Collar sizing */
 export const isYouthCollarSize = (sizeStr: string): boolean => {
@@ -1718,10 +1718,19 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
         ctx.textAlign = align;
         ctx.textBaseline = 'middle';
 
-        // Proportional stroke calculation matching screen preview
-        const strokePx = Math.max(1, Math.round((textConf.strokeWidth / 50) * fontSizePx));
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
+
+        // Calculate all active strokes and cumulative line widths for concentric outlines
+        const activeStrokes = getEffectiveStrokes(textConf).filter(s => (s.width ?? 0) > 0);
+        let runningWidth = 0;
+        const cumulativeStrokes = activeStrokes.map(s => {
+          runningWidth += s.width;
+          return {
+            ...s,
+            cumulativePx: Math.max(1, Math.round((runningWidth / 50) * fontSizePx)),
+          };
+        });
 
         // Calculate custom position based on alignment
         let targetX = textX;
@@ -1796,9 +1805,10 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             const charAngle = startAngle + i * angleStep;
             ctx.save();
             ctx.rotate(charAngle);
-            if (textConf.strokeWidth > 0) {
-              ctx.strokeStyle = textConf.strokeColor;
-              ctx.lineWidth = strokePx * 2;
+            for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
+              const s = cumulativeStrokes[sIdx];
+              ctx.strokeStyle = getStrokeFillStyle(ctx, s, fontSizePx * 1.5, fontSizePx, '#000000');
+              ctx.lineWidth = s.cumulativePx * 2;
               ctx.strokeText(char, 0, -radius);
             }
             ctx.fillStyle = archFill;
@@ -1812,9 +1822,10 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           if (measuredW > maxLimitPx) {
             ctx.scale(maxLimitPx / measuredW, 1);
           }
-          if (textConf.strokeWidth > 0) {
-            ctx.strokeStyle = textConf.strokeColor;
-            ctx.lineWidth = strokePx * 2;
+          for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
+            const s = cumulativeStrokes[sIdx];
+            ctx.strokeStyle = getStrokeFillStyle(ctx, s, measuredW, fontSizePx, '#000000');
+            ctx.lineWidth = s.cumulativePx * 2;
             ctx.strokeText(displayName, 0, 0);
           }
           ctx.fillStyle = getTextFillStyle(measuredW, fontSizePx);

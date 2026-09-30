@@ -16,6 +16,17 @@ import { TextSpecificationModal } from './coreldraw/TextSpecificationModal';
 import ArtboardFillModal from './ArtboardFillModal';
 import { RULER_UNITS, DEFAULT_STUDIO_FONTS, type RulerUnit } from './rulerUnits';
 
+export interface StrokeConfig {
+  id?: string;
+  color: string;
+  width: number; // in pixels/pt
+  type?: 'solid' | 'gradient';
+  gradientColor1?: string;
+  gradientColor2?: string;
+  gradientStops?: string[];
+  gradientDirection?: 'vertical' | 'horizontal' | 'radial' | 'diagonal';
+}
+
 export interface TextConfig {
   enabled: boolean;
   yPos: number; // percentage from top (0-100)
@@ -24,6 +35,12 @@ export interface TextConfig {
   color: string;
   strokeColor: string;
   strokeWidth: number; // in pixels
+  strokeType?: 'solid' | 'gradient';
+  strokeGradientColor1?: string;
+  strokeGradientColor2?: string;
+  strokeGradientStops?: string[];
+  strokeGradientDirection?: 'vertical' | 'horizontal' | 'radial' | 'diagonal';
+  extraStrokes?: StrokeConfig[]; // Additional outer stroke outlines
   fontFamily: string;
   maxW: number; // maximum width in inches
   caseType: 'uppercase' | 'normal';
@@ -41,6 +58,58 @@ export interface TextConfig {
   textureOffsetY?: number;
   textureScale?: number;
 }
+
+export const getEffectiveStrokes = (conf?: Partial<TextConfig> | null): StrokeConfig[] => {
+  if (!conf) return [];
+  const baseStroke: StrokeConfig = {
+    color: conf.strokeColor || '#000000',
+    width: typeof conf.strokeWidth === 'number' ? conf.strokeWidth : 0,
+    type: conf.strokeType || 'solid',
+    gradientColor1: conf.strokeGradientColor1 || conf.strokeColor || '#000000',
+    gradientColor2: conf.strokeGradientColor2 || '#ffffff',
+    gradientStops: (conf.strokeGradientStops && conf.strokeGradientStops.length >= 2)
+      ? conf.strokeGradientStops
+      : [conf.strokeGradientColor1 || conf.strokeColor || '#000000', conf.strokeGradientColor2 || '#ffffff'],
+    gradientDirection: conf.strokeGradientDirection || 'vertical',
+  };
+
+  const extra = Array.isArray(conf.extraStrokes) ? conf.extraStrokes : [];
+  return [baseStroke, ...extra];
+};
+
+export const getStrokeFillStyle = (
+  ctx: CanvasRenderingContext2D,
+  stroke: StrokeConfig,
+  boundsW: number,
+  boundsH: number,
+  fallbackColor: string = '#000000'
+): string | CanvasGradient => {
+  if (stroke.type === 'gradient') {
+    const stops = (stroke.gradientStops && stroke.gradientStops.length >= 2)
+      ? stroke.gradientStops
+      : [stroke.gradientColor1 || stroke.color || '#000000', stroke.gradientColor2 || '#ffffff'];
+    const dir = stroke.gradientDirection || 'vertical';
+    let grad: CanvasGradient;
+
+    if (dir === 'horizontal') {
+      grad = ctx.createLinearGradient(-boundsW / 2, 0, boundsW / 2, 0);
+    } else if (dir === 'radial') {
+      grad = ctx.createRadialGradient(0, 0, 2, 0, 0, Math.max(boundsW / 2, boundsH));
+    } else if (dir === 'diagonal') {
+      grad = ctx.createLinearGradient(-boundsW / 2, -boundsH / 2, boundsW / 2, boundsH / 2);
+    } else {
+      // vertical
+      grad = ctx.createLinearGradient(0, -boundsH / 2, 0, boundsH / 2);
+    }
+
+    stops.forEach((col, idx) => {
+      const offset = idx / Math.max(1, stops.length - 1);
+      grad.addColorStop(offset, col);
+    });
+    return grad;
+  }
+  return stroke.color || fallbackColor;
+};
 
 export interface LogoConfig {
   enabled: boolean;
@@ -287,6 +356,395 @@ export const defaultDesignConfig: ArtDesignConfig = {
   }
 };
 
+interface StrokeControlsManagerProps {
+  label: string;
+  config: TextConfig;
+  targetKey: 'name' | 'number';
+  onUpdate: (fields: Partial<TextConfig>) => void;
+  onOpenGradientModal: (targetId: string) => void;
+}
+
+const StrokeControlsManager: React.FC<StrokeControlsManagerProps> = ({
+  label,
+  config,
+  targetKey,
+  onUpdate,
+  onOpenGradientModal
+}) => {
+  const strokes = getEffectiveStrokes(config);
+
+  const handleAddStroke = () => {
+    const currentExtra = Array.isArray(config.extraStrokes) ? [...config.extraStrokes] : [];
+    const newStroke: StrokeConfig = {
+      color: currentExtra.length % 2 === 0 ? '#ffffff' : '#000000',
+      width: 2.5,
+      type: 'solid',
+      gradientColor1: '#00e5ff',
+      gradientColor2: '#ff0055',
+      gradientStops: ['#00e5ff', '#ff0055'],
+      gradientDirection: 'vertical'
+    };
+    onUpdate({ extraStrokes: [...currentExtra, newStroke] });
+  };
+
+  const handleUpdateStroke = (index: number, updates: Partial<StrokeConfig>) => {
+    if (index === 0) {
+      const mapped: Partial<TextConfig> = {};
+      if (updates.color !== undefined) mapped.strokeColor = updates.color;
+      if (updates.width !== undefined) mapped.strokeWidth = updates.width;
+      if (updates.type !== undefined) mapped.strokeType = updates.type;
+      if (updates.gradientColor1 !== undefined) mapped.strokeGradientColor1 = updates.gradientColor1;
+      if (updates.gradientColor2 !== undefined) mapped.strokeGradientColor2 = updates.gradientColor2;
+      if (updates.gradientStops !== undefined) mapped.strokeGradientStops = updates.gradientStops;
+      if (updates.gradientDirection !== undefined) mapped.strokeGradientDirection = updates.gradientDirection;
+      onUpdate(mapped);
+    } else {
+      const currentExtra = [...(config.extraStrokes || [])];
+      const extraIdx = index - 1;
+      if (currentExtra[extraIdx]) {
+        currentExtra[extraIdx] = { ...currentExtra[extraIdx], ...updates };
+        onUpdate({ extraStrokes: currentExtra });
+      }
+    }
+  };
+
+  const handleRemoveStroke = (index: number) => {
+    if (index > 0) {
+      const currentExtra = [...(config.extraStrokes || [])];
+      const updatedExtra = currentExtra.filter((_, i) => i !== index - 1);
+      onUpdate({ extraStrokes: updatedExtra });
+    }
+  };
+
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-light)', marginTop: '6px' }}>
+      {/* Header bar with Small Icon next to Stroke to Add more Stroke */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <label className="form-label" style={{ fontSize: '11px', margin: 0, fontWeight: 'bold', color: 'var(--color-primary)' }}>
+            {label}:
+          </label>
+          {strokes.length > 1 && (
+            <span style={{ fontSize: '9px', fontWeight: '800', background: 'rgba(228,87,46,0.15)', color: '#E4572E', padding: '1px 5px', borderRadius: '4px' }}>
+              {strokes.length} Layers
+            </span>
+          )}
+        </div>
+
+        {/* Small Icon button only next to Stroke to Add more Stroke */}
+        <button
+          type="button"
+          onClick={handleAddStroke}
+          title="Add another stroke outline layer"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '3px',
+            padding: '2px 7px',
+            fontSize: '10px',
+            fontWeight: '700',
+            borderRadius: '4px',
+            background: 'rgba(228, 87, 46, 0.12)',
+            color: '#E4572E',
+            border: '1px solid rgba(228, 87, 46, 0.35)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          <Plus size={11} /> Add Stroke
+        </button>
+      </div>
+
+      {/* List of Strokes */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {strokes.map((stroke, idx) => {
+          const isGradient = stroke.type === 'gradient';
+          const stops = (stroke.gradientStops && stroke.gradientStops.length >= 2)
+            ? stroke.gradientStops
+            : [stroke.gradientColor1 || stroke.color || '#00e5ff', stroke.gradientColor2 || '#ff0055'];
+          const dir = stroke.gradientDirection || 'vertical';
+          const gradAngle = dir === 'horizontal' ? '90deg' : dir === 'diagonal' ? '135deg' : dir === 'radial' ? '90deg' : '180deg';
+          const previewBg = dir === 'radial'
+            ? `radial-gradient(circle, ${stops.join(', ')})`
+            : `linear-gradient(${gradAngle}, ${stops.join(', ')})`;
+
+          return (
+            <div 
+              key={idx}
+              style={{
+                background: 'rgba(0, 0, 0, 0.22)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '6px',
+                padding: '8px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px'
+              }}
+            >
+              {/* Layer Title & Controls */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '10px', fontWeight: '800', color: idx === 0 ? 'var(--color-primary)' : '#94a3b8' }}>
+                  {idx === 0 ? 'Stroke 1 (Inner)' : `Stroke ${idx + 1} (Outer)`}
+                </span>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  {/* Solid vs Gradient Switcher */}
+                  <div style={{ display: 'flex', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', padding: '1px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateStroke(idx, { type: 'solid' })}
+                      style={{
+                        padding: '1px 6px',
+                        fontSize: '9px',
+                        fontWeight: '700',
+                        borderRadius: '3px',
+                        border: 'none',
+                        background: !isGradient ? '#E4572E' : 'transparent',
+                        color: !isGradient ? '#ffffff' : 'var(--text-muted)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Solid
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateStroke(idx, { 
+                        type: 'gradient',
+                        gradientColor1: stroke.gradientColor1 || stroke.color || '#00e5ff',
+                        gradientColor2: stroke.gradientColor2 || '#ff0055',
+                        gradientStops: stops
+                      })}
+                      style={{
+                        padding: '1px 6px',
+                        fontSize: '9px',
+                        fontWeight: '700',
+                        borderRadius: '3px',
+                        border: 'none',
+                        background: isGradient ? '#E4572E' : 'transparent',
+                        color: isGradient ? '#ffffff' : 'var(--text-muted)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Gradient
+                    </button>
+                  </div>
+
+                  {/* Remove Button for Extra Stroke */}
+                  {idx > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveStroke(idx)}
+                      title="Remove this stroke outline"
+                      style={{
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        border: 'none',
+                        color: '#ef4444',
+                        borderRadius: '3px',
+                        padding: '1px 5px',
+                        fontSize: '10px',
+                        fontWeight: '900',
+                        cursor: 'pointer',
+                        lineHeight: 1
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* SOLID MODE */}
+              {!isGradient ? (
+                <div className="grid-2" style={{ gap: '8px' }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontSize: '9px', marginBottom: '2px' }}>Color:</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <input 
+                        type="color" 
+                        value={stroke.color || '#000000'} 
+                        onChange={(e) => handleUpdateStroke(idx, { color: e.target.value })}
+                        style={{ border: 'none', background: 'none', width: '28px', height: '24px', cursor: 'pointer', padding: 0 }}
+                      />
+                      <input
+                        type="text"
+                        value={stroke.color || '#000000'}
+                        onChange={(e) => handleUpdateStroke(idx, { color: e.target.value })}
+                        style={{ flex: 1, height: '24px', fontSize: '10px', padding: '2px 4px', borderRadius: '4px', border: '1px solid var(--border-light)', background: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)', fontFamily: 'monospace' }}
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontSize: '9px', marginBottom: '2px' }}>Width:</label>
+                    <input 
+                      type="number" 
+                      step="0.5" 
+                      min="0"
+                      max="50"
+                      className="form-input" 
+                      value={stroke.width ?? 0}
+                      onChange={(e) => handleUpdateStroke(idx, { width: parseFloat(e.target.value) || 0 })}
+                      style={{ padding: '3px 6px', fontSize: '11px', height: '24px' }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                /* GRADIENT MODE */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {/* Direction & Width */}
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <div style={{ flex: 1 }}>
+                      <label className="form-label" style={{ fontSize: '9px', marginBottom: '2px' }}>Direction:</label>
+                      <div style={{ display: 'flex', gap: '2px' }}>
+                        {(['vertical', 'horizontal', 'diagonal', 'radial'] as const).map(d => (
+                          <button 
+                            key={d} 
+                            type="button"
+                            onClick={() => handleUpdateStroke(idx, { gradientDirection: d })}
+                            style={{
+                              flex: 1,
+                              padding: '2px 0',
+                              fontSize: '9px',
+                              fontWeight: '700',
+                              border: '1px solid var(--border-light)',
+                              borderRadius: '3px',
+                              background: dir === d ? '#E4572E' : 'rgba(255,255,255,0.04)',
+                              color: dir === d ? '#ffffff' : 'var(--text-muted)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {d === 'vertical' ? '↕' : d === 'horizontal' ? '↔' : d === 'diagonal' ? '⤡' : '◎'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ width: '65px' }}>
+                      <label className="form-label" style={{ fontSize: '9px', marginBottom: '2px' }}>Width:</label>
+                      <input 
+                        type="number" 
+                        step="0.5" 
+                        min="0"
+                        max="50"
+                        className="form-input" 
+                        value={stroke.width ?? 0}
+                        onChange={(e) => handleUpdateStroke(idx, { width: parseFloat(e.target.value) || 0 })}
+                        style={{ padding: '3px 6px', fontSize: '11px', height: '22px' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Gradient Preview Bar & Editor Modal Button */}
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <div 
+                      style={{ 
+                        flex: 1,
+                        height: '18px', 
+                        borderRadius: '4px', 
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        background: previewBg,
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => onOpenGradientModal(`${targetKey}-stroke-${idx}`)}
+                      title="Click to open Photoshop Gradient Editor"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => onOpenGradientModal(`${targetKey}-stroke-${idx}`)}
+                      title="Open full gradient editor"
+                      style={{
+                        padding: '2px 6px',
+                        fontSize: '9px',
+                        fontWeight: '700',
+                        borderRadius: '3px',
+                        background: 'rgba(228,87,46,0.12)',
+                        border: '1px solid rgba(228,87,46,0.3)',
+                        color: '#E4572E',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      🎨 Editor
+                    </button>
+                  </div>
+
+                  {/* Color Stops */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: '700' }}>
+                        Stops ({stops.length}):
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = [...stops, '#eab308'];
+                          handleUpdateStroke(idx, {
+                            gradientStops: updated,
+                            gradientColor1: updated[0],
+                            gradientColor2: updated[updated.length - 1]
+                          });
+                        }}
+                        style={{
+                          border: 'none',
+                          background: 'none',
+                          color: '#E4572E',
+                          fontSize: '9px',
+                          fontWeight: '800',
+                          cursor: 'pointer',
+                          padding: 0
+                        }}
+                      >
+                        + Add Stop
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+                      {stops.map((color, sIdx) => (
+                        <div key={sIdx} style={{ display: 'flex', alignItems: 'center', gap: '2px', background: 'rgba(255,255,255,0.04)', padding: '1px 3px', borderRadius: '3px', border: '1px solid var(--border-light)' }}>
+                          <input 
+                            type="color" 
+                            value={color.startsWith('#') && color.length >= 4 ? color : '#00e5ff'}
+                            onChange={(e) => {
+                              const updated = [...stops];
+                              updated[sIdx] = e.target.value;
+                              handleUpdateStroke(idx, {
+                                gradientStops: updated,
+                                gradientColor1: updated[0],
+                                gradientColor2: updated[updated.length - 1]
+                              });
+                            }}
+                            style={{ width: '18px', height: '18px', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
+                          />
+                          {stops.length > 2 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = stops.filter((_, i) => i !== sIdx);
+                                handleUpdateStroke(idx, {
+                                  gradientStops: updated,
+                                  gradientColor1: updated[0],
+                                  gradientColor2: updated[updated.length - 1]
+                                });
+                              }}
+                              style={{ border: 'none', background: 'none', color: '#ff4444', fontSize: '9px', cursor: 'pointer', padding: '0 2px' }}
+                              title="Remove stop"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfigChange, metadata }) => {
   const [activeTab, setActiveTab] = useState<'front' | 'back' | 'dual' | 'collar' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD'>('dual');
   const [dualActivePanel, setDualActivePanel] = useState<'front' | 'back' | 'collar' | 'sleeveLeft' | 'sleeveRight'>('front');
@@ -311,7 +769,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [isPanning, setIsPanning] = useState<boolean>(false);
   const [activeTextLayer, setActiveTextLayer] = useState<'name' | 'number' | null>(null);
   const [isGradientModalOpen, setIsGradientModalOpen] = useState<boolean>(false);
-  const [gradientModalTarget, setGradientModalTarget] = useState<'name' | 'number' | 'palette'>('name');
+  const [gradientModalTarget, setGradientModalTarget] = useState<string>('name');
 
   // Triple-click Artboard Fill & Gradients Modal State
   const [artboardFillModal, setArtboardFillModal] = useState<{
@@ -1436,10 +1894,19 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.textAlign = align;
         ctx.textBaseline = 'middle';
 
-        // Proportional outside stroke calculation (scaled directly with font size / panel height)
-        const strokePx = Math.max(1, Math.round((conf.strokeWidth / 50) * fontSizePx));
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
+
+        // Calculate all active strokes and cumulative line widths for concentric outlines
+        const activeStrokes = getEffectiveStrokes(conf).filter(s => (s.width ?? 0) > 0);
+        let runningWidth = 0;
+        const cumulativeStrokes = activeStrokes.map(s => {
+          runningWidth += s.width;
+          return {
+            ...s,
+            cumulativePx: Math.max(1, Math.round((runningWidth / 50) * fontSizePx)),
+          };
+        });
 
         // Calculate custom position based on alignment
         let targetX = textX;
@@ -1583,9 +2050,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             const charAngle = startAngle + i * angleStep;
             ctx.save();
             ctx.rotate(charAngle);
-            if (conf.strokeWidth > 0) {
-              ctx.strokeStyle = conf.strokeColor;
-              ctx.lineWidth = strokePx * 2;
+            for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
+              const s = cumulativeStrokes[sIdx];
+              ctx.strokeStyle = getStrokeFillStyle(ctx, s, fontSizePx * 1.5, fontSizePx, '#000000');
+              ctx.lineWidth = s.cumulativePx * 2;
               ctx.strokeText(char, 0, -radius);
             }
             ctx.fillStyle = activeFillStyle;
@@ -1599,9 +2067,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           if (measuredW > maxLimitPx) {
             ctx.scale(maxLimitPx / measuredW, 1);
           }
-          if (conf.strokeWidth > 0) {
-            ctx.strokeStyle = conf.strokeColor;
-            ctx.lineWidth = strokePx * 2;
+          for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
+            const s = cumulativeStrokes[sIdx];
+            ctx.strokeStyle = getStrokeFillStyle(ctx, s, measuredW, fontSizePx, '#000000');
+            ctx.lineWidth = s.cumulativePx * 2;
             ctx.strokeText(displayName, 0, 0);
           }
           ctx.fillStyle = activeFillStyle;
@@ -6212,36 +6681,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     </div>
                   )}
 
-                {/* Stroke Outline Controls for Name */}
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-light)', marginTop: '6px' }}>
-                  <label className="form-label" style={{ fontSize: '11px', margin: '0 0 6px 0', fontWeight: 'bold', color: 'var(--color-primary)' }}>
-                    Name Stroke / Outline:
-                  </label>
-                  <div className="grid-2">
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '10px' }}>Stroke Color:</label>
-                      <input 
-                        type="color" 
-                        value={activePanel.nameConfig.strokeColor || '#000000'} 
-                        onChange={(e) => updateTextConfig('name', { strokeColor: e.target.value })}
-                        style={{ border: 'none', background: 'none', width: '100%', height: '28px', cursor: 'pointer' }}
-                      />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '10px' }}>Stroke Width:</label>
-                      <input 
-                        type="number" 
-                        step="0.5" 
-                        min="0"
-                        max="50"
-                        className="form-input" 
-                        value={activePanel.nameConfig.strokeWidth || 0}
-                        onChange={(e) => updateTextConfig('name', { strokeWidth: parseFloat(e.target.value) || 0 })}
-                        style={{ padding: '4px', fontSize: '11px' }}
-                      />
-                    </div>
-                  </div>
-                </div>
+                {/* Multi-Stroke Outline Controls for Name */}
+                <StrokeControlsManager
+                  label="Name Stroke / Outline"
+                  config={activePanel.nameConfig}
+                  targetKey="name"
+                  onUpdate={(fields) => updateTextConfig('name', fields)}
+                  onOpenGradientModal={(targetId) => {
+                    setGradientModalTarget(targetId);
+                    setIsGradientModalOpen(true);
+                  }}
+                />
               </div>
               </div>
               )}
@@ -6633,36 +7083,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   )}
                 </div>
 
-                {/* Stroke Outline Controls for Number */}
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-light)', marginTop: '6px' }}>
-                  <label className="form-label" style={{ fontSize: '11px', margin: '0 0 6px 0', fontWeight: 'bold', color: 'var(--color-primary)' }}>
-                    Number Stroke / Outline:
-                  </label>
-                  <div className="grid-2">
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '10px' }}>Stroke Color:</label>
-                      <input 
-                        type="color" 
-                        value={activePanel.numberConfig.strokeColor || '#000000'} 
-                        onChange={(e) => updateTextConfig('number', { strokeColor: e.target.value })}
-                        style={{ border: 'none', background: 'none', width: '100%', height: '28px', cursor: 'pointer' }}
-                      />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '10px' }}>Stroke Width:</label>
-                      <input 
-                        type="number" 
-                        step="0.5" 
-                        min="0"
-                        max="50"
-                        className="form-input" 
-                        value={activePanel.numberConfig.strokeWidth || 0}
-                        onChange={(e) => updateTextConfig('number', { strokeWidth: parseFloat(e.target.value) || 0 })}
-                        style={{ padding: '4px', fontSize: '11px' }}
-                      />
-                    </div>
-                  </div>
-                </div>
+                {/* Multi-Stroke Outline Controls for Number */}
+                <StrokeControlsManager
+                  label="Number Stroke / Outline"
+                  config={activePanel.numberConfig}
+                  targetKey="number"
+                  onUpdate={(fields) => updateTextConfig('number', fields)}
+                  onOpenGradientModal={(targetId) => {
+                    setGradientModalTarget(targetId);
+                    setIsGradientModalOpen(true);
+                  }}
+                />
               </div>
               )}
               </div>
@@ -7655,6 +8086,18 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         onClose={() => setIsGradientModalOpen(false)}
         initialStops={
           (() => {
+            if (gradientModalTarget.startsWith('name-stroke-')) {
+              const idx = parseInt(gradientModalTarget.replace('name-stroke-', ''), 10);
+              const strokes = getEffectiveStrokes(activePanel.nameConfig);
+              const s = strokes[idx];
+              return (s?.gradientStops && s.gradientStops.length >= 2) ? s.gradientStops : [s?.gradientColor1 || '#00e5ff', s?.gradientColor2 || '#ff0055'];
+            }
+            if (gradientModalTarget.startsWith('number-stroke-')) {
+              const idx = parseInt(gradientModalTarget.replace('number-stroke-', ''), 10);
+              const strokes = getEffectiveStrokes(activePanel.numberConfig);
+              const s = strokes[idx];
+              return (s?.gradientStops && s.gradientStops.length >= 2) ? s.gradientStops : [s?.gradientColor1 || '#00e5ff', s?.gradientColor2 || '#ff0055'];
+            }
             const currentConfig = gradientModalTarget === 'name' ? activePanel.nameConfig : activePanel.numberConfig;
             return currentConfig?.gradientStops && currentConfig.gradientStops.length >= 2
               ? currentConfig.gradientStops
@@ -7662,11 +8105,81 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           })()
         }
         initialDirection={
-          (gradientModalTarget === 'name' ? activePanel.nameConfig?.gradientDirection : activePanel.numberConfig?.gradientDirection) || 'vertical'
+          (() => {
+            if (gradientModalTarget.startsWith('name-stroke-')) {
+              const idx = parseInt(gradientModalTarget.replace('name-stroke-', ''), 10);
+              const strokes = getEffectiveStrokes(activePanel.nameConfig);
+              return strokes[idx]?.gradientDirection || 'vertical';
+            }
+            if (gradientModalTarget.startsWith('number-stroke-')) {
+              const idx = parseInt(gradientModalTarget.replace('number-stroke-', ''), 10);
+              const strokes = getEffectiveStrokes(activePanel.numberConfig);
+              return strokes[idx]?.gradientDirection || 'vertical';
+            }
+            return (gradientModalTarget === 'name' ? activePanel.nameConfig?.gradientDirection : activePanel.numberConfig?.gradientDirection) || 'vertical';
+          })()
         }
-        title={`Photoshop Gradient Editor (${gradientModalTarget === 'name' ? 'Player Name' : gradientModalTarget === 'number' ? 'Player Number' : 'Color Palette'})`}
+        title={`Photoshop Gradient Editor (${
+          gradientModalTarget.includes('stroke')
+            ? (gradientModalTarget.startsWith('name') ? 'Player Name Stroke' : 'Player Number Stroke')
+            : gradientModalTarget === 'name'
+            ? 'Player Name Fill'
+            : gradientModalTarget === 'number'
+            ? 'Player Number Fill'
+            : 'Color Palette'
+        })`}
         onApply={(stops, dir) => {
-          if (gradientModalTarget === 'name') {
+          if (gradientModalTarget.startsWith('name-stroke-')) {
+            const idx = parseInt(gradientModalTarget.replace('name-stroke-', ''), 10);
+            if (idx === 0) {
+              updateTextConfig('name', {
+                strokeType: 'gradient',
+                strokeGradientStops: stops,
+                strokeGradientColor1: stops[0],
+                strokeGradientColor2: stops[stops.length - 1],
+                strokeGradientDirection: dir
+              });
+            } else if (idx > 0) {
+              const currentExtra = [...(activePanel.nameConfig.extraStrokes || [])];
+              if (currentExtra[idx - 1]) {
+                currentExtra[idx - 1] = {
+                  ...currentExtra[idx - 1],
+                  type: 'gradient',
+                  gradientStops: stops,
+                  gradientColor1: stops[0],
+                  gradientColor2: stops[stops.length - 1],
+                  gradientDirection: dir
+                };
+                updateTextConfig('name', { extraStrokes: currentExtra });
+              }
+            }
+            toast.success(`Applied gradient to Name Stroke #${idx + 1}`);
+          } else if (gradientModalTarget.startsWith('number-stroke-')) {
+            const idx = parseInt(gradientModalTarget.replace('number-stroke-', ''), 10);
+            if (idx === 0) {
+              updateTextConfig('number', {
+                strokeType: 'gradient',
+                strokeGradientStops: stops,
+                strokeGradientColor1: stops[0],
+                strokeGradientColor2: stops[stops.length - 1],
+                strokeGradientDirection: dir
+              });
+            } else if (idx > 0) {
+              const currentExtra = [...(activePanel.numberConfig.extraStrokes || [])];
+              if (currentExtra[idx - 1]) {
+                currentExtra[idx - 1] = {
+                  ...currentExtra[idx - 1],
+                  type: 'gradient',
+                  gradientStops: stops,
+                  gradientColor1: stops[0],
+                  gradientColor2: stops[stops.length - 1],
+                  gradientDirection: dir
+                };
+                updateTextConfig('number', { extraStrokes: currentExtra });
+              }
+            }
+            toast.success(`Applied gradient to Number Stroke #${idx + 1}`);
+          } else if (gradientModalTarget === 'name') {
             updateTextConfig('name', {
               fillType: 'gradient',
               gradientStops: stops,
