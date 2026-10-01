@@ -1711,8 +1711,8 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       const drawSingleText = (text: string, textConf: TextConfig, textX: number, textY: number, maxLimitPx: number) => {
         ctx.save();
         const fontSizePx = Math.round((textConf.fontSize / 30) * heightPx);
-        // Include fallback font chain so canvas rendering never fails on custom fonts
-        ctx.font = `bold ${fontSizePx}px "${textConf.fontFamily}", Impact, "Arial Black", sans-serif`;
+        const weightStr = textConf.fontWeight === 'bold' ? 'bold ' : '';
+        ctx.font = `${weightStr}${fontSizePx}px "${textConf.fontFamily}", sans-serif`;
         
         const align = textConf.align || 'center';
         ctx.textAlign = align;
@@ -1794,6 +1794,88 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
         };
 
         const activeFill = getTextFillStyle(Math.min(totalTextW, maxLimitPx), fontSizePx);
+        const strokePos = textConf.strokePosition || 'outside';
+
+        // Reusable helper to render text with Outside, Inside, or Center stroke
+        const renderTextWithStroke = (
+          targetCtx: CanvasRenderingContext2D,
+          str: string,
+          x: number,
+          y: number,
+          pos: 'outside' | 'inside' | 'center',
+          strW: number
+        ) => {
+          if (cumulativeStrokes.length === 0) {
+            targetCtx.fillStyle = activeFill;
+            targetCtx.fillText(str, x, y);
+            return;
+          }
+
+          if (pos === 'inside') {
+            // Inside Stroke: Render fill, then stroke with source-atop clipping on offscreen canvas
+            const pad = Math.max(16, Math.ceil(runningWidth * 2));
+            const offW = Math.max(2, Math.ceil(strW + pad * 2));
+            const offH = Math.max(2, Math.ceil(fontSizePx * 1.6 + pad * 2));
+            const offCanvas = document.createElement('canvas');
+            offCanvas.width = offW;
+            offCanvas.height = offH;
+            const offCtx = offCanvas.getContext('2d');
+            if (offCtx) {
+              offCtx.font = targetCtx.font;
+              offCtx.textAlign = 'center';
+              offCtx.textBaseline = 'middle';
+              offCtx.lineJoin = 'round';
+              offCtx.lineCap = 'round';
+              const ox = offW / 2;
+              const oy = offH / 2;
+
+              // 1. Draw fill first
+              offCtx.fillStyle = activeFill;
+              offCtx.fillText(str, ox, oy);
+
+              // 2. Stroke with source-atop (keeps stroke strictly inside text glyphs)
+              offCtx.globalCompositeOperation = 'source-atop';
+              for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
+                const s = cumulativeStrokes[sIdx];
+                offCtx.strokeStyle = getStrokeFillStyle(offCtx, s, strW, fontSizePx, '#000000');
+                offCtx.lineWidth = s.cumulativePx * 2;
+                offCtx.strokeText(str, ox, oy);
+              }
+
+              // 3. Draw onto target context with exact alignment offset
+              let drawOffX = x - ox;
+              if (targetCtx.textAlign === 'left') {
+                drawOffX = x - (ox - strW / 2);
+              } else if (targetCtx.textAlign === 'right') {
+                drawOffX = x - (ox + strW / 2);
+              }
+              targetCtx.drawImage(offCanvas, drawOffX, y - oy);
+            } else {
+              targetCtx.fillStyle = activeFill;
+              targetCtx.fillText(str, x, y);
+            }
+          } else if (pos === 'center') {
+            // Center Stroke: fill first, then stroke with exact lineWidth
+            targetCtx.fillStyle = activeFill;
+            targetCtx.fillText(str, x, y);
+            for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
+              const s = cumulativeStrokes[sIdx];
+              targetCtx.strokeStyle = getStrokeFillStyle(targetCtx, s, strW, fontSizePx, '#000000');
+              targetCtx.lineWidth = s.cumulativePx;
+              targetCtx.strokeText(str, x, y);
+            }
+          } else {
+            // Outside Stroke (default): stroke first with 2x width, then fill on top
+            for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
+              const s = cumulativeStrokes[sIdx];
+              targetCtx.strokeStyle = getStrokeFillStyle(targetCtx, s, strW, fontSizePx, '#000000');
+              targetCtx.lineWidth = s.cumulativePx * 2;
+              targetCtx.strokeText(str, x, y);
+            }
+            targetCtx.fillStyle = activeFill;
+            targetCtx.fillText(str, x, y);
+          }
+        };
 
         if (textConf.effect === 'arch') {
           // Circular arched text bending concave (ends down)
@@ -1827,14 +1909,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             if (fitRatio < 1) {
               ctx.scale(fitRatio, 1);
             }
-            for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
-              const s = cumulativeStrokes[sIdx];
-              ctx.strokeStyle = getStrokeFillStyle(ctx, s, fontSizePx * 1.5, fontSizePx, '#000000');
-              ctx.lineWidth = s.cumulativePx * 2;
-              ctx.strokeText(char, 0, -radius);
-            }
-            ctx.fillStyle = activeFill;
-            ctx.fillText(char, 0, -radius);
+            renderTextWithStroke(ctx, char, 0, -radius, strokePos, fontSizePx * 1.5);
             ctx.restore();
           }
           ctx.restore();
@@ -1850,14 +1925,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           if (spacingPx <= 0) {
             ctx.textAlign = align;
             ctx.textBaseline = 'middle';
-            for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
-              const s = cumulativeStrokes[sIdx];
-              ctx.strokeStyle = getStrokeFillStyle(ctx, s, totalTextW, fontSizePx, '#000000');
-              ctx.lineWidth = s.cumulativePx * 2;
-              ctx.strokeText(displayName, 0, 0);
-            }
-            ctx.fillStyle = activeFill;
-            ctx.fillText(displayName, 0, 0);
+            renderTextWithStroke(ctx, displayName, 0, 0, strokePos, totalTextW);
           } else {
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -1875,16 +1943,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               const char = chars[i];
               const cw = charWidths[i];
               const charCenterX = currX + cw / 2;
-
-              for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
-                const s = cumulativeStrokes[sIdx];
-                ctx.strokeStyle = getStrokeFillStyle(ctx, s, totalTextW, fontSizePx, '#000000');
-                ctx.lineWidth = s.cumulativePx * 2;
-                ctx.strokeText(char, charCenterX, 0);
-              }
-              ctx.fillStyle = activeFill;
-              ctx.fillText(char, charCenterX, 0);
-
+              renderTextWithStroke(ctx, char, charCenterX, 0, strokePos, cw);
               currX += cw + spacingPx;
             }
           }

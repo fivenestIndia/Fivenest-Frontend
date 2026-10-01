@@ -35,6 +35,7 @@ export interface TextConfig {
   color: string;
   strokeColor: string;
   strokeWidth: number; // in pixels
+  strokePosition?: 'outside' | 'inside' | 'center'; // 'outside' (default), 'inside', or 'center'
   strokeType?: 'solid' | 'gradient';
   strokeGradientColor1?: string;
   strokeGradientColor2?: string;
@@ -42,6 +43,7 @@ export interface TextConfig {
   strokeGradientDirection?: 'vertical' | 'horizontal' | 'radial' | 'diagonal';
   extraStrokes?: StrokeConfig[]; // Additional outer stroke outlines
   fontFamily: string;
+  fontWeight?: 'normal' | 'bold'; // 'normal' (default, original font thickness) or 'bold'
   maxW: number; // maximum width in inches
   caseType: 'uppercase' | 'normal';
   effect?: 'none' | 'arch' | 'shadow';
@@ -454,6 +456,66 @@ const StrokeControlsManager: React.FC<StrokeControlsManagerProps> = ({
         >
           <Plus size={11} /> Add Stroke
         </button>
+      </div>
+
+      {/* Stroke Position: Outside (Standard) vs Inside vs Center */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', padding: '6px 8px', background: 'rgba(255,255,255,0.03)', borderRadius: '5px', border: '1px solid var(--border-light)' }}>
+        <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          Stroke Alignment:
+        </span>
+        <div style={{ display: 'flex', gap: '3px', background: 'rgba(0,0,0,0.2)', padding: '2px', borderRadius: '4px' }}>
+          <button
+            type="button"
+            onClick={() => onUpdate({ strokePosition: 'outside' })}
+            style={{
+              padding: '2px 8px',
+              fontSize: '10px',
+              fontWeight: '700',
+              borderRadius: '3px',
+              border: 'none',
+              background: (!config.strokePosition || config.strokePosition === 'outside') ? 'var(--color-primary)' : 'transparent',
+              color: (!config.strokePosition || config.strokePosition === 'outside') ? '#fff' : 'var(--text-muted)',
+              cursor: 'pointer'
+            }}
+            title="Align Stroke to Outside (Stroke expands outward, keeping original font fill intact)"
+          >
+            Outside
+          </button>
+          <button
+            type="button"
+            onClick={() => onUpdate({ strokePosition: 'inside' })}
+            style={{
+              padding: '2px 8px',
+              fontSize: '10px',
+              fontWeight: '700',
+              borderRadius: '3px',
+              border: 'none',
+              background: config.strokePosition === 'inside' ? 'var(--color-primary)' : 'transparent',
+              color: config.strokePosition === 'inside' ? '#fff' : 'var(--text-muted)',
+              cursor: 'pointer'
+            }}
+            title="Align Stroke to Inside (Stroke drawn inside text boundary)"
+          >
+            Inside
+          </button>
+          <button
+            type="button"
+            onClick={() => onUpdate({ strokePosition: 'center' })}
+            style={{
+              padding: '2px 8px',
+              fontSize: '10px',
+              fontWeight: '700',
+              borderRadius: '3px',
+              border: 'none',
+              background: config.strokePosition === 'center' ? 'var(--color-primary)' : 'transparent',
+              color: config.strokePosition === 'center' ? '#fff' : 'var(--text-muted)',
+              cursor: 'pointer'
+            }}
+            title="Align Stroke to Center (Half inside, half outside)"
+          >
+            Center
+          </button>
+        </div>
       </div>
 
       {/* List of Strokes */}
@@ -1889,7 +1951,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const drawSingleText = (text: string, conf: TextConfig, textX: number, textY: number, maxLimitPx: number, layerKey?: 'name' | 'number') => {
         ctx.save();
         const fontSizePx = Math.round((conf.fontSize / 30) * height);
-        ctx.font = `bold ${fontSizePx}px "${conf.fontFamily}"`;
+        const weightStr = conf.fontWeight === 'bold' ? 'bold ' : '';
+        ctx.font = `${weightStr}${fontSizePx}px "${conf.fontFamily}", sans-serif`;
         
         const align = conf.align || 'center';
         ctx.textAlign = align;
@@ -2051,6 +2114,88 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         };
 
         const activeFillStyle = getTextFill(boundsW, fontSizePx);
+        const strokePos = conf.strokePosition || 'outside';
+
+        // Reusable helper to render text with Outside, Inside, or Center stroke
+        const renderTextWithStroke = (
+          targetCtx: CanvasRenderingContext2D,
+          str: string,
+          x: number,
+          y: number,
+          pos: 'outside' | 'inside' | 'center',
+          strW: number
+        ) => {
+          if (cumulativeStrokes.length === 0) {
+            targetCtx.fillStyle = activeFillStyle;
+            targetCtx.fillText(str, x, y);
+            return;
+          }
+
+          if (pos === 'inside') {
+            // Inside Stroke: Render fill, then stroke with source-atop clipping on offscreen canvas
+            const pad = Math.max(16, Math.ceil(runningWidth * 2));
+            const offW = Math.max(2, Math.ceil(strW + pad * 2));
+            const offH = Math.max(2, Math.ceil(fontSizePx * 1.6 + pad * 2));
+            const offCanvas = document.createElement('canvas');
+            offCanvas.width = offW;
+            offCanvas.height = offH;
+            const offCtx = offCanvas.getContext('2d');
+            if (offCtx) {
+              offCtx.font = targetCtx.font;
+              offCtx.textAlign = 'center';
+              offCtx.textBaseline = 'middle';
+              offCtx.lineJoin = 'round';
+              offCtx.lineCap = 'round';
+              const ox = offW / 2;
+              const oy = offH / 2;
+
+              // 1. Draw fill first
+              offCtx.fillStyle = activeFillStyle;
+              offCtx.fillText(str, ox, oy);
+
+              // 2. Stroke with source-atop (keeps stroke strictly inside text glyphs)
+              offCtx.globalCompositeOperation = 'source-atop';
+              for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
+                const s = cumulativeStrokes[sIdx];
+                offCtx.strokeStyle = getStrokeFillStyle(offCtx, s, strW, fontSizePx, '#000000');
+                offCtx.lineWidth = s.cumulativePx * 2;
+                offCtx.strokeText(str, ox, oy);
+              }
+
+              // 3. Draw onto target context with exact alignment offset
+              let drawOffX = x - ox;
+              if (targetCtx.textAlign === 'left') {
+                drawOffX = x - (ox - strW / 2);
+              } else if (targetCtx.textAlign === 'right') {
+                drawOffX = x - (ox + strW / 2);
+              }
+              targetCtx.drawImage(offCanvas, drawOffX, y - oy);
+            } else {
+              targetCtx.fillStyle = activeFillStyle;
+              targetCtx.fillText(str, x, y);
+            }
+          } else if (pos === 'center') {
+            // Center Stroke: fill first, then stroke with exact lineWidth
+            targetCtx.fillStyle = activeFillStyle;
+            targetCtx.fillText(str, x, y);
+            for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
+              const s = cumulativeStrokes[sIdx];
+              targetCtx.strokeStyle = getStrokeFillStyle(targetCtx, s, strW, fontSizePx, '#000000');
+              targetCtx.lineWidth = s.cumulativePx;
+              targetCtx.strokeText(str, x, y);
+            }
+          } else {
+            // Outside Stroke (default): stroke first with 2x width, then fill on top
+            for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
+              const s = cumulativeStrokes[sIdx];
+              targetCtx.strokeStyle = getStrokeFillStyle(targetCtx, s, strW, fontSizePx, '#000000');
+              targetCtx.lineWidth = s.cumulativePx * 2;
+              targetCtx.strokeText(str, x, y);
+            }
+            targetCtx.fillStyle = activeFillStyle;
+            targetCtx.fillText(str, x, y);
+          }
+        };
 
         if (conf.effect === 'arch') {
           // Circular arched text bending concave (ends down)
@@ -2085,14 +2230,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             if (fitRatio < 1) {
               ctx.scale(fitRatio, 1);
             }
-            for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
-              const s = cumulativeStrokes[sIdx];
-              ctx.strokeStyle = getStrokeFillStyle(ctx, s, fontSizePx * 1.5, fontSizePx, '#000000');
-              ctx.lineWidth = s.cumulativePx * 2;
-              ctx.strokeText(char, 0, -radius);
-            }
-            ctx.fillStyle = activeFillStyle;
-            ctx.fillText(char, 0, -radius);
+            renderTextWithStroke(ctx, char, 0, -radius, strokePos, fontSizePx * 1.5);
             ctx.restore();
           }
           ctx.restore();
@@ -2108,14 +2246,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           if (spacingPx <= 0) {
             ctx.textAlign = align;
             ctx.textBaseline = 'middle';
-            for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
-              const s = cumulativeStrokes[sIdx];
-              ctx.strokeStyle = getStrokeFillStyle(ctx, s, totalTextW, fontSizePx, '#000000');
-              ctx.lineWidth = s.cumulativePx * 2;
-              ctx.strokeText(displayName, 0, 0);
-            }
-            ctx.fillStyle = activeFillStyle;
-            ctx.fillText(displayName, 0, 0);
+            renderTextWithStroke(ctx, displayName, 0, 0, strokePos, totalTextW);
           } else {
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -2133,16 +2264,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               const char = chars[i];
               const cw = charWidths[i];
               const charCenterX = currX + cw / 2;
-
-              for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
-                const s = cumulativeStrokes[sIdx];
-                ctx.strokeStyle = getStrokeFillStyle(ctx, s, totalTextW, fontSizePx, '#000000');
-                ctx.lineWidth = s.cumulativePx * 2;
-                ctx.strokeText(char, charCenterX, 0);
-              }
-              ctx.fillStyle = activeFillStyle;
-              ctx.fillText(char, charCenterX, 0);
-
+              renderTextWithStroke(ctx, char, charCenterX, 0, strokePos, cw);
               currX += cw + spacingPx;
             }
           }
@@ -6473,6 +6595,45 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                             </optgroup>
                           )}
                         </select>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
+                          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Weight:</span>
+                          <div style={{ display: 'flex', gap: '3px' }}>
+                            <button
+                              type="button"
+                              onClick={() => updateTextConfig('name', { fontWeight: 'normal' })}
+                              style={{
+                                padding: '1px 6px',
+                                fontSize: '9px',
+                                fontWeight: '700',
+                                borderRadius: '3px',
+                                border: 'none',
+                                background: (!activePanel.nameConfig.fontWeight || activePanel.nameConfig.fontWeight === 'normal') ? 'var(--color-primary)' : 'rgba(255,255,255,0.08)',
+                                color: (!activePanel.nameConfig.fontWeight || activePanel.nameConfig.fontWeight === 'normal') ? '#fff' : 'var(--text-muted)',
+                                cursor: 'pointer'
+                              }}
+                              title="Original Font Weight (Clean vector thickness, identical to Illustrator)"
+                            >
+                              Normal (Original)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateTextConfig('name', { fontWeight: 'bold' })}
+                              style={{
+                                padding: '1px 6px',
+                                fontSize: '9px',
+                                fontWeight: '700',
+                                borderRadius: '3px',
+                                border: 'none',
+                                background: activePanel.nameConfig.fontWeight === 'bold' ? 'var(--color-primary)' : 'rgba(255,255,255,0.08)',
+                                color: activePanel.nameConfig.fontWeight === 'bold' ? '#fff' : 'var(--text-muted)',
+                                cursor: 'pointer'
+                              }}
+                              title="Bold Weight"
+                            >
+                              Bold
+                            </button>
+                          </div>
+                        </div>
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label" style={{ fontSize: '11px' }}>Text Effect:</label>
@@ -6925,6 +7086,45 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                             </optgroup>
                           )}
                         </select>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
+                          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Weight:</span>
+                          <div style={{ display: 'flex', gap: '3px' }}>
+                            <button
+                              type="button"
+                              onClick={() => updateTextConfig('number', { fontWeight: 'normal' })}
+                              style={{
+                                padding: '1px 6px',
+                                fontSize: '9px',
+                                fontWeight: '700',
+                                borderRadius: '3px',
+                                border: 'none',
+                                background: (!activePanel.numberConfig.fontWeight || activePanel.numberConfig.fontWeight === 'normal') ? 'var(--color-primary)' : 'rgba(255,255,255,0.08)',
+                                color: (!activePanel.numberConfig.fontWeight || activePanel.numberConfig.fontWeight === 'normal') ? '#fff' : 'var(--text-muted)',
+                                cursor: 'pointer'
+                              }}
+                              title="Original Font Weight (Clean vector thickness, identical to Illustrator)"
+                            >
+                              Normal (Original)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateTextConfig('number', { fontWeight: 'bold' })}
+                              style={{
+                                padding: '1px 6px',
+                                fontSize: '9px',
+                                fontWeight: '700',
+                                borderRadius: '3px',
+                                border: 'none',
+                                background: activePanel.numberConfig.fontWeight === 'bold' ? 'var(--color-primary)' : 'rgba(255,255,255,0.08)',
+                                color: activePanel.numberConfig.fontWeight === 'bold' ? '#fff' : 'var(--text-muted)',
+                                cursor: 'pointer'
+                              }}
+                              title="Bold Weight"
+                            >
+                              Bold
+                            </button>
+                          </div>
+                        </div>
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label" style={{ fontSize: '11px' }}>Alignment:</label>

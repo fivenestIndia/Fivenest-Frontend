@@ -246,6 +246,45 @@ export const TextSpecificationModal: React.FC<TextSpecificationModalProps> = ({
                     </optgroup>
                   )}
                 </select>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
+                  <span style={{ fontSize: '10px', color: '#A1A1AA' }}>Font Weight:</span>
+                  <div style={{ display: 'flex', gap: '4px', backgroundColor: '#18181B', padding: '2px', borderRadius: '5px', border: '1px solid #3F3F46' }}>
+                    <button
+                      type="button"
+                      onClick={() => onUpdate({ fontWeight: 'normal' })}
+                      style={{
+                        padding: '2px 8px',
+                        fontSize: '9px',
+                        fontWeight: '700',
+                        borderRadius: '3px',
+                        border: 'none',
+                        backgroundColor: (!config.fontWeight || config.fontWeight === 'normal') ? '#E4572E' : 'transparent',
+                        color: (!config.fontWeight || config.fontWeight === 'normal') ? '#FFFFFF' : '#A1A1AA',
+                        cursor: 'pointer'
+                      }}
+                      title="Original Font Weight (1:1 vector thickness as designed)"
+                    >
+                      Normal (Original)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onUpdate({ fontWeight: 'bold' })}
+                      style={{
+                        padding: '2px 8px',
+                        fontSize: '9px',
+                        fontWeight: '700',
+                        borderRadius: '3px',
+                        border: 'none',
+                        backgroundColor: config.fontWeight === 'bold' ? '#E4572E' : 'transparent',
+                        color: config.fontWeight === 'bold' ? '#FFFFFF' : '#A1A1AA',
+                        cursor: 'pointer'
+                      }}
+                      title="Bold Weight"
+                    >
+                      Bold
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -582,6 +621,66 @@ export const TextSpecificationModal: React.FC<TextSpecificationModalProps> = ({
                     textAlign: 'center'
                   }}
                 />
+              </div>
+            </div>
+
+            {/* Stroke Alignment: Outside vs Inside vs Center */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px', padding: '6px 10px', backgroundColor: '#27272A', borderRadius: '8px', border: '1px solid #3F3F46' }}>
+              <span style={{ fontSize: '11px', color: '#A1A1AA', fontWeight: '600' }}>
+                Stroke Alignment:
+              </span>
+              <div style={{ display: 'flex', gap: '3px', backgroundColor: '#18181B', padding: '2px', borderRadius: '5px', border: '1px solid #3F3F46' }}>
+                <button
+                  type="button"
+                  onClick={() => onUpdate({ strokePosition: 'outside' })}
+                  style={{
+                    padding: '2px 8px',
+                    fontSize: '10px',
+                    fontWeight: '700',
+                    borderRadius: '3px',
+                    border: 'none',
+                    backgroundColor: (!config.strokePosition || config.strokePosition === 'outside') ? '#E4572E' : 'transparent',
+                    color: (!config.strokePosition || config.strokePosition === 'outside') ? '#FFFFFF' : '#A1A1AA',
+                    cursor: 'pointer'
+                  }}
+                  title="Outside (Default - stroke expands outward, keeping original font fill intact)"
+                >
+                  Outside
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onUpdate({ strokePosition: 'inside' })}
+                  style={{
+                    padding: '2px 8px',
+                    fontSize: '10px',
+                    fontWeight: '700',
+                    borderRadius: '3px',
+                    border: 'none',
+                    backgroundColor: config.strokePosition === 'inside' ? '#E4572E' : 'transparent',
+                    color: config.strokePosition === 'inside' ? '#FFFFFF' : '#A1A1AA',
+                    cursor: 'pointer'
+                  }}
+                  title="Inside (Stroke drawn inside text boundary)"
+                >
+                  Inside
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onUpdate({ strokePosition: 'center' })}
+                  style={{
+                    padding: '2px 8px',
+                    fontSize: '10px',
+                    fontWeight: '700',
+                    borderRadius: '3px',
+                    border: 'none',
+                    backgroundColor: config.strokePosition === 'center' ? '#E4572E' : 'transparent',
+                    color: config.strokePosition === 'center' ? '#FFFFFF' : '#A1A1AA',
+                    cursor: 'pointer'
+                  }}
+                  title="Center (Half inside, half outside)"
+                >
+                  Center
+                </button>
               </div>
             </div>
           </div>
