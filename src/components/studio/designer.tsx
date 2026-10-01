@@ -47,6 +47,7 @@ export interface TextConfig {
   effect?: 'none' | 'arch' | 'shadow';
   text?: string;
   letterSpacing?: number;
+  curveAmount?: number; // 5 to 100 percentage (default 35) for arched text
   align?: 'left' | 'center' | 'right';
   fillType?: 'solid' | 'gradient' | 'texture';
   gradientColor1?: string;
@@ -1908,26 +1909,32 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           };
         });
 
-        // Calculate custom position based on alignment
+        // Reset ctx.letterSpacing so browser quirks don't affect text measurement or rendering
+        if ('letterSpacing' in ctx) {
+          (ctx as any).letterSpacing = '0px';
+        }
+
+        const displayName = conf.caseType === 'uppercase' ? text.toUpperCase() : text;
+        if (!displayName) {
+          ctx.restore();
+          return;
+        }
+
+        // Measure individual characters and compute accurate kerning + letter spacing
+        const chars = Array.from(displayName);
+        const charWidths = chars.map(c => ctx.measureText(c).width);
+        const rawTextW = charWidths.reduce((sum, w) => sum + w, 0);
+        const spacingPx = (conf.letterSpacing && conf.letterSpacing > 0) ? Math.round(conf.letterSpacing * scale) : 0;
+        const totalSpacing = Math.max(0, chars.length - 1) * spacingPx;
+        const totalTextW = rawTextW + totalSpacing;
+
+        // Calculate target X position based on alignment for straight text vs arch
         let targetX = textX;
         if (conf.effect !== 'arch') {
           if (align === 'left') {
             targetX = (width / 2) - (maxLimitPx / 2);
           } else if (align === 'right') {
             targetX = (width / 2) + (maxLimitPx / 2);
-          }
-        }
-
-        // Apply custom letter spacing and compensation offset
-        let adjustedX = targetX;
-        let spacingPx = 0;
-        if (conf.letterSpacing !== undefined) {
-          spacingPx = Math.round(conf.letterSpacing * scale);
-          ctx.letterSpacing = `${spacingPx}px`;
-          if (align === 'center') {
-            adjustedX += spacingPx / 2;
-          } else if (align === 'right') {
-            adjustedX += spacingPx;
           }
         }
 
@@ -1939,20 +1946,28 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           ctx.shadowOffsetY = 3;
         }
 
-        const displayName = conf.caseType === 'uppercase' ? text.toUpperCase() : text;
+        // Compute bounding box for interactive selection and cyan highlight box
+        let boxX = targetX;
+        let boxY = textY - fontSizePx * 0.55;
+        let boundsW = Math.min(totalTextW, maxLimitPx);
+        let boundsH = fontSizePx * 1.15;
 
-        // Store bounding box for canvas clicking & drag selection
-        const textMetrics = ctx.measureText(displayName);
-        const boundsW = Math.min(textMetrics.width, maxLimitPx);
-        const boundsH = fontSizePx * 1.15;
-
-        let boxX = adjustedX;
-        if (align === 'center') {
-          boxX = adjustedX - boundsW / 2;
-        } else if (align === 'right') {
-          boxX = adjustedX - boundsW;
+        if (conf.effect === 'arch') {
+          const curveAmount = Math.max(5, Math.min(100, conf.curveAmount ?? 35));
+          const radius = Math.max(fontSizePx * 1.5, height * (16 / curveAmount));
+          const halfSpanAngle = Math.min(Math.PI / 2, (totalTextW / 2) / radius);
+          boundsW = Math.min(maxLimitPx, Math.max(totalTextW * 0.7, 2 * radius * Math.sin(halfSpanAngle) + fontSizePx));
+          const dropY = radius * (1 - Math.cos(halfSpanAngle));
+          boundsH = fontSizePx * 1.2 + dropY;
+          boxX = targetX - boundsW / 2;
+          boxY = textY - fontSizePx * 0.55;
+        } else {
+          if (align === 'center') {
+            boxX = targetX - boundsW / 2;
+          } else if (align === 'right') {
+            boxX = targetX - boundsW;
+          }
         }
-        const boxY = textY - fontSizePx * 0.55;
 
         if (layerKey) {
           const panelSpecificKey = `${panelKey}-${layerKey}`;
@@ -2035,21 +2050,41 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           return conf.color || '#ffffff';
         };
 
-        const activeFillStyle = getTextFill(maxLimitPx, fontSizePx);
+        const activeFillStyle = getTextFill(boundsW, fontSizePx);
 
         if (conf.effect === 'arch') {
           // Circular arched text bending concave (ends down)
-          const radius = height * 0.45;
-          ctx.translate(targetX, textY + radius);
-          const totalAngle = Math.min(Math.PI / 2.5, (displayName.length * fontSizePx * 0.55) / radius);
-          const startAngle = -totalAngle / 2;
-          const angleStep = totalAngle / (displayName.length - 1 || 1);
+          const curveAmount = Math.max(5, Math.min(100, conf.curveAmount ?? 35));
+          const radius = Math.max(fontSizePx * 1.5, height * (16 / curveAmount));
 
-          for (let i = 0; i < displayName.length; i++) {
-            const char = displayName[i];
-            const charAngle = startAngle + i * angleStep;
+          const fitRatio = totalTextW > maxLimitPx ? (maxLimitPx / totalTextW) : 1;
+          const effSpacing = spacingPx * fitRatio;
+          const effCharWidths = charWidths.map(w => w * fitRatio);
+          const effTotalW = totalTextW * fitRatio;
+
+          // Compute angle for each character based on actual character widths + spacing
+          let runningDist = 0;
+          const charAngles: number[] = [];
+          for (let i = 0; i < chars.length; i++) {
+            const cw = effCharWidths[i];
+            const centerDist = runningDist + (cw / 2) - (effTotalW / 2);
+            charAngles.push(centerDist / radius);
+            runningDist += cw + effSpacing;
+          }
+
+          ctx.save();
+          ctx.translate(targetX, textY + radius);
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          for (let i = 0; i < chars.length; i++) {
+            const char = chars[i];
+            const angle = charAngles[i];
             ctx.save();
-            ctx.rotate(charAngle);
+            ctx.rotate(angle);
+            if (fitRatio < 1) {
+              ctx.scale(fitRatio, 1);
+            }
             for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
               const s = cumulativeStrokes[sIdx];
               ctx.strokeStyle = getStrokeFillStyle(ctx, s, fontSizePx * 1.5, fontSizePx, '#000000');
@@ -2060,21 +2095,58 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ctx.fillText(char, 0, -radius);
             ctx.restore();
           }
+          ctx.restore();
         } else {
           // Standard straight text
-          const measuredW = ctx.measureText(displayName).width;
-          ctx.translate(adjustedX, textY);
-          if (measuredW > maxLimitPx) {
-            ctx.scale(maxLimitPx / measuredW, 1);
+          const fitRatio = totalTextW > maxLimitPx ? (maxLimitPx / totalTextW) : 1;
+          ctx.save();
+          ctx.translate(targetX, textY);
+          if (fitRatio < 1) {
+            ctx.scale(fitRatio, 1);
           }
-          for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
-            const s = cumulativeStrokes[sIdx];
-            ctx.strokeStyle = getStrokeFillStyle(ctx, s, measuredW, fontSizePx, '#000000');
-            ctx.lineWidth = s.cumulativePx * 2;
-            ctx.strokeText(displayName, 0, 0);
+
+          if (spacingPx <= 0) {
+            ctx.textAlign = align;
+            ctx.textBaseline = 'middle';
+            for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
+              const s = cumulativeStrokes[sIdx];
+              ctx.strokeStyle = getStrokeFillStyle(ctx, s, totalTextW, fontSizePx, '#000000');
+              ctx.lineWidth = s.cumulativePx * 2;
+              ctx.strokeText(displayName, 0, 0);
+            }
+            ctx.fillStyle = activeFillStyle;
+            ctx.fillText(displayName, 0, 0);
+          } else {
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            let startX = 0;
+            if (align === 'center') {
+              startX = -totalTextW / 2;
+            } else if (align === 'right') {
+              startX = -totalTextW;
+            } else {
+              startX = 0;
+            }
+
+            let currX = startX;
+            for (let i = 0; i < chars.length; i++) {
+              const char = chars[i];
+              const cw = charWidths[i];
+              const charCenterX = currX + cw / 2;
+
+              for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
+                const s = cumulativeStrokes[sIdx];
+                ctx.strokeStyle = getStrokeFillStyle(ctx, s, totalTextW, fontSizePx, '#000000');
+                ctx.lineWidth = s.cumulativePx * 2;
+                ctx.strokeText(char, charCenterX, 0);
+              }
+              ctx.fillStyle = activeFillStyle;
+              ctx.fillText(char, charCenterX, 0);
+
+              currX += cw + spacingPx;
+            }
           }
-          ctx.fillStyle = activeFillStyle;
-          ctx.fillText(displayName, 0, 0);
+          ctx.restore();
         }
         ctx.restore();
       };
@@ -6416,6 +6488,29 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         </select>
                       </div>
                     </div>
+
+                    {activePanel.nameConfig.effect === 'arch' && (
+                      <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-light)', marginTop: '4px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                          <span style={{ fontWeight: '600', color: 'var(--color-primary)' }}>Arc Curve Intensity:</span>
+                          <span style={{ fontWeight: '700', color: 'var(--text-color)' }}>{activePanel.nameConfig.curveAmount ?? 35}%</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="5" 
+                          max="100" 
+                          step="1" 
+                          value={activePanel.nameConfig.curveAmount ?? 35}
+                          onChange={(e) => updateTextConfig('name', { curveAmount: parseInt(e.target.value, 10) || 35 })}
+                          style={{ width: '100%', accentColor: 'var(--color-primary)' }}
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                          <span>Gentle (5%)</span>
+                          <span>Default (35%)</span>
+                          <span>Deep Arch (100%)</span>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="form-row">
                       <div className="form-group" style={{ margin: 0 }}>

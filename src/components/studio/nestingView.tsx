@@ -1732,6 +1732,24 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           };
         });
 
+        // Reset ctx.letterSpacing
+        if ('letterSpacing' in ctx) {
+          (ctx as any).letterSpacing = '0px';
+        }
+
+        const displayName = textConf.caseType === 'uppercase' ? text.toUpperCase() : text;
+        if (!displayName) {
+          ctx.restore();
+          return;
+        }
+
+        const chars = Array.from(displayName);
+        const charWidths = chars.map(c => ctx.measureText(c).width);
+        const rawTextW = charWidths.reduce((sum, w) => sum + w, 0);
+        const spacingPx = (textConf.letterSpacing && textConf.letterSpacing > 0) ? Math.round(textConf.letterSpacing * scaleDpi) : 0;
+        const totalSpacing = Math.max(0, chars.length - 1) * spacingPx;
+        const totalTextW = rawTextW + totalSpacing;
+
         // Calculate custom position based on alignment
         let targetX = textX;
         if (textConf.effect !== 'arch') {
@@ -1742,20 +1760,6 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           }
         }
 
-        // Apply custom letter spacing and compensation offset
-        let drawX = targetX;
-        let spacingPx = 0;
-
-        if (textConf.letterSpacing !== undefined) {
-          spacingPx = Math.round(textConf.letterSpacing * scaleDpi);
-          ctx.letterSpacing = `${spacingPx}px`;
-          if (align === 'center') {
-            drawX += spacingPx / 2;
-          } else if (align === 'right') {
-            drawX += spacingPx;
-          }
-        }
-
         // Apply drop shadow effect
         if (textConf.effect === 'shadow') {
           ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
@@ -1763,8 +1767,6 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           ctx.shadowOffsetX = 3 * (scaleDpi / 100);
           ctx.shadowOffsetY = 3 * (scaleDpi / 100);
         }
-
-        const displayName = textConf.caseType === 'uppercase' ? text.toUpperCase() : text;
 
         const getTextFillStyle = (measuredTextW: number, textH: number): string | CanvasGradient => {
           if (textConf.fillType === 'gradient') {
@@ -1791,45 +1793,102 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           return textConf.color;
         };
 
+        const activeFill = getTextFillStyle(Math.min(totalTextW, maxLimitPx), fontSizePx);
+
         if (textConf.effect === 'arch') {
           // Circular arched text bending concave (ends down)
-          const radius = heightPx * 0.45;
-          ctx.translate(drawX, textY + radius);
-          const totalAngle = Math.min(Math.PI / 2.5, (displayName.length * fontSizePx * 0.55) / radius);
-          const startAngle = -totalAngle / 2;
-          const angleStep = totalAngle / (displayName.length - 1 || 1);
-          const archFill = getTextFillStyle(radius * 2, fontSizePx);
+          const curveAmount = Math.max(5, Math.min(100, textConf.curveAmount ?? 35));
+          const radius = Math.max(fontSizePx * 1.5, heightPx * (16 / curveAmount));
 
-          for (let i = 0; i < displayName.length; i++) {
-            const char = displayName[i];
-            const charAngle = startAngle + i * angleStep;
+          const fitRatio = totalTextW > maxLimitPx ? (maxLimitPx / totalTextW) : 1;
+          const effSpacing = spacingPx * fitRatio;
+          const effCharWidths = charWidths.map(w => w * fitRatio);
+          const effTotalW = totalTextW * fitRatio;
+
+          let runningDist = 0;
+          const charAngles: number[] = [];
+          for (let i = 0; i < chars.length; i++) {
+            const cw = effCharWidths[i];
+            const centerDist = runningDist + (cw / 2) - (effTotalW / 2);
+            charAngles.push(centerDist / radius);
+            runningDist += cw + effSpacing;
+          }
+
+          ctx.save();
+          ctx.translate(targetX, textY + radius);
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          for (let i = 0; i < chars.length; i++) {
+            const char = chars[i];
+            const angle = charAngles[i];
             ctx.save();
-            ctx.rotate(charAngle);
+            ctx.rotate(angle);
+            if (fitRatio < 1) {
+              ctx.scale(fitRatio, 1);
+            }
             for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
               const s = cumulativeStrokes[sIdx];
               ctx.strokeStyle = getStrokeFillStyle(ctx, s, fontSizePx * 1.5, fontSizePx, '#000000');
               ctx.lineWidth = s.cumulativePx * 2;
               ctx.strokeText(char, 0, -radius);
             }
-            ctx.fillStyle = archFill;
+            ctx.fillStyle = activeFill;
             ctx.fillText(char, 0, -radius);
             ctx.restore();
           }
+          ctx.restore();
         } else {
           // Standard straight text
-          const measuredW = ctx.measureText(displayName).width;
-          ctx.translate(drawX, textY);
-          if (measuredW > maxLimitPx) {
-            ctx.scale(maxLimitPx / measuredW, 1);
+          const fitRatio = totalTextW > maxLimitPx ? (maxLimitPx / totalTextW) : 1;
+          ctx.save();
+          ctx.translate(targetX, textY);
+          if (fitRatio < 1) {
+            ctx.scale(fitRatio, 1);
           }
-          for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
-            const s = cumulativeStrokes[sIdx];
-            ctx.strokeStyle = getStrokeFillStyle(ctx, s, measuredW, fontSizePx, '#000000');
-            ctx.lineWidth = s.cumulativePx * 2;
-            ctx.strokeText(displayName, 0, 0);
+
+          if (spacingPx <= 0) {
+            ctx.textAlign = align;
+            ctx.textBaseline = 'middle';
+            for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
+              const s = cumulativeStrokes[sIdx];
+              ctx.strokeStyle = getStrokeFillStyle(ctx, s, totalTextW, fontSizePx, '#000000');
+              ctx.lineWidth = s.cumulativePx * 2;
+              ctx.strokeText(displayName, 0, 0);
+            }
+            ctx.fillStyle = activeFill;
+            ctx.fillText(displayName, 0, 0);
+          } else {
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            let startX = 0;
+            if (align === 'center') {
+              startX = -totalTextW / 2;
+            } else if (align === 'right') {
+              startX = -totalTextW;
+            } else {
+              startX = 0;
+            }
+
+            let currX = startX;
+            for (let i = 0; i < chars.length; i++) {
+              const char = chars[i];
+              const cw = charWidths[i];
+              const charCenterX = currX + cw / 2;
+
+              for (let sIdx = cumulativeStrokes.length - 1; sIdx >= 0; sIdx--) {
+                const s = cumulativeStrokes[sIdx];
+                ctx.strokeStyle = getStrokeFillStyle(ctx, s, totalTextW, fontSizePx, '#000000');
+                ctx.lineWidth = s.cumulativePx * 2;
+                ctx.strokeText(char, charCenterX, 0);
+              }
+              ctx.fillStyle = activeFill;
+              ctx.fillText(char, charCenterX, 0);
+
+              currX += cw + spacingPx;
+            }
           }
-          ctx.fillStyle = getTextFillStyle(measuredW, fontSizePx);
-          ctx.fillText(displayName, 0, 0);
+          ctx.restore();
         }
         ctx.restore();
       };

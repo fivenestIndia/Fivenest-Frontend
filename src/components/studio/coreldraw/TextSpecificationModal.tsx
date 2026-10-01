@@ -272,6 +272,29 @@ export const TextSpecificationModal: React.FC<TextSpecificationModalProps> = ({
               </div>
             </div>
 
+            {config.effect === 'arch' && (
+              <div style={{ backgroundColor: '#27272A', padding: '10px', borderRadius: '8px', border: '1px solid #3F3F46' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#A1A1AA', marginBottom: '4px' }}>
+                  <span style={{ color: '#F97316', fontWeight: '700' }}>Arc Curve Intensity:</span>
+                  <span style={{ color: '#FFFFFF', fontWeight: '700' }}>{config.curveAmount ?? 35}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={5}
+                  max={100}
+                  step={1}
+                  value={config.curveAmount ?? 35}
+                  onChange={(e) => onUpdate({ curveAmount: parseInt(e.target.value, 10) || 35 })}
+                  style={{ width: '100%', accentColor: '#E4572E' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#71717A', marginTop: '2px' }}>
+                  <span>Gentle (5%)</span>
+                  <span>Standard (35%)</span>
+                  <span>Deep Arch (100%)</span>
+                </div>
+              </div>
+            )}
+
             {/* Font Size & Max Width */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div>
