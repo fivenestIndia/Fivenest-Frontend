@@ -897,7 +897,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
           loadedPanels.push('Sleeves (L+R)');
         } else if (target === 'collar') {
           if (newConfig.collar) {
-            newConfig.collar = { ...newConfig.collar, uploadedFileUrl: dataUrl, backgroundType: 'upload' };
+            newConfig.collar = { ...newConfig.collar, uploadedFileUrl: dataUrl, backgroundType: 'upload', generatedStyle: 'solid' };
           }
           if (newConfig.trim?.collar) {
             newConfig.trim.collar = { ...newConfig.trim.collar, uploadedUrl: dataUrl };
@@ -934,7 +934,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
       const newConfig = { ...designConfig };
       if (activePanel === 'collar') {
         if (newConfig.collar) {
-          newConfig.collar = { ...newConfig.collar, uploadedFileUrl: dataUrl, backgroundType: 'upload' };
+          newConfig.collar = { ...newConfig.collar, uploadedFileUrl: dataUrl, backgroundType: 'upload', generatedStyle: 'solid' };
         }
         if (newConfig.trim?.collar) {
           newConfig.trim.collar = { ...newConfig.trim.collar, uploadedUrl: dataUrl };

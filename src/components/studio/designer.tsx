@@ -1442,6 +1442,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ...updatedFields
       }
     };
+    if (targetTab === 'collar' && 'uploadedFileUrl' in updatedFields && !updatedFields.uploadedFileUrl) {
+      if (updated.trim?.collar) {
+        updated.trim = {
+          ...updated.trim,
+          collar: {
+            ...updated.trim.collar,
+            uploadedUrl: null
+          }
+        };
+      }
+    }
     undoableConfigChange(updated as ArtDesignConfig);
   };
 
@@ -1471,6 +1482,39 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       reader.onload = (event) => {
         const url = event.target?.result as string;
         updateTrimConfig(partKey, { uploadedUrl: url });
+        if (partKey === 'collar') {
+          const img = new Image();
+          img.onload = () => {
+            logoImagesRef.current[url] = img;
+            const edgeColor = sampleImageEdgeColor(img);
+            const currentCollar = designConfig.collar || defaultDesignConfig.collar!;
+            const updated = {
+              ...designConfig,
+              collar: {
+                ...currentCollar,
+                backgroundType: 'upload' as const,
+                uploadedFileUrl: url,
+                generatedStyle: 'solid',
+                generatedColor1: edgeColor || currentCollar.generatedColor1
+              },
+              trim: {
+                ...(designConfig.trim || {
+                  collar: { color: designConfig.front.generatedColor1, uploadedUrl: null },
+                  placket: { color: designConfig.front.generatedColor1, uploadedUrl: null },
+                  sleeveStripe: { enabled: false, color: designConfig.front.generatedColor1, uploadedUrl: null, height: 2.0, fillType: 'solid' }
+                }),
+                collar: {
+                  ...(designConfig.trim?.collar || { color: designConfig.front.generatedColor1, uploadedUrl: null }),
+                  uploadedUrl: url,
+                  color: edgeColor || designConfig.trim?.collar?.color || designConfig.front.generatedColor1
+                }
+              }
+            };
+            onDesignConfigChange(updated);
+            setPrefTrigger(prev => prev + 1);
+          };
+          img.src = url;
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -2763,9 +2807,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       if (panelKey === 'collar') {
         const collarConf = designConfig.collar || defaultDesignConfig.collar!;
         const collarPhysicalH = 4.5;
+        const collarFile = collarConf.uploadedFileUrl || designConfig.trim?.collar?.uploadedUrl || null;
+        const hasStripes = Boolean(collarConf.stripes && collarConf.stripes.length > 0);
 
         // If collar is empty/blank (default state or no uploaded file & style is blank), render transparency checkerboard like other panels
-        const isCollarEmpty = (collarConf.backgroundType === 'upload' && !collarConf.uploadedFileUrl) || collarConf.generatedStyle === 'blank';
+        const isCollarEmpty = collarConf.backgroundType === 'upload'
+          ? (!collarFile && !hasStripes)
+          : (!hasStripes && (!collarConf.generatedStyle || collarConf.generatedStyle === 'blank'));
         if (isCollarEmpty) {
           const checkSize = Math.max(12, Math.round(14 * (scale / 20)));
           for (let cy = 0; cy < height; cy += checkSize) {
@@ -2813,8 +2861,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         // 1. Determine background fill color or sample edge color from uploaded image
         let collarBgColor = collarConf.generatedColor1 || '#0A192F';
 
-        if (collarConf.backgroundType === 'upload' && collarConf.uploadedFileUrl) {
-          const cachedImg = logoImagesRef.current[collarConf.uploadedFileUrl];
+        if (collarConf.backgroundType === 'upload' && collarFile) {
+          const cachedImg = logoImagesRef.current[collarFile];
           if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
             const sampled = sampleImageEdgeColor(cachedImg);
             if (sampled) {
@@ -2823,14 +2871,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           } else {
             const img = new Image();
             img.onload = () => {
-              logoImagesRef.current[collarConf.uploadedFileUrl!] = img;
+              logoImagesRef.current[collarFile] = img;
               const sampled = sampleImageEdgeColor(img);
-              if (sampled && (!collarConf.generatedColor1 || collarConf.generatedColor1 === '#0A192F')) {
+              if (sampled && (!collarConf.generatedColor1 || collarConf.generatedColor1 === '#0A192F' || collarConf.generatedColor1 === '#ffffff')) {
                 updateActivePanel({ generatedColor1: sampled });
               }
               setPrefTrigger(prev => prev + 1);
             };
-            img.src = collarConf.uploadedFileUrl;
+            img.src = collarFile;
           }
         }
 
@@ -2877,9 +2925,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ctx.fillStyle = grad;
             ctx.fillRect(-2, 0, width + 4, height);
           }
-        } else if (collarConf.backgroundType === 'upload' && collarConf.uploadedFileUrl) {
+        } else if (collarConf.backgroundType === 'upload' && collarFile) {
           // Uploaded background graphic
-          const cachedImg = logoImagesRef.current[collarConf.uploadedFileUrl];
+          const cachedImg = logoImagesRef.current[collarFile];
           if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
             if (!collarConf.curved) {
               ctx.drawImage(cachedImg, 0, 0, width, height);
@@ -2903,6 +2951,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               }
               ctx.restore();
             }
+          } else {
+            const img = new Image();
+            img.onload = () => {
+              logoImagesRef.current[collarFile] = img;
+              setPrefTrigger(prev => prev + 1);
+            };
+            img.src = collarFile;
           }
         }
 
@@ -3564,11 +3619,31 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           img.onload = () => {
             logoImagesRef.current[url] = img;
             const edgeColor = sampleImageEdgeColor(img);
-            updateActivePanel({
-              backgroundType: 'upload',
-              uploadedFileUrl: url,
-              generatedColor1: edgeColor
-            });
+            const currentCollar = designConfig.collar || defaultDesignConfig.collar!;
+            const currentTrim = designConfig.trim || {
+              collar: { color: edgeColor || designConfig.front.generatedColor1, uploadedUrl: null },
+              placket: { color: designConfig.front.generatedColor1, uploadedUrl: null },
+              sleeveStripe: { enabled: false, color: designConfig.front.generatedColor1, uploadedUrl: null, height: 2.0, fillType: 'solid' }
+            };
+            const updated = {
+              ...designConfig,
+              collar: {
+                ...currentCollar,
+                backgroundType: 'upload' as const,
+                uploadedFileUrl: url,
+                generatedStyle: 'solid',
+                generatedColor1: edgeColor || currentCollar.generatedColor1
+              },
+              trim: {
+                ...currentTrim,
+                collar: {
+                  ...currentTrim.collar,
+                  uploadedUrl: url,
+                  color: edgeColor || currentTrim.collar?.color || designConfig.front.generatedColor1
+                }
+              }
+            };
+            onDesignConfigChange(updated);
             setPrefTrigger(prev => prev + 1);
           };
           img.src = url;
@@ -3858,6 +3933,19 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           case 'collar':
             newConfig.collar.uploadedFileUrl = dataUrl;
             newConfig.collar.backgroundType = 'upload';
+            newConfig.collar.generatedStyle = 'solid';
+            if (!newConfig.trim) {
+              newConfig.trim = {
+                collar: { color: newConfig.collar.generatedColor1 || '#0A192F', uploadedUrl: dataUrl },
+                placket: { color: newConfig.collar.generatedColor1 || '#0A192F', uploadedUrl: null },
+                sleeveStripe: { enabled: false, color: '#171717', uploadedUrl: null, height: 2.0, fillType: 'solid' }
+              };
+            } else {
+              newConfig.trim.collar = {
+                ...newConfig.trim.collar,
+                uploadedUrl: dataUrl
+              };
+            }
             importedCount++;
             importedNames.push(`Collar (${baseFilename})`);
             if (typeof Image !== 'undefined') {
@@ -3871,9 +3959,18 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     collar: {
                       ...newConfig.collar,
                       generatedColor1: edgeColor
+                    },
+                    trim: {
+                      ...(newConfig.trim || {}),
+                      collar: {
+                        ...(newConfig.trim?.collar || { color: edgeColor, uploadedUrl: dataUrl }),
+                        color: edgeColor,
+                        uploadedUrl: dataUrl
+                      }
                     }
                   });
                 }
+                setPrefTrigger(prev => prev + 1);
               };
               img.src = dataUrl;
             }

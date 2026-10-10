@@ -408,9 +408,9 @@ export const checkArtworkUploadStatus = (
     designConfig?.sleeveRight?.uploadedFileUrl ||
     designConfig?.sleeveRight?.uploadedFileHalfUrl ||
     designConfig?.sleeveRight?.uploadedFileFullUrl ||
-    (designConfig?.sleeveLeft?.backgroundType === 'generate' && designConfig?.sleeveLeft?.generatedColor1) ||
-    (designConfig?.sleeveRight?.backgroundType === 'generate' && designConfig?.sleeveRight?.generatedColor1) ||
-    (designConfig?.trim?.sleeveStripe?.enabled === true && (designConfig?.trim?.sleeveStripe?.color || designConfig?.trim?.sleeveStripe?.uploadedUrl || designConfig?.trim?.sleeveStripe?.gradientStops))
+    (designConfig?.sleeveLeft?.backgroundType === 'generate' && designConfig?.sleeveLeft?.generatedStyle && designConfig?.sleeveLeft?.generatedStyle !== 'blank') ||
+    (designConfig?.sleeveRight?.backgroundType === 'generate' && designConfig?.sleeveRight?.generatedStyle && designConfig?.sleeveRight?.generatedStyle !== 'blank') ||
+    (designConfig?.trim?.sleeveStripe?.enabled === true && (designConfig?.trim?.sleeveStripe?.uploadedUrl || designConfig?.trim?.sleeveStripe?.color || designConfig?.trim?.sleeveStripe?.gradientStops))
   );
 
   const a4HasArtwork = Boolean(
@@ -423,12 +423,15 @@ export const checkArtworkUploadStatus = (
     (designConfig?.trim?.sleeveStripe?.enabled === true && (designConfig?.trim?.sleeveStripe?.uploadedUrl || designConfig?.trim?.sleeveStripe?.color || designConfig?.trim?.sleeveStripe?.gradientStops))
   );
 
-  const collarHasArtwork = Boolean(
-    designConfig?.collar?.uploadedFileUrl ||
-    (designConfig?.collar?.backgroundType === 'generate' && designConfig?.collar?.generatedColor1) ||
-    (designConfig?.collar?.stripes && designConfig?.collar?.stripes.length > 0) ||
-    designConfig?.collar?.curved
+  const collarFile = designConfig?.collar?.uploadedFileUrl || designConfig?.trim?.collar?.uploadedUrl || null;
+  const collarHasGenerated = Boolean(
+    designConfig?.collar?.backgroundType === 'generate' && 
+    designConfig?.collar?.generatedStyle && 
+    designConfig?.collar?.generatedStyle !== 'blank'
   );
+  const collarHasStripes = Boolean(designConfig?.collar?.stripes && designConfig?.collar?.stripes.length > 0);
+
+  const collarHasArtwork = Boolean(collarFile || collarHasGenerated || collarHasStripes);
 
   const anyArtworkUploaded = frontHasArtwork || backHasArtwork || sleeveHasArtwork || a4HasArtwork || trimHasArtwork || collarHasArtwork;
 
@@ -1009,7 +1012,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
         // Collar panel: 2 sets (Small Collars 18-30 & Big Collar 32-60)
         // Custom dimensions loaded from Size Editor
         // Total nested collars across the 2 sets = total number of t-shirts
-        const includeCollar = (cHas || exportCollar) && !isSleeveOnly && !isFrontOnly && !isBackOnly;
+        const includeCollar = cHas && exportCollar && !isSleeveOnly && !isFrontOnly && !isBackOnly;
         if (includeCollar) {
           const isYouth = isYouthCollarSize(player.size);
           const collarW = isYouth ? collarSizes.small.w : collarSizes.big.w;
@@ -1599,8 +1602,9 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           resolve(canvas);
         };
 
-        if (collarConf.backgroundType === 'upload' && collarConf.uploadedFileUrl) {
-          getCachedImage(collarConf.uploadedFileUrl).then(img => {
+        const collarUploadUrl = collarConf.uploadedFileUrl || designConfig?.trim?.collar?.uploadedUrl;
+        if (collarConf.backgroundType === 'upload' && collarUploadUrl) {
+          getCachedImage(collarUploadUrl).then(img => {
             renderCollarContent(img || undefined);
           }).catch(() => {
             renderCollarContent();
@@ -2589,8 +2593,8 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             });
           }
 
-          // 5. Group / Format Collar
-          const collarItems = items.filter(it => it.panelType === 'collar');
+          // 5. Group / Format Collar (Only if collar artwork exists and export is enabled)
+          const collarItems = (cHas && exportCollar) ? items.filter(it => it.panelType === 'collar') : [];
           if (collarItems.length > 0) {
             const youthCollars = collarItems.filter(it => isYouthCollarSize(it.size));
             const adultCollars = collarItems.filter(it => !isYouthCollarSize(it.size));
@@ -2858,44 +2862,50 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             });
           }
 
-          // Group Sleeves
-          Object.keys(sleeveSizeMap).forEach(key => {
-            const list = sleeveSizeMap[key];
-            const rep = list[0];
-            const qty = list.length;
-            
-            let sleeveCode = 'LHS';
-            if (rep.panelType === 'sleeve-left') {
-              sleeveCode = rep.sleeveType === 'full' ? 'FLS' : 'LHS';
-            } else if (rep.panelType === 'sleeve-right') {
-              sleeveCode = rep.sleeveType === 'full' ? 'RLS' : 'RHS';
-            } else {
-              sleeveCode = 'MS';
-            }
+          // Group Sleeves (Only if sleeve artwork was uploaded/configured)
+          if (sHas) {
+            Object.keys(sleeveSizeMap).forEach(key => {
+              const list = sleeveSizeMap[key];
+              const rep = list[0];
+              const qty = list.length;
+              
+              let sleeveCode = 'LHS';
+              if (rep.panelType === 'sleeve-left') {
+                sleeveCode = rep.sleeveType === 'full' ? 'FLS' : 'LHS';
+              } else if (rep.panelType === 'sleeve-right') {
+                sleeveCode = rep.sleeveType === 'full' ? 'RLS' : 'RHS';
+              } else {
+                sleeveCode = 'MS';
+              }
 
-            let fileName = '';
-            if (rep.sleeveType === 'full') {
-              fileName = `${rep.size} = ${qty} ${sleeveCode}.jpg`;
-            } else {
-              fileName = `${rep.size}=${qty} ${sleeveCode}.jpg`;
-            }
+              let fileName = '';
+              if (rep.sleeveType === 'full') {
+                fileName = `${rep.size} = ${qty} ${sleeveCode}.jpg`;
+              } else {
+                fileName = `${rep.size}=${qty} ${sleeveCode}.jpg`;
+              }
 
-            renderActions.push({
-              representativeItem: rep,
-              fileName,
-              folder: 'Sleeve'
+              renderActions.push({
+                representativeItem: rep,
+                fileName,
+                folder: 'Sleeve'
+              });
             });
-          });
+          }
 
           // Group Collars into exactly 2 sets (Youth: 18-30 -> Small Collars, Adult: 32-60 -> Big Collar)
-          // Export inside 'Sleeve' folder as ONLY 2 files with respective quantities and custom dimensions
-          if (collarItems.length > 0) {
+          // ONLY export collars if collar data exists (cHas) AND exportCollar is enabled!
+          if (cHas && exportCollar && collarItems.length > 0) {
             const youthCollars = collarItems.filter(it => isYouthCollarSize(it.size));
             const adultCollars = collarItems.filter(it => !isYouthCollarSize(it.size));
             const sW = collarSizes?.small?.w ?? 18;
             const sH = collarSizes?.small?.h ?? 4.5;
             const bW = collarSizes?.big?.w ?? 20;
             const bH = collarSizes?.big?.h ?? 4.5;
+
+            // If sleeves are present, export into 'Sleeve' folder as accustomed;
+            // if sleeves are not present, export into 'Collar' folder so NO empty Sleeve folder is created!
+            const collarFolder = sHas ? 'Sleeve' : 'Collar';
 
             if (youthCollars.length > 0) {
               const youthQty = youthCollars.length;
@@ -2907,7 +2917,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                   qty: youthQty
                 },
                 fileName: `Small Collars = ${youthQty} pcs (dimention = ${sW} x ${sH}).jpg`,
-                folder: 'Sleeve'
+                folder: collarFolder
               });
             }
 
@@ -2921,7 +2931,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                   qty: adultQty
                 },
                 fileName: `Big Collar = ${adultQty} pcs (dimention = ${bW} x ${bH}).jpg`,
-                folder: 'Sleeve'
+                folder: collarFolder
               });
             }
           }
@@ -3009,7 +3019,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             });
 
             // 2. Add collar representative preview pages (Youth & Adult)
-            const collarPreviewList = items.filter(it => it.panelType === 'collar');
+            const collarPreviewList = (cHas && exportCollar) ? items.filter(it => it.panelType === 'collar') : [];
             if (collarPreviewList.length > 0) {
               const youthCollars = collarPreviewList.filter(it => isYouthCollarSize(it.size));
               const adultCollars = collarPreviewList.filter(it => !isYouthCollarSize(it.size));
@@ -3685,7 +3695,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               </div>
               <div style={{ fontSize: '11px', color: '#4B5563', lineHeight: '1.4' }}>
                 • <strong>Front/</strong> &amp; <strong>Back/</strong>: Jersey body panels<br/>
-                • <strong>Sleeve/</strong>: Sleeves + 2 Collar files (<span style={{ color: '#E4572E', fontWeight: '700' }}>Small Collars</span> &amp; <span style={{ color: '#E4572E', fontWeight: '700' }}>Big Collar</span> with quantities)<br/>
+                • <strong>Sleeve/</strong>: Sleeves + Collars (omitted if sleeve &amp; collar data not found)<br/>
                 • <strong>A4/</strong>: Standalone prints (if enabled)
               </div>
               <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', color: '#374151', marginTop: '4px' }}>
@@ -3697,7 +3707,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                     localStorage.setItem('fivenest_pref_export_collar', JSON.stringify(e.target.checked));
                   }} 
                 />
-                <span>Include Collars inside Sleeve folder</span>
+                <span>Export Collars (only when collar artwork/styling exists)</span>
               </label>
               <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', color: '#374151' }}>
                 <input 
@@ -3832,11 +3842,11 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                   fontWeight: '800', 
                   padding: '3px 8px', 
                   borderRadius: '6px', 
-                  background: (collarHasArtwork || exportCollar) ? '#DCFCE7' : '#F3F4F6',
-                  color: (collarHasArtwork || exportCollar) ? '#15803D' : '#9CA3AF',
-                  border: (collarHasArtwork || exportCollar) ? '1px solid #86EFAC' : '1px solid #E5E7EB'
+                  background: (collarHasArtwork && exportCollar) ? '#DCFCE7' : '#F3F4F6',
+                  color: (collarHasArtwork && exportCollar) ? '#15803D' : '#9CA3AF',
+                  border: (collarHasArtwork && exportCollar) ? '1px solid #86EFAC' : '1px solid #E5E7EB'
                 }}>
-                  Collar {(collarHasArtwork || exportCollar) ? '✓' : '—'}
+                  Collar {(collarHasArtwork && exportCollar) ? '✓' : '—'}
                 </span>
               </div>
             </div>
