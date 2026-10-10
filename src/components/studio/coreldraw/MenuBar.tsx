@@ -198,13 +198,6 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           </div>
         )}
       </div>
-
-      {/* Active Panel Badge on Right */}
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', background: '#FFF3EF', border: '1px solid #F5C4B2', color: '#C94725', borderRadius: '6px', padding: '3px 10px', fontSize: '11px', fontWeight: '600' }}>
-        <span style={{ fontWeight: '700', color: '#92908A' }}>ACTIVE:</span>
-        <strong style={{ color: '#E4572E', fontWeight: '700', textTransform: 'uppercase' }}>{activeTab}</strong>
-      </div>
-
     </div>
   );
 };

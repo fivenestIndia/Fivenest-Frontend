@@ -63,6 +63,7 @@ interface GradientEditorModalProps {
   onApply: (stops: string[], direction: 'vertical' | 'horizontal' | 'diagonal' | 'radial') => void;
   onSaveToPalette?: (stops: string[], name: string) => void;
   title?: string;
+  onResetToSolid?: () => void;
 }
 
 export const GradientEditorModal: React.FC<GradientEditorModalProps> = ({
@@ -72,7 +73,8 @@ export const GradientEditorModal: React.FC<GradientEditorModalProps> = ({
   initialDirection = 'vertical',
   onApply,
   onSaveToPalette,
-  title = 'Photoshop Gradient Editor'
+  title = 'Photoshop Gradient Editor',
+  onResetToSolid
 }) => {
   const [stops, setStops] = useState<GradientStop[]>(() => {
     return initialStops.map((color, idx) => ({
@@ -767,6 +769,30 @@ export const GradientEditorModal: React.FC<GradientEditorModalProps> = ({
           </button>
 
           <div style={{ display: 'flex', gap: '8px' }}>
+            {onResetToSolid && (
+              <button
+                type="button"
+                onClick={() => {
+                  onResetToSolid();
+                  onClose();
+                }}
+                style={{
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  borderRadius: '8px',
+                  padding: '8px 14px',
+                  color: '#fca5a5',
+                  fontWeight: '700',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Switch back to Solid Color"
+              >
+                Switch to Solid Color
+              </button>
+            )}
+
             <button
               type="button"
               onClick={handleApply}

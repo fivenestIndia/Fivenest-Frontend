@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   ZoomIn, ZoomOut, RotateCcw, AlignLeft, AlignCenter, AlignRight, 
   Lock, Unlock, Type, Image as ImageIcon, Paintbrush, Layers, Sliders, Sparkles,
-  Eye, EyeOff, Plus, Trash2, X
+  Plus, Trash2, X
 } from 'lucide-react';
 import type { CorelTool } from './ToolBox';
 import { getEffectiveStrokes, type PanelConfig, type TextConfig, type StrokeConfig } from '../designer';
@@ -233,88 +233,6 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
           [{activeTool}]
         </span>
       </div>
-
-      {/* 2. PANEL SIZE / TAB CONTROL */}
-      <div 
-        className="cd-property-group"
-        style={{
-          background: '#FFFFFF',
-          border: '1px solid #D8D5CF',
-          borderRadius: '8px',
-          padding: '4px 10px',
-        }}
-      >
-        <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600' }}>Page Size:</span>
-        <span style={{ color: '#E4572E', fontWeight: '700', fontSize: '11px', marginLeft: '4px', letterSpacing: '0.02em' }}>
-          {physicalWidth}" × {physicalHeight}"
-        </span>
-      </div>
-
-      {/* 3. NAME & NUMBER VISIBILITY TOGGLE (TOP BAR) */}
-      {(panel.nameConfig || panel.numberConfig) && (
-        <div 
-          className="cd-property-group"
-          style={{
-            background: '#FFFFFF',
-            border: '1px solid #D8D5CF',
-            borderRadius: '8px',
-            padding: '3px 8px',
-            gap: '5px',
-            display: 'flex',
-            alignItems: 'center'
-          }}
-        >
-          <span style={{ fontSize: '10px', color: '#92908A', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            Show:
-          </span>
-          <button
-            type="button"
-            onClick={() => onUpdatePanel({ nameConfig: { ...panel.nameConfig, enabled: !panel.nameConfig?.enabled } })}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '3px 8px',
-              borderRadius: '5px',
-              fontSize: '11px',
-              fontWeight: '700',
-              background: panel.nameConfig?.enabled ? '#E4572E' : '#F4F2EE',
-              color: panel.nameConfig?.enabled ? '#FFFFFF' : '#716F6A',
-              border: panel.nameConfig?.enabled ? '1px solid #E4572E' : '1px solid #D8D5CF',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-            title={panel.nameConfig?.enabled ? "Click to Disable/Hide Player Name on active panel" : "Click to Enable/Show Player Name on active panel"}
-          >
-            {panel.nameConfig?.enabled ? <Eye size={12} /> : <EyeOff size={12} />}
-            Name
-          </button>
-          <button
-            type="button"
-            onClick={() => onUpdatePanel({ numberConfig: { ...panel.numberConfig, enabled: !panel.numberConfig?.enabled } })}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '3px 8px',
-              borderRadius: '5px',
-              fontSize: '11px',
-              fontWeight: '700',
-              background: panel.numberConfig?.enabled ? '#E4572E' : '#F4F2EE',
-              color: panel.numberConfig?.enabled ? '#FFFFFF' : '#716F6A',
-              border: panel.numberConfig?.enabled ? '1px solid #E4572E' : '1px solid #D8D5CF',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-            title={panel.numberConfig?.enabled ? "Click to Disable/Hide Player Number on active panel" : "Click to Enable/Show Player Number on active panel"}
-          >
-            {panel.numberConfig?.enabled ? <Eye size={12} /> : <EyeOff size={12} />}
-            Number
-          </button>
-        </div>
-      )}
-
-
 
       {/* 4. ZOOM CONTROLS */}
       {activeTool === 'zoom' && (
@@ -564,6 +482,57 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
             }}
           >
             <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600' }}>Fill:</span>
+
+            {/* Segmented Solid vs Gradient Switcher */}
+            <div style={{ display: 'inline-flex', background: '#F4F2EE', padding: '2px', borderRadius: '5px', gap: '2px' }}>
+              <button
+                type="button"
+                onClick={() => updateActiveText({ fillType: 'solid' })}
+                style={{
+                  padding: '2px 7px',
+                  borderRadius: '3px',
+                  fontSize: '10px',
+                  fontWeight: '700',
+                  border: 'none',
+                  background: !isFillGradient ? '#E4572E' : 'transparent',
+                  color: !isFillGradient ? '#FFFFFF' : '#686661',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Switch Fill to Solid Color"
+              >
+                Solid
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isFillGradient) {
+                    handleToggleFillGradient();
+                  } else if (onOpenGradientModal) {
+                    onOpenGradientModal(resolvedLayer);
+                  }
+                }}
+                style={{
+                  padding: '2px 7px',
+                  borderRadius: '3px',
+                  fontSize: '10px',
+                  fontWeight: '700',
+                  border: 'none',
+                  background: isFillGradient ? 'linear-gradient(135deg, #E4572E 0%, #FF8A00 100%)' : 'transparent',
+                  color: isFillGradient ? '#FFFFFF' : '#686661',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  transition: 'all 0.15s ease'
+                }}
+                title={isFillGradient ? "Click to open Gradient Editor" : "Switch Fill to Gradient Color"}
+              >
+                <Sparkles size={10} />
+                Gradient
+              </button>
+            </div>
+
             {isFillGradient ? (
               <button
                 type="button"
@@ -583,34 +552,11 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               <input
                 type="color"
                 value={activeTextConfig.color?.startsWith('#') ? activeTextConfig.color : '#FFFFFF'}
-                onChange={(e) => updateActiveText({ color: e.target.value })}
+                onChange={(e) => updateActiveText({ color: e.target.value, fillType: 'solid' })}
                 style={{ width: '24px', height: '22px', border: '1px solid #D8D5CF', borderRadius: '4px', background: 'none', cursor: 'pointer', padding: 0 }}
                 title="Solid Fill Color"
               />
             )}
-
-            <button
-              type="button"
-              onClick={handleToggleFillGradient}
-              style={{
-                padding: '2px 6px',
-                borderRadius: '4px',
-                fontSize: '10px',
-                fontWeight: '700',
-                border: 'none',
-                background: isFillGradient ? 'linear-gradient(135deg, #E4572E 0%, #FF8A00 100%)' : '#F4F2EE',
-                color: isFillGradient ? '#FFFFFF' : '#686661',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '3px',
-                transition: 'all 0.15s ease'
-              }}
-              title={isFillGradient ? "Click to switch Fill to Solid Color (or click swatch to edit gradient)" : "Click to switch Fill to Gradient Color"}
-            >
-              <Sparkles size={10} />
-              {isFillGradient ? 'Grad' : 'Grad'}
-            </button>
           </div>
 
           {/* Stroke Group */}
@@ -673,6 +619,56 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               </div>
             )}
 
+            {/* Segmented Solid vs Gradient Switcher */}
+            <div style={{ display: 'inline-flex', background: '#F4F2EE', padding: '2px', borderRadius: '5px', gap: '2px' }}>
+              <button
+                type="button"
+                onClick={() => handleUpdateCurrentStroke({ type: 'solid' })}
+                style={{
+                  padding: '2px 7px',
+                  borderRadius: '3px',
+                  fontSize: '10px',
+                  fontWeight: '700',
+                  border: 'none',
+                  background: !isStrokeGradient ? '#E4572E' : 'transparent',
+                  color: !isStrokeGradient ? '#FFFFFF' : '#686661',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Switch Stroke to Solid Color"
+              >
+                Solid
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isStrokeGradient) {
+                    handleToggleStrokeGradient();
+                  } else if (onOpenGradientModal) {
+                    onOpenGradientModal(`${resolvedLayer}-stroke-${safeStrokeIdx}`);
+                  }
+                }}
+                style={{
+                  padding: '2px 7px',
+                  borderRadius: '3px',
+                  fontSize: '10px',
+                  fontWeight: '700',
+                  border: 'none',
+                  background: isStrokeGradient ? 'linear-gradient(135deg, #00C6FF 0%, #0072FF 100%)' : 'transparent',
+                  color: isStrokeGradient ? '#FFFFFF' : '#686661',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  transition: 'all 0.15s ease'
+                }}
+                title={isStrokeGradient ? "Click to open Stroke Gradient Editor" : "Switch Stroke to Gradient Color"}
+              >
+                <Sparkles size={10} />
+                Gradient
+              </button>
+            </div>
+
             {/* Stroke Color / Gradient swatch */}
             {isStrokeGradient ? (
               <button
@@ -693,35 +689,11 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               <input
                 type="color"
                 value={currentStroke?.color?.startsWith('#') ? currentStroke.color : '#000000'}
-                onChange={(e) => handleUpdateCurrentStroke({ color: e.target.value })}
+                onChange={(e) => handleUpdateCurrentStroke({ color: e.target.value, type: 'solid' })}
                 style={{ width: '24px', height: '22px', border: '1px solid #D8D5CF', borderRadius: '4px', background: 'none', cursor: 'pointer', padding: 0 }}
                 title="Stroke Color"
               />
             )}
-
-            {/* Stroke Gradient Toggle Button */}
-            <button
-              type="button"
-              onClick={handleToggleStrokeGradient}
-              style={{
-                padding: '2px 6px',
-                borderRadius: '4px',
-                fontSize: '10px',
-                fontWeight: '700',
-                border: 'none',
-                background: isStrokeGradient ? 'linear-gradient(135deg, #00C6FF 0%, #0072FF 100%)' : '#F4F2EE',
-                color: isStrokeGradient ? '#FFFFFF' : '#686661',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '3px',
-                transition: 'all 0.15s ease'
-              }}
-              title={isStrokeGradient ? "Click to switch Stroke to Solid Color" : "Click to switch Stroke to Gradient Color"}
-            >
-              <Sparkles size={10} />
-              {isStrokeGradient ? 'Grad' : 'Grad'}
-            </button>
 
             {/* Stroke Width Input */}
             <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600' }}>Width:</span>
@@ -850,34 +822,6 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
         </div>
       )}
 
-      {/* 7. QUICK BACKGROUND COLOR CHOOSERS */}
-      <div 
-        className="cd-property-group" 
-        style={{ 
-          marginLeft: 'auto',
-          background: '#FFFFFF',
-          border: '1px solid #D8D5CF',
-          borderRadius: '8px',
-          padding: '3px 8px',
-          gap: '6px'
-        }}
-      >
-        <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '700' }}>BG Colors:</span>
-        <input
-          type="color"
-          value={panel.generatedColor1}
-          onChange={(e) => onUpdatePanel({ generatedColor1: e.target.value })}
-          title="Background Color 1"
-          style={{ width: '22px', height: '20px', border: '1px solid #D8D5CF', borderRadius: '4px', background: 'none', cursor: 'pointer', padding: 0 }}
-        />
-        <input
-          type="color"
-          value={panel.generatedColor2}
-          onChange={(e) => onUpdatePanel({ generatedColor2: e.target.value })}
-          title="Background Color 2"
-          style={{ width: '22px', height: '20px', border: '1px solid #D8D5CF', borderRadius: '4px', background: 'none', cursor: 'pointer', padding: 0 }}
-        />
-      </div>
     </div>
   );
 };

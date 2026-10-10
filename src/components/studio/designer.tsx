@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus, Maximize2, Camera, Sparkles, Check, Image as ImageIcon, RotateCcw, Palette } from 'lucide-react';
+import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus, Maximize2, Camera, Sparkles, Check, Image as ImageIcon, RotateCcw, Palette, Eye, EyeOff } from 'lucide-react';
 import type { OrderMetadata } from './orderEntry';
 import { ThreeDPreview, ThreeDPreviewHandle, generatePresentationBoard } from './ThreeDPreview';
 import { defaultSizes } from './sizesDb';
@@ -1455,6 +1455,108 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     }
     undoableConfigChange(updated as ArtDesignConfig);
   };
+
+  // ToolBox Foreground (Fill) & Stroke Handlers (Illustrator standard)
+  const handleToolboxUpdateFillColor = (color: string) => {
+    const targetLayer: 'name' | 'number' = activeTextLayer || (activePanel.nameConfig?.enabled ? 'name' : activePanel.numberConfig?.enabled ? 'number' : activePanel.nameConfig ? 'name' : 'number');
+    if (targetLayer === 'number' && activePanel.numberConfig) {
+      updateActivePanel({
+        numberConfig: {
+          ...activePanel.numberConfig,
+          color,
+          fillType: 'solid'
+        }
+      });
+    } else if (activePanel.nameConfig) {
+      updateActivePanel({
+        nameConfig: {
+          ...activePanel.nameConfig,
+          color,
+          fillType: 'solid'
+        }
+      });
+    }
+  };
+
+  const handleToolboxUpdateStrokeColor = (strokeColor: string) => {
+    const targetLayer: 'name' | 'number' = activeTextLayer || (activePanel.nameConfig?.enabled ? 'name' : activePanel.numberConfig?.enabled ? 'number' : activePanel.nameConfig ? 'name' : 'number');
+    if (targetLayer === 'number' && activePanel.numberConfig) {
+      updateActivePanel({
+        numberConfig: {
+          ...activePanel.numberConfig,
+          strokeColor,
+          strokeType: 'solid'
+        }
+      });
+    } else if (activePanel.nameConfig) {
+      updateActivePanel({
+        nameConfig: {
+          ...activePanel.nameConfig,
+          strokeColor,
+          strokeType: 'solid'
+        }
+      });
+    }
+  };
+
+  const handleToolboxSwapFillStroke = () => {
+    const targetLayer: 'name' | 'number' = activeTextLayer || (activePanel.nameConfig?.enabled ? 'name' : activePanel.numberConfig?.enabled ? 'number' : activePanel.nameConfig ? 'name' : 'number');
+    if (targetLayer === 'number' && activePanel.numberConfig) {
+      const oldFill = activePanel.numberConfig.color || '#000000';
+      const oldStroke = activePanel.numberConfig.strokeColor || '#ffffff';
+      updateActivePanel({
+        numberConfig: {
+          ...activePanel.numberConfig,
+          color: oldStroke,
+          strokeColor: oldFill
+        }
+      });
+      toast.success('Swapped Number Fill & Stroke (Shift+X)');
+    } else if (activePanel.nameConfig) {
+      const oldFill = activePanel.nameConfig.color || '#000000';
+      const oldStroke = activePanel.nameConfig.strokeColor || '#ffffff';
+      updateActivePanel({
+        nameConfig: {
+          ...activePanel.nameConfig,
+          color: oldStroke,
+          strokeColor: oldFill
+        }
+      });
+      toast.success('Swapped Name Fill & Stroke (Shift+X)');
+    }
+  };
+
+  const handleToolboxDefaultFillStroke = () => {
+    const targetLayer: 'name' | 'number' = activeTextLayer || (activePanel.nameConfig?.enabled ? 'name' : activePanel.numberConfig?.enabled ? 'number' : activePanel.nameConfig ? 'name' : 'number');
+    if (targetLayer === 'number' && activePanel.numberConfig) {
+      updateActivePanel({
+        numberConfig: {
+          ...activePanel.numberConfig,
+          color: '#000000',
+          fillType: 'solid',
+          strokeColor: '#ffffff',
+          strokeType: 'solid'
+        }
+      });
+      toast.success('Reset Number to Default Colors (Black & White)');
+    } else if (activePanel.nameConfig) {
+      updateActivePanel({
+        nameConfig: {
+          ...activePanel.nameConfig,
+          color: '#000000',
+          fillType: 'solid',
+          strokeColor: '#ffffff',
+          strokeType: 'solid'
+        }
+      });
+      toast.success('Reset Name to Default Colors (Black & White)');
+    }
+  };
+
+  const handleSwapFillStrokeRef = useRef(handleToolboxSwapFillStroke);
+  const handleDefaultFillStrokeRef = useRef(handleToolboxDefaultFillStroke);
+  useEffect(() => { handleSwapFillStrokeRef.current = handleToolboxSwapFillStroke; });
+  useEffect(() => { handleDefaultFillStrokeRef.current = handleToolboxDefaultFillStroke; });
 
   const updateTrimConfig = (partKey: 'collar' | 'placket' | 'sleeveStripe', updatedFields: Partial<TrimPartConfig>) => {
     const currentTrim = designConfig.trim || {
@@ -3335,6 +3437,22 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         return;
       }
 
+      // 4b. SWAP FILL & STROKE: Shift+X (Illustrator standard)
+      if (e.shiftKey && key === 'X' && !isCtrl && !e.altKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleSwapFillStrokeRef.current();
+        return;
+      }
+
+      // 4c. DEFAULT FILL & STROKE: D (Illustrator standard)
+      if (key === 'D' && !isCtrl && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleDefaultFillStrokeRef.current();
+        return;
+      }
+
       // 5. BULK ZIP IMPORT: Ctrl+Shift+I, Cmd+Shift+I, Ctrl+Shift+U, Cmd+Shift+U, Ctrl+B, Cmd+B
       if (
         (isCtrl && e.shiftKey && (key === 'I' || key === 'U')) ||
@@ -4741,6 +4859,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     }
   };
 
+  const currentActiveLayer: 'name' | 'number' = activeTextLayer || (activePanel.nameConfig?.enabled ? 'name' : activePanel.numberConfig?.enabled ? 'number' : activePanel.nameConfig ? 'name' : 'number');
+  const activeTextForToolbox = currentActiveLayer === 'number' ? activePanel.numberConfig : (activePanel.nameConfig || activePanel.numberConfig);
+  const toolboxFillColor = activeTextForToolbox?.color || '#000000';
+  const toolboxStrokeColor = activeTextForToolbox?.strokeColor || '#ffffff';
+
   return (
     <div className="cd-studio-container fade-in">
       {/* Global Window Drag & Drop Overlay */}
@@ -4835,6 +4958,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           onToggleGuidelines={() => setShowGuidelines(prev => !prev)}
           lockGuidelines={lockGuidelines}
           onToggleLockGuidelines={handleToggleLockGuidelines}
+          fillColor={toolboxFillColor}
+          strokeColor={toolboxStrokeColor}
+          onUpdateFillColor={handleToolboxUpdateFillColor}
+          onUpdateStrokeColor={handleToolboxUpdateStrokeColor}
+          onSwapFillStroke={handleToolboxSwapFillStroke}
+          onDefaultFillStroke={handleToolboxDefaultFillStroke}
         />
 
         <div className="cd-canvas-area" style={{ background: 'radial-gradient(ellipse at 50% 20%, rgba(228, 87, 46, 0.04) 0%, transparent 65%), repeating-linear-gradient(0deg, transparent, transparent 23px, rgba(0, 0, 0, 0.035) 23px, rgba(0, 0, 0, 0.035) 24px), repeating-linear-gradient(90deg, transparent, transparent 23px, rgba(0, 0, 0, 0.035) 23px, rgba(0, 0, 0, 0.035) 24px), #EDE9E3' }}>
@@ -5115,6 +5244,74 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   Full Sleeve
                 </button>
               </div>
+
+              {/* Name & Number Visibility Icon Toggles (Moved from top to bottom floating bar) */}
+              {(activePanel.nameConfig || activePanel.numberConfig) && (
+                <>
+                  <div style={{ width: '1px', height: '18px', background: '#E2DED7', margin: '0 2px' }} />
+                  <div style={{ 
+                    display: 'inline-flex', 
+                    alignItems: 'center', 
+                    gap: '4px', 
+                    background: '#FAF8F5', 
+                    border: '1px solid #E2DED7', 
+                    borderRadius: '9999px', 
+                    padding: '2px 4px' 
+                  }}>
+                    <span style={{ fontSize: '10px', fontWeight: '800', color: '#92908A', padding: '0 4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Show:
+                    </span>
+                    {activePanel.nameConfig && (
+                      <button
+                        type="button"
+                        onClick={() => updateActivePanel({ nameConfig: { ...activePanel.nameConfig, enabled: !activePanel.nameConfig?.enabled } })}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '3px 8px',
+                          borderRadius: '9999px',
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          border: activePanel.nameConfig?.enabled ? '1px solid #E4572E' : '1px solid transparent',
+                          background: activePanel.nameConfig?.enabled ? '#E4572E' : 'transparent',
+                          color: activePanel.nameConfig?.enabled ? '#FFFFFF' : '#9CA3AF',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                        title={activePanel.nameConfig?.enabled ? "Click to Hide Player Name" : "Click to Show Player Name"}
+                      >
+                        {activePanel.nameConfig?.enabled ? <Eye size={12} /> : <EyeOff size={12} />}
+                        Name
+                      </button>
+                    )}
+                    {activePanel.numberConfig && (
+                      <button
+                        type="button"
+                        onClick={() => updateActivePanel({ numberConfig: { ...activePanel.numberConfig, enabled: !activePanel.numberConfig?.enabled } })}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '3px 8px',
+                          borderRadius: '9999px',
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          border: activePanel.numberConfig?.enabled ? '1px solid #E4572E' : '1px solid transparent',
+                          background: activePanel.numberConfig?.enabled ? '#E4572E' : 'transparent',
+                          color: activePanel.numberConfig?.enabled ? '#FFFFFF' : '#9CA3AF',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                        title={activePanel.numberConfig?.enabled ? "Click to Hide Player Number" : "Click to Show Player Number"}
+                      >
+                        {activePanel.numberConfig?.enabled ? <Eye size={12} /> : <EyeOff size={12} />}
+                        Number
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
@@ -8607,6 +8804,49 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         }}
         onSaveToPalette={(stops, name) => {
           toast.success(`Saved "${name}" to Palette`);
+        }}
+        onResetToSolid={() => {
+          if (gradientModalTarget.startsWith('name-stroke-')) {
+            const idx = parseInt(gradientModalTarget.replace('name-stroke-', ''), 10);
+            if (idx === 0) {
+              updateTextConfig('name', { strokeType: 'solid' });
+            } else if (idx > 0) {
+              const currentExtra = [...(activePanel.nameConfig?.extraStrokes || [])];
+              if (currentExtra[idx - 1]) {
+                currentExtra[idx - 1] = {
+                  ...currentExtra[idx - 1],
+                  type: 'solid'
+                };
+                updateTextConfig('name', { extraStrokes: currentExtra });
+              }
+            }
+            toast.success(`Switched Name Stroke #${idx + 1} to Solid Color`);
+          } else if (gradientModalTarget.startsWith('number-stroke-')) {
+            const idx = parseInt(gradientModalTarget.replace('number-stroke-', ''), 10);
+            if (idx === 0) {
+              updateTextConfig('number', { strokeType: 'solid' });
+            } else if (idx > 0) {
+              const currentExtra = [...(activePanel.numberConfig?.extraStrokes || [])];
+              if (currentExtra[idx - 1]) {
+                currentExtra[idx - 1] = {
+                  ...currentExtra[idx - 1],
+                  type: 'solid'
+                };
+                updateTextConfig('number', { extraStrokes: currentExtra });
+              }
+            }
+            toast.success(`Switched Number Stroke #${idx + 1} to Solid Color`);
+          } else if (gradientModalTarget === 'name') {
+            updateTextConfig('name', { fillType: 'solid' });
+            toast.success('Switched Player Name to Solid Color');
+          } else if (gradientModalTarget === 'number') {
+            updateTextConfig('number', { fillType: 'solid' });
+            toast.success('Switched Player Number to Solid Color');
+          } else {
+            const targetLayer: 'name' | 'number' = activeTextLayer || (activePanel.nameConfig?.enabled ? 'name' : 'number');
+            updateTextConfig(targetLayer, { fillType: 'solid' });
+            toast.success(`Switched ${targetLayer === 'name' ? 'Player Name' : 'Player Number'} to Solid Color`);
+          }
         }}
       />
 
