@@ -599,7 +599,7 @@ export const TextSpecificationModal: React.FC<TextSpecificationModalProps> = ({
                   type="range"
                   min={0}
                   max={16}
-                  step={0.5}
+                  step={0.1}
                   value={config.strokeWidth}
                   onChange={(e) => onUpdate({ strokeWidth: parseFloat(e.target.value) })}
                   style={{ flex: 1, accentColor: '#E4572E' }}
@@ -608,6 +608,7 @@ export const TextSpecificationModal: React.FC<TextSpecificationModalProps> = ({
                   type="number"
                   min={0}
                   max={20}
+                  step={0.1}
                   value={config.strokeWidth}
                   onChange={(e) => onUpdate({ strokeWidth: parseFloat(e.target.value) || 0 })}
                   style={{

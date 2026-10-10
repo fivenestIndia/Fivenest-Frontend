@@ -1,10 +1,11 @@
 import React from 'react';
 import { 
   ZoomIn, ZoomOut, RotateCcw, AlignLeft, AlignCenter, AlignRight, 
-  Lock, Unlock, Type, Image as ImageIcon, Paintbrush, Layers, Sliders, Sparkles 
+  Lock, Unlock, Type, Image as ImageIcon, Paintbrush, Layers, Sliders, Sparkles,
+  Eye, EyeOff, Plus, Trash2, X
 } from 'lucide-react';
 import type { CorelTool } from './ToolBox';
-import type { PanelConfig, TextConfig } from '../designer';
+import { getEffectiveStrokes, type PanelConfig, type TextConfig, type StrokeConfig } from '../designer';
 
 interface PropertyBarProps {
   activeTool: CorelTool;
@@ -20,6 +21,7 @@ interface PropertyBarProps {
   previewSleeveType?: 'half' | 'full';
   onSleeveTypeChange?: (type: 'half' | 'full') => void;
   customFonts?: Array<{ name: string; url: string }>;
+  onOpenGradientModal?: (targetId: string) => void;
 }
 
 export const PropertyBar: React.FC<PropertyBarProps> = ({
@@ -35,7 +37,8 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
   onSelectTextLayer,
   previewSleeveType,
   onSleeveTypeChange,
-  customFonts
+  customFonts,
+  onOpenGradientModal
 }) => {
   const resolvedLayer: 'name' | 'number' | 'sizeTag' = 
     activeTextLayer || (panel.nameConfig?.enabled ? 'name' : panel.numberConfig?.enabled ? 'number' : 'sizeTag');
@@ -44,6 +47,12 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
     resolvedLayer === 'name' ? panel.nameConfig :
     resolvedLayer === 'number' ? panel.numberConfig :
     panel.sizeTagConfig;
+
+  const [selectedStrokeIdx, setSelectedStrokeIdx] = React.useState(0);
+
+  React.useEffect(() => {
+    setSelectedStrokeIdx(0);
+  }, [resolvedLayer]);
 
   // Resolve custom fonts from props or localStorage
   const effectiveCustomFonts = React.useMemo(() => {
@@ -95,6 +104,104 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
     });
   };
 
+  const strokes = getEffectiveStrokes(activeTextConfig);
+  const safeStrokeIdx = Math.min(selectedStrokeIdx, Math.max(0, strokes.length - 1));
+  const currentStroke = strokes[safeStrokeIdx] || strokes[0];
+
+  const handleAddStroke = () => {
+    if (!activeTextConfig) return;
+    const currentExtra = Array.isArray(activeTextConfig.extraStrokes) ? [...activeTextConfig.extraStrokes] : [];
+    const defaultW = resolvedLayer === 'name' ? 1.8 : 0.7;
+    const newStroke: StrokeConfig = {
+      color: currentExtra.length % 2 === 0 ? '#ffffff' : '#000000',
+      width: defaultW,
+      type: 'solid',
+      gradientColor1: '#00e5ff',
+      gradientColor2: '#ff0055',
+      gradientStops: ['#00e5ff', '#ff0055'],
+      gradientDirection: 'vertical'
+    };
+    const updatedExtra = [...currentExtra, newStroke];
+    updateActiveText({ extraStrokes: updatedExtra });
+    setSelectedStrokeIdx(updatedExtra.length);
+  };
+
+  const handleUpdateCurrentStroke = (updates: Partial<StrokeConfig>) => {
+    if (!activeTextConfig) return;
+    if (safeStrokeIdx === 0) {
+      const mapped: Partial<TextConfig> = {};
+      if (updates.color !== undefined) mapped.strokeColor = updates.color;
+      if (updates.width !== undefined) mapped.strokeWidth = updates.width;
+      if (updates.type !== undefined) mapped.strokeType = updates.type;
+      if (updates.gradientColor1 !== undefined) mapped.strokeGradientColor1 = updates.gradientColor1;
+      if (updates.gradientColor2 !== undefined) mapped.strokeGradientColor2 = updates.gradientColor2;
+      if (updates.gradientStops !== undefined) mapped.strokeGradientStops = updates.gradientStops;
+      if (updates.gradientDirection !== undefined) mapped.strokeGradientDirection = updates.gradientDirection;
+      updateActiveText(mapped);
+    } else {
+      const currentExtra = [...(activeTextConfig.extraStrokes || [])];
+      const extraIdx = safeStrokeIdx - 1;
+      if (currentExtra[extraIdx]) {
+        currentExtra[extraIdx] = { ...currentExtra[extraIdx], ...updates };
+        updateActiveText({ extraStrokes: currentExtra });
+      }
+    }
+  };
+
+  const handleRemoveStroke = (index: number) => {
+    if (!activeTextConfig || index <= 0) return;
+    const currentExtra = [...(activeTextConfig.extraStrokes || [])];
+    const updatedExtra = currentExtra.filter((_, i) => i !== index - 1);
+    updateActiveText({ extraStrokes: updatedExtra });
+    if (safeStrokeIdx >= index) {
+      setSelectedStrokeIdx(Math.max(0, index - 1));
+    }
+  };
+
+  const isFillGradient = activeTextConfig?.fillType === 'gradient';
+  const fillGradientStops = (activeTextConfig?.gradientStops && activeTextConfig.gradientStops.length >= 2)
+    ? activeTextConfig.gradientStops
+    : [activeTextConfig?.gradientColor1 || activeTextConfig?.color || '#e4572e', activeTextConfig?.gradientColor2 || '#000000'];
+
+  const handleToggleFillGradient = () => {
+    if (!activeTextConfig) return;
+    if (!isFillGradient) {
+      updateActiveText({
+        fillType: 'gradient',
+        gradientColor1: activeTextConfig.gradientColor1 || activeTextConfig.color || '#e4572e',
+        gradientColor2: activeTextConfig.gradientColor2 || '#000000',
+        gradientStops: fillGradientStops
+      });
+      if (onOpenGradientModal) {
+        onOpenGradientModal(resolvedLayer);
+      }
+    } else {
+      updateActiveText({ fillType: 'solid' });
+    }
+  };
+
+  const isStrokeGradient = currentStroke?.type === 'gradient';
+  const strokeGradientStops = (currentStroke?.gradientStops && currentStroke.gradientStops.length >= 2)
+    ? currentStroke.gradientStops
+    : [currentStroke?.gradientColor1 || currentStroke?.color || '#00e5ff', currentStroke?.gradientColor2 || '#ff0055'];
+
+  const handleToggleStrokeGradient = () => {
+    if (!activeTextConfig) return;
+    if (!isStrokeGradient) {
+      handleUpdateCurrentStroke({
+        type: 'gradient',
+        gradientColor1: currentStroke?.gradientColor1 || currentStroke?.color || '#00e5ff',
+        gradientColor2: currentStroke?.gradientColor2 || '#ff0055',
+        gradientStops: strokeGradientStops
+      });
+      if (onOpenGradientModal) {
+        onOpenGradientModal(`${resolvedLayer}-stroke-${safeStrokeIdx}`);
+      }
+    } else {
+      handleUpdateCurrentStroke({ type: 'solid' });
+    }
+  };
+
   return (
     <div 
       className="cd-propertybar" 
@@ -142,6 +249,70 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
           {physicalWidth}" × {physicalHeight}"
         </span>
       </div>
+
+      {/* 3. NAME & NUMBER VISIBILITY TOGGLE (TOP BAR) */}
+      {(panel.nameConfig || panel.numberConfig) && (
+        <div 
+          className="cd-property-group"
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid #D8D5CF',
+            borderRadius: '8px',
+            padding: '3px 8px',
+            gap: '5px',
+            display: 'flex',
+            alignItems: 'center'
+          }}
+        >
+          <span style={{ fontSize: '10px', color: '#92908A', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Show:
+          </span>
+          <button
+            type="button"
+            onClick={() => onUpdatePanel({ nameConfig: { ...panel.nameConfig, enabled: !panel.nameConfig?.enabled } })}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '3px 8px',
+              borderRadius: '5px',
+              fontSize: '11px',
+              fontWeight: '700',
+              background: panel.nameConfig?.enabled ? '#E4572E' : '#F4F2EE',
+              color: panel.nameConfig?.enabled ? '#FFFFFF' : '#716F6A',
+              border: panel.nameConfig?.enabled ? '1px solid #E4572E' : '1px solid #D8D5CF',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            title={panel.nameConfig?.enabled ? "Click to Disable/Hide Player Name on active panel" : "Click to Enable/Show Player Name on active panel"}
+          >
+            {panel.nameConfig?.enabled ? <Eye size={12} /> : <EyeOff size={12} />}
+            Name
+          </button>
+          <button
+            type="button"
+            onClick={() => onUpdatePanel({ numberConfig: { ...panel.numberConfig, enabled: !panel.numberConfig?.enabled } })}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '3px 8px',
+              borderRadius: '5px',
+              fontSize: '11px',
+              fontWeight: '700',
+              background: panel.numberConfig?.enabled ? '#E4572E' : '#F4F2EE',
+              color: panel.numberConfig?.enabled ? '#FFFFFF' : '#716F6A',
+              border: panel.numberConfig?.enabled ? '1px solid #E4572E' : '1px solid #D8D5CF',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            title={panel.numberConfig?.enabled ? "Click to Disable/Hide Player Number on active panel" : "Click to Enable/Show Player Number on active panel"}
+          >
+            {panel.numberConfig?.enabled ? <Eye size={12} /> : <EyeOff size={12} />}
+            Number
+          </button>
+        </div>
+      )}
 
 
 
@@ -379,7 +550,7 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
             </div>
           </div>
 
-          {/* Fill & Stroke */}
+          {/* Fill Group */}
           <div 
             className="cd-property-group"
             style={{
@@ -387,31 +558,180 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               border: '1px solid #D8D5CF',
               borderRadius: '8px',
               padding: '3px 8px',
-              gap: '6px'
+              gap: '6px',
+              display: 'flex',
+              alignItems: 'center'
             }}
           >
             <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600' }}>Fill:</span>
-            <input
-              type="color"
-              value={activeTextConfig.color}
-              onChange={(e) => updateActiveText({ color: e.target.value })}
-              style={{ width: '24px', height: '22px', border: '1px solid #D8D5CF', borderRadius: '4px', background: 'none', cursor: 'pointer', padding: 0 }}
-            />
-            <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600', marginLeft: '4px' }}>Stroke:</span>
-            <input
-              type="color"
-              value={activeTextConfig.strokeColor}
-              onChange={(e) => updateActiveText({ strokeColor: e.target.value })}
-              style={{ width: '24px', height: '22px', border: '1px solid #D8D5CF', borderRadius: '4px', background: 'none', cursor: 'pointer', padding: 0 }}
-            />
-            <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600', marginLeft: '4px' }}>Width:</span>
+            {isFillGradient ? (
+              <button
+                type="button"
+                onClick={() => onOpenGradientModal && onOpenGradientModal(resolvedLayer)}
+                style={{
+                  width: '26px',
+                  height: '22px',
+                  borderRadius: '4px',
+                  border: '1px solid #D8D5CF',
+                  background: `linear-gradient(90deg, ${fillGradientStops.join(', ')})`,
+                  cursor: 'pointer',
+                  padding: 0
+                }}
+                title="Click to edit Fill Gradient in Photoshop Gradient Editor"
+              />
+            ) : (
+              <input
+                type="color"
+                value={activeTextConfig.color?.startsWith('#') ? activeTextConfig.color : '#FFFFFF'}
+                onChange={(e) => updateActiveText({ color: e.target.value })}
+                style={{ width: '24px', height: '22px', border: '1px solid #D8D5CF', borderRadius: '4px', background: 'none', cursor: 'pointer', padding: 0 }}
+                title="Solid Fill Color"
+              />
+            )}
+
+            <button
+              type="button"
+              onClick={handleToggleFillGradient}
+              style={{
+                padding: '2px 6px',
+                borderRadius: '4px',
+                fontSize: '10px',
+                fontWeight: '700',
+                border: 'none',
+                background: isFillGradient ? 'linear-gradient(135deg, #E4572E 0%, #FF8A00 100%)' : '#F4F2EE',
+                color: isFillGradient ? '#FFFFFF' : '#686661',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
+                transition: 'all 0.15s ease'
+              }}
+              title={isFillGradient ? "Click to switch Fill to Solid Color (or click swatch to edit gradient)" : "Click to switch Fill to Gradient Color"}
+            >
+              <Sparkles size={10} />
+              {isFillGradient ? 'Grad' : 'Grad'}
+            </button>
+          </div>
+
+          {/* Stroke Group */}
+          <div 
+            className="cd-property-group"
+            style={{
+              background: '#FFFFFF',
+              border: '1px solid #D8D5CF',
+              borderRadius: '8px',
+              padding: '3px 8px',
+              gap: '6px',
+              display: 'flex',
+              alignItems: 'center'
+            }}
+          >
+            <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600' }}>Stroke:</span>
+
+            {/* Multiple Stroke selector pills if >1 strokes */}
+            {strokes.length > 1 && (
+              <div style={{ display: 'flex', gap: '2px', background: '#F4F2EE', padding: '2px', borderRadius: '5px' }}>
+                {strokes.map((_, sIdx) => (
+                  <div key={sIdx} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedStrokeIdx(sIdx)}
+                      style={{
+                        padding: '2px 5px',
+                        fontSize: '9px',
+                        fontWeight: '700',
+                        borderRadius: '3px',
+                        border: 'none',
+                        background: safeStrokeIdx === sIdx ? '#E4572E' : 'transparent',
+                        color: safeStrokeIdx === sIdx ? '#FFFFFF' : '#686661',
+                        cursor: 'pointer'
+                      }}
+                      title={`Select Stroke #${sIdx + 1}`}
+                    >
+                      #{sIdx + 1}
+                    </button>
+                    {sIdx > 0 && safeStrokeIdx === sIdx && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveStroke(sIdx)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#EF4444',
+                          padding: '1px 2px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
+                        title="Remove this outer stroke layer"
+                      >
+                        <X size={10} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Stroke Color / Gradient swatch */}
+            {isStrokeGradient ? (
+              <button
+                type="button"
+                onClick={() => onOpenGradientModal && onOpenGradientModal(`${resolvedLayer}-stroke-${safeStrokeIdx}`)}
+                style={{
+                  width: '26px',
+                  height: '22px',
+                  borderRadius: '4px',
+                  border: '1px solid #D8D5CF',
+                  background: `linear-gradient(90deg, ${strokeGradientStops.join(', ')})`,
+                  cursor: 'pointer',
+                  padding: 0
+                }}
+                title="Click to edit Stroke Gradient in Photoshop Gradient Editor"
+              />
+            ) : (
+              <input
+                type="color"
+                value={currentStroke?.color?.startsWith('#') ? currentStroke.color : '#000000'}
+                onChange={(e) => handleUpdateCurrentStroke({ color: e.target.value })}
+                style={{ width: '24px', height: '22px', border: '1px solid #D8D5CF', borderRadius: '4px', background: 'none', cursor: 'pointer', padding: 0 }}
+                title="Stroke Color"
+              />
+            )}
+
+            {/* Stroke Gradient Toggle Button */}
+            <button
+              type="button"
+              onClick={handleToggleStrokeGradient}
+              style={{
+                padding: '2px 6px',
+                borderRadius: '4px',
+                fontSize: '10px',
+                fontWeight: '700',
+                border: 'none',
+                background: isStrokeGradient ? 'linear-gradient(135deg, #00C6FF 0%, #0072FF 100%)' : '#F4F2EE',
+                color: isStrokeGradient ? '#FFFFFF' : '#686661',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
+                transition: 'all 0.15s ease'
+              }}
+              title={isStrokeGradient ? "Click to switch Stroke to Solid Color" : "Click to switch Stroke to Gradient Color"}
+            >
+              <Sparkles size={10} />
+              {isStrokeGradient ? 'Grad' : 'Grad'}
+            </button>
+
+            {/* Stroke Width Input */}
+            <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600' }}>Width:</span>
             <input
               type="number"
-              step="0.5"
+              step="0.1"
               min="0"
               max="50"
-              value={activeTextConfig.strokeWidth || 0}
-              onChange={(e) => updateActiveText({ strokeWidth: parseFloat(e.target.value) || 0 })}
+              value={currentStroke?.width ?? (resolvedLayer === 'name' ? 1.8 : 0.7)}
+              onChange={(e) => handleUpdateCurrentStroke({ width: parseFloat(e.target.value) || 0 })}
               style={{
                 width: '46px',
                 border: '1px solid #D8D5CF',
@@ -422,7 +742,59 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
                 textAlign: 'center',
                 outline: 'none'
               }}
+              title="Stroke Width (Default: Name 1.8, Number 0.7)"
             />
+
+            {/* + Add Stroke Button */}
+            <button
+              type="button"
+              onClick={handleAddStroke}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
+                padding: '3px 7px',
+                borderRadius: '5px',
+                fontSize: '10px',
+                fontWeight: '700',
+                background: '#FBE7E1',
+                color: '#E4572E',
+                border: '1px solid #F5C4B2',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              title="Add another outer stroke layer (Multi-Stroke)"
+            >
+              <Plus size={11} />
+              Stroke
+            </button>
+
+            {/* Stroke Alignment Position (Outside, Inside, Center) */}
+            <div style={{ display: 'flex', gap: '2px', background: '#F4F2EE', padding: '2px', borderRadius: '5px', marginLeft: '2px' }}>
+              {(['outside', 'inside', 'center'] as const).map((pos) => {
+                const isSelected = (activeTextConfig.strokePosition || 'outside') === pos;
+                return (
+                  <button
+                    key={pos}
+                    type="button"
+                    onClick={() => updateActiveText({ strokePosition: pos })}
+                    style={{
+                      padding: '2px 5px',
+                      fontSize: '9px',
+                      fontWeight: '700',
+                      borderRadius: '3px',
+                      border: 'none',
+                      background: isSelected ? '#E4572E' : 'transparent',
+                      color: isSelected ? '#FFFFFF' : '#686661',
+                      cursor: 'pointer'
+                    }}
+                    title={`Align Stroke to ${pos.toUpperCase()} (${pos === 'outside' ? 'Clean outer vector border' : pos === 'inside' ? 'Inside glyph' : 'Center half-in half-out'})`}
+                  >
+                    {pos === 'outside' ? 'Out' : pos === 'inside' ? 'In' : 'Ctr'}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </>
       )}

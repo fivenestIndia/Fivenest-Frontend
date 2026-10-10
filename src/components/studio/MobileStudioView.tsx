@@ -1907,8 +1907,8 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                             onClick={() => {
                               onDesignConfigChange({
                                 ...designConfig,
-                                front: { ...designConfig.front, nameConfig: { ...designConfig.front.nameConfig, strokeColor: col.hex, strokeWidth: designConfig.front.nameConfig.strokeWidth || 4 } },
-                                back: { ...designConfig.back, nameConfig: { ...designConfig.back.nameConfig, strokeColor: col.hex, strokeWidth: designConfig.back.nameConfig.strokeWidth || 4 } }
+                                front: { ...designConfig.front, nameConfig: { ...designConfig.front.nameConfig, strokeColor: col.hex, strokeWidth: designConfig.front.nameConfig.strokeWidth || 1.8 } },
+                                back: { ...designConfig.back, nameConfig: { ...designConfig.back.nameConfig, strokeColor: col.hex, strokeWidth: designConfig.back.nameConfig.strokeWidth || 1.8 } }
                               });
                             }}
                             title={col.name}
@@ -2067,8 +2067,8 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                             onClick={() => {
                               onDesignConfigChange({
                                 ...designConfig,
-                                front: { ...designConfig.front, numberConfig: { ...designConfig.front.numberConfig, strokeColor: col.hex, strokeWidth: designConfig.front.numberConfig.strokeWidth || 4 } },
-                                back: { ...designConfig.back, numberConfig: { ...designConfig.back.numberConfig, strokeColor: col.hex, strokeWidth: designConfig.back.numberConfig.strokeWidth || 4 } }
+                                front: { ...designConfig.front, numberConfig: { ...designConfig.front.numberConfig, strokeColor: col.hex, strokeWidth: designConfig.front.numberConfig.strokeWidth || 0.7 } },
+                                back: { ...designConfig.back, numberConfig: { ...designConfig.back.numberConfig, strokeColor: col.hex, strokeWidth: designConfig.back.numberConfig.strokeWidth || 0.7 } }
                               });
                             }}
                             title={col.name}
