@@ -401,9 +401,26 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    localStorage.removeItem('fivenest_active_user');
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn("Supabase sign out error:", err);
+    }
+
+    try {
+      localStorage.removeItem('fivenest_active_user');
+      // Clear Supabase session tokens from localStorage
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch (e) {}
+
     onLoginStateChange(null);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('fivenest_user_updated', { detail: null }));
+    }
     onClose();
   };
 

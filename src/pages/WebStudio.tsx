@@ -100,6 +100,11 @@ export default function WebStudio() {
           };
           setCurrentUser(updated);
           localStorage.setItem('fivenest_active_user', JSON.stringify(updated));
+        } else {
+          const cached = localStorage.getItem('fivenest_active_user');
+          if (!cached) {
+            setCurrentUser(null);
+          }
         }
       } catch (e) {
         console.warn("Session check fallback to cached user", e);
@@ -127,9 +132,7 @@ export default function WebStudio() {
     });
 
     const handleUserUpdated = (e: any) => {
-      if (e.detail) {
-        setCurrentUser(e.detail);
-      }
+      setCurrentUser(e.detail || null);
     };
     window.addEventListener('fivenest_user_updated', handleUserUpdated);
 
