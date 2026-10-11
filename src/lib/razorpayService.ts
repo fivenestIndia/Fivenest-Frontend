@@ -21,6 +21,15 @@ export const getApiBaseUrl = (): string => {
     : DEFAULT_API_URL;
 };
 
+async function getAuthToken(): Promise<string | null> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
 export interface InitiateRazorpayParams {
   amount: number;
   currentUser: { email: string; name: string; balance: number; id?: string };
@@ -78,9 +87,13 @@ export const initiateRazorpayRecharge = async ({
     const API_BASE_URL = getApiBaseUrl();
 
     // 1. Create order on backend
+    const token = await getAuthToken();
     const response = await fetch(`${API_BASE_URL}/api/payment/create-studio-order`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
       body: JSON.stringify({ amount, userId: targetUserId, email: targetEmail })
     });
 
@@ -107,9 +120,13 @@ export const initiateRazorpayRecharge = async ({
       handler: async (paymentResponse: any) => {
         try {
           const currentBal = currentUser?.balance ? Number(currentUser.balance) : 0;
+          const token = await getAuthToken();
           const verifyRes = await fetch(`${API_BASE_URL}/api/payment/verify-studio-payment`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
             body: JSON.stringify({
               razorpay_order_id: paymentResponse.razorpay_order_id,
               razorpay_payment_id: paymentResponse.razorpay_payment_id,

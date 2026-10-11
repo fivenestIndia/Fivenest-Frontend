@@ -1,6 +1,7 @@
 import express from "express";
 import { supabaseAdmin } from "../config/supabase.js";
 import mongoose from "mongoose";
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -21,7 +22,7 @@ const MongoOrderStore = mongoose.models.OrderStore || mongoose.model("OrderStore
  * @route GET /api/orders/store
  * @desc Retrieve order definitions from Supabase (or MongoDB backup)
  */
-router.get("/store", async (req, res) => {
+router.get("/store", requireAuth, async (req, res) => {
   const { userId, email } = req.query;
 
   if (!userId && !email) {
@@ -65,7 +66,7 @@ router.get("/store", async (req, res) => {
  * @route POST /api/orders/store
  * @desc Save order definitions into Supabase and MongoDB
  */
-router.post("/store", async (req, res) => {
+router.post("/store", requireAuth, async (req, res) => {
   const { userId, email, orderStore } = req.body;
 
   if (!orderStore) {

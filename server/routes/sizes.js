@@ -1,6 +1,7 @@
 import express from "express";
 import { supabaseAdmin } from "../config/supabase.js";
 import mongoose from "mongoose";
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -21,7 +22,7 @@ const MongoSizeEditor = mongoose.models.SizeEditor || mongoose.model("SizeEditor
  * @route GET /api/sizes/store
  * @desc Retrieve size editor data from Supabase (or MongoDB backup)
  */
-router.get("/store", async (req, res) => {
+router.get("/store", requireAuth, async (req, res) => {
   const { userId, email } = req.query;
 
   if (!userId && !email) {
@@ -65,7 +66,7 @@ router.get("/store", async (req, res) => {
  * @route POST /api/sizes/store
  * @desc Save size editor data into Supabase and MongoDB
  */
-router.post("/store", async (req, res) => {
+router.post("/store", requireAuth, async (req, res) => {
   const { userId, email, sizesData } = req.body;
 
   if (!sizesData) {

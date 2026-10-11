@@ -80,44 +80,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
       });
 
       if (error) {
-        // Direct seamless auth for Deepika wavre
-        if (cleanEmail.includes('wavre') && (password === '1Love@house' || password.length >= 6)) {
-          const deepikaUser = {
-            id: '35fa182d-fe12-4b18-9bf8-1421af117db5',
-            email: 'wavredeepika9@gmail.com',
-            name: 'Deepika wavre',
-            balance: 2743
-          };
-          localStorage.setItem('fivenest_active_user', JSON.stringify(deepikaUser));
-          onLoginStateChange(deepikaUser);
-          window.dispatchEvent(new CustomEvent('fivenest_user_updated', { detail: deepikaUser }));
-          setSuccessMessage(`✅ Signed in as ${deepikaUser.name}! Welcome back.`);
-          setTimeout(() => {
-            clearMessages();
-            onClose();
-          }, 800);
-          return;
-        }
 
         const errorMsg = (error.message || '').toLowerCase();
 
-        // If email not confirmed in Supabase, sign them in directly without blocking!
+        // If email not confirmed, show proper message
         if (errorMsg.includes('email not confirmed') || errorMsg.includes('not confirmed') || errorMsg.includes('confirm')) {
-          const displayName = cleanEmail.split('@')[0] || 'Designer';
-          const loggedInUser = {
-            id: cleanEmail,
-            email: cleanEmail,
-            name: displayName,
-            balance: 100
-          };
-          localStorage.setItem('fivenest_active_user', JSON.stringify(loggedInUser));
-          onLoginStateChange(loggedInUser);
-          window.dispatchEvent(new CustomEvent('fivenest_user_updated', { detail: loggedInUser }));
-          setSuccessMessage(`✅ Signed in successfully! Welcome, ${loggedInUser.name}.`);
-          setTimeout(() => {
-            clearMessages();
-            onClose();
-          }, 800);
+          setErrorMessage('Please confirm your email address before signing in. Check your inbox for the verification link.');
           return;
         }
 
@@ -125,24 +93,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
           errorMsg.includes('fetch') ||
           errorMsg.includes('network') ||
           errorMsg.includes('load failed') ||
-          errorMsg.includes('failed to fetch') ||
-          errorMsg.includes('key')
+          errorMsg.includes('failed to fetch')
         ) {
-          const displayName = cleanEmail.includes('wavre') ? 'Deepika wavre' : (cleanEmail.split('@')[0] || 'Designer');
-          const loggedInUser = {
-            id: cleanEmail.includes('wavre') ? '35fa182d-fe12-4b18-9bf8-1421af117db5' : cleanEmail,
-            email: cleanEmail,
-            name: displayName,
-            balance: cleanEmail.includes('wavre') ? 2743 : 100
-          };
-          localStorage.setItem('fivenest_active_user', JSON.stringify(loggedInUser));
-          onLoginStateChange(loggedInUser);
-          window.dispatchEvent(new CustomEvent('fivenest_user_updated', { detail: loggedInUser }));
-          setSuccessMessage(`✅ Signed in as ${loggedInUser.name}! Welcome back.`);
-          setTimeout(() => {
-            clearMessages();
-            onClose();
-          }, 800);
+          setErrorMessage('Network error. Please check your internet connection and try again.');
           return;
         }
         setErrorMessage(friendlyError(error.message));
@@ -157,12 +110,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
 
         const finalBalance = (typeof details.balance === 'number' && details.balance > 0) 
           ? details.balance 
-          : (cleanEmail.includes('wavre') ? 2743 : 0);
+          : 0;
 
         const loggedInUser = {
           id: data.user.id,
           email: data.user.email || cleanEmail,
-          name: details.name || data.user.user_metadata?.name || (cleanEmail.includes('wavre') ? 'Deepika wavre' : cleanEmail.split('@')[0]),
+          name: details.name || data.user.user_metadata?.name || cleanEmail.split('@')[0],
           balance: finalBalance
         };
         localStorage.setItem('fivenest_active_user', JSON.stringify(loggedInUser));
@@ -175,23 +128,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
         }, 800);
       }
     } catch (err: any) {
-      if (cleanEmail.includes('wavre')) {
-        const deepikaUser = {
-          id: '35fa182d-fe12-4b18-9bf8-1421af117db5',
-          email: 'wavredeepika9@gmail.com',
-          name: 'Deepika wavre',
-          balance: 2743
-        };
-        localStorage.setItem('fivenest_active_user', JSON.stringify(deepikaUser));
-        onLoginStateChange(deepikaUser);
-        window.dispatchEvent(new CustomEvent('fivenest_user_updated', { detail: deepikaUser }));
-        setSuccessMessage(`✅ Signed in as ${deepikaUser.name}! Welcome back.`);
-        setTimeout(() => {
-          clearMessages();
-          onClose();
-        }, 800);
-        return;
-      }
       setErrorMessage(friendlyError(err.message || 'Sign in failed. Please try again.'));
     } finally {
       setLoading(false);
@@ -264,7 +200,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
           }
         }
 
-        // If rate limit or network error, activate fallback instant account
+        // If rate limit or network error, show proper error
         if (
           errorMsg.includes('rate limit') ||
           errorMsg.includes('too many') ||
@@ -272,20 +208,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
           errorMsg.includes('network') ||
           errorMsg.includes('load failed')
         ) {
-          const localUser = {
-            id: `usr_${Date.now()}`,
-            email: cleanEmail,
-            name: cleanName,
-            balance: 100
-          };
-          localStorage.setItem('fivenest_active_user', JSON.stringify(localUser));
-          onLoginStateChange(localUser);
-          window.dispatchEvent(new CustomEvent('fivenest_user_updated', { detail: localUser }));
-          setSuccessMessage(`✅ Account created! Welcome, ${cleanName}!`);
-          setTimeout(() => {
-            clearMessages();
-            onClose();
-          }, 900);
+          setErrorMessage('Unable to create account right now. Please check your connection and try again.');
           return;
         }
 
@@ -367,21 +290,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
         }, 900);
       }
     } catch (err: any) {
-      console.warn("Registration error, activating fallback session:", err);
-      const localUser = {
-        id: `usr_${Date.now()}`,
-        email: cleanEmail,
-        name: cleanName,
-        balance: 100
-      };
-      localStorage.setItem('fivenest_active_user', JSON.stringify(localUser));
-      onLoginStateChange(localUser);
-      window.dispatchEvent(new CustomEvent('fivenest_user_updated', { detail: localUser }));
-      setSuccessMessage(`✅ Account created! Welcome, ${cleanName}!`);
-      setTimeout(() => {
-        clearMessages();
-        onClose();
-      }, 900);
+      console.error("Registration error:", err);
+      setErrorMessage(friendlyError(err.message || 'Registration failed. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -419,7 +329,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
     clearMessages();
     const demoEmail = type === 'demo' ? 'demo@fivenest.in' : 'newuser@fivenest.in';
     const demoName = type === 'demo' ? 'Demo Designer' : 'New Client';
-    const demoPassword = 'password123';
+    const demoPassword = import.meta.env.VITE_DEMO_PASSWORD || 'demo_access_2024';
 
     setLoading(true);
     try {
@@ -537,11 +447,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
       }
 
       if (!targetUserId) {
-        if (targetEmail.toLowerCase().includes('wavre')) {
-          targetUserId = '35fa182d-fe12-4b18-9bf8-1421af117db5';
-        } else {
-          targetUserId = targetEmail;
-        }
+        targetUserId = targetEmail;
       }
 
       const loaded = await loadRazorpayScript();
@@ -884,41 +790,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
               </button>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                const deepikaUser = {
-                  id: '35fa182d-fe12-4b18-9bf8-1421af117db5',
-                  email: 'wavredeepika9@gmail.com',
-                  name: 'Deepika wavre',
-                  balance: 2743
-                };
-                localStorage.setItem('fivenest_active_user', JSON.stringify(deepikaUser));
-                onLoginStateChange(deepikaUser);
-                window.dispatchEvent(new CustomEvent('fivenest_user_updated', { detail: deepikaUser }));
-                setSuccessMessage('✅ Signed in as Deepika wavre (₹2,743 credits)!');
-                setTimeout(() => { clearMessages(); onClose(); }, 700);
-              }}
-              disabled={loading}
-              style={{
-                width: '100%',
-                padding: '9px 12px',
-                borderRadius: '8px',
-                border: '1px solid rgba(228,87,46,0.35)',
-                background: 'rgba(228,87,46,0.08)',
-                color: '#E4572E',
-                fontSize: '11.5px',
-                fontWeight: '700',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                marginTop: '4px'
-              }}
-            >
-              ⚡ Quick Sign In: Deepika wavre (₹2,743 credits)
-            </button>
           </form>
         )}
 

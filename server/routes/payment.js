@@ -4,6 +4,7 @@ import Razorpay from "razorpay";
 import Transaction from "../models/Transaction.js";
 import License from "../models/License.js";
 import { sendLicenseEmail } from "../services/emailService.js";
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -163,7 +164,7 @@ export const fulfillOrder = async ({ paymentId, orderId, email, phone, planId, p
  * @route POST /api/payment/fulfill-order
  * @desc Fulfill order manually or on Success page redirect to guarantee license key email delivery
  */
-router.post("/fulfill-order", async (req, res) => {
+router.post("/fulfill-order", requireAuth, async (req, res) => {
   const { paymentId, orderId, email, phone, planId, planName, amount } = req.body;
 
   if (!email || !planId) {
@@ -420,20 +421,6 @@ router.post("/verify-studio-payment", async (req, res) => {
   }
 });
 
-/**
- * @route GET /api/payment/debug-env
- * @desc Non-sensitive debugging check for environment variables and client setup
- */
-router.get("/debug-env", async (req, res) => {
-  const { supabaseAdmin } = await import("../config/supabase.js");
-  return res.status(200).json({
-    hasSupabaseUrl: !!process.env.SUPABASE_URL,
-    supabaseUrlLength: process.env.SUPABASE_URL ? process.env.SUPABASE_URL.length : 0,
-    hasSupabaseServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-    supabaseServiceRoleKeyLength: process.env.SUPABASE_SERVICE_ROLE_KEY ? process.env.SUPABASE_SERVICE_ROLE_KEY.length : 0,
-    supabaseAdminInitialized: !!supabaseAdmin,
-    port: process.env.PORT || "not set"
-  });
-});
+
 
 export default router;

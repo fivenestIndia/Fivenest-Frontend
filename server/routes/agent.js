@@ -1,5 +1,6 @@
 import express from "express";
 import { askAgent, askAgentVision } from "../services/agentService.js";
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -25,7 +26,7 @@ FIVENEST KNOWLEDGE BASE:
  * @desc    Multimodal Chat & Image Pre-Press Analysis Endpoint
  * @access  Public
  */
-router.post("/chat", async (req, res) => {
+router.post("/chat", requireAuth, async (req, res) => {
   try {
     const { prompt, imageBase64, mimeType, systemInstruction, model } = req.body;
 

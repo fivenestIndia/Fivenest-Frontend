@@ -7,6 +7,8 @@ import licenseRoutes from "./routes/license.js";
 import agentRoutes from "./routes/agent.js";
 import ordersRoutes from "./routes/orders.js";
 import sizesRoutes from "./routes/sizes.js";
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
 // Load environment variables
 dotenv.config();
@@ -16,13 +18,21 @@ connectDB();
 
 const app = express();
 
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: false, // Let frontend handle CSP
+  crossOriginEmbedderPolicy: false,
+}));
+
 // Configure CORS - Allow localhost, custom domain, and Vercel domains
 const allowedOrigins = [
-  "http://localhost:5173", // default vite port
-  "http://localhost:8080", // vite production preview port
+  "http://localhost:5173",
+  "http://localhost:8080",
   "http://localhost:3000",
   "https://www.fivenest.in",
   "https://fivenest.in",
+  "https://jersey-canvas-pro.vercel.app",
+  "https://fivenest-design-studio.vercel.app",
 ];
 
 app.use(
@@ -31,8 +41,7 @@ app.use(
       if (
         !origin ||
         allowedOrigins.indexOf(origin) !== -1 ||
-        origin.startsWith("http://localhost:") ||
-        origin.endsWith(".vercel.app")
+        (process.env.NODE_ENV !== 'production' && origin && origin.startsWith("http://localhost:"))
       ) {
         callback(null, true);
       } else {
@@ -55,6 +64,35 @@ app.use(
 
 // Express urlencoded parser
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+// Rate limiting
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' }
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15, // Stricter for payment/auth endpoints
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Please wait and try again.' }
+});
+
+const agentLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'AI agent rate limit exceeded. Please wait.' }
+});
+
+app.use('/api/', apiLimiter);
+app.use('/api/payment/', authLimiter);
+app.use('/api/agent/', agentLimiter);
 
 // Health Check Endpoint
 app.get("/health", (req, res) => {

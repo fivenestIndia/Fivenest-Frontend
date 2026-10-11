@@ -9,6 +9,15 @@ import { supabase } from './supabaseClient';
 import { defaultSizes, DEFAULT_SIZE_AGE_MAP, DEFAULT_COLLAR_EXPORT_SIZES, type SizeDatabase, type CollarExportDimensions } from '../components/studio/sizesDb';
 import { getActiveUserContext } from './orderSyncService';
 
+async function getAuthToken(): Promise<string | null> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
 const BACKEND_BASE = 'https://fivenest-backend.onrender.com';
 let saveTimer: any = null;
 
@@ -58,7 +67,12 @@ export async function fetchCloudSizesData(): Promise<SizeEditorData | null> {
     if (user.userId) params.set('userId', user.userId);
     if (user.email) params.set('email', user.email);
 
-    const res = await fetch(`${BACKEND_BASE}/api/sizes/store?${params.toString()}`);
+    const token = await getAuthToken();
+    const res = await fetch(`${BACKEND_BASE}/api/sizes/store?${params.toString()}`, {
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+    });
     if (res.ok) {
       const json = await res.json();
       if (json.success && json.sizesData) {
@@ -105,9 +119,13 @@ export async function saveCloudSizesData(data: SizeEditorData): Promise<boolean>
 
   // Strategy 2: Backend sizes API
   try {
+    const token = await getAuthToken();
     const res = await fetch(`${BACKEND_BASE}/api/sizes/store`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
       body: JSON.stringify({
         userId: user.userId,
         email: user.email,
