@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Papa from 'papaparse';
-import { Upload, Plus, Trash2, Edit2, CheckCircle2, Grid, FileSpreadsheet, Search, RotateCcw, Zap, ArrowDown, HelpCircle } from 'lucide-react';
+import { Upload, Plus, Trash2, Edit2, CheckCircle2, Grid, FileSpreadsheet, Search, RotateCcw, Zap, ArrowDown, HelpCircle, Type } from 'lucide-react';
 
 export interface PlayerRecord {
   id: string;
@@ -9,7 +9,26 @@ export interface PlayerRecord {
   size: string;
   qty: number;
   sleeve: 'half' | 'full' | 'none';
+  nameFont?: string;
+  numberFont?: string;
 }
+
+export const DEFAULT_FONTS = [
+  { id: '', label: 'Default (Studio Font)', initial: 'DEF' },
+  { id: 'OldSport02AthleticNcv-E0gj', label: 'Old Sport Athletic', initial: 'OS' },
+  { id: 'OldSport01CollegeNcv-aeGm', label: 'Old Sport College', initial: 'OC' },
+  { id: 'Jersey M54', label: 'Jersey M54', initial: 'M54' },
+  { id: 'Pop Warner', label: 'Pop Warner', initial: 'PW' },
+  { id: 'Calligraphy', label: 'Calligraphy Script', initial: 'CAL' },
+  { id: 'Eaglore 2', label: 'Eaglore 2', initial: 'EG' },
+  { id: 'Khand-Bold', label: 'Khand Bold', initial: 'KB' },
+  { id: 'Khand-SemiBold', label: 'Khand SemiBold', initial: 'KS' },
+  { id: 'fhf', label: 'FHF Sport', initial: 'FHF' },
+  { id: 'Impact', label: 'Impact', initial: 'IMP' },
+  { id: 'Arial', label: 'Arial Black', initial: 'ARL' },
+  { id: 'Trebuchet MS', label: 'Trebuchet', initial: 'TRB' },
+  { id: 'Times New Roman', label: 'Times', initial: 'TNR' }
+];
 
 export interface OrderMetadata {
   customerName: string;
@@ -46,6 +65,28 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
   const [dragActive, setDragActive] = useState<boolean>(false);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [showPlayerFonts, setShowPlayerFonts] = useState<boolean>(false);
+  const [customFontsList, setCustomFontsList] = useState<{ name: string; url: string }[]>([]);
+
+  // Load custom fonts from local storage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('teedex_custom_fonts');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) setCustomFontsList(parsed);
+      }
+    } catch (e) {}
+  }, []);
+
+  const getFontBadge = (fontId?: string) => {
+    if (!fontId) return { initial: 'DEF', name: 'Default' };
+    const found = DEFAULT_FONTS.find(f => f.id === fontId);
+    if (found) return { initial: found.initial, name: found.label };
+    const custom = customFontsList.find(f => f.name === fontId);
+    if (custom) return { initial: custom.name.slice(0, 3).toUpperCase(), name: custom.name };
+    return { initial: fontId.slice(0, 3).toUpperCase(), name: fontId };
+  };
 
   // Manual entry grid quantities (Photoshop plugin style)
   const [manualGrid, setManualGrid] = useState<{ [size: string]: { fb: number; half: number; full: number } }>({});
@@ -249,12 +290,17 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
       return 'half';
     };
 
+    const nameFontKey = rawKeys.find(k => /^(name font|namefont|font name|player font|name_font)$/i.test(k));
+    const numFontKey = rawKeys.find(k => /^(number font|numberfont|num font|numfont|font number|number_font|num_font)$/i.test(k));
+
     const mappedRecords: PlayerRecord[] = [];
     validRows.forEach((row, index) => {
       const rawName = nameKey && row[nameKey] !== undefined ? String(row[nameKey]).trim() : '';
       const rawNum = numKey && row[numKey] !== undefined ? String(row[numKey]).trim() : '';
       const rawSize = sizeKey && row[sizeKey] !== undefined ? String(row[sizeKey]).trim() : '';
       const rawSleeve = sleeveKey && row[sleeveKey] !== undefined ? String(row[sleeveKey]).trim() : '';
+      const rawNameFont = nameFontKey && row[nameFontKey] !== undefined ? String(row[nameFontKey]).trim() : '';
+      const rawNumFont = numFontKey && row[numFontKey] !== undefined ? String(row[numFontKey]).trim() : '';
       
       // In roster import: each row is 1 player jersey piece (default 1)
       let qtyVal = 1;
@@ -281,9 +327,15 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
         number: cleanNum,
         size: sizeVal,
         qty: qtyVal,
-        sleeve: sleeveVal
+        sleeve: sleeveVal,
+        nameFont: rawNameFont,
+        numberFont: rawNumFont
       });
     });
+
+    if (mappedRecords.some(r => r.nameFont || r.numberFont)) {
+      setShowPlayerFonts(true);
+    }
 
     if (mappedRecords.length === 0) {
       alert("No valid player records found in file.");
@@ -432,7 +484,9 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
       number: "99",
       size: availableSizes.includes("40") ? "40" : availableSizes[0] || "40",
       qty: 1,
-      sleeve: 'half'
+      sleeve: 'half',
+      nameFont: '',
+      numberFont: ''
     };
     onRecordsChange([...records, newRow]);
     setEditingRowId(newRow.id);
@@ -1143,6 +1197,42 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
             )}
 
             <button 
+              className="btn btn-secondary" 
+              style={{ 
+                padding: '6px 12px', 
+                fontSize: '12px', 
+                fontWeight: '700', 
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                borderRadius: '8px',
+                background: showPlayerFonts ? '#FFF0EB' : '#FFFFFF',
+                color: showPlayerFonts ? '#C2410C' : '#374151',
+                borderColor: showPlayerFonts ? '#F97316' : '#D1D5DB',
+                boxShadow: showPlayerFonts ? '0 0 0 1px #F97316' : 'none',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }} 
+              onClick={() => setShowPlayerFonts(!showPlayerFonts)}
+              title="Show or hide custom font settings for individual player name and number"
+            >
+              <Type size={14} style={{ color: showPlayerFonts ? '#F97316' : '#6B7280' }} />
+              {showPlayerFonts ? 'Hide Player Fonts' : 'Specific Player Fonts'}
+              {records.some(r => r.nameFont || r.numberFont) && (
+                <span style={{
+                  fontSize: '10px',
+                  background: '#E4572E',
+                  color: '#FFFFFF',
+                  padding: '1px 6px',
+                  borderRadius: '10px',
+                  fontWeight: '800'
+                }}>
+                  {records.filter(r => r.nameFont || r.numberFont).length}
+                </span>
+              )}
+            </button>
+
+            <button 
               className="btn btn-primary" 
               style={{ padding: '6px 14px', fontSize: '12px', fontWeight: '700', background: '#E4572E', color: '#FFFFFF', border: 'none', borderRadius: '8px', boxShadow: '0 2px 8px rgba(228,87,46,0.25)' }} 
               onClick={handleAddRow}
@@ -1160,7 +1250,9 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
                   <tr>
                     <th style={{ width: '48px', textAlign: 'center' }}>#</th>
                     <th>Player Name</th>
+                    {showPlayerFonts && <th style={{ minWidth: '135px' }}>Name Font</th>}
                     <th>Number</th>
+                    {showPlayerFonts && <th style={{ minWidth: '135px' }}>Number Font</th>}
                     <th>Size</th>
                     <th>Sleeve Style</th>
                     <th style={{ textAlign: 'center' }}>Qty</th>
@@ -1192,6 +1284,74 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
                           </span>
                         )}
                       </td>
+                      {showPlayerFonts && (
+                        <td>
+                          {editingRowId === record.id ? (
+                            <select 
+                              className="form-select" 
+                              style={{ padding: '4px 6px', fontSize: '11px', width: '135px', background: '#FFFFFF', border: '1px solid #E4572E', color: '#111827', borderRadius: '6px', fontWeight: '600' }}
+                              value={record.nameFont || ''}
+                              onChange={(e) => handleFieldChange(record.id, 'nameFont', e.target.value)}
+                            >
+                              <option value="">Default (Studio Font)</option>
+                              <optgroup label="Studio Presets">
+                                {DEFAULT_FONTS.filter(f => f.id).map(f => (
+                                  <option key={f.id} value={f.id}>[{f.initial}] {f.label}</option>
+                                ))}
+                              </optgroup>
+                              {customFontsList.length > 0 && (
+                                <optgroup label="Custom Fonts">
+                                  {customFontsList.map(f => (
+                                    <option key={f.name} value={f.name}>[{f.name.slice(0, 3).toUpperCase()}] {f.name}</option>
+                                  ))}
+                                </optgroup>
+                              )}
+                            </select>
+                          ) : (
+                            (() => {
+                              const badge = getFontBadge(record.nameFont);
+                              return (
+                                <div 
+                                  onClick={() => setEditingRowId(record.id)}
+                                  style={{ 
+                                    display: 'inline-flex', 
+                                    alignItems: 'center', 
+                                    gap: '5px', 
+                                    padding: '2px 7px', 
+                                    borderRadius: '6px', 
+                                    background: record.nameFont ? '#FFF7ED' : '#F9FAFB', 
+                                    border: record.nameFont ? '1px solid #FFEDD5' : '1px solid #E5E7EB',
+                                    fontSize: '11px',
+                                    cursor: 'pointer'
+                                  }}
+                                  title="Click edit to change player name font"
+                                >
+                                  <span style={{ 
+                                    fontWeight: '800', 
+                                    fontSize: '9px', 
+                                    padding: '1px 4px', 
+                                    borderRadius: '3px', 
+                                    background: record.nameFont ? '#E4572E' : '#9CA3AF', 
+                                    color: '#FFFFFF' 
+                                  }}>
+                                    {badge.initial}
+                                  </span>
+                                  <span style={{ 
+                                    color: record.nameFont ? '#C2410C' : '#6B7280', 
+                                    fontWeight: record.nameFont ? '700' : '500',
+                                    maxWidth: '85px',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    {badge.name}
+                                  </span>
+                                </div>
+                              );
+                            })()
+                          )}
+                        </td>
+                      )}
                       <td>
                         {editingRowId === record.id ? (
                           <input 
@@ -1212,6 +1372,74 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
                           )
                         )}
                       </td>
+                      {showPlayerFonts && (
+                        <td>
+                          {editingRowId === record.id ? (
+                            <select 
+                              className="form-select" 
+                              style={{ padding: '4px 6px', fontSize: '11px', width: '135px', background: '#FFFFFF', border: '1px solid #E4572E', color: '#111827', borderRadius: '6px', fontWeight: '600' }}
+                              value={record.numberFont || ''}
+                              onChange={(e) => handleFieldChange(record.id, 'numberFont', e.target.value)}
+                            >
+                              <option value="">Default (Studio Font)</option>
+                              <optgroup label="Studio Presets">
+                                {DEFAULT_FONTS.filter(f => f.id).map(f => (
+                                  <option key={f.id} value={f.id}>[{f.initial}] {f.label}</option>
+                                ))}
+                              </optgroup>
+                              {customFontsList.length > 0 && (
+                                <optgroup label="Custom Fonts">
+                                  {customFontsList.map(f => (
+                                    <option key={f.name} value={f.name}>[{f.name.slice(0, 3).toUpperCase()}] {f.name}</option>
+                                  ))}
+                                </optgroup>
+                              )}
+                            </select>
+                          ) : (
+                            (() => {
+                              const badge = getFontBadge(record.numberFont);
+                              return (
+                                <div 
+                                  onClick={() => setEditingRowId(record.id)}
+                                  style={{ 
+                                    display: 'inline-flex', 
+                                    alignItems: 'center', 
+                                    gap: '5px', 
+                                    padding: '2px 7px', 
+                                    borderRadius: '6px', 
+                                    background: record.numberFont ? '#FFF7ED' : '#F9FAFB', 
+                                    border: record.numberFont ? '1px solid #FFEDD5' : '1px solid #E5E7EB',
+                                    fontSize: '11px',
+                                    cursor: 'pointer'
+                                  }}
+                                  title="Click edit to change player number font"
+                                >
+                                  <span style={{ 
+                                    fontWeight: '800', 
+                                    fontSize: '9px', 
+                                    padding: '1px 4px', 
+                                    borderRadius: '3px', 
+                                    background: record.numberFont ? '#E4572E' : '#9CA3AF', 
+                                    color: '#FFFFFF' 
+                                  }}>
+                                    {badge.initial}
+                                  </span>
+                                  <span style={{ 
+                                    color: record.numberFont ? '#C2410C' : '#6B7280', 
+                                    fontWeight: record.numberFont ? '700' : '500',
+                                    maxWidth: '85px',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    {badge.name}
+                                  </span>
+                                </div>
+                              );
+                            })()
+                          )}
+                        </td>
+                      )}
                       <td>
                         {editingRowId === record.id ? (
                           <select 

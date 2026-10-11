@@ -472,6 +472,8 @@ interface PlacedItem {
   sleeveType?: 'half' | 'full';
   isRaglan?: boolean;
   qty?: number;
+  nameFont?: string;
+  numberFont?: string;
 }
 
 interface NestingSheet {
@@ -903,6 +905,8 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             recordId: itemIndex,
             playerName: player.name,
             playerNum: player.number,
+            nameFont: player.nameFont,
+            numberFont: player.numberFont,
             panelType: 'front',
             size: player.size,
             w: sizeConf.front?.w || 15,
@@ -920,6 +924,8 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             recordId: itemIndex,
             playerName: player.name,
             playerNum: player.number,
+            nameFont: player.nameFont,
+            numberFont: player.numberFont,
             panelType: 'back',
             size: player.size,
             w: sizeConf.back?.w || 15,
@@ -999,6 +1005,8 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             recordId: itemIndex,
             playerName: player.name,
             playerNum: player.number,
+            nameFont: player.nameFont,
+            numberFont: player.numberFont,
             panelType: 'a4-print',
             size: player.size,
             w: 10,
@@ -1967,7 +1975,8 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           const textY = (conf.nameConfig.yPos / 100) * heightPx;
           // Scale maxLimitPx proportionally to reference width (22in) so scaling across sizes (18 to 60) stays proportional
           const maxLimitPx = (conf.nameConfig.maxW / 22) * widthPx;
-          drawSingleText(item.playerName, conf.nameConfig, textX, textY, maxLimitPx);
+          const effectiveNameConfig = item.nameFont ? { ...conf.nameConfig, fontFamily: item.nameFont } : conf.nameConfig;
+          drawSingleText(item.playerName, effectiveNameConfig, textX, textY, maxLimitPx);
         }
 
         // Draw Number overlay if enabled
@@ -1976,7 +1985,8 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           const textY = (conf.numberConfig.yPos / 100) * heightPx;
           // Scale maxLimitPx proportionally to reference width (22in) so scaling across sizes (18 to 60) stays proportional
           const maxLimitPx = (conf.numberConfig.maxW / 22) * widthPx;
-          drawSingleText(item.playerNum, conf.numberConfig, textX, textY, maxLimitPx);
+          const effectiveNumberConfig = item.numberFont ? { ...conf.numberConfig, fontFamily: item.numberFont } : conf.numberConfig;
+          drawSingleText(item.playerNum, effectiveNumberConfig, textX, textY, maxLimitPx);
         }
 
         // Draw customizable Size Tag (Top Left)
