@@ -386,6 +386,8 @@ export const checkArtworkUploadStatus = (
 ) => {
   const frontHasArtwork = Boolean(
     designConfig?.front?.uploadedFileUrl ||
+    (designConfig?.front as any)?.uploadedFileNoLogoUrl ||
+    metadata?.frontWithoutLogoUrl ||
     (designConfig?.front?.backgroundType === 'generate' && designConfig?.front?.generatedColor1) ||
     (designConfig?.front?.leftChestLogo?.enabled && designConfig?.front?.leftChestLogo?.uploadedUrl) ||
     (designConfig?.front?.rightChestLogo?.enabled && designConfig?.front?.rightChestLogo?.uploadedUrl) ||
@@ -474,6 +476,7 @@ interface PlacedItem {
   qty?: number;
   nameFont?: string;
   numberFont?: string;
+  withoutLogoFront?: boolean;
 }
 
 interface NestingSheet {
@@ -907,6 +910,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             playerNum: player.number,
             nameFont: player.nameFont,
             numberFont: player.numberFont,
+            withoutLogoFront: player.withoutLogoFront,
             panelType: 'front',
             size: player.size,
             w: sizeConf.front?.w || 15,
@@ -2122,6 +2126,14 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       let bgUrl = conf.uploadedFileUrl;
       let isUploadBg = conf.backgroundType === 'upload';
 
+      if (item.panelType === 'front' && item.withoutLogoFront) {
+        const noLogoUrl = metadata?.frontWithoutLogoUrl || (designConfig?.front as any)?.uploadedFileNoLogoUrl;
+        if (noLogoUrl) {
+          bgUrl = noLogoUrl;
+          isUploadBg = true;
+        }
+      }
+
       if (item.panelType.startsWith('sleeve')) {
         const leftConf = designConfig?.sleeveLeft;
         const rightConf = designConfig?.sleeveRight;
@@ -2138,10 +2150,10 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
         }
       }
 
-      const leftLogo = conf.leftChestLogo;
-      const rightLogo = conf.rightChestLogo;
-      const torsoLogo = conf.torsoLogo;
-      const bottomLeftLogo = conf.bottomLeftLogo;
+      const leftLogo = item.withoutLogoFront ? null : conf.leftChestLogo;
+      const rightLogo = item.withoutLogoFront ? null : conf.rightChestLogo;
+      const torsoLogo = item.withoutLogoFront ? null : conf.torsoLogo;
+      const bottomLeftLogo = item.withoutLogoFront ? null : conf.bottomLeftLogo;
 
       const loadAllImages = async () => {
         const images: { 
@@ -2476,6 +2488,14 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           await document.fonts.ready;
         }
 
+        const { 
+          frontHasArtwork: fHas, 
+          backHasArtwork: bHas, 
+          sleeveHasArtwork: sHas, 
+          a4HasArtwork: a4Has, 
+          collarHasArtwork: cHas 
+        } = checkArtworkUploadStatus(designConfig, metadata);
+
         // Enforce 72 DPI in Test Mode
         let activeDpi = testMode ? 72 : dpi;
 
@@ -2508,18 +2528,41 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           if (frontOverlaysChecked) {
             Object.keys(frontSizeMap).sort().forEach(size => {
               frontSizeMap[size].forEach((it, idx) => {
+                const labelSuffix = it.withoutLogoFront ? ' F (Without Logo)' : ' F';
                 testPdfPages.push({
                   item: it,
-                  label: `[Front] ${it.size} ${idx + 1} F`
+                  label: `[Front] ${it.size} ${idx + 1}${labelSuffix}`
                 });
               });
             });
           } else {
+            const normalFronts: Record<string, PlacedItem[]> = {};
+            const noLogoFronts: Record<string, PlacedItem[]> = {};
             Object.keys(frontSizeMap).forEach(size => {
-              const list = frontSizeMap[size];
+              frontSizeMap[size].forEach(it => {
+                if (it.withoutLogoFront) {
+                  if (!noLogoFronts[size]) noLogoFronts[size] = [];
+                  noLogoFronts[size].push(it);
+                } else {
+                  if (!normalFronts[size]) normalFronts[size] = [];
+                  normalFronts[size].push(it);
+                }
+              });
+            });
+
+            Object.keys(normalFronts).forEach(size => {
+              const list = normalFronts[size];
               testPdfPages.push({
                 item: list[0],
                 label: `[Front] ${size}=${list.length} F`
+              });
+            });
+
+            Object.keys(noLogoFronts).forEach(size => {
+              const list = noLogoFronts[size];
+              testPdfPages.push({
+                item: list[0],
+                label: `[Front] ${size}=${list.length} F (Without Logo)`
               });
             });
           }
@@ -2816,19 +2859,43 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               allFrontItems.push(...frontSizeMap[size]);
             });
             allFrontItems.forEach((item, index) => {
+              const suffix = item.withoutLogoFront ? ' F (Without Logo).jpg' : ' F.jpg';
               renderActions.push({
                 representativeItem: item,
-                fileName: `${item.size} ${index + 1} F.jpg`,
+                fileName: `${item.size} ${index + 1}${suffix}`,
                 folder: 'Front'
               });
             });
           } else {
-            // Group by size
+            // Group by size AND withoutLogoFront status
+            const normalFronts: Record<string, PlacedItem[]> = {};
+            const noLogoFronts: Record<string, PlacedItem[]> = {};
             Object.keys(frontSizeMap).forEach(size => {
-              const list = frontSizeMap[size];
+              frontSizeMap[size].forEach(it => {
+                if (it.withoutLogoFront) {
+                  if (!noLogoFronts[size]) noLogoFronts[size] = [];
+                  noLogoFronts[size].push(it);
+                } else {
+                  if (!normalFronts[size]) normalFronts[size] = [];
+                  normalFronts[size].push(it);
+                }
+              });
+            });
+
+            Object.keys(normalFronts).forEach(size => {
+              const list = normalFronts[size];
               renderActions.push({
                 representativeItem: list[0],
                 fileName: `${size} = ${list.length} F.jpg`,
+                folder: 'Front'
+              });
+            });
+
+            Object.keys(noLogoFronts).forEach(size => {
+              const list = noLogoFronts[size];
+              renderActions.push({
+                representativeItem: list[0],
+                fileName: `${size} = ${list.length} F (Without Logo).jpg`,
                 folder: 'Front'
               });
             });

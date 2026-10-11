@@ -11,6 +11,7 @@ export interface PlayerRecord {
   sleeve: 'half' | 'full' | 'none';
   nameFont?: string;
   numberFont?: string;
+  withoutLogoFront?: boolean;
 }
 
 export const DEFAULT_FONTS = [
@@ -42,6 +43,8 @@ export interface OrderMetadata {
   fileName?: string;
   rate?: number;
   designCharges?: number;
+  frontWithoutLogoUrl?: string | null;
+  frontWithoutLogoFileName?: string | null;
 }
 
 interface OrderEntryProps {
@@ -292,6 +295,7 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
 
     const nameFontKey = rawKeys.find(k => /^(name font|namefont|font name|player font|name_font)$/i.test(k));
     const numFontKey = rawKeys.find(k => /^(number font|numberfont|num font|numfont|font number|number_font|num_font)$/i.test(k));
+    const withoutLogoKey = rawKeys.find(k => /without.*logo|no.*logo|plain.*front/i.test(k));
 
     const mappedRecords: PlayerRecord[] = [];
     validRows.forEach((row, index) => {
@@ -302,6 +306,12 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
       const rawNameFont = nameFontKey && row[nameFontKey] !== undefined ? String(row[nameFontKey]).trim() : '';
       const rawNumFont = numFontKey && row[numFontKey] !== undefined ? String(row[numFontKey]).trim() : '';
       
+      let withoutLogoVal = false;
+      if (withoutLogoKey && row[withoutLogoKey] !== undefined) {
+        const v = String(row[withoutLogoKey]).trim().toLowerCase();
+        withoutLogoVal = v === 'yes' || v === 'y' || v === 'true' || v === '1' || v === 'check' || v === 'checked';
+      }
+
       // In roster import: each row is 1 player jersey piece (default 1)
       let qtyVal = 1;
       if (qtyKey && row[qtyKey] !== undefined) {
@@ -329,7 +339,8 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
         qty: qtyVal,
         sleeve: sleeveVal,
         nameFont: rawNameFont,
-        numberFont: rawNumFont
+        numberFont: rawNumFont,
+        withoutLogoFront: withoutLogoVal
       });
     });
 
@@ -486,7 +497,8 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
       qty: 1,
       sleeve: 'half',
       nameFont: '',
-      numberFont: ''
+      numberFont: '',
+      withoutLogoFront: false
     };
     onRecordsChange([...records, newRow]);
     setEditingRowId(newRow.id);
@@ -498,6 +510,22 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
 
   const handleFieldChange = (id: string, field: keyof PlayerRecord, value: any) => {
     onRecordsChange(records.map(r => r.id === id ? { ...r, [field]: value } : r));
+  };
+
+  const handleWithoutLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const url = ev.target?.result as string;
+        updateMetadata({
+          frontWithoutLogoUrl: url,
+          frontWithoutLogoFileName: file.name
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+    e.target.value = '';
   };
 
   const totalGridPcs = Object.values(manualGrid).reduce((acc, v) => acc + (v.fb || 0) + (v.full || 0) + (v.half || 0), 0);
@@ -1196,6 +1224,49 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
               </button>
             )}
 
+            {/* Upload Front (Without Logo) Artwork */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <label 
+                className="btn btn-secondary" 
+                style={{ 
+                  padding: '6px 12px', 
+                  fontSize: '12px', 
+                  fontWeight: '700', 
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  borderRadius: '8px',
+                  background: metadata.frontWithoutLogoUrl ? '#ECFDF5' : '#FFFFFF',
+                  color: metadata.frontWithoutLogoUrl ? '#047857' : '#374151',
+                  borderColor: metadata.frontWithoutLogoUrl ? '#A7F3D0' : '#D1D5DB',
+                  boxShadow: metadata.frontWithoutLogoUrl ? '0 0 0 1px #10B981' : 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title={metadata.frontWithoutLogoUrl ? `Uploaded: ${metadata.frontWithoutLogoFileName || 'Without Logo Front'}. Click to replace.` : "Upload alternate Front artwork without logos/sponsors for players with 'Without Logo Front' checked"}
+              >
+                <Upload size={14} style={{ color: metadata.frontWithoutLogoUrl ? '#059669' : '#6B7280' }} />
+                <span>{metadata.frontWithoutLogoUrl ? (metadata.frontWithoutLogoFileName ? `✓ ${metadata.frontWithoutLogoFileName.slice(0, 14)}...` : '✓ Front (Without Logo)') : 'Upload Front (Without Logo)'}</span>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  style={{ display: 'none' }} 
+                  onChange={handleWithoutLogoFileUpload} 
+                />
+              </label>
+              {metadata.frontWithoutLogoUrl && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ padding: '6px 8px', fontSize: '11px', color: '#DC2626', borderColor: '#FECACA', borderRadius: '8px', background: '#FEF2F2' }}
+                  onClick={() => updateMetadata({ frontWithoutLogoUrl: null, frontWithoutLogoFileName: null })}
+                  title="Remove uploaded Without Logo Front file"
+                >
+                  ✕ Clear
+                </button>
+              )}
+            </div>
+
             <button 
               className="btn btn-secondary" 
               style={{ 
@@ -1255,6 +1326,23 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
                     {showPlayerFonts && <th style={{ minWidth: '135px' }}>Number Font</th>}
                     <th>Size</th>
                     <th>Sleeve Style</th>
+                    <th style={{ textAlign: 'center', minWidth: '140px' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        Without Logo Front
+                        {records.some(r => r.withoutLogoFront) && (
+                          <span style={{
+                            fontSize: '9px',
+                            background: '#E4572E',
+                            color: '#FFFFFF',
+                            padding: '1px 5px',
+                            borderRadius: '8px',
+                            fontWeight: '800'
+                          }}>
+                            {records.filter(r => r.withoutLogoFront).length}
+                          </span>
+                        )}
+                      </span>
+                    </th>
                     <th style={{ textAlign: 'center' }}>Qty</th>
                     <th style={{ textAlign: 'center' }}>Actions</th>
                   </tr>
@@ -1482,6 +1570,43 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
                             {record.sleeve === 'half' ? 'Half Sleeve' : record.sleeve === 'full' ? 'Full Sleeve' : 'None'}
                           </span>
                         )}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <label 
+                          style={{ 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            cursor: 'pointer', 
+                            gap: '6px',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            background: record.withoutLogoFront ? '#FFF7ED' : 'transparent',
+                            border: record.withoutLogoFront ? '1px solid #FFEDD5' : '1px solid transparent',
+                            userSelect: 'none'
+                          }}
+                          title={record.withoutLogoFront ? "Without Logo Front enabled for this player" : "Click to enable Without Logo Front"}
+                        >
+                          <input 
+                            type="checkbox" 
+                            checked={record.withoutLogoFront || false}
+                            onChange={(e) => handleFieldChange(record.id, 'withoutLogoFront', e.target.checked)}
+                            style={{ 
+                              width: '15px', 
+                              height: '15px', 
+                              accentColor: '#E4572E', 
+                              cursor: 'pointer',
+                              margin: 0
+                            }}
+                          />
+                          <span style={{ 
+                            fontSize: '11px', 
+                            fontWeight: record.withoutLogoFront ? '700' : '500', 
+                            color: record.withoutLogoFront ? '#C2410C' : '#9CA3AF' 
+                          }}>
+                            {record.withoutLogoFront ? 'No Logo' : 'With Logo'}
+                          </span>
+                        </label>
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         {editingRowId === record.id ? (

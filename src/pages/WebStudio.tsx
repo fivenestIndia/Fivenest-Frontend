@@ -45,7 +45,9 @@ export default function WebStudio() {
     halfSleeveMerge: true,
     manualMode: false,
     whatsapp: "",
-    fileName: ""
+    fileName: "",
+    frontWithoutLogoUrl: null,
+    frontWithoutLogoFileName: null
   });
 
   const [sizeDB, setSizeDB] = useState<SizeDatabase>(defaultSizes);

@@ -140,6 +140,7 @@ export interface PanelConfig {
   uploadedFileUrl: string | null;
   uploadedFileHalfUrl?: string | null;
   uploadedFileFullUrl?: string | null;
+  uploadedFileNoLogoUrl?: string | null;
   nameConfig: TextConfig;
   numberConfig: TextConfig;
   sizeTagConfig?: TextConfig;
@@ -3819,6 +3820,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   // Smart Panel Classifier for ZIP Importer (tolerant of typos and naming variations)
   type ZipPanelTarget =
     | 'front'
+    | 'front_no_logo'
     | 'back'
     | 'collar'
     | 'sleeveLeft_half'
@@ -3947,6 +3949,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       (words.includes('f') && (words.includes('body') || words.includes('panel') || words.includes('torso') || words.includes('01') || words.includes('1')));
 
     if (isFront && !containsSub('back') && !hasSleeveWord) {
+      if (containsSub('without') || containsSub('no logo') || containsSub('nologo') || containsSub('nolog') || containsSub('plain')) {
+        return 'front_no_logo';
+      }
       return 'front';
     }
 
@@ -4039,6 +4044,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             newConfig.front.backgroundType = 'upload';
             importedCount++;
             importedNames.push(`Front (${baseFilename})`);
+            break;
+
+          case 'front_no_logo':
+            newConfig.front.uploadedFileNoLogoUrl = dataUrl;
+            if (metadata) {
+              (metadata as any).frontWithoutLogoUrl = dataUrl;
+              (metadata as any).frontWithoutLogoFileName = baseFilename;
+            }
+            importedCount++;
+            importedNames.push(`Front Without Logo (${baseFilename})`);
             break;
 
           case 'back':
