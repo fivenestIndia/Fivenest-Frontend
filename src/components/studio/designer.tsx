@@ -2146,7 +2146,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
         // Calculate target X position based on alignment for straight text vs arch
         let targetX = textX;
-        if (conf.effect !== 'arch') {
+        if (conf.effect !== 'arch' && conf.xPos === undefined) {
           if (align === 'left') {
             targetX = (width / 2) - (maxLimitPx / 2);
           } else if (align === 'right') {
@@ -3552,10 +3552,31 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const targetLayer: 'name' | 'number' = activeTextLayer || (activePanel.nameConfig?.enabled ? 'name' : 'number');
       const conf = activePanel[targetLayer === 'name' ? 'nameConfig' : 'numberConfig'];
 
-      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        if (!conf) return;
         e.preventDefault();
-        const step = e.shiftKey ? 5 : 1;
-        const newY = e.key === 'ArrowUp' ? Math.max(0, conf.yPos - step) : Math.min(100, conf.yPos + step);
+        // Precision Nudge:
+        // - Shift + Arrow: ultra-fine micro precision (0.05% / ~0.3px)
+        // - Normal Arrow: slow, precise pixel-level nudge (0.2% / ~1.2px)
+        // - Ctrl / Cmd + Arrow: faster macro nudge (1.0% / ~6px)
+        const step = e.shiftKey ? 0.05 : (e.ctrlKey || e.metaKey) ? 1.0 : 0.2;
+
+        const currentX = conf.xPos !== undefined ? conf.xPos : 50;
+        const currentY = conf.yPos;
+
+        let newX = currentX;
+        let newY = currentY;
+
+        if (e.key === 'ArrowUp') {
+          newY = Math.max(0, Number((currentY - step).toFixed(2)));
+        } else if (e.key === 'ArrowDown') {
+          newY = Math.min(100, Number((currentY + step).toFixed(2)));
+        } else if (e.key === 'ArrowLeft') {
+          newX = Math.max(0, Number((currentX - step).toFixed(2)));
+        } else if (e.key === 'ArrowRight') {
+          newX = Math.min(100, Number((currentX + step).toFixed(2)));
+        }
+
         const targetTab = (activeTab === 'threeD' ? 'front' : activeTab === 'dual' ? dualActivePanel : activeTab) as 'front' | 'back' | 'sleeveLeft' | 'sleeveRight' | 'a4Print';
         undoableConfigChange({
           ...designConfig,
@@ -3563,6 +3584,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ...activePanel,
             [targetLayer === 'name' ? 'nameConfig' : 'numberConfig']: {
               ...conf,
+              xPos: newX,
               yPos: newY
             }
           }
@@ -3575,20 +3597,24 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         let updatedTextConfig = { ...conf };
         if (key === 'C') {
           updatedTextConfig.align = 'center';
+          updatedTextConfig.xPos = 50;
         } else if (key === 'E') {
           updatedTextConfig.yPos = 50;
         } else if (key === 'P') {
           updatedTextConfig.align = 'center';
           updatedTextConfig.yPos = 50;
+          updatedTextConfig.xPos = 50;
         } else if (key === 'T') {
           updatedTextConfig.yPos = 5;
         } else if (key === 'B') {
           updatedTextConfig.yPos = 92;
         } else if (key === 'L') {
           updatedTextConfig.align = 'left';
+          delete (updatedTextConfig as any).xPos;
         } else if (key === 'R') {
           if (activeTextLayer) {
             updatedTextConfig.align = 'right';
+            delete (updatedTextConfig as any).xPos;
           } else {
             setRulersEnabled(prev => {
               const next = !prev;
@@ -4835,7 +4861,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     if (isDraggingTextRef.current && activeTextLayer) {
       const canvasYClamped = (mouseY / zoom) - currentRulerOffset - textDragOffsetYRef.current;
       const targetCanvasHeight = height; // panel height in canvas coords
-      const newYPercent = Math.min(95, Math.max(5, Math.round((canvasYClamped / targetCanvasHeight) * 100)));
+      const newYPercent = Math.min(95, Math.max(5, Number(((canvasYClamped / targetCanvasHeight) * 100).toFixed(1))));
       
       const configKey = activeTextLayer === 'name' ? 'nameConfig' : 'numberConfig';
       
@@ -4845,7 +4871,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         const boxKey = `front-${activeTextLayer}`;
         const currentBox = textBoundingBoxesRef.current[boxKey] || textBoundingBoxesRef.current[activeTextLayer];
         const halfW = currentBox ? currentBox.w / 2 : 0;
-        const newXPercent = Math.min(95, Math.max(5, Math.round(((canvasXClamped + halfW) / targetCanvasWidth) * 100)));
+        const newXPercent = Math.min(95, Math.max(5, Number((((canvasXClamped + halfW) / targetCanvasWidth) * 100).toFixed(1))));
 
         onDesignConfigChange({
           ...designConfig,

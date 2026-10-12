@@ -1768,7 +1768,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
         // Calculate custom position based on alignment
         let targetX = textX;
-        if (textConf.effect !== 'arch') {
+        if (textConf.effect !== 'arch' && textConf.xPos === undefined) {
           if (align === 'left') {
             targetX = (widthPx / 2) - (maxLimitPx / 2);
           } else if (align === 'right') {

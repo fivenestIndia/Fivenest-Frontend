@@ -15,7 +15,7 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ onClose }) => {
     { key: 'Double Left-Click Canvas', desc: 'Open Popup Editor (Colors, Gradients, Stripes, Presets)' },
     { key: 'Double Right-Click Canvas', desc: 'Import / Upload Graphic Image for that Panel' },
     { key: 'Double Click Text', desc: 'Open Text Editor Popup for Name/Number Specification' },
-    { key: 'Arrow Keys / Shift+Arrows', desc: 'Nudge active text layer position (1% / 5%)' },
+    { key: 'Arrow Keys / Shift+Arrows', desc: 'Nudge text precisely: Arrows (0.2%), Shift+Arrows (0.05% micro), Ctrl+Arrows (1%)' },
     { key: 'C / E / P', desc: 'Align Center H (C), Center V (E), Center Page (P)' },
     { key: 'T / B / L / R', desc: 'Align Top (T), Bottom (B), Left (L), Right (R)' },
     { key: 'Space (hold & drag)', desc: 'Pan canvas dynamically' },
