@@ -2038,12 +2038,27 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           }
 
           // Calculate total quantity for this size in the roster order
-          const matchingRecords = records.filter(r => (r.size || '').trim() === (item.size || '').trim());
-          const sizeQty = matchingRecords.reduce((acc, r) => acc + (r.qty || 1), 0);
-          const qtyVal = sizeQty > 0 ? sizeQty : (item.qty || 1);
+          let sizeQty = 0;
+          if (item.panelType === 'front') {
+            if (item.withoutLogoFront) {
+              const matchingRecords = records.filter(r => (r.size || '').trim() === (item.size || '').trim() && r.withoutLogoFront);
+              sizeQty = matchingRecords.reduce((acc, r) => acc + (r.qty || 1), 0);
+            } else {
+              const matchingRecords = records.filter(r => (r.size || '').trim() === (item.size || '').trim() && !r.withoutLogoFront);
+              sizeQty = matchingRecords.reduce((acc, r) => acc + (r.qty || 1), 0);
+            }
+          } else {
+            const matchingRecords = records.filter(r => (r.size || '').trim() === (item.size || '').trim());
+            sizeQty = matchingRecords.reduce((acc, r) => acc + (r.qty || 1), 0);
+          }
 
-          // Requirement: Format size watermark without spaces as "40=2"
-          const sizeQtyText = `${item.size}=${qtyVal}`;
+          const qtyVal = (typeof item.qty === 'number' && item.qty > 0) ? item.qty : (sizeQty > 0 ? sizeQty : 1);
+
+          // Requirement: Format size watermark without spaces as "40=2", or "40=2 NL" for Without Logo front
+          let sizeQtyText = `${item.size}=${qtyVal}`;
+          if (item.panelType === 'front' && item.withoutLogoFront) {
+            sizeQtyText = `${item.size}=${qtyVal} NL`;
+          }
           const templateText = sizeTagConf.text || '{size}';
           const displayText = templateText.includes('{size}')
             ? templateText.replace('{size}', sizeQtyText)
@@ -2528,7 +2543,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           if (frontOverlaysChecked) {
             Object.keys(frontSizeMap).sort().forEach(size => {
               frontSizeMap[size].forEach((it, idx) => {
-                const labelSuffix = it.withoutLogoFront ? ' F (Without Logo)' : ' F';
+                const labelSuffix = it.withoutLogoFront ? ' NL (No Logo)' : ' F';
                 testPdfPages.push({
                   item: it,
                   label: `[Front] ${it.size} ${idx + 1}${labelSuffix}`
@@ -2553,7 +2568,11 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             Object.keys(normalFronts).forEach(size => {
               const list = normalFronts[size];
               testPdfPages.push({
-                item: list[0],
+                item: {
+                  ...list[0],
+                  qty: list.length,
+                  withoutLogoFront: false
+                },
                 label: `[Front] ${size}=${list.length} F`
               });
             });
@@ -2561,8 +2580,12 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             Object.keys(noLogoFronts).forEach(size => {
               const list = noLogoFronts[size];
               testPdfPages.push({
-                item: list[0],
-                label: `[Front] ${size}=${list.length} F (Without Logo)`
+                item: {
+                  ...list[0],
+                  qty: list.length,
+                  withoutLogoFront: true
+                },
+                label: `[Front] ${size}=${list.length} NL (No Logo)`
               });
             });
           }
@@ -2588,7 +2611,10 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             Object.keys(backSizeMap).forEach(size => {
               const list = backSizeMap[size];
               testPdfPages.push({
-                item: list[0],
+                item: {
+                  ...list[0],
+                  qty: list.length
+                },
                 label: `[Back] ${size}=${list.length} B`
               });
             });
@@ -2859,7 +2885,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               allFrontItems.push(...frontSizeMap[size]);
             });
             allFrontItems.forEach((item, index) => {
-              const suffix = item.withoutLogoFront ? ' F (Without Logo).jpg' : ' F.jpg';
+              const suffix = item.withoutLogoFront ? ' NL (No Logo).jpg' : ' F.jpg';
               renderActions.push({
                 representativeItem: item,
                 fileName: `${item.size} ${index + 1}${suffix}`,
@@ -2885,7 +2911,11 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             Object.keys(normalFronts).forEach(size => {
               const list = normalFronts[size];
               renderActions.push({
-                representativeItem: list[0],
+                representativeItem: {
+                  ...list[0],
+                  qty: list.length,
+                  withoutLogoFront: false
+                },
                 fileName: `${size} = ${list.length} F.jpg`,
                 folder: 'Front'
               });
@@ -2894,8 +2924,12 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             Object.keys(noLogoFronts).forEach(size => {
               const list = noLogoFronts[size];
               renderActions.push({
-                representativeItem: list[0],
-                fileName: `${size} = ${list.length} F (Without Logo).jpg`,
+                representativeItem: {
+                  ...list[0],
+                  qty: list.length,
+                  withoutLogoFront: true
+                },
+                fileName: `${size} = ${list.length} NL (No Logo).jpg`,
                 folder: 'Front'
               });
             });
@@ -2920,7 +2954,10 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             Object.keys(backSizeMap).forEach(size => {
               const list = backSizeMap[size];
               renderActions.push({
-                representativeItem: list[0],
+                representativeItem: {
+                  ...list[0],
+                  qty: list.length
+                },
                 fileName: `${size} = ${list.length} B.jpg`,
                 folder: 'Back'
               });
