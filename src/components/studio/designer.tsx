@@ -1176,6 +1176,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const isDraggingTextRef = useRef<boolean>(false);
   const textDragOffsetYRef = useRef<number>(0); // grab offset in canvas-pixels so text doesn't jump
   const textDragOffsetXRef = useRef<number>(0); // horizontal grab offset for front panel 2D drag
+  const dragStartMousePosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const dragStartTextPosRef = useRef<{ x: number; y: number }>({ x: 50, y: 50 });
+  const hasMovedTextRef = useRef<boolean>(false);
   const dragStartConfigRef = useRef<ArtDesignConfig | null>(null); // snapshot config at drag start for clean undo
   const touchStartRef = useRef<{
     x: number;
@@ -2163,20 +2166,42 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         }
 
         // Compute bounding box for interactive selection and cyan highlight box
+        const maxStrokePx = cumulativeStrokes.length > 0
+          ? cumulativeStrokes[cumulativeStrokes.length - 1].cumulativePx
+          : 0;
+
+        let actualAscent = fontSizePx * 0.45;
+        let actualDescent = fontSizePx * 0.45;
+        try {
+          const tm = ctx.measureText(displayName);
+          if (
+            typeof tm.actualBoundingBoxAscent === 'number' &&
+            typeof tm.actualBoundingBoxDescent === 'number' &&
+            (tm.actualBoundingBoxAscent + tm.actualBoundingBoxDescent) > 0
+          ) {
+            actualAscent = tm.actualBoundingBoxAscent;
+            actualDescent = tm.actualBoundingBoxDescent;
+          }
+        } catch (e) {}
+
+        const strokePad = strokePos === 'inside' ? 0 : maxStrokePx;
+        const totalAscent = actualAscent + strokePad;
+        const totalDescent = actualDescent + strokePad;
+
+        let boundsW = Math.min(totalTextW, maxLimitPx) + (strokePad * 2);
+        let boundsH = totalAscent + totalDescent;
         let boxX = targetX;
-        let boxY = textY - fontSizePx * 0.55;
-        let boundsW = Math.min(totalTextW, maxLimitPx);
-        let boundsH = fontSizePx * 1.15;
+        let boxY = textY - totalAscent;
 
         if (conf.effect === 'arch') {
           const curveAmount = Math.max(5, Math.min(100, conf.curveAmount ?? 35));
           const radius = Math.max(fontSizePx * 1.5, height * (16 / curveAmount));
           const halfSpanAngle = Math.min(Math.PI / 2, (totalTextW / 2) / radius);
-          boundsW = Math.min(maxLimitPx, Math.max(totalTextW * 0.7, 2 * radius * Math.sin(halfSpanAngle) + fontSizePx));
+          boundsW = Math.min(maxLimitPx, Math.max(totalTextW * 0.7, 2 * radius * Math.sin(halfSpanAngle) + fontSizePx)) + (strokePad * 2);
           const dropY = radius * (1 - Math.cos(halfSpanAngle));
-          boundsH = fontSizePx * 1.2 + dropY;
+          boundsH = (totalAscent + totalDescent) + dropY;
           boxX = targetX - boundsW / 2;
-          boxY = textY - fontSizePx * 0.55;
+          boxY = textY - totalAscent;
         } else {
           if (align === 'center') {
             boxX = targetX - boundsW / 2;
@@ -4551,9 +4576,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         setActiveTextLayer('name');
         setActiveTool('text');
         isDraggingTextRef.current = true;
+        hasMovedTextRef.current = false;
+        dragStartMousePosRef.current = { x: canvasX, y: canvasY };
+        dragStartTextPosRef.current = {
+          x: panelConfig.nameConfig.xPos !== undefined ? panelConfig.nameConfig.xPos : 50,
+          y: panelConfig.nameConfig.yPos
+        };
         dragStartConfigRef.current = JSON.parse(JSON.stringify(designConfig)); // snapshot for undo
-        textDragOffsetXRef.current = canvasX - nameBox.x;
-        textDragOffsetYRef.current = canvasY - nameBox.y;
         setPrefTrigger(prev => prev + 1);
         return;
       }
@@ -4572,9 +4601,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         setActiveTextLayer('number');
         setActiveTool('text');
         isDraggingTextRef.current = true;
+        hasMovedTextRef.current = false;
+        dragStartMousePosRef.current = { x: canvasX, y: canvasY };
+        dragStartTextPosRef.current = {
+          x: panelConfig.numberConfig.xPos !== undefined ? panelConfig.numberConfig.xPos : 50,
+          y: panelConfig.numberConfig.yPos
+        };
         dragStartConfigRef.current = JSON.parse(JSON.stringify(designConfig)); // snapshot for undo
-        textDragOffsetXRef.current = canvasX - numBox.x;
-        textDragOffsetYRef.current = canvasY - numBox.y;
         setPrefTrigger(prev => prev + 1);
         return;
       }
@@ -4662,19 +4695,22 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     }
 
     // 2. Push ONE undo snapshot for text dragging, ONLY if position actually changed
-    if (isDraggingTextRef.current && dragStartConfigRef.current) {
-      const snapshot = dragStartConfigRef.current;
-      dragStartConfigRef.current = null;
+    if (isDraggingTextRef.current) {
       isDraggingTextRef.current = false;
-      if (JSON.stringify(snapshot) !== JSON.stringify(designConfigRef.current)) {
-        const nextStack = [...undoStackRef.current.slice(-29), snapshot];
-        undoStackRef.current = nextStack;
-        setUndoStack(nextStack);
-        redoStackRef.current = [];
-        setRedoStack([]);
+      if (hasMovedTextRef.current && dragStartConfigRef.current) {
+        const snapshot = dragStartConfigRef.current;
+        dragStartConfigRef.current = null;
+        if (JSON.stringify(snapshot) !== JSON.stringify(designConfigRef.current)) {
+          const nextStack = [...undoStackRef.current.slice(-29), snapshot];
+          undoStackRef.current = nextStack;
+          setUndoStack(nextStack);
+          redoStackRef.current = [];
+          setRedoStack([]);
+        }
+      } else {
+        dragStartConfigRef.current = null;
       }
-    } else {
-      isDraggingTextRef.current = false;
+      hasMovedTextRef.current = false;
     }
   };
 
@@ -4859,43 +4895,37 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
     // 3. Text dragging
     if (isDraggingTextRef.current && activeTextLayer) {
-      const canvasYClamped = (mouseY / zoom) - currentRulerOffset - textDragOffsetYRef.current;
-      const targetCanvasHeight = height; // panel height in canvas coords
-      const newYPercent = Math.min(95, Math.max(5, Number(((canvasYClamped / targetCanvasHeight) * 100).toFixed(1))));
-      
-      const configKey = activeTextLayer === 'name' ? 'nameConfig' : 'numberConfig';
-      
-      if (targetPanelKey === 'front') {
-        const canvasXClamped = (mouseX / zoom) - currentRulerOffset - textDragOffsetXRef.current;
-        const targetCanvasWidth = width;
-        const boxKey = `front-${activeTextLayer}`;
-        const currentBox = textBoundingBoxesRef.current[boxKey] || textBoundingBoxesRef.current[activeTextLayer];
-        const halfW = currentBox ? currentBox.w / 2 : 0;
-        const newXPercent = Math.min(95, Math.max(5, Number((((canvasXClamped + halfW) / targetCanvasWidth) * 100).toFixed(1))));
+      const deltaCanvasX = canvasX - dragStartMousePosRef.current.x;
+      const deltaCanvasY = canvasY - dragStartMousePosRef.current.y;
 
-        onDesignConfigChange({
-          ...designConfig,
-          front: {
-            ...(panelConfig as PanelConfig),
-            [configKey]: {
-              ...(panelConfig as PanelConfig)[configKey as keyof PanelConfig] as object,
-              xPos: newXPercent,
-              yPos: newYPercent
-            }
-          } as PanelConfig
-        });
-      } else {
-        onDesignConfigChange({
-          ...designConfig,
-          [targetPanelKey]: {
-            ...panelConfig,
-            [configKey]: {
-              ...panelConfig[configKey],
-              yPos: newYPercent
-            }
-          }
-        });
+      // 4px drag threshold so simple click to select never shifts text position
+      if (!hasMovedTextRef.current) {
+        if (Math.hypot(deltaCanvasX, deltaCanvasY) < 4) {
+          return;
+        }
+        hasMovedTextRef.current = true;
       }
+
+      const deltaPercentX = (deltaCanvasX / width) * 100;
+      const deltaPercentY = (deltaCanvasY / height) * 100;
+
+      const newXPercent = Math.min(95, Math.max(5, Number((dragStartTextPosRef.current.x + deltaPercentX).toFixed(1))));
+      const newYPercent = Math.min(95, Math.max(5, Number((dragStartTextPosRef.current.y + deltaPercentY).toFixed(1))));
+
+      const configKey = activeTextLayer === 'name' ? 'nameConfig' : 'numberConfig';
+      const shouldMoveX = targetPanelKey === 'front' || (panelConfig[configKey] as TextConfig)?.xPos !== undefined;
+
+      onDesignConfigChange({
+        ...designConfig,
+        [targetPanelKey]: {
+          ...panelConfig,
+          [configKey]: {
+            ...panelConfig[configKey],
+            ...(shouldMoveX ? { xPos: newXPercent } : {}),
+            yPos: newYPercent
+          }
+        }
+      });
     }
 
     if (scale > 0 && zoom > 0) {
@@ -5551,6 +5581,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         onMouseLeave={() => {
                           setCursorPos(null);
                           isDraggingTextRef.current = false;
+                          hasMovedTextRef.current = false;
                         }}
                         onContextMenu={(e) => handleCanvasContextMenu(e, 'collar')}
                         onDoubleClick={(e) => handleCanvasDoubleClick(e, 'collar')}
@@ -5633,6 +5664,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         onMouseLeave={() => {
                           setCursorPos(null);
                           isDraggingTextRef.current = false;
+                          hasMovedTextRef.current = false;
                         }}
                         onContextMenu={(e) => handleCanvasContextMenu(e, 'sleeveLeft')}
                         onDoubleClick={(e) => handleCanvasDoubleClick(e, 'sleeveLeft')}
@@ -5697,6 +5729,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         onMouseLeave={() => {
                           setCursorPos(null);
                           isDraggingTextRef.current = false;
+                          hasMovedTextRef.current = false;
                         }}
                         onContextMenu={(e) => handleCanvasContextMenu(e, 'front')}
                         onDoubleClick={(e) => handleCanvasDoubleClick(e, 'front')}
@@ -5761,6 +5794,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         onMouseLeave={() => {
                           setCursorPos(null);
                           isDraggingTextRef.current = false;
+                          hasMovedTextRef.current = false;
                         }}
                         onContextMenu={(e) => handleCanvasContextMenu(e, 'back')}
                         onDoubleClick={(e) => handleCanvasDoubleClick(e, 'back')}
@@ -5842,6 +5876,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         onMouseLeave={() => {
                           setCursorPos(null);
                           isDraggingTextRef.current = false;
+                          hasMovedTextRef.current = false;
                         }}
                         onContextMenu={(e) => handleCanvasContextMenu(e, 'sleeveRight')}
                         onDoubleClick={(e) => handleCanvasDoubleClick(e, 'sleeveRight')}
@@ -5896,6 +5931,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     onMouseLeave={() => {
                       setCursorPos(null);
                       isDraggingTextRef.current = false;
+                      hasMovedTextRef.current = false;
                     }}
                     onContextMenu={handleCanvasContextMenu}
                     onDoubleClick={(e) => handleCanvasDoubleClick(e)}
