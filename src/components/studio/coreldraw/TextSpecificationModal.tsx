@@ -592,7 +592,7 @@ export const TextSpecificationModal: React.FC<TextSpecificationModalProps> = ({
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#A1A1AA', marginBottom: '4px' }}>
                 <span>Outline Width (Stroke Thickness):</span>
-                <span style={{ color: '#FFFFFF', fontWeight: '700' }}>{config.strokeWidth} px</span>
+                <span style={{ color: '#FFFFFF', fontWeight: '700' }}>{typeof config.strokeWidth === 'number' ? Number(config.strokeWidth.toFixed(1)) : 0} px</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <input
@@ -601,7 +601,7 @@ export const TextSpecificationModal: React.FC<TextSpecificationModalProps> = ({
                   max={16}
                   step={0.1}
                   value={config.strokeWidth}
-                  onChange={(e) => onUpdate({ strokeWidth: parseFloat(e.target.value) })}
+                  onChange={(e) => onUpdate({ strokeWidth: Math.max(0, Math.round(parseFloat(e.target.value) * 10) / 10) })}
                   style={{ flex: 1, accentColor: '#E4572E' }}
                 />
                 <input
@@ -609,8 +609,11 @@ export const TextSpecificationModal: React.FC<TextSpecificationModalProps> = ({
                   min={0}
                   max={20}
                   step={0.1}
-                  value={config.strokeWidth}
-                  onChange={(e) => onUpdate({ strokeWidth: parseFloat(e.target.value) || 0 })}
+                  value={typeof config.strokeWidth === 'number' ? Number(config.strokeWidth.toFixed(1)) : 0}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    onUpdate({ strokeWidth: isNaN(val) ? 0 : Math.max(0, Math.round(val * 10) / 10) });
+                  }}
                   style={{
                     width: '52px',
                     backgroundColor: '#27272A',

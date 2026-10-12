@@ -702,8 +702,11 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               step="0.1"
               min="0"
               max="50"
-              value={currentStroke?.width ?? (resolvedLayer === 'name' ? 1.8 : 0.7)}
-              onChange={(e) => handleUpdateCurrentStroke({ width: parseFloat(e.target.value) || 0 })}
+              value={currentStroke?.width !== undefined ? Number(currentStroke.width.toFixed(1)) : (resolvedLayer === 'name' ? 1.8 : 0.7)}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                handleUpdateCurrentStroke({ width: isNaN(val) ? 0 : Math.max(0, Math.round(val * 10) / 10) });
+              }}
               style={{
                 width: '46px',
                 border: '1px solid #D8D5CF',

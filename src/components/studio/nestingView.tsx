@@ -1744,7 +1744,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           runningWidth += s.width;
           return {
             ...s,
-            cumulativePx: Math.max(1, Math.round((runningWidth / 50) * fontSizePx)),
+            cumulativePx: (runningWidth / 50) * fontSizePx,
           };
         });
 

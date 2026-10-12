@@ -641,12 +641,15 @@ const StrokeControlsManager: React.FC<StrokeControlsManagerProps> = ({
                     <label className="form-label" style={{ fontSize: '9px', marginBottom: '2px' }}>Width:</label>
                     <input 
                       type="number" 
-                      step="0.5" 
+                      step="0.1" 
                       min="0"
                       max="50"
                       className="form-input" 
-                      value={stroke.width ?? 0}
-                      onChange={(e) => handleUpdateStroke(idx, { width: parseFloat(e.target.value) || 0 })}
+                      value={stroke.width !== undefined ? Number(stroke.width.toFixed(1)) : 0}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        handleUpdateStroke(idx, { width: isNaN(val) ? 0 : Math.max(0, Math.round(val * 10) / 10) });
+                      }}
                       style={{ padding: '3px 6px', fontSize: '11px', height: '24px' }}
                     />
                   </div>
@@ -686,12 +689,15 @@ const StrokeControlsManager: React.FC<StrokeControlsManagerProps> = ({
                       <label className="form-label" style={{ fontSize: '9px', marginBottom: '2px' }}>Width:</label>
                       <input 
                         type="number" 
-                        step="0.5" 
+                        step="0.1" 
                         min="0"
                         max="50"
                         className="form-input" 
-                        value={stroke.width ?? 0}
-                        onChange={(e) => handleUpdateStroke(idx, { width: parseFloat(e.target.value) || 0 })}
+                        value={stroke.width !== undefined ? Number(stroke.width.toFixed(1)) : 0}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          handleUpdateStroke(idx, { width: isNaN(val) ? 0 : Math.max(0, Math.round(val * 10) / 10) });
+                        }}
                         style={{ padding: '3px 6px', fontSize: '11px', height: '22px' }}
                       />
                     </div>
@@ -2115,7 +2121,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           runningWidth += s.width;
           return {
             ...s,
-            cumulativePx: Math.max(1, Math.round((runningWidth / 50) * fontSizePx)),
+            cumulativePx: (runningWidth / 50) * fontSizePx,
           };
         });
 
