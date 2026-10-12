@@ -13,7 +13,8 @@ import {
   Palette, 
   Loader2,
   Box,
-  CheckCircle2
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 
 export interface ExportProcessingModalProps {
@@ -22,23 +23,30 @@ export interface ExportProcessingModalProps {
   statusText: string;     // current step text
   totalPanels: number;
   orderName?: string;
+  colorProfile?: 'rgb' | 'cmyk';
 }
 
 // Normalized pipeline milestones
-const PIPELINE_STEPS = [
-  { id: 'init',      at: 0,   label: 'Init',          fullLabel: 'Initialising Engine',   icon: Zap },
-  { id: 'assets',    at: 10,  label: 'Assets',        fullLabel: 'Loading Hi-Res Assets', icon: Layers },
-  { id: 'color',     at: 20,  label: 'Colour Profile', fullLabel: 'Calibrating CMYK Profile', icon: Palette },
-  { id: 'front',     at: 35,  label: 'Front Panels',  fullLabel: 'Rasterising Front Panels', icon: Printer },
-  { id: 'back',      at: 55,  label: 'Back Panels',   fullLabel: 'Rasterising Back Panels',  icon: Printer },
-  { id: 'composite', at: 70,  label: 'Compositing',   fullLabel: 'Compositing & DPI Scaling', icon: Cpu },
-  { id: 'bundle',    at: 85,  label: 'ZIP Archive',   fullLabel: 'Compiling Output Archive',  icon: Box },
-  { id: 'complete',  at: 100, label: 'Ready',         fullLabel: 'Ready for Download',       icon: Download },
-];
+export function getPipelineSteps(colorProfile: 'rgb' | 'cmyk' = 'rgb') {
+  const isCmyk = colorProfile === 'cmyk';
+  return [
+    { id: 'init',      at: 0,   label: 'Init',          fullLabel: 'Initialising Engine',   icon: Zap },
+    { id: 'assets',    at: 10,  label: 'Assets',        fullLabel: 'Loading Hi-Res Assets', icon: Layers },
+    { id: 'color',     at: 20,  label: isCmyk ? 'CMYK Profile' : 'RGB Profile', fullLabel: isCmyk ? 'Calibrating CMYK Profile' : 'Calibrating RGB Profile', icon: Palette },
+    { id: 'front',     at: 35,  label: 'Front Panels',  fullLabel: 'Rasterising Front Panels', icon: Printer },
+    { id: 'back',      at: 55,  label: 'Back Panels',   fullLabel: 'Rasterising Back Panels',  icon: Printer },
+    { id: 'composite', at: 70,  label: 'Compositing',   fullLabel: 'Compositing & DPI Scaling', icon: Cpu },
+    { id: 'bundle',    at: 85,  label: 'ZIP Archive',   fullLabel: 'Compiling Output Archive',  icon: Box },
+    { id: 'complete',  at: 100, label: 'Ready',         fullLabel: 'Ready for Download',       icon: Download },
+  ];
+}
 
-function getActiveStep(pct: number) {
-  let active = PIPELINE_STEPS[0];
-  for (const s of PIPELINE_STEPS) {
+const PIPELINE_STEPS = getPipelineSteps('rgb');
+
+function getActiveStep(pct: number, colorProfile: 'rgb' | 'cmyk' = 'rgb') {
+  const steps = getPipelineSteps(colorProfile);
+  let active = steps[0];
+  for (const s of steps) {
     if (pct >= s.at) active = s;
   }
   return active;
@@ -196,7 +204,7 @@ function VibrantParticleCanvas({ running, isDone }: { running: boolean; isDone: 
 }
 
 /* ─── Precision Cyber Radial HUD Gauge ────────────────────────────── */
-function CyberDialGauge({ pct, isDone }: { pct: number; isDone: boolean }) {
+function CyberDialGauge({ pct, isDone, colorProfile = 'rgb' }: { pct: number; isDone: boolean; colorProfile?: 'rgb' | 'cmyk' }) {
   const size = 180;
   const strokeWidth = 8;
   const radius = (size - strokeWidth * 2) / 2;
@@ -383,7 +391,7 @@ function CyberDialGauge({ pct, isDone }: { pct: number; isDone: boolean }) {
                 color: '#E2E8F0',
                 textTransform: 'uppercase'
               }}>
-                300 DPI
+                300 DPI • {(colorProfile || 'rgb').toUpperCase()}
               </span>
             </div>
           </>
@@ -495,6 +503,22 @@ function ensureStyles() {
       0%, 100% { opacity: 1; }
       50% { opacity: 0; }
     }
+    @keyframes fnest-warning-pulse {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 12px rgba(245, 158, 11, 0.15), inset 0 0 8px rgba(245, 158, 11, 0.05);
+        border-color: rgba(245, 158, 11, 0.35);
+      }
+      50% {
+        transform: scale(1.015);
+        box-shadow: 0 0 24px rgba(245, 158, 11, 0.32), inset 0 0 12px rgba(245, 158, 11, 0.12);
+        border-color: rgba(245, 158, 11, 0.65);
+      }
+    }
+    @keyframes fnest-warning-icon-bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-2px); }
+    }
 
     .fnest-modal-enter { animation: fnest-modal-enter 0.32s cubic-bezier(0.16, 1, 0.3, 1) both; }
     .fnest-spin-forward { animation: fnest-spin-forward 3.2s linear infinite; }
@@ -509,6 +533,8 @@ function ensureStyles() {
     .fnest-laser-sweep { animation: fnest-laser-sweep 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
     .fnest-log-line { animation: fnest-log-slide 0.16s ease-out both; }
     .fnest-cursor { animation: fnest-cursor-blink 0.9s step-start infinite; }
+    .fnest-warning-banner { animation: fnest-warning-pulse 2.2s ease-in-out infinite; }
+    .fnest-warning-icon { animation: fnest-warning-icon-bounce 1.5s ease-in-out infinite; }
     
     /* Scrollbar styling for terminal */
     .fnest-term-scroll::-webkit-scrollbar { width: 4px; }
@@ -526,6 +552,7 @@ function ModalContent({
   statusText,
   totalPanels,
   orderName,
+  colorProfile = 'rgb',
 }: ExportProcessingModalProps) {
   const [displayPct, setDisplayPct] = useState(0);
   const [logLines, setLogLines] = useState<string[]>([]);
@@ -563,7 +590,7 @@ function ModalContent({
 
   // Append logs
   useEffect(() => {
-    const step = getActiveStep(Math.round(progress));
+    const step = getActiveStep(Math.round(progress), colorProfile);
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
 
@@ -585,7 +612,7 @@ function ModalContent({
         return [...lines.slice(-25), `[${timeStr}] ${clean}`];
       });
     }
-  }, [progress, statusText]);
+  }, [progress, statusText, colorProfile]);
 
   // Auto-scroll terminal
   useEffect(() => {
@@ -597,7 +624,8 @@ function ModalContent({
   if (!isOpen) return null;
 
   const isDone = progress >= 100;
-  const activeStep = getActiveStep(Math.round(progress));
+  const steps = getPipelineSteps(colorProfile);
+  const activeStep = getActiveStep(Math.round(progress), colorProfile);
 
   return (
     <div
@@ -792,7 +820,7 @@ function ModalContent({
             margin: '12px 0 16px',
           }}
         >
-          <CyberDialGauge pct={displayPct} isDone={isDone} />
+          <CyberDialGauge pct={displayPct} isDone={isDone} colorProfile={colorProfile} />
         </div>
 
         {/* ── ACTIVE PHASE STATUS PILL ── */}
@@ -803,7 +831,7 @@ function ModalContent({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            marginBottom: '18px',
+            marginBottom: '14px',
           }}
         >
           <div
@@ -841,6 +869,35 @@ function ModalContent({
           </div>
         </div>
 
+        {/* ── TAB ACTIVE WARNING BANNER (ANIMATED) ── */}
+        {!isDone && (
+          <div
+            className="fnest-warning-banner"
+            style={{
+              position: 'relative',
+              zIndex: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              margin: '0 auto 16px',
+              padding: '9px 18px',
+              borderRadius: '12px',
+              background: 'rgba(245, 158, 11, 0.12)',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              boxShadow: '0 0 16px rgba(245, 158, 11, 0.12)',
+              color: '#FBBF24',
+              fontSize: '12px',
+              fontWeight: '700',
+              letterSpacing: '0.01em',
+              textAlign: 'center',
+            }}
+          >
+            <AlertTriangle size={15} style={{ color: '#F59E0B', flexShrink: 0 }} className="fnest-warning-icon" />
+            <span>Export in progress... Please keep this tab open and active.</span>
+          </div>
+        )}
+
         {/* ── STEP PROGRESSION PIPELINE ── */}
         <div
           style={{
@@ -854,9 +911,9 @@ function ModalContent({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            {PIPELINE_STEPS.map((step, idx) => {
+            {steps.map((step, idx) => {
               const isPassed = displayPct > step.at;
-              const isCurrent = displayPct >= step.at && (idx === PIPELINE_STEPS.length - 1 || displayPct < PIPELINE_STEPS[idx + 1]?.at);
+              const isCurrent = displayPct >= step.at && (idx === steps.length - 1 || displayPct < steps[idx + 1]?.at);
               const StepIcon = step.icon;
 
               return (
@@ -941,7 +998,7 @@ function ModalContent({
                   </div>
 
                   {/* Connecting line */}
-                  {idx < PIPELINE_STEPS.length - 1 && (
+                  {idx < steps.length - 1 && (
                     <div
                       style={{
                         flex: 1,
@@ -1002,7 +1059,7 @@ function ModalContent({
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '9px', color: '#64748B' }}>
               <Activity size={10} color={isDone ? '#10B981' : '#FF7A00'} />
-              <span>300 DPI HI-RES STREAM</span>
+              <span>300 DPI {(colorProfile || 'rgb').toUpperCase()} STREAM</span>
             </div>
           </div>
 

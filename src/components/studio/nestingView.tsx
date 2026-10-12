@@ -4579,6 +4579,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
         statusText={exportProgress}
         totalPanels={getItemsToExport().length}
         orderName={metadata.customerName ? `${metadata.customerName} — Order ${metadata.orderNum || '#'}` : undefined}
+        colorProfile={colorProfile}
       />
     </div>
   );
