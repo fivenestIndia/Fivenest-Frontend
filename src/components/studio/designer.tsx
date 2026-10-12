@@ -2184,6 +2184,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           }
         } catch (e) {}
 
+        const strokePos = conf.strokePosition || 'outside';
         const strokePad = strokePos === 'inside' ? 0 : maxStrokePx;
         const totalAscent = actualAscent + strokePad;
         const totalDescent = actualDescent + strokePad;
@@ -2292,7 +2293,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         };
 
         const activeFillStyle = getTextFill(boundsW, fontSizePx);
-        const strokePos = conf.strokePosition || 'outside';
 
         // Reusable helper to render text with Outside, Inside, or Center stroke
         const renderTextWithStroke = (
