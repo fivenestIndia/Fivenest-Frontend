@@ -7,7 +7,7 @@ import { ArtDesignConfig } from './designer';
 import { Loader2 } from 'lucide-react';
 import { defaultSizes } from './sizesDb';
 
-export type CameraAngle = 'front' | 'back' | 'left' | 'right';
+export type CameraAngle = 'front' | 'back' | 'left' | 'right' | 'up';
 
 export interface ColorAnalysisResult {
   dominant: string;
@@ -385,6 +385,13 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
 
+  // Auto-fit & model dimension tracking
+  const modelCenterRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0));
+  const modelSizeRef = useRef<THREE.Vector3>(new THREE.Vector3(1, 1, 1));
+  const modelScaleRef = useRef<number>(1);
+  const currentFitDistRef = useRef<number>(1.6);
+  const autoFitCameraRef = useRef<((preserveAngle?: boolean) => void) | null>(null);
+
   // Canvas layers for panel composition
   const frontCanvas = useRef(document.createElement('canvas'));
   const backCanvas = useRef(document.createElement('canvas'));
@@ -672,16 +679,23 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
       const controls = controlsRef.current;
       if (!camera || !controls) return;
 
+      const dist = currentFitDistRef.current || 1.6;
+
       if (angle === 'front') {
-        camera.position.set(0, 0.2, 2.2);
+        camera.position.set(0, dist * 0.12, dist);
       } else if (angle === 'back') {
-        camera.position.set(0, 0.2, -2.2);
+        camera.position.set(0, dist * 0.12, -dist);
       } else if (angle === 'left') {
-        camera.position.set(-1.55, 0.2, 1.55);
+        camera.position.set(-dist * 0.75, dist * 0.12, dist * 0.75);
       } else if (angle === 'right') {
-        camera.position.set(1.55, 0.2, 1.55);
+        camera.position.set(dist * 0.75, dist * 0.12, dist * 0.75);
+      } else if (angle === 'up') {
+        camera.position.set(0, dist * 0.85, dist * 0.55);
       }
+
       controls.target.set(0, 0, 0);
+      camera.zoom = 1;
+      camera.updateProjectionMatrix();
       controls.update();
 
       if (rendererRef.current && sceneRef.current) {
@@ -689,16 +703,8 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
       }
     },
     resetCamera: () => {
-      const camera = cameraRef.current;
-      const controls = controlsRef.current;
-      if (!camera || !controls) return;
-      camera.position.set(0, 0.2, 2.2);
-      camera.zoom = 1;
-      camera.updateProjectionMatrix();
-      controls.target.set(0, 0, 0);
-      controls.update();
-      if (rendererRef.current && sceneRef.current) {
-        rendererRef.current.render(sceneRef.current, camera);
+      if (autoFitCameraRef.current) {
+        autoFitCameraRef.current(false);
       }
     },
     captureFrame: async (angle: CameraAngle) => {
@@ -711,16 +717,23 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
         throw new Error('3D Viewport not initialized');
       }
 
+      const dist = currentFitDistRef.current || 1.6;
+
       if (angle === 'front') {
-        camera.position.set(0, 0.2, 2.2);
+        camera.position.set(0, dist * 0.12, dist);
       } else if (angle === 'back') {
-        camera.position.set(0, 0.2, -2.2);
+        camera.position.set(0, dist * 0.12, -dist);
       } else if (angle === 'left') {
-        camera.position.set(-1.55, 0.2, 1.55);
+        camera.position.set(-dist * 0.75, dist * 0.12, dist * 0.75);
       } else if (angle === 'right') {
-        camera.position.set(1.55, 0.2, 1.55);
+        camera.position.set(dist * 0.75, dist * 0.12, dist * 0.75);
+      } else if (angle === 'up') {
+        camera.position.set(0, dist * 0.85, dist * 0.55);
       }
+
       controls.target.set(0, 0, 0);
+      camera.zoom = 1;
+      camera.updateProjectionMatrix();
       controls.update();
 
       renderer.render(scene, camera);
@@ -748,12 +761,13 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
         throw new Error('3D Viewport not initialized');
       }
 
+      const dist = currentFitDistRef.current || 1.6;
       const savedPos = camera.position.clone();
       const savedTarget = controls.target.clone();
 
       try {
         progressCallback?.(1, 4);
-        camera.position.set(0, 0.2, 2.2);
+        camera.position.set(0, dist * 0.12, dist);
         controls.target.set(0, 0, 0);
         controls.update();
         renderer.render(scene, camera);
@@ -762,7 +776,7 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
         const front = canvas.toDataURL('image/jpeg', 0.95);
 
         progressCallback?.(2, 4);
-        camera.position.set(0, 0.2, -2.2);
+        camera.position.set(0, dist * 0.12, -dist);
         controls.target.set(0, 0, 0);
         controls.update();
         renderer.render(scene, camera);
@@ -771,7 +785,7 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
         const back = canvas.toDataURL('image/jpeg', 0.95);
 
         progressCallback?.(3, 4);
-        camera.position.set(-1.55, 0.2, 1.55);
+        camera.position.set(-dist * 0.75, dist * 0.12, dist * 0.75);
         controls.target.set(0, 0, 0);
         controls.update();
         renderer.render(scene, camera);
@@ -780,7 +794,7 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
         const left = canvas.toDataURL('image/jpeg', 0.95);
 
         progressCallback?.(4, 4);
-        camera.position.set(1.55, 0.2, 1.55);
+        camera.position.set(dist * 0.75, dist * 0.12, dist * 0.75);
         controls.target.set(0, 0, 0);
         controls.update();
         renderer.render(scene, camera);
@@ -860,11 +874,63 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.enablePan = false;
-    controls.minDistance = 1.0;
-    controls.maxDistance = 5.5;
+    controls.minDistance = 0.5;
+    controls.maxDistance = 5.0;
     controls.maxPolarAngle = Math.PI / 1.8;
     controls.target.set(0, 0, 0);
     controlsRef.current = controls;
+
+    // Automatic Screen Size & Center Adjustment
+    const autoFitCamera = (preserveAngle = false) => {
+      const container = containerRef.current;
+      const cam = cameraRef.current;
+      const ctrl = controlsRef.current;
+      const model = poloModelRef.current;
+      if (!container || !cam || !ctrl || !model) return;
+
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (w <= 0 || h <= 0) return;
+
+      const aspect = w / h;
+      cam.aspect = aspect;
+
+      // Model normalized height is 1.0; width is based on model dimensions
+      const normalizedHeight = 1.0;
+      const normalizedWidth = (modelSizeRef.current.x * modelScaleRef.current) || 0.85;
+
+      const vFovRad = (cam.fov * Math.PI) / 180;
+      const distForHeight = (normalizedHeight / 2) / Math.tan(vFovRad / 2);
+      const hFovRad = 2 * Math.atan(Math.tan(vFovRad / 2) * aspect);
+      const distForWidth = (normalizedWidth / 2) / Math.tan(hFovRad / 2);
+
+      // Fit distance with 18% comfortable breathing margin so the entire shirt is visible
+      const requiredDist = Math.max(distForHeight, distForWidth) * 1.18;
+      currentFitDistRef.current = requiredDist;
+
+      // Keep model center at (0, 0, 0)
+      ctrl.target.set(0, 0, 0);
+
+      if (!preserveAngle) {
+        // Default UP view: elevated front view looking slightly down at chest and collar in the exact center
+        cam.position.set(0, requiredDist * 0.15, requiredDist);
+      } else {
+        const dir = cam.position.clone().sub(ctrl.target).normalize();
+        if (dir.lengthSq() < 0.001) {
+          dir.set(0, 0.15, 1).normalize();
+        }
+        cam.position.copy(ctrl.target).add(dir.multiplyScalar(requiredDist));
+      }
+
+      cam.zoom = 1;
+      cam.updateProjectionMatrix();
+      ctrl.update();
+
+      if (rendererRef.current && sceneRef.current) {
+        rendererRef.current.render(sceneRef.current, cam);
+      }
+    };
+    autoFitCameraRef.current = autoFitCamera;
 
     // Spacebar Panning Control Handlers
     let isSpaceDown = false;
@@ -956,18 +1022,31 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
         const model = gltf.scene;
         poloModelRef.current = model;
 
+        // If the GLTF contains both 'Polo' and 'static2', 'static2' is the new 3D mockup.
+        // Remove legacy 'Polo' object to prevent duplicate rendering and center static2 cleanly.
+        const static2Node = model.getObjectByName('static2');
+        const poloNode = model.getObjectByName('Polo');
+        if (static2Node && poloNode) {
+          model.remove(poloNode);
+        }
+
         model.updateMatrixWorld(true);
 
         const box = new THREE.Box3().setFromObject(model);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
 
-        const targetHeight = 0.95;
+        modelCenterRef.current.copy(center);
+        modelSizeRef.current.copy(size);
+
+        // Normalize model height to 1.0 unit
+        const targetHeight = 1.0;
         const scaleFactor = targetHeight / (size.y || 1);
+        modelScaleRef.current = scaleFactor;
         model.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
+        // Place model EXACTLY in center at (0, 0, 0)
         model.position.copy(center).multiplyScalar(-scaleFactor);
-        model.position.y -= 0.45;
 
         // Apply materials to meshes
         model.traverse((child) => {
@@ -982,7 +1061,8 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
               roughness: 0.82,
               metalness: 0.12,
               normalMap: normalMap,
-              normalScale: new THREE.Vector2(0.12, 0.12)
+              normalScale: new THREE.Vector2(0.12, 0.12),
+              side: THREE.DoubleSide
             });
 
             const c1 = designConfig.front.generatedColor1;
@@ -1025,6 +1105,9 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
         scene.add(model);
         composeTexture();
         setLoading(false);
+
+        // Automatically adapt to design screen size and place model in center
+        autoFitCamera(false);
       },
       (xhr) => {
         if (xhr.total > 0) {
@@ -1047,14 +1130,13 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
     };
     animate();
 
-    // Resize Observer for dynamic dimensions
+    // Resize Observer for dynamic screen dimensions & automatic center framing
     const resizeObserver = new ResizeObserver((entries) => {
       for (let entry of entries) {
         const { width: w, height: h } = entry.contentRect;
         if (w > 0 && h > 0) {
-          camera.aspect = w / h;
-          camera.updateProjectionMatrix();
           renderer.setSize(w, h);
+          autoFitCamera(true);
         }
       }
     });
@@ -1084,7 +1166,7 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
     <div 
       ref={containerRef} 
       className="w-full h-full relative" 
-      style={{ minHeight: '520px', backgroundColor: bgColor || '#0a0a0f', borderRadius: '8px' }}
+      style={{ minHeight: '380px', backgroundColor: bgColor || '#0a0a0f', borderRadius: '8px', overflow: 'hidden' }}
     >
       <canvas 
         ref={canvasRef} 

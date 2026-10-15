@@ -6162,6 +6162,15 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 >
                   Right 3/4 (+45°)
                 </button>
+                <button
+                  type="button"
+                  onClick={() => threeDRef.current?.setCameraAngle('up')}
+                  className="btn btn-secondary"
+                  style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#FAF8F5', gridColumn: 'span 2' }}
+                  title="Elevated Upright View looking from top-front at collar and jersey center"
+                >
+                  ▲ Top / Up View (Elevated)
+                </button>
               </div>
 
               {/* Sleeve Style Toggle */}

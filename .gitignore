@@ -35,3 +35,5 @@ Archive.zip
 *.abc
 *.exr
 scratch/
+public/models/*backup*
+public/models/3D_Mockup_Static2.glb
