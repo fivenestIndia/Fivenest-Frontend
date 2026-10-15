@@ -3186,10 +3186,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, width, height);
 
-            const bgW = (panel.bgWidth !== undefined ? panel.bgWidth : physicalW) * scale;
-            const bgH = (panel.bgHeight !== undefined ? panel.bgHeight : physicalH) * scale;
-            const bgX = (panel.bgX !== undefined ? panel.bgX : 0) * scale;
-            const bgY = (panel.bgY !== undefined ? panel.bgY : 0) * scale;
+            const bgW = is3DPreview ? width : ((panel.bgWidth !== undefined ? panel.bgWidth : physicalW) * scale);
+            const bgH = is3DPreview ? height : ((panel.bgHeight !== undefined ? panel.bgHeight : physicalH) * scale);
+            const bgX = is3DPreview ? 0 : ((panel.bgX !== undefined ? panel.bgX : 0) * scale);
+            const bgY = is3DPreview ? 0 : ((panel.bgY !== undefined ? panel.bgY : 0) * scale);
 
             ctx.drawImage(cachedImg, bgX, bgY, bgW, bgH);
             drawLogos(ctx);
@@ -3316,7 +3316,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
 
       // ── SLEEVE STRIPE AT BOTTOM (Height: 2.0 inches fixed, Width: fits sleeve panel) ──
-      if (panelKey === 'sleeveLeft' || panelKey === 'sleeveRight') {
+      // In 2D export / editor, draw the stripe on the 2D sleeve pattern; in 3D preview, the stripe is mapped to the actual 3D sleeve cuff pieces
+      if (!is3DPreview && (panelKey === 'sleeveLeft' || panelKey === 'sleeveRight')) {
         const stripeConf = designConfig.trim?.sleeveStripe;
         if (stripeConf && stripeConf.enabled === true && (stripeConf.color || stripeConf.uploadedUrl || stripeConf.gradientStops)) {
           const stripeHInches = stripeConf.height || 2.0;

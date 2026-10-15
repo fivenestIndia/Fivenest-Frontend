@@ -484,14 +484,18 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
       mainCtx.drawImage(frontCanvas.current, 64, 1962);
     }
 
-    // 2. Draw Back panel (Component 15: X=[2282, 3797], Y=[1962, 4117], Size: 1515x2155)
+    // 2. Draw Back panel (Component 15: X=[2260, 3810], Y=[1950, 4130], Size: 1540x2170)
     const backCtx = backCanvas.current.getContext('2d');
     if (backCtx) {
-      backCanvas.current.width = 1515;
-      backCanvas.current.height = 2155;
-      renderPanelToCanvas('back', backCtx, 1515, 2155, backScale, true);
-      mainCtx.drawImage(backCanvas.current, 2282, 1962);
+      backCanvas.current.width = 1540;
+      backCanvas.current.height = 2170;
+      renderPanelToCanvas('back', backCtx, 1540, 2170, backScale, true);
+      mainCtx.drawImage(backCanvas.current, 2260, 1950, 1540, 2170);
     }
+
+    // Bottom hem seam strip (X=[240, 640], Y=[1810, 1950]) - ensure clean folded hem matching body color
+    mainCtx.fillStyle = c1;
+    mainCtx.fillRect(240, 1810, 420, 140);
 
     // 3. Draw Left Sleeve (Component 8: X=[341, 1685], Y=[576, 1280], Size: 1344x704)
     const leftSleeveCtx = leftSleeveCanvas.current.getContext('2d');
@@ -537,24 +541,30 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
       mainCtx.fillRect(1813, 1408, 1088, 106);
     }
 
-    // Component 11: Sleeve cuff (X=[490, 1557], Y=[1429, 1536])
-    if (trim.sleeveStripe?.enabled === true) {
-      if (loadedTrimImages.sleeveStripe) {
-        mainCtx.drawImage(loadedTrimImages.sleeveStripe, 490, 1429, 1067, 107);
-      } else if (trim.sleeveStripe.fillType === 'gradient' || (trim.sleeveStripe.gradientStops && trim.sleeveStripe.gradientStops.length >= 2)) {
-        const grad = mainCtx.createLinearGradient(490, 1429, 1557, 1429);
-        const stops = [...trim.sleeveStripe.gradientStops].sort((a, b) => a.offset - b.offset);
-        stops.forEach(s => grad.addColorStop(Math.max(0, Math.min(1, s.offset / 100)), s.color));
-        mainCtx.fillStyle = grad;
-        mainCtx.fillRect(490, 1429, 1067, 107);
+    // Component 11: Sleeve cuffs (Left: X=[490, 1557], Right: X=[1820, 2912], Y=[1420, 1540])
+    const drawCuff = (x: number, y: number, w: number, h: number) => {
+      if (trim.sleeveStripe?.enabled === true) {
+        if (loadedTrimImages.sleeveStripe) {
+          mainCtx.drawImage(loadedTrimImages.sleeveStripe, x, y, w, h);
+        } else if (trim.sleeveStripe.fillType === 'gradient' || (trim.sleeveStripe.gradientStops && trim.sleeveStripe.gradientStops.length >= 2)) {
+          const grad = mainCtx.createLinearGradient(x, y, x + w, y);
+          const stops = [...trim.sleeveStripe.gradientStops].sort((a, b) => a.offset - b.offset);
+          stops.forEach(s => grad.addColorStop(Math.max(0, Math.min(1, s.offset / 100)), s.color));
+          mainCtx.fillStyle = grad;
+          mainCtx.fillRect(x, y, w, h);
+        } else {
+          mainCtx.fillStyle = trim.sleeveStripe.color || c1;
+          mainCtx.fillRect(x, y, w, h);
+        }
       } else {
-        mainCtx.fillStyle = trim.sleeveStripe.color || c1;
-        mainCtx.fillRect(490, 1429, 1067, 107);
+        mainCtx.fillStyle = c1;
+        mainCtx.fillRect(x, y, w, h);
       }
-    } else {
-      mainCtx.fillStyle = c1;
-      mainCtx.fillRect(490, 1429, 1067, 107);
-    }
+    };
+    // Left sleeve cuff
+    drawCuff(490, 1420, 1067, 120);
+    // Right sleeve cuff
+    drawCuff(1820, 1420, 1092, 120);
 
     // Component 12: Placket (X=[2474, 3050], Y=[1706, 1834], Size: 576x128)
     if (placketMode === 'matchFront') {
@@ -627,7 +637,8 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
               matName.toLowerCase().includes('sleeve end') || 
               matName.toLowerCase().includes('material 2')
             ) {
-              mat.color.set(trim.sleeveStripe?.enabled ? (trim.sleeveStripe.color || '#ffffff') : (c1 || '#ffffff'));
+              mat.map = textureRef.current;
+              mat.color.set('#ffffff');
             }
           }
         }
@@ -1086,7 +1097,8 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
               matName.toLowerCase().includes('sleeve end') || 
               matName.toLowerCase().includes('material 2')
             ) {
-              mat.color.set(trim.sleeveStripe?.enabled ? (trim.sleeveStripe.color || '#ffffff') : (c1 || '#ffffff'));
+              mat.map = texture;
+              mat.color.set('#ffffff');
               mesh.material = mat;
             } else if (
               matName.toLowerCase().includes('main design') || 
