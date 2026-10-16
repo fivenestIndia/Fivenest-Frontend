@@ -45,6 +45,9 @@ export interface ThreeDPreviewProps {
   zoom?: number;
   bgColor?: string;
   bgImageUrl?: string | null;
+  bgHue?: number;
+  bgSaturation?: number;
+  bgBrightness?: number;
   placketMode?: 'matchFront' | 'color' | 'image';
   onColorsAnalyzed?: (result: ColorAnalysisResult) => void;
 }
@@ -367,7 +370,10 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
   prefTrigger,
   zoom = 1,
   bgColor = '#0a0a0f',
-  bgImageUrl = '/backgrounds/studio_dark.jpg',
+  bgImageUrl = '/backgrounds/studio_blue.jpg',
+  bgHue = 0,
+  bgSaturation = 100,
+  bgBrightness = 100,
   placketMode = 'matchFront',
   onColorsAnalyzed
 }, ref) => {
@@ -384,6 +390,12 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
   const poloModelRef = useRef<THREE.Group | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
+
+  // 3D Background canvas & texture refs for real-time hue, saturation & brightness adjustments
+  const bgCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const bgTextureRef = useRef<THREE.CanvasTexture | null>(null);
+  const bgImageElementRef = useRef<HTMLImageElement | null>(null);
+  const loadedBgUrlRef = useRef<string | null>(null);
 
   // Auto-fit & model dimension tracking
   const modelCenterRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0));
@@ -685,29 +697,6 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
     }
   }, [zoom]);
 
-  // Update 3D Background when bgColor or bgImageUrl changes
-  useEffect(() => {
-    const scene = sceneRef.current;
-    if (!scene) return;
-
-    if (bgImageUrl) {
-      const textureLoader = new THREE.TextureLoader();
-      textureLoader.load(
-        bgImageUrl,
-        (tex) => {
-          tex.colorSpace = THREE.SRGBColorSpace;
-          scene.background = tex;
-        },
-        undefined,
-        (err) => {
-          console.error('Failed to load custom 3D background image:', err);
-          scene.background = new THREE.Color(bgColor || '#0a0a0f');
-        }
-      );
-    } else {
-      scene.background = new THREE.Color(bgColor || '#0a0a0f');
-    }
-  }, [bgColor, bgImageUrl]);
 
   // Expose imperative API for camera angles, captures, and color analysis
   useImperativeHandle(ref, () => ({
@@ -864,15 +853,7 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
     const height = containerRef.current.clientHeight;
 
     const scene = new THREE.Scene();
-    if (bgImageUrl) {
-      const textureLoader = new THREE.TextureLoader();
-      textureLoader.load(bgImageUrl, (tex) => {
-        tex.colorSpace = THREE.SRGBColorSpace;
-        scene.background = tex;
-      });
-    } else {
-      scene.background = new THREE.Color(bgColor || '#0a0a0f');
-    }
+    scene.background = new THREE.Color(bgColor || '#0a0a0f');
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
@@ -1233,8 +1214,86 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
       renderer.dispose();
       texture.dispose();
       normalMap.dispose();
+      if (bgTextureRef.current) {
+        bgTextureRef.current.dispose();
+        bgTextureRef.current = null;
+      }
     };
   }, []);
+
+  // Update 3D Background with real-time Hue, Saturation & Brightness filters
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+
+    if (!bgImageUrl) {
+      if (bgTextureRef.current) {
+        bgTextureRef.current.dispose();
+        bgTextureRef.current = null;
+      }
+      scene.background = new THREE.Color(bgColor || '#0a0a0f');
+      return;
+    }
+
+    const applyFilterAndSetBackground = (img: HTMLImageElement) => {
+      try {
+        if (!bgCanvasRef.current) {
+          bgCanvasRef.current = document.createElement('canvas');
+        }
+        const canvas = bgCanvasRef.current;
+        const w = img.naturalWidth || 1024;
+        const h = img.naturalHeight || 657;
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Apply CSS filter for real-time hue, saturation & brightness adjustments
+        ctx.filter = `hue-rotate(${bgHue || 0}deg) saturate(${bgSaturation ?? 100}%) brightness(${bgBrightness ?? 100}%)`;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        if (!bgTextureRef.current) {
+          const tex = new THREE.CanvasTexture(canvas);
+          tex.colorSpace = THREE.SRGBColorSpace;
+          tex.minFilter = THREE.LinearFilter;
+          tex.magFilter = THREE.LinearFilter;
+          bgTextureRef.current = tex;
+          scene.background = tex;
+        } else {
+          bgTextureRef.current.needsUpdate = true;
+          scene.background = bgTextureRef.current;
+        }
+      } catch (err) {
+        console.warn('Canvas filter failed, falling back to direct texture:', err);
+        const textureLoader = new THREE.TextureLoader();
+        textureLoader.load(bgImageUrl, (tex) => {
+          tex.colorSpace = THREE.SRGBColorSpace;
+          scene.background = tex;
+        });
+      }
+    };
+
+    if (bgImageElementRef.current && loadedBgUrlRef.current === bgImageUrl) {
+      applyFilterAndSetBackground(bgImageElementRef.current);
+    } else {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        bgImageElementRef.current = img;
+        loadedBgUrlRef.current = bgImageUrl;
+        applyFilterAndSetBackground(img);
+      };
+      img.onerror = (err) => {
+        console.error('Failed to load 3D background image:', err);
+        scene.background = new THREE.Color(bgColor || '#0a0a0f');
+      };
+      img.src = bgImageUrl;
+    }
+  }, [bgColor, bgImageUrl, bgHue, bgSaturation, bgBrightness]);
 
   return (
     <div 

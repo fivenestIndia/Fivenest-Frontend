@@ -859,7 +859,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   // 3D Viewport State
   const threeDRef = useRef<ThreeDPreviewHandle | null>(null);
   const [threeDBgColor, setThreeDBgColor] = useState<string>('#0a0a0f');
-  const [threeDBgImageUrl, setThreeDBgImageUrl] = useState<string | null>('/backgrounds/studio_dark.jpg');
+  const [threeDBgImageUrl, setThreeDBgImageUrl] = useState<string | null>('/backgrounds/studio_blue.jpg');
+  const [threeDBgHue, setThreeDBgHue] = useState<number>(0);
+  const [threeDBgSaturation, setThreeDBgSaturation] = useState<number>(100);
+  const [threeDBgBrightness, setThreeDBgBrightness] = useState<number>(100);
   const [placketMode, setPlacketMode] = useState<'matchFront' | 'color'>('matchFront');
   const [trimActiveTab, setTrimActiveTab] = useState<'collar' | 'sleeveStripe' | 'button' | 'placket'>('collar');
   const [extractedPalette, setExtractedPalette] = useState<string[]>([]);
@@ -5476,6 +5479,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               zoom={1}
               bgColor={threeDBgColor}
               bgImageUrl={threeDBgImageUrl}
+              bgHue={threeDBgHue}
+              bgSaturation={threeDBgSaturation}
+              bgBrightness={threeDBgBrightness}
               placketMode={placketMode}
             />
           </div>
@@ -6573,9 +6579,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 <h3 style={{ fontSize: '12px', fontWeight: '800', color: '#1F2937', margin: 0 }}>3D Studio Background</h3>
               </div>
 
+              {/* Background Preset Buttons (Studio Dark removed) */}
               <div style={{ display: 'flex', gap: '4px', marginBottom: '8px', flexWrap: 'wrap' }}>
                 {[
-                  { label: 'Studio Dark', type: 'image', value: '/backgrounds/studio_dark.jpg' },
                   { label: 'Studio Blue', type: 'image', value: '/backgrounds/studio_blue.jpg' },
                   { label: 'Black', type: 'color', value: '#0a0a0f' },
                   { label: 'White', type: 'color', value: '#ffffff' },
@@ -6612,6 +6618,161 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   );
                 })}
               </div>
+
+              {/* Studio Stage Color Tone (Hue & Saturation Adjustments) */}
+              {threeDBgImageUrl ? (
+                <div style={{ 
+                  marginBottom: '8px', 
+                  padding: '8px 10px', 
+                  background: '#F8FAFC', 
+                  borderRadius: '6px', 
+                  border: '1px solid #E2E8F0' 
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '10.5px', fontWeight: '700', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      🎨 Studio Stage Color Tone
+                    </span>
+                    {(threeDBgHue !== 0 || threeDBgSaturation !== 100 || threeDBgBrightness !== 100) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setThreeDBgHue(0);
+                          setThreeDBgSaturation(100);
+                          setThreeDBgBrightness(100);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#E4572E',
+                          fontSize: '10px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          padding: 0
+                        }}
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 1-Click Tone Presets */}
+                  <div style={{ display: 'flex', gap: '3px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                    {[
+                      { label: 'Blue', hue: 0, sat: 100, color: '#2563eb' },
+                      { label: 'Mono', hue: 0, sat: 0, color: '#475569' },
+                      { label: 'Violet', hue: 50, sat: 110, color: '#7c3aed' },
+                      { label: 'Red', hue: 140, sat: 110, color: '#dc2626' },
+                      { label: 'Amber', hue: -180, sat: 120, color: '#d97706' },
+                      { label: 'Green', hue: -120, sat: 100, color: '#059669' },
+                      { label: 'Cyan', hue: -60, sat: 110, color: '#0891b2' },
+                    ].map((p, i) => {
+                      const isToneActive = threeDBgHue === p.hue && threeDBgSaturation === p.sat;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => {
+                            setThreeDBgHue(p.hue);
+                            setThreeDBgSaturation(p.sat);
+                            setThreeDBgBrightness(100);
+                          }}
+                          style={{
+                            padding: '2px 5px',
+                            fontSize: '9.5px',
+                            fontWeight: isToneActive ? '800' : '600',
+                            borderRadius: '4px',
+                            border: isToneActive ? '1.5px solid #111827' : '1px solid #CBD5E1',
+                            background: isToneActive ? '#1E293B' : '#FFFFFF',
+                            color: isToneActive ? '#FFFFFF' : '#334155',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '3px'
+                          }}
+                        >
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: p.color, display: 'inline-block' }} />
+                          {p.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Hue Slider */}
+                  <div style={{ marginBottom: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: '600', color: '#475569', marginBottom: '2px' }}>
+                      <span>Hue (Color Wheel)</span>
+                      <span style={{ fontWeight: '700', color: '#0F172A' }}>{threeDBgHue > 0 ? `+${threeDBgHue}°` : `${threeDBgHue}°`}</span>
+                    </div>
+                    <input 
+                      type="range"
+                      min={-180}
+                      max={180}
+                      step={1}
+                      value={threeDBgHue}
+                      onChange={(e) => setThreeDBgHue(Number(e.target.value))}
+                      style={{
+                        width: '100%',
+                        height: '6px',
+                        borderRadius: '3px',
+                        background: 'linear-gradient(to right, #ff0055, #ffaa00, #aaff00, #00ffaa, #00aaff, #aa00ff, #ff0055)',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        accentColor: '#E4572E'
+                      }}
+                    />
+                  </div>
+
+                  {/* Saturation Slider */}
+                  <div style={{ marginBottom: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: '600', color: '#475569', marginBottom: '2px' }}>
+                      <span>Saturation (Vibrancy)</span>
+                      <span style={{ fontWeight: '700', color: '#0F172A' }}>{threeDBgSaturation}%</span>
+                    </div>
+                    <input 
+                      type="range"
+                      min={0}
+                      max={200}
+                      step={1}
+                      value={threeDBgSaturation}
+                      onChange={(e) => setThreeDBgSaturation(Number(e.target.value))}
+                      style={{
+                        width: '100%',
+                        height: '6px',
+                        borderRadius: '3px',
+                        background: 'linear-gradient(to right, #94a3b8, #3b82f6, #1d4ed8)',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        accentColor: '#E4572E'
+                      }}
+                    />
+                  </div>
+
+                  {/* Brightness Slider */}
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: '600', color: '#475569', marginBottom: '2px' }}>
+                      <span>Brightness (Stage Exposure)</span>
+                      <span style={{ fontWeight: '700', color: '#0F172A' }}>{threeDBgBrightness}%</span>
+                    </div>
+                    <input 
+                      type="range"
+                      min={40}
+                      max={160}
+                      step={1}
+                      value={threeDBgBrightness}
+                      onChange={(e) => setThreeDBgBrightness(Number(e.target.value))}
+                      style={{
+                        width: '100%',
+                        height: '6px',
+                        borderRadius: '3px',
+                        background: 'linear-gradient(to right, #0f172a, #64748b, #f8fafc)',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        accentColor: '#E4572E'
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : null}
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
