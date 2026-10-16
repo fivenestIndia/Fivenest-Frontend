@@ -367,7 +367,7 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
   prefTrigger,
   zoom = 1,
   bgColor = '#0a0a0f',
-  bgImageUrl = null,
+  bgImageUrl = '/backgrounds/studio_dark.jpg',
   placketMode = 'matchFront',
   onColorsAnalyzed
 }, ref) => {
@@ -864,7 +864,15 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
     const height = containerRef.current.clientHeight;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(bgColor || '#0a0a0f');
+    if (bgImageUrl) {
+      const textureLoader = new THREE.TextureLoader();
+      textureLoader.load(bgImageUrl, (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        scene.background = tex;
+      });
+    } else {
+      scene.background = new THREE.Color(bgColor || '#0a0a0f');
+    }
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
@@ -881,30 +889,48 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.25;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     rendererRef.current = renderer;
 
-    // Ambient Lighting
-    const ambientLight = new THREE.AmbientLight('#ffffff', 0.75);
-    scene.add(ambientLight);
+    // ── PROFESSIONAL 3D STUDIO LIGHTING RIG ──
+    // 1. Soft Ambient Sky/Ground bounce for natural clothing realism
+    const hemiLight = new THREE.HemisphereLight('#ffffff', '#1e293b', 0.65);
+    scene.add(hemiLight);
 
-    // Front Main Directional Light
-    const dirLight1 = new THREE.DirectionalLight('#ffffff', 0.95);
-    dirLight1.position.set(2, 4, 3);
-    dirLight1.castShadow = true;
-    dirLight1.shadow.mapSize.width = 2048;
-    dirLight1.shadow.mapSize.height = 2048;
-    dirLight1.shadow.bias = -0.0001;
-    scene.add(dirLight1);
+    // 2. Main Studio Key Light (Elevated front-right softbox with crisp soft shadows)
+    const keyLight = new THREE.DirectionalLight('#ffffff', 1.4);
+    keyLight.position.set(2.5, 4.0, 3.2);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.width = 2048;
+    keyLight.shadow.mapSize.height = 2048;
+    keyLight.shadow.bias = -0.0001;
+    scene.add(keyLight);
 
-    // Back Directional Light for fills
-    const dirLight2 = new THREE.DirectionalLight('#ffffff', 0.45);
-    dirLight2.position.set(-2, 2, -3);
-    scene.add(dirLight2);
+    // 3. Fill Light (Front-left soft diffusion to fill shadow areas)
+    const fillLight = new THREE.DirectionalLight('#f1f5f9', 0.85);
+    fillLight.position.set(-2.8, 2.5, 2.5);
+    scene.add(fillLight);
 
-    // Point Light from bottom
-    const pointLight = new THREE.PointLight('#ffffff', 0.2, 10);
-    pointLight.position.set(0, -2, 2);
-    scene.add(pointLight);
+    // 4. Studio Rim / Kicker Lights (Creates crisp silhouette highlights along shoulders, arms & collar)
+    const rimLightLeft = new THREE.DirectionalLight('#ffffff', 1.15);
+    rimLightLeft.position.set(-3.2, 3.0, -2.8);
+    scene.add(rimLightLeft);
+
+    const rimLightRight = new THREE.DirectionalLight('#ffffff', 1.05);
+    rimLightRight.position.set(3.2, 3.0, -2.8);
+    scene.add(rimLightRight);
+
+    // 5. Overhead Soft Light (Accentuates collar folds, neck rib and shoulder contours)
+    const topLight = new THREE.DirectionalLight('#ffffff', 0.8);
+    topLight.position.set(0, 4.8, 0.5);
+    scene.add(topLight);
+
+    // 6. Chest Specular Glint (Subtle point light highlighting buttons, placket and jersey fabric texture)
+    const chestGlintLight = new THREE.PointLight('#ffffff', 0.55, 6);
+    chestGlintLight.position.set(0, 0.4, 1.8);
+    scene.add(chestGlintLight);
 
     // Orbit Controls
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -1095,10 +1121,10 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
             const matName = (mesh.material as any).name || '';
 
             const mat = new THREE.MeshStandardMaterial({
-              roughness: 0.82,
-              metalness: 0.12,
+              roughness: 0.58, // Soft textile micro-specular responds to studio lighting
+              metalness: 0.05,
               normalMap: normalMap,
-              normalScale: new THREE.Vector2(0.12, 0.12),
+              normalScale: new THREE.Vector2(0.18, 0.18),
               side: THREE.DoubleSide
             });
 
@@ -1117,6 +1143,8 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
             if (isButton) {
               mat.name = 'button';
               mesh.userData.role = 'button';
+              mat.roughness = 0.22; // Glossy polished buttons
+              mat.metalness = 0.15;
               const btnCol = trim.buttonColor || '#ffffff';
               mat.color.set(btnCol);
               mat.map = null;

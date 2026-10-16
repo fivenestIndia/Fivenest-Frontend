@@ -859,8 +859,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   // 3D Viewport State
   const threeDRef = useRef<ThreeDPreviewHandle | null>(null);
   const [threeDBgColor, setThreeDBgColor] = useState<string>('#0a0a0f');
-  const [threeDBgImageUrl, setThreeDBgImageUrl] = useState<string | null>(null);
-  const [placketMode, setPlacketMode] = useState<'matchFront' | 'color' | 'image'>('matchFront');
+  const [threeDBgImageUrl, setThreeDBgImageUrl] = useState<string | null>('/backgrounds/studio_dark.jpg');
+  const [placketMode, setPlacketMode] = useState<'matchFront' | 'color'>('matchFront');
+  const [trimActiveTab, setTrimActiveTab] = useState<'collar' | 'sleeveStripe' | 'button' | 'placket'>('collar');
   const [extractedPalette, setExtractedPalette] = useState<string[]>([]);
   const [isExportingMockup, setIsExportingMockup] = useState<boolean>(false);
   const [exportMockupStatus, setExportMockupStatus] = useState<string>('');
@@ -6230,335 +6231,339 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               </div>
             </div>
 
-            {/* Card 2: Collar */}
+            {/* Card 2: Collar & Customization */}
             <div className="glass-card" style={{ padding: '10px 12px', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Shirt size={15} style={{ color: '#E4572E' }} />
-                  <span style={{ fontSize: '12px', fontWeight: '800', color: '#1F2937' }}>Collar</span>
+                  <span style={{ fontSize: '12px', fontWeight: '800', color: '#1F2937' }}>Customization</span>
                 </span>
               </div>
 
-              {/* Auto-Analyse Design & Fill Collar Button */}
-              <button
-                type="button"
-                onClick={handleAutoAnalyzeColors}
-                className="btn w-full"
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  padding: '7px 10px',
-                  background: 'linear-gradient(135deg, #E4572E 0%, #EA580C 100%)',
-                  color: '#FFFFFF',
-                  borderRadius: '6px',
-                  border: 'none',
-                  fontWeight: '700',
-                  fontSize: '11px',
-                  boxShadow: '0 2px 6px rgba(228, 87, 46, 0.2)',
-                  cursor: 'pointer',
-                  marginBottom: '8px'
-                }}
-              >
-                <Sparkles size={13} /> Auto-Analyse & Fill Collar
-              </button>
+              {/* 4 Category Selector Buttons: Collar, Sleeve Stripe, Button, Placket */}
+              <div style={{ display: 'flex', gap: '3px', marginBottom: '10px', background: '#F1F5F9', padding: '3px', borderRadius: '6px' }}>
+                {[
+                  { id: 'collar', label: 'Collar' },
+                  { id: 'sleeveStripe', label: 'Sleeve Stripe' },
+                  { id: 'button', label: 'Button' },
+                  { id: 'placket', label: 'Placket' }
+                ].map((tab) => {
+                  const isActive = trimActiveTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setTrimActiveTab(tab.id as any)}
+                      style={{
+                        flex: 1,
+                        padding: '5px 2px',
+                        fontSize: '10.5px',
+                        fontWeight: isActive ? '800' : '600',
+                        borderRadius: '5px',
+                        border: 'none',
+                        background: isActive ? '#FFFFFF' : 'transparent',
+                        color: isActive ? '#E4572E' : '#4B5563',
+                        boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
 
-              {/* Detected Palette Swatches */}
-              {extractedPalette.length > 0 && (
-                <div style={{ marginBottom: '8px', background: '#F8FAFC', padding: '6px 8px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
-                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#475569', marginBottom: '4px' }}>
-                    Palette (click for Collar):
-                  </div>
-                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                    {extractedPalette.map((col, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handleApplyPaletteColorToCollar(col)}
-                        title={`Collar: ${col}`}
-                        style={{
-                          width: '22px',
-                          height: '22px',
-                          borderRadius: '4px',
-                          background: col,
-                          border: (designConfig.trim?.collar.color === col) ? '2px solid #E4572E' : '1px solid rgba(0,0,0,0.15)',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                      >
-                        {(designConfig.trim?.collar.color === col) && <Check size={11} color={isLightColor(col) ? '#000000' : '#ffffff'} />}
-                      </button>
-                    ))}
+              {/* 1. COLLAR TAB */}
+              {trimActiveTab === 'collar' && (
+                <div>
+                  {/* Auto-Analyse Design & Fill Collar Button */}
+                  <button
+                    type="button"
+                    onClick={handleAutoAnalyzeColors}
+                    className="btn w-full"
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      padding: '7px 10px',
+                      background: 'linear-gradient(135deg, #E4572E 0%, #EA580C 100%)',
+                      color: '#FFFFFF',
+                      borderRadius: '6px',
+                      border: 'none',
+                      fontWeight: '700',
+                      fontSize: '11px',
+                      boxShadow: '0 2px 6px rgba(228, 87, 46, 0.2)',
+                      cursor: 'pointer',
+                      marginBottom: '8px'
+                    }}
+                  >
+                    <Sparkles size={13} /> Auto-Analyse & Fill Collar
+                  </button>
+
+                  {/* Detected Palette Swatches */}
+                  {extractedPalette.length > 0 && (
+                    <div style={{ marginBottom: '8px', background: '#F8FAFC', padding: '6px 8px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                      <div style={{ fontSize: '10px', fontWeight: '700', color: '#475569', marginBottom: '4px' }}>
+                        Palette (click for Collar):
+                      </div>
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                        {extractedPalette.map((col, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => handleApplyPaletteColorToCollar(col)}
+                            title={`Collar: ${col}`}
+                            style={{
+                              width: '22px',
+                              height: '22px',
+                              borderRadius: '4px',
+                              background: col,
+                              border: (designConfig.trim?.collar.color === col) ? '2px solid #E4572E' : '1px solid rgba(0,0,0,0.15)',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            {(designConfig.trim?.collar.color === col) && <Check size={11} color={isLightColor(col) ? '#000000' : '#ffffff'} />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Section: Collar & Rib */}
+                  <div style={{ background: '#F9FAFB', padding: '6px 8px', borderRadius: '6px', border: '1px solid #E5E7EB' }}>
+                    <h4 style={{ fontSize: '11px', fontWeight: '700', color: '#374151', marginBottom: '4px' }}>Collar & Rib Color</h4>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                        <input 
+                          type="color" 
+                          value={designConfig.trim?.collar.color || designConfig.front.generatedColor1} 
+                          onChange={(e) => updateTrimConfig('collar', { color: e.target.value })}
+                          style={{ border: 'none', background: 'none', width: '28px', height: '28px', cursor: 'pointer', padding: 0 }}
+                        />
+                        <input 
+                          type="text" 
+                          className="form-input" 
+                          value={(designConfig.trim?.collar.color || designConfig.front.generatedColor1).toUpperCase()}
+                          onChange={(e) => updateTrimConfig('collar', { color: e.target.value })}
+                          style={{ padding: '3px 6px', fontSize: '11px', width: '70px', borderRadius: '5px' }}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        {(designConfig.trim?.collar.uploadedUrl || designConfig.collar?.uploadedFileUrl) ? (
+                          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                            <span style={{ fontSize: '10px', color: '#10b981', fontWeight: '600' }}>Pattern</span>
+                            <button 
+                              type="button"
+                              className="btn btn-secondary" 
+                              style={{ padding: '2px 6px', fontSize: '10px' }}
+                              onClick={() => {
+                                const currentCollar = designConfig.collar || defaultDesignConfig.collar!;
+                                const currentTrim = designConfig.trim || {
+                                  collar: { color: designConfig.front.generatedColor1, uploadedUrl: null },
+                                  placket: { color: designConfig.front.generatedColor1, uploadedUrl: null },
+                                  sleeveStripe: { enabled: false, color: designConfig.front.generatedColor1, uploadedUrl: null, height: 2.0, fillType: 'solid' },
+                                  buttonColor: '#ffffff'
+                                };
+                                const updated = {
+                                  ...designConfig,
+                                  collar: {
+                                    ...currentCollar,
+                                    uploadedFileUrl: null
+                                  },
+                                  trim: {
+                                    ...currentTrim,
+                                    collar: {
+                                      ...currentTrim.collar,
+                                      uploadedUrl: null
+                                    }
+                                  }
+                                };
+                                onDesignConfigChange(updated);
+                                setPrefTrigger(prev => prev + 1);
+                              }}
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        ) : (
+                          <label className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '10px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
+                            Import Image
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              onChange={(e) => handleTrimFileUpload('collar', e)} 
+                              style={{ display: 'none' }} 
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Section: Collar & Rib */}
-              <div style={{ marginBottom: '8px' }}>
-                <h4 style={{ fontSize: '11px', fontWeight: '700', color: '#374151', marginBottom: '4px' }}>Collar & Rib Color</h4>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    <input 
-                      type="color" 
-                      value={designConfig.trim?.collar.color || designConfig.front.generatedColor1} 
-                      onChange={(e) => updateTrimConfig('collar', { color: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '28px', height: '28px', cursor: 'pointer', padding: 0 }}
-                    />
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      value={(designConfig.trim?.collar.color || designConfig.front.generatedColor1).toUpperCase()}
-                      onChange={(e) => updateTrimConfig('collar', { color: e.target.value })}
-                      style={{ padding: '3px 6px', fontSize: '11px', width: '70px', borderRadius: '5px' }}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    {(designConfig.trim?.collar.uploadedUrl || designConfig.collar?.uploadedFileUrl) ? (
-                      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                        <span style={{ fontSize: '10px', color: '#10b981', fontWeight: '600' }}>Pattern</span>
-                        <button 
-                          type="button"
-                          className="btn btn-secondary" 
-                          style={{ padding: '2px 6px', fontSize: '10px' }}
-                          onClick={() => {
-                            const currentCollar = designConfig.collar || defaultDesignConfig.collar!;
-                            const currentTrim = designConfig.trim || {
-                              collar: { color: designConfig.front.generatedColor1, uploadedUrl: null },
-                              placket: { color: designConfig.front.generatedColor1, uploadedUrl: null },
-                              sleeveStripe: { enabled: false, color: designConfig.front.generatedColor1, uploadedUrl: null, height: 2.0, fillType: 'solid' },
-                              buttonColor: '#ffffff'
-                            };
-                            const updated = {
-                              ...designConfig,
-                              collar: {
-                                ...currentCollar,
-                                uploadedFileUrl: null
-                              },
-                              trim: {
-                                ...currentTrim,
-                                collar: {
-                                  ...currentTrim.collar,
-                                  uploadedUrl: null
-                                }
-                              }
-                            };
-                            onDesignConfigChange(updated);
-                            setPrefTrigger(prev => prev + 1);
-                          }}
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '10px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
-                        Import Image
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={(e) => handleTrimFileUpload('collar', e)} 
-                          style={{ display: 'none' }} 
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Section: Button Color */}
-              <div style={{ marginBottom: '8px', background: '#F9FAFB', padding: '6px 8px', borderRadius: '6px', border: '1px solid #E5E7EB' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#374151', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: designConfig.trim?.buttonColor || '#ffffff', border: '1px solid #9ca3af', display: 'inline-block' }} />
-                    Button Color
-                  </span>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    {[
-                      { name: 'White', color: '#ffffff' },
-                      { name: 'Black', color: '#171717' },
-                      { name: 'Navy', color: '#0f172a' },
-                      { name: 'Collar', color: designConfig.trim?.collar.color || designConfig.front.generatedColor1 }
-                    ].map((p, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => updateButtonColor(p.color)}
-                        title={`Set buttons to ${p.name}`}
-                        style={{
-                          width: '16px',
-                          height: '16px',
-                          borderRadius: '50%',
-                          background: p.color,
-                          border: (designConfig.trim?.buttonColor || '#ffffff').toLowerCase() === p.color.toLowerCase() ? '2px solid #E4572E' : '1px solid #d1d5db',
-                          cursor: 'pointer',
-                          padding: 0
-                        }}
+              {/* 2. SLEEVE STRIPE TAB */}
+              {trimActiveTab === 'sleeveStripe' && (
+                <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '6px', padding: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#111827' }}>Sleeve Bottom Stripe</span>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '10px', fontWeight: '600', color: '#374151' }}>
+                      <input 
+                        type="checkbox"
+                        checked={designConfig.trim?.sleeveStripe.enabled === true}
+                        onChange={(e) => updateTrimConfig('sleeveStripe', { enabled: e.target.checked })}
+                        style={{ accentColor: '#E4572E' }}
                       />
-                    ))}
+                      Enabled
+                    </label>
                   </div>
+                  {designConfig.trim?.sleeveStripe.enabled === true ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <input 
+                        type="color" 
+                        value={designConfig.trim?.sleeveStripe.color || '#171717'} 
+                        onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
+                        style={{ border: 'none', background: 'none', width: '26px', height: '26px', cursor: 'pointer', padding: 0 }}
+                      />
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        value={(designConfig.trim?.sleeveStripe.color || '#171717').toUpperCase()}
+                        onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
+                        style={{ padding: '3px 6px', fontSize: '11px', width: '70px', borderRadius: '5px' }}
+                      />
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: '10px', color: '#059669', margin: 0, fontWeight: '600' }}>
+                      ✓ Sleeve design stretches seamlessly down to bottom cuff.
+                    </p>
+                  )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <input 
-                    type="color" 
-                    value={designConfig.trim?.buttonColor || '#ffffff'} 
-                    onChange={(e) => updateButtonColor(e.target.value)}
-                    style={{ border: 'none', background: 'none', width: '26px', height: '26px', cursor: 'pointer', padding: 0 }}
-                  />
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    value={(designConfig.trim?.buttonColor || '#ffffff').toUpperCase()}
-                    onChange={(e) => updateButtonColor(e.target.value)}
-                    style={{ padding: '3px 6px', fontSize: '11px', width: '70px', borderRadius: '5px' }}
-                  />
-                </div>
-              </div>
+              )}
 
-              {/* Section: Placket Mode & Styling */}
-              <div style={{ marginBottom: '8px', background: '#F9FAFB', padding: '6px 8px', borderRadius: '6px', border: '1px solid #E5E7EB' }}>
-                <h4 style={{ fontSize: '11px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>Button Placket</h4>
-                <div style={{ display: 'flex', gap: '3px', marginBottom: '6px' }}>
-                  <button
-                    type="button"
-                    onClick={() => setPlacketMode('matchFront')}
-                    style={{
-                      flex: 1,
-                      padding: '4px 2px',
-                      fontSize: '10px',
-                      fontWeight: '700',
-                      borderRadius: '5px',
-                      border: placketMode === 'matchFront' ? '1px solid #E4572E' : '1px solid #D1D5DB',
-                      background: placketMode === 'matchFront' ? '#E4572E' : '#FFFFFF',
-                      color: placketMode === 'matchFront' ? '#FFFFFF' : '#4B5563',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Match Design
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPlacketMode('color')}
-                    style={{
-                      flex: 1,
-                      padding: '4px 2px',
-                      fontSize: '10px',
-                      fontWeight: '700',
-                      borderRadius: '5px',
-                      border: placketMode === 'color' ? '1px solid #E4572E' : '1px solid #D1D5DB',
-                      background: placketMode === 'color' ? '#E4572E' : '#FFFFFF',
-                      color: placketMode === 'color' ? '#FFFFFF' : '#4B5563',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Solid
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPlacketMode('image')}
-                    style={{
-                      flex: 1,
-                      padding: '4px 2px',
-                      fontSize: '10px',
-                      fontWeight: '700',
-                      borderRadius: '5px',
-                      border: placketMode === 'image' ? '1px solid #E4572E' : '1px solid #D1D5DB',
-                      background: placketMode === 'image' ? '#E4572E' : '#FFFFFF',
-                      color: placketMode === 'image' ? '#FFFFFF' : '#4B5563',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Image
-                  </button>
-                </div>
-
-                {placketMode === 'matchFront' && (
-                  <p style={{ fontSize: '10px', color: '#059669', margin: 0, fontWeight: '600' }}>
-                    ✓ Front design fills placket seamlessly.
-                  </p>
-                )}
-
-                {placketMode === 'color' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <input 
-                      type="color" 
-                      value={designConfig.trim?.placket.color || designConfig.front.generatedColor1} 
-                      onChange={(e) => updateTrimConfig('placket', { color: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '26px', height: '26px', cursor: 'pointer', padding: 0 }}
-                    />
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      value={(designConfig.trim?.placket.color || designConfig.front.generatedColor1).toUpperCase()}
-                      onChange={(e) => updateTrimConfig('placket', { color: e.target.value })}
-                      style={{ padding: '3px 6px', fontSize: '11px', width: '70px', borderRadius: '5px' }}
-                    />
-                  </div>
-                )}
-
-                {placketMode === 'image' && (
-                  <div>
-                    {designConfig.trim?.placket.uploadedUrl ? (
-                      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                        <span style={{ fontSize: '10px', color: '#10b981', fontWeight: '600' }}>Active</span>
-                        <button 
+              {/* 3. BUTTON TAB */}
+              {trimActiveTab === 'button' && (
+                <div style={{ background: '#F9FAFB', padding: '8px', borderRadius: '6px', border: '1px solid #E5E7EB' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#374151', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: designConfig.trim?.buttonColor || '#ffffff', border: '1px solid #9ca3af', display: 'inline-block' }} />
+                      Button Color
+                    </span>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      {[
+                        { name: 'White', color: '#ffffff' },
+                        { name: 'Black', color: '#171717' },
+                        { name: 'Navy', color: '#0f172a' },
+                        { name: 'Collar', color: designConfig.trim?.collar.color || designConfig.front.generatedColor1 }
+                      ].map((p, idx) => (
+                        <button
+                          key={idx}
                           type="button"
-                          className="btn btn-secondary" 
-                          style={{ padding: '2px 6px', fontSize: '10px' }}
-                          onClick={() => updateTrimConfig('placket', { uploadedUrl: null })}
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '10px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
-                        Upload Image
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={(e) => handleTrimFileUpload('placket', e)} 
-                          style={{ display: 'none' }} 
+                          onClick={() => updateButtonColor(p.color)}
+                          title={`Set buttons to ${p.name}`}
+                          style={{
+                            width: '16px',
+                            height: '16px',
+                            borderRadius: '50%',
+                            background: p.color,
+                            border: (designConfig.trim?.buttonColor || '#ffffff').toLowerCase() === p.color.toLowerCase() ? '2px solid #E4572E' : '1px solid #d1d5db',
+                            cursor: 'pointer',
+                            padding: 0
+                          }}
                         />
-                      </label>
-                    )}
+                      ))}
+                    </div>
                   </div>
-                )}
-              </div>
-
-              {/* Section: Sleeve Bottom Stripe */}
-              <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '6px', padding: '6px 8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#111827' }}>Sleeve Bottom Stripe</span>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '10px', fontWeight: '600', color: '#374151' }}>
-                    <input 
-                      type="checkbox"
-                      checked={designConfig.trim?.sleeveStripe.enabled === true}
-                      onChange={(e) => updateTrimConfig('sleeveStripe', { enabled: e.target.checked })}
-                      style={{ accentColor: '#E4572E' }}
-                    />
-                    Enabled
-                  </label>
-                </div>
-                {designConfig.trim?.sleeveStripe.enabled === true && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <input 
                       type="color" 
-                      value={designConfig.trim?.sleeveStripe.color || '#171717'} 
-                      onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
+                      value={designConfig.trim?.buttonColor || '#ffffff'} 
+                      onChange={(e) => updateButtonColor(e.target.value)}
                       style={{ border: 'none', background: 'none', width: '26px', height: '26px', cursor: 'pointer', padding: 0 }}
                     />
                     <input 
                       type="text" 
                       className="form-input" 
-                      value={(designConfig.trim?.sleeveStripe.color || '#171717').toUpperCase()}
-                      onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
+                      value={(designConfig.trim?.buttonColor || '#ffffff').toUpperCase()}
+                      onChange={(e) => updateButtonColor(e.target.value)}
                       style={{ padding: '3px 6px', fontSize: '11px', width: '70px', borderRadius: '5px' }}
                     />
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* 4. PLACKET TAB */}
+              {trimActiveTab === 'placket' && (
+                <div style={{ background: '#F9FAFB', padding: '8px', borderRadius: '6px', border: '1px solid #E5E7EB' }}>
+                  <h4 style={{ fontSize: '11px', fontWeight: '700', color: '#111827', marginBottom: '6px' }}>Placket</h4>
+                  <div style={{ display: 'flex', gap: '4px', marginBottom: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setPlacketMode('matchFront')}
+                      style={{
+                        flex: 1,
+                        padding: '5px 4px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        borderRadius: '5px',
+                        border: placketMode === 'matchFront' ? '1px solid #E4572E' : '1px solid #D1D5DB',
+                        background: placketMode === 'matchFront' ? '#E4572E' : '#FFFFFF',
+                        color: placketMode === 'matchFront' ? '#FFFFFF' : '#4B5563',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Match Design
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPlacketMode('color')}
+                      style={{
+                        flex: 1,
+                        padding: '5px 4px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        borderRadius: '5px',
+                        border: placketMode === 'color' ? '1px solid #E4572E' : '1px solid #D1D5DB',
+                        background: placketMode === 'color' ? '#E4572E' : '#FFFFFF',
+                        color: placketMode === 'color' ? '#FFFFFF' : '#4B5563',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Solid
+                    </button>
+                  </div>
+
+                  {placketMode === 'matchFront' && (
+                    <p style={{ fontSize: '10px', color: '#059669', margin: 0, fontWeight: '600' }}>
+                      ✓ Front design fills placket seamlessly.
+                    </p>
+                  )}
+
+                  {placketMode === 'color' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <input 
+                        type="color" 
+                        value={designConfig.trim?.placket.color || designConfig.front.generatedColor1} 
+                        onChange={(e) => updateTrimConfig('placket', { color: e.target.value })}
+                        style={{ border: 'none', background: 'none', width: '26px', height: '26px', cursor: 'pointer', padding: 0 }}
+                      />
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        value={(designConfig.trim?.placket.color || designConfig.front.generatedColor1).toUpperCase()}
+                        onChange={(e) => updateTrimConfig('placket', { color: e.target.value })}
+                        style={{ padding: '3px 6px', fontSize: '11px', width: '70px', borderRadius: '5px' }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Card 3: 3D Background Studio */}
@@ -6570,32 +6575,42 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
               <div style={{ display: 'flex', gap: '4px', marginBottom: '8px', flexWrap: 'wrap' }}>
                 {[
-                  { label: 'Dark', color: '#0a0a0f' },
-                  { label: 'White', color: '#ffffff' },
-                  { label: 'Slate', color: '#1e293b' },
-                  { label: 'Gray', color: '#f1f5f9' },
-                ].map((bg, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      setThreeDBgColor(bg.color);
-                      setThreeDBgImageUrl(null);
-                    }}
-                    style={{
-                      padding: '3px 6px',
-                      fontSize: '10px',
-                      fontWeight: '700',
-                      borderRadius: '5px',
-                      border: (threeDBgColor === bg.color && !threeDBgImageUrl) ? '2px solid #E4572E' : '1px solid #D1D5DB',
-                      background: bg.color,
-                      color: isLightColor(bg.color) ? '#1F2937' : '#FFFFFF',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {bg.label}
-                  </button>
-                ))}
+                  { label: 'Studio Dark', type: 'image', value: '/backgrounds/studio_dark.jpg' },
+                  { label: 'Studio Blue', type: 'image', value: '/backgrounds/studio_blue.jpg' },
+                  { label: 'Black', type: 'color', value: '#0a0a0f' },
+                  { label: 'White', type: 'color', value: '#ffffff' },
+                  { label: 'Slate', type: 'color', value: '#1e293b' },
+                ].map((bg, idx) => {
+                  const isSelected = bg.type === 'image'
+                    ? threeDBgImageUrl === bg.value
+                    : (!threeDBgImageUrl && threeDBgColor === bg.value);
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        if (bg.type === 'image') {
+                          setThreeDBgImageUrl(bg.value);
+                        } else {
+                          setThreeDBgColor(bg.value);
+                          setThreeDBgImageUrl(null);
+                        }
+                      }}
+                      style={{
+                        padding: '3px 7px',
+                        fontSize: '10px',
+                        fontWeight: '700',
+                        borderRadius: '5px',
+                        border: isSelected ? '2px solid #E4572E' : '1px solid #D1D5DB',
+                        background: isSelected ? '#FFF7ED' : '#F9FAFB',
+                        color: isSelected ? '#EA580C' : '#374151',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {bg.label}
+                    </button>
+                  );
+                })}
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
@@ -6642,7 +6657,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
               {/* Background Dimension Info in Inches */}
               <div style={{ marginTop: '6px', fontSize: '10px', color: '#6B7280', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F8FAFC', padding: '4px 6px', borderRadius: '5px', border: '1px dashed #CBD5E1' }}>
-                <span style={{ fontWeight: '600', color: '#475569' }}>📐 Size:</span>
+                <span style={{ fontWeight: '600', color: '#475569' }}>📐 Recommended Size:</span>
                 <span style={{ fontWeight: '700', color: '#1E293B' }}>16" × 9" in (1920 × 1080 px, 16:9)</span>
               </div>
             </div>
