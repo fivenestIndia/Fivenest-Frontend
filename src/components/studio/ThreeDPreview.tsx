@@ -526,20 +526,16 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
     // Draw collar, button placket, cuffs and other parts with solid matches or custom images
     const activeCollarImg = loadedTrimImages.collar || loadedTrimImages.collarArtwork;
 
-    // Component 1: Collar (X=[3157, 4117], Y=[42, 1002])
+    // Component 1: Collar in static2 (Main collar: X=[2470, 3045], Y=[1715, 1835])
     if (activeCollarImg) {
+      mainCtx.drawImage(activeCollarImg, 2470, 1715, 575, 120);
+      mainCtx.drawImage(activeCollarImg, 2630, 1825, 650, 275);
       mainCtx.drawImage(activeCollarImg, 3157, 42, 960, 960);
     } else {
       mainCtx.fillStyle = trim.collar.color || c1;
+      mainCtx.fillRect(2470, 1715, 575, 120);
+      mainCtx.fillRect(2630, 1825, 650, 275);
       mainCtx.fillRect(3157, 42, 960, 960);
-    }
-
-    // Component 10: Collar rib (X=[1813, 2901], Y=[1408, 1514])
-    if (activeCollarImg) {
-      mainCtx.drawImage(activeCollarImg, 1813, 1408, 1088, 106);
-    } else {
-      mainCtx.fillStyle = trim.collar.color || c1;
-      mainCtx.fillRect(1813, 1408, 1088, 106);
     }
 
     // Component 11: Sleeve cuffs (Left: X=[490, 1557], Right: X=[1820, 2912], Y=[1420, 1540])
@@ -567,38 +563,14 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
     // Right sleeve cuff
     drawCuff(1820, 1420, 1092, 120);
 
-    // Component 12: Placket (X=[2474, 3050], Y=[1706, 1834], Size: 576x128)
-    if (placketMode === 'matchFront') {
-      // Seamlessly integrate with front uploaded design
-      const fW = frontCanvas.current.width;
-      const fH = frontCanvas.current.height;
-      const sampleW = Math.round(fW * 0.16); // center chest strip
-      const sampleH = Math.round(fH * 0.28); // down chest height
-      const sampleX = Math.round((fW - sampleW) / 2);
-      const sampleY = Math.round(fH * 0.04); // neck drop
-
-      const pCanvas = document.createElement('canvas');
-      pCanvas.width = 576;
-      pCanvas.height = 128;
-      const pCtx = pCanvas.getContext('2d');
-      if (pCtx) {
-        // Rotate 90 degrees clockwise so vertical chest drop matches horizontal UV strip
-        pCtx.save();
-        pCtx.translate(288, 64);
-        pCtx.rotate(Math.PI / 2);
-        pCtx.drawImage(
-          frontCanvas.current,
-          sampleX, sampleY, sampleW, sampleH,
-          -64, -288, 128, 576
-        );
-        pCtx.restore();
-        mainCtx.drawImage(pCanvas, 2474, 1706, 576, 128);
-      }
+    // Component 12: Placket overlay
+    // Note: When placketMode === 'matchFront' (default), all placket vertices in the 3D model are
+    // seamlessly UV-mapped to the front chest, so the front design automatically wraps the placket.
+    if (placketMode === 'color' && trim.placket?.color) {
+      mainCtx.fillStyle = trim.placket.color;
+      mainCtx.fillRect(700, 2180, 100, 440);
     } else if (placketMode === 'image' && loadedTrimImages.placket) {
-      mainCtx.drawImage(loadedTrimImages.placket, 2474, 1706, 576, 128);
-    } else {
-      mainCtx.fillStyle = trim.placket.color || c1;
-      mainCtx.fillRect(2474, 1706, 576, 128);
+      mainCtx.drawImage(loadedTrimImages.placket, 700, 2180, 100, 440);
     }
 
     if (textureRef.current) {
