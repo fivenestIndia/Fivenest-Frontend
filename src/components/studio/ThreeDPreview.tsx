@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
-import { ArtDesignConfig } from './designer';
+import type { ArtDesignConfig } from './designer';
 import { Loader2 } from 'lucide-react';
 import { defaultSizes } from './sizesDb';
 
@@ -52,6 +52,32 @@ export interface ThreeDPreviewProps {
 function rgbToHex(r: number, g: number, b: number): string {
   const toH = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
   return `#${toH(r)}${toH(g)}${toH(b)}`;
+}
+
+function drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function isLightColor(colorStr: string): boolean {
+  if (!colorStr) return false;
+  if (colorStr.startsWith('#')) {
+    const hex = colorStr.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16) || 0;
+    const g = parseInt(hex.substring(2, 4), 16) || 0;
+    const b = parseInt(hex.substring(4, 6), 16) || 0;
+    return (r * 0.299 + g * 0.587 + b * 0.114) > 160;
+  }
+  return false;
 }
 
 /**
@@ -334,32 +360,6 @@ export async function generatePresentationBoard(
   return canvas.toDataURL('image/jpeg', 0.95);
 }
 
-function drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
-
-function isLightColor(colorStr: string): boolean {
-  if (!colorStr) return false;
-  if (colorStr.startsWith('#')) {
-    const hex = colorStr.replace('#', '');
-    const r = parseInt(hex.substring(0, 2), 16) || 0;
-    const g = parseInt(hex.substring(2, 4), 16) || 0;
-    const b = parseInt(hex.substring(4, 6), 16) || 0;
-    return (r * 0.299 + g * 0.587 + b * 0.114) > 160;
-  }
-  return false;
-}
-
 export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>(({
   designConfig,
   renderPanelToCanvas,
@@ -468,6 +468,14 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
     mainCtx.fillStyle = '#ffffff';
     mainCtx.fillRect(0, 0, 4267, 4267);
 
+    // Primary front base color and trim definitions (declared early to prevent TDZ ReferenceError)
+    const c1 = designConfig.front.generatedColor1 || '#ffffff';
+    const trim = designConfig.trim || {
+      collar: { color: c1, uploadedUrl: null },
+      placket: { color: c1, uploadedUrl: null },
+      sleeveStripe: { color: c1, uploadedUrl: null }
+    };
+
     // 1. Draw Front panel (Component 14: X=[64, 1450], Y=[1962, 3861], Size: 1386x1899)
     const sizeConf = defaultSizes["40"];
     const frontScale = 1386 / sizeConf.front.w;
@@ -516,13 +524,6 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
     }
 
     // Draw collar, button placket, cuffs and other parts with solid matches or custom images
-    const c1 = designConfig.front.generatedColor1;
-    const trim = designConfig.trim || {
-      collar: { color: c1, uploadedUrl: null },
-      placket: { color: c1, uploadedUrl: null },
-      sleeveStripe: { color: c1, uploadedUrl: null }
-    };
-
     const activeCollarImg = loadedTrimImages.collar || loadedTrimImages.collarArtwork;
 
     // Component 1: Collar (X=[3157, 4117], Y=[42, 1002])

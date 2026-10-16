@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus, Maximize2, Camera, Sparkles, Check, Image as ImageIcon, RotateCcw, Palette, Eye, EyeOff } from 'lucide-react';
 import type { OrderMetadata } from './orderEntry';
-import { ThreeDPreview, ThreeDPreviewHandle, generatePresentationBoard } from './ThreeDPreview';
+import { ThreeDPreview, type ThreeDPreviewHandle, generatePresentationBoard } from './ThreeDPreview';
 import { defaultSizes } from './sizesDb';
 import { toast } from 'sonner';
 
