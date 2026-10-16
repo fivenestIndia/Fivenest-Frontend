@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus, Maximize2, Camera, Sparkles, Check, Image as ImageIcon, RotateCcw, Palette, Eye, EyeOff, ArrowUp, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus, Maximize2, Camera, Sparkles, Check, Image as ImageIcon, RotateCcw, RefreshCw, Palette, Eye, EyeOff, ArrowUp, ArrowLeft, ArrowRight } from 'lucide-react';
 import type { OrderMetadata } from './orderEntry';
 import { ThreeDPreview, type ThreeDPreviewHandle, generatePresentationBoard } from './ThreeDPreview';
 import { defaultSizes } from './sizesDb';
@@ -869,6 +869,26 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [isExportingMockup, setIsExportingMockup] = useState<boolean>(false);
   const [exportMockupStatus, setExportMockupStatus] = useState<string>('');
   const bgUploadInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Presentation Board branding & mobile/desktop format
+  const [presentationBrandName, setPresentationBrandName] = useState<string>(() => {
+    const saved = localStorage.getItem('fivenest_presentation_brand_name');
+    if (saved) return saved;
+    try {
+      const u = localStorage.getItem('fivenest_active_user');
+      if (u) {
+        const parsed = JSON.parse(u);
+        if (parsed.name) return parsed.name;
+      }
+    } catch {}
+    return 'CUSTOM APPAREL';
+  });
+  const [presentationBrandLogo, setPresentationBrandLogo] = useState<string | null>(() => {
+    return localStorage.getItem('fivenest_presentation_brand_logo') || null;
+  });
+  const [presentationFormat, setPresentationFormat] = useState<'mobile' | 'desktop'>('mobile');
+  const [isAutoSpinning, setIsAutoSpinning] = useState<boolean>(false);
+  const logoUploadInputRef = useRef<HTMLInputElement | null>(null);
 
   // Undo/Redo history stacks
   const [undoStack, setUndoStack] = useState<ArtDesignConfig[]>([]);
@@ -1791,6 +1811,34 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     }
   };
 
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const url = event.target?.result as string;
+        setPresentationBrandLogo(url);
+        localStorage.setItem('fivenest_presentation_brand_logo', url);
+        toast.success('Brand logo added to presentation board!');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setPresentationBrandLogo(null);
+    localStorage.removeItem('fivenest_presentation_brand_logo');
+    if (logoUploadInputRef.current) {
+      logoUploadInputRef.current.value = '';
+    }
+    toast.success('Brand logo removed');
+  };
+
+  const handleUpdateBrandName = (name: string) => {
+    setPresentationBrandName(name);
+    localStorage.setItem('fivenest_presentation_brand_name', name);
+  };
+
   const handleDownloadPresentationBoard = async () => {
     if (!threeDRef.current) return;
     setIsExportingMockup(true);
@@ -1801,24 +1849,37 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         setExportMockupStatus(`Rendering angle ${step} of ${total}...`);
       });
 
-      setExportMockupStatus('Composing 4-in-1 Presentation Board...');
+      setExportMockupStatus(
+        presentationFormat === 'mobile'
+          ? 'Composing Mobile/WhatsApp Proof (1080×1920)...'
+          : 'Composing Desktop Presentation Board (2400×1600)...'
+      );
+
       const presentationJpg = await generatePresentationBoard(views, {
         orderNumber: metadata?.orderNumber || 'CUSTOM-ORDER',
         designName: 'Sublimation Polo Jersey',
         bgColor: threeDBgColor,
         sleeveType: previewSleeveType,
+        brandName: presentationBrandName,
+        brandLogoUrl: presentationBrandLogo,
+        format: presentationFormat,
       });
 
       const orderPrefix = metadata?.orderNumber ? `${metadata.orderNumber}_` : '';
+      const formatTag = presentationFormat === 'mobile' ? 'WhatsApp_9-16' : 'Desktop_Wide';
       const link = document.createElement('a');
       link.href = presentationJpg;
-      link.download = `${orderPrefix}3D_Client_Mockup_Presentation.jpg`;
+      link.download = `${orderPrefix}3D_Mockup_Proof_${formatTag}.jpg`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
-      toast.success('4-in-1 Client Presentation Board JPG downloaded!');
-      setExportMockupStatus('Presentation Board JPG downloaded!');
+      toast.success(
+        presentationFormat === 'mobile'
+          ? 'WhatsApp-friendly Proof (1080×1920) JPG downloaded!'
+          : 'Desktop Presentation Board (2400×1600) JPG downloaded!'
+      );
+      setExportMockupStatus('Proof JPG downloaded!');
       setTimeout(() => {
         setIsExportingMockup(false);
         setExportMockupStatus('');
@@ -5482,6 +5543,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               bgHue={threeDBgHue}
               bgSaturation={threeDBgSaturation}
               bgBrightness={threeDBgBrightness}
+              autoRotate={isAutoSpinning}
               placketMode={placketMode}
             />
           </div>
@@ -6171,15 +6233,37 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   <Maximize2 size={15} style={{ color: '#E4572E' }} />
                   <h3 style={{ fontSize: '12px', fontWeight: '800', color: '#1F2937', margin: 0 }}>Camera Views</h3>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => threeDRef.current?.resetCamera()}
-                  className="btn btn-secondary"
-                  style={{ padding: '2px 8px', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', height: '22px' }}
-                  title="Reset Camera Orientation & Zoom"
-                >
-                  <RotateCcw size={11} /> Reset
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsAutoSpinning(prev => !prev)}
+                    className="btn btn-secondary"
+                    style={{ 
+                      padding: '2px 7px', 
+                      fontSize: '10px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '4px', 
+                      height: '22px',
+                      background: isAutoSpinning ? '#FFF7ED' : '#FAF8F5',
+                      color: isAutoSpinning ? '#EA580C' : '#4B5563',
+                      border: isAutoSpinning ? '1px solid #EA580C' : '1px solid #D1D5DB',
+                      fontWeight: isAutoSpinning ? '800' : '600'
+                    }}
+                    title="Toggle 360° Continuous Turntable Movement"
+                  >
+                    <RefreshCw size={11} className={isAutoSpinning ? 'animate-spin' : ''} /> {isAutoSpinning ? 'Spinning' : '360° Spin'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => threeDRef.current?.resetCamera()}
+                    className="btn btn-secondary"
+                    style={{ padding: '2px 8px', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', height: '22px' }}
+                    title="Reset Camera Orientation & Zoom"
+                  >
+                    <RotateCcw size={11} /> Reset
+                  </button>
+                </div>
               </div>
 
               {/* Quick Camera Angle Icon Buttons */}
@@ -6825,9 +6909,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
             {/* Card 4: Client 3D Mockup Export */}
             <div className="glass-card" style={{ padding: '10px 12px', background: '#FFFFFF', border: '1.5px solid #E4572E', borderRadius: '8px', boxShadow: '0 2px 8px rgba(228, 87, 46, 0.1)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                <Camera size={15} style={{ color: '#E4572E' }} />
-                <h3 style={{ fontSize: '12px', fontWeight: '800', color: '#E4572E', margin: 0 }}>Client Mockup Export</h3>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Camera size={15} style={{ color: '#E4572E' }} />
+                  <h3 style={{ fontSize: '12px', fontWeight: '800', color: '#E4572E', margin: 0 }}>Client Mockup Export</h3>
+                </div>
+                <span style={{ fontSize: '9px', background: '#FEF3C7', color: '#92400E', fontWeight: '700', padding: '2px 6px', borderRadius: '4px' }}>
+                  📱 WhatsApp Ready
+                </span>
               </div>
 
               {exportMockupStatus && (
@@ -6836,27 +6925,115 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 </div>
               )}
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <button
-                  type="button"
-                  disabled={isExportingMockup}
-                  onClick={handleDownload4AnglesZip}
-                  className="btn btn-primary"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    padding: '7px 10px',
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    borderRadius: '6px',
-                    cursor: isExportingMockup ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  <FolderArchive size={13} /> 4 Angles (ZIP)
-                </button>
+              {/* Presentation Proof Canvas Format */}
+              <div style={{ marginBottom: '8px', background: '#F8FAFC', padding: '5px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                <div style={{ fontSize: '10px', fontWeight: '700', color: '#475569', marginBottom: '4px' }}>
+                  Presentation Canvas Size:
+                </div>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setPresentationFormat('mobile')}
+                    style={{
+                      flex: 1,
+                      padding: '5px 4px',
+                      fontSize: '10px',
+                      fontWeight: presentationFormat === 'mobile' ? '800' : '600',
+                      borderRadius: '5px',
+                      border: presentationFormat === 'mobile' ? '1.5px solid #E4572E' : '1px solid #CBD5E1',
+                      background: presentationFormat === 'mobile' ? '#FFF7ED' : '#FFFFFF',
+                      color: presentationFormat === 'mobile' ? '#EA580C' : '#475569',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    📱 Mobile (WhatsApp 9:16)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPresentationFormat('desktop')}
+                    style={{
+                      flex: 1,
+                      padding: '5px 4px',
+                      fontSize: '10px',
+                      fontWeight: presentationFormat === 'desktop' ? '800' : '600',
+                      borderRadius: '5px',
+                      border: presentationFormat === 'desktop' ? '1.5px solid #E4572E' : '1px solid #CBD5E1',
+                      background: presentationFormat === 'desktop' ? '#FFF7ED' : '#FFFFFF',
+                      color: presentationFormat === 'desktop' ? '#EA580C' : '#475569',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🖥️ Desktop (Wide 3:2)
+                  </button>
+                </div>
+              </div>
 
+              {/* Top-Left Proof Branding Customization */}
+              <div style={{ marginBottom: '8px', background: '#F8FAFC', padding: '6px 8px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                <div style={{ fontSize: '10px', fontWeight: '700', color: '#475569', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Top-Left Proof Branding:</span>
+                  <span style={{ fontSize: '9px', color: '#059669', fontWeight: '700' }}>Your Name / Logo</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <input
+                    type="text"
+                    value={presentationBrandName}
+                    onChange={(e) => handleUpdateBrandName(e.target.value)}
+                    placeholder="Your Brand / Company Name"
+                    className="form-input"
+                    style={{ padding: '4px 6px', fontSize: '10.5px', borderRadius: '4px', width: '100%', boxSizing: 'border-box' }}
+                  />
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                    {presentationBrandLogo ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <img 
+                          src={presentationBrandLogo} 
+                          alt="Brand Logo" 
+                          style={{ height: '22px', maxWidth: '70px', objectFit: 'contain', borderRadius: '3px', background: '#FFFFFF', padding: '1px', border: '1px solid #CBD5E1' }} 
+                        />
+                        <button
+                          type="button"
+                          onClick={handleRemoveLogo}
+                          style={{ fontSize: '9.5px', color: '#DC2626', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: '700' }}
+                        >
+                          ✕ Remove Logo
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => logoUploadInputRef.current?.click()}
+                        style={{
+                          fontSize: '10px',
+                          color: '#475569',
+                          background: '#FFFFFF',
+                          border: '1px dashed #CBD5E1',
+                          borderRadius: '4px',
+                          padding: '3px 8px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontWeight: '600'
+                        }}
+                      >
+                        <Upload size={10} /> + Upload Brand Logo (PNG/JPG)
+                      </button>
+                    )}
+                    <input
+                      ref={logoUploadInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      style={{ display: 'none' }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <button
                   type="button"
                   disabled={isExportingMockup}
@@ -6867,38 +7044,62 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '6px',
-                    padding: '7px 10px',
+                    padding: '8px 10px',
                     fontSize: '11px',
-                    fontWeight: '700',
+                    fontWeight: '800',
                     borderRadius: '6px',
-                    background: '#1F2937',
+                    background: 'linear-gradient(135deg, #E4572E 0%, #EA580C 100%)',
                     color: '#FFFFFF',
                     border: 'none',
+                    boxShadow: '0 2px 6px rgba(228, 87, 46, 0.25)',
                     cursor: isExportingMockup ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  <ImageIcon size={13} /> Presentation Board (JPG)
+                  <ImageIcon size={13} /> 
+                  {presentationFormat === 'mobile' ? 'Presentation Board (WhatsApp Proof JPG)' : 'Presentation Board (Desktop Wide JPG)'}
                 </button>
 
-                <button
-                  type="button"
-                  disabled={isExportingMockup}
-                  onClick={handleSnapshotCurrentView}
-                  className="btn btn-secondary"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '4px',
-                    padding: '6px 10px',
-                    fontSize: '10px',
-                    fontWeight: '700',
-                    borderRadius: '6px',
-                    cursor: isExportingMockup ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  <Camera size={12} /> Snapshot View (JPG)
-                </button>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+                  <button
+                    type="button"
+                    disabled={isExportingMockup}
+                    onClick={handleDownload4AnglesZip}
+                    className="btn btn-secondary"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px',
+                      padding: '6px 4px',
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      borderRadius: '6px',
+                      cursor: isExportingMockup ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    <FolderArchive size={12} /> 4 Angles (ZIP)
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isExportingMockup}
+                    onClick={handleSnapshotCurrentView}
+                    className="btn btn-secondary"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px',
+                      padding: '6px 4px',
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      borderRadius: '6px',
+                      cursor: isExportingMockup ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    <Camera size={12} /> Current View
+                  </button>
+                </div>
               </div>
             </div>
 

@@ -48,6 +48,7 @@ export interface ThreeDPreviewProps {
   bgHue?: number;
   bgSaturation?: number;
   bgBrightness?: number;
+  autoRotate?: boolean;
   placketMode?: 'matchFront' | 'color' | 'image';
   onColorsAnalyzed?: (result: ColorAnalysisResult) => void;
 }
@@ -192,21 +193,35 @@ export function analyzeCanvasColors(canvas: HTMLCanvasElement): ColorAnalysisRes
 }
 
 /**
- * Generates an ultra-high-resolution 2400x1600 Client Presentation Board in JPG format.
+ * Options for generating client presentation board
+ */
+export interface PresentationBoardOptions {
+  orderNumber?: string;
+  designName?: string;
+  bgColor?: string;
+  sleeveType?: string;
+  dateStr?: string;
+  brandName?: string;
+  brandLogoUrl?: string | null;
+  userName?: string;
+  format?: 'mobile' | 'desktop'; // default 'mobile' (WhatsApp Portrait 1080x1920)
+}
+
+/**
+ * Generates an ultra-crisp Client Presentation Board in JPG format.
+ * Defaults to a Mobile-Friendly 1080x1920 (9:16) format optimized for WhatsApp sharing.
  */
 export async function generatePresentationBoard(
   views: { front: string; back: string; left: string; right: string },
-  options: {
-    orderNumber?: string;
-    designName?: string;
-    bgColor?: string;
-    sleeveType?: string;
-    dateStr?: string;
-  }
+  options: PresentationBoardOptions = {}
 ): Promise<string> {
+  const isMobile = options.format !== 'desktop';
+  const width = isMobile ? 1080 : 2400;
+  const height = isMobile ? 1920 : 1600;
+
   const canvas = document.createElement('canvas');
-  canvas.width = 2400;
-  canvas.height = 1600;
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Could not get 2D context');
 
@@ -218,147 +233,313 @@ export async function generatePresentationBoard(
   const textSecondary = isLight ? '#64748B' : '#94A3B8';
   const accentColor = '#E4572E';
 
-  // Board background
-  ctx.fillStyle = boardBg;
-  ctx.fillRect(0, 0, 2400, 1600);
-
-  // Top accent bar
-  const headerGrad = ctx.createLinearGradient(0, 0, 2400, 0);
-  headerGrad.addColorStop(0, accentColor);
-  headerGrad.addColorStop(0.5, '#F97316');
-  headerGrad.addColorStop(1, '#FB923C');
-  ctx.fillStyle = headerGrad;
-  ctx.fillRect(0, 0, 2400, 8);
-
-  // Header Brand
-  ctx.fillStyle = accentColor;
-  ctx.font = 'bold 36px "Inter", -apple-system, sans-serif';
-  ctx.fillText('FIVENEST', 80, 75);
-
-  ctx.fillStyle = textPrimary;
-  ctx.font = '700 24px "Inter", -apple-system, sans-serif';
-  ctx.fillText('DESIGN STUDIO', 255, 75);
-
-  ctx.fillStyle = textSecondary;
-  ctx.font = '600 16px "Inter", -apple-system, sans-serif';
-  ctx.fillText('PROFESSIONAL 3D APPAREL MOCKUP PROOF', 80, 108);
-
-  // Header Order Info (right aligned)
-  ctx.textAlign = 'right';
-  ctx.fillStyle = textPrimary;
-  ctx.font = 'bold 22px "Inter", -apple-system, sans-serif';
-  ctx.fillText(`ORDER: ${options.orderNumber || 'MOCKUP-001'}`, 2320, 75);
-
-  ctx.fillStyle = textSecondary;
-  ctx.font = '500 16px "Inter", -apple-system, sans-serif';
-  const dateStr = options.dateStr || new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-  const sleeveLabel = (options.sleeveType === 'full' ? 'Full Sleeve' : 'Half Sleeve') + ' Sublimation Polo';
-  ctx.fillText(`${sleeveLabel}  •  ${dateStr}`, 2320, 105);
-  ctx.textAlign = 'left';
-
-  // Divider
-  ctx.strokeStyle = cardBorder;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(80, 135);
-  ctx.lineTo(2320, 135);
-  ctx.stroke();
-
-  // 4 View Cards Layout (2 columns x 2 rows)
-  const cardW = 1060;
-  const cardH = 650;
-  const col1X = 80;
-  const col2X = 1260;
-  const row1Y = 165;
-  const row2Y = 855;
-
-  const cardDefs = [
-    { key: 'front', label: '01. FRONT VIEW (0°)', x: col1X, y: row1Y, src: views.front },
-    { key: 'back', label: '02. BACK VIEW (180°)', x: col2X, y: row1Y, src: views.back },
-    { key: 'left', label: '03. LEFT 3/4 PROFILE (-45°)', x: col1X, y: row2Y, src: views.left },
-    { key: 'right', label: '04. RIGHT 3/4 PROFILE (+45°)', x: col2X, y: row2Y, src: views.right },
-  ];
-
+  // Helper to load image
   const loadImage = (src: string): Promise<HTMLImageElement> => {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const img = new Image();
+      img.crossOrigin = 'anonymous';
       img.onload = () => resolve(img);
-      img.onerror = reject;
+      img.onerror = () => resolve(img);
       img.src = src;
     });
   };
 
-  const loadedImages = await Promise.all(cardDefs.map(c => loadImage(c.src)));
+  // Pre-load user logo if provided
+  let logoImg: HTMLImageElement | null = null;
+  if (options.brandLogoUrl) {
+    try {
+      logoImg = await loadImage(options.brandLogoUrl);
+    } catch {
+      logoImg = null;
+    }
+  }
 
-  cardDefs.forEach((card, index) => {
-    const img = loadedImages[index];
+  // Pre-load the 4 angle captures
+  const loadedViews = await Promise.all([
+    loadImage(views.front),
+    loadImage(views.back),
+    loadImage(views.left),
+    loadImage(views.right),
+  ]);
 
-    // Card frame
-    drawRoundedRect(ctx, card.x, card.y, cardW, cardH, 16);
-    ctx.fillStyle = cardBg;
-    ctx.fill();
+  // Board background
+  ctx.fillStyle = boardBg;
+  ctx.fillRect(0, 0, width, height);
+
+  // Top accent bar
+  const headerGrad = ctx.createLinearGradient(0, 0, width, 0);
+  headerGrad.addColorStop(0, accentColor);
+  headerGrad.addColorStop(0.5, '#F97316');
+  headerGrad.addColorStop(1, '#FB923C');
+  ctx.fillStyle = headerGrad;
+  ctx.fillRect(0, 0, width, 8);
+
+  const displayName = (options.brandName || options.userName || 'APPAREL DESIGN').toUpperCase();
+  const dateStr = options.dateStr || new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+  const sleeveLabel = (options.sleeveType === 'full' ? 'Full Sleeve' : 'Half Sleeve') + ' Sublimation Polo';
+  const orderLabel = `ORDER: ${options.orderNumber || 'CUSTOM-ORDER'}`;
+
+  if (isMobile) {
+    // ════════════════════════════════════════════════════════════════════
+    // 📱 MOBILE-FRIENDLY CANVAS (1080 × 1920 - 9:16 WhatsApp Native Proof)
+    // ════════════════════════════════════════════════════════════════════
+
+    // Top-Left Branding (User Logo or User Name)
+    if (logoImg && logoImg.width > 0 && logoImg.height > 0) {
+      const maxLogoW = 220;
+      const maxLogoH = 55;
+      let lw = maxLogoW;
+      let lh = lw / (logoImg.width / logoImg.height);
+      if (lh > maxLogoH) {
+        lh = maxLogoH;
+        lw = lh * (logoImg.width / logoImg.height);
+      }
+      ctx.drawImage(logoImg, 40, 40 + (maxLogoH - lh) / 2, lw, lh);
+      ctx.fillStyle = textSecondary;
+      ctx.font = '600 12px "Inter", -apple-system, sans-serif';
+      ctx.fillText('3D APPAREL MOCKUP PROOF', 40 + lw + 14, 72);
+    } else {
+      ctx.fillStyle = accentColor;
+      ctx.font = 'bold 26px "Inter", -apple-system, sans-serif';
+      ctx.fillText(displayName, 40, 70);
+
+      ctx.fillStyle = textSecondary;
+      ctx.font = '600 12.5px "Inter", -apple-system, sans-serif';
+      ctx.fillText('PROFESSIONAL 3D APPAREL PROOF', 40, 96);
+    }
+
+    // Top-Right Order & Spec Info
+    ctx.textAlign = 'right';
+    ctx.fillStyle = textPrimary;
+    ctx.font = 'bold 17px "Inter", -apple-system, sans-serif';
+    ctx.fillText(orderLabel, 1040, 70);
+
+    ctx.fillStyle = textSecondary;
+    ctx.font = '500 12.5px "Inter", -apple-system, sans-serif';
+    ctx.fillText(`${sleeveLabel}  •  ${dateStr}`, 1040, 96);
+    ctx.textAlign = 'left';
+
+    // Header Divider Line
     ctx.strokeStyle = cardBorder;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(40, 122);
+    ctx.lineTo(1040, 122);
     ctx.stroke();
 
-    // View Image inside card
-    const imgPadding = 18;
-    const labelH = 50;
-    const imgX = card.x + imgPadding;
-    const imgY = card.y + labelH;
-    const maxImgW = cardW - imgPadding * 2;
-    const maxImgH = cardH - labelH - imgPadding;
+    // 4 View Cards Layout in 2x2 Portrait Grid
+    const cardW = 485;
+    const cardH = 800;
+    const col1X = 40;
+    const col2X = 555;
+    const row1Y = 145;
+    const row2Y = 975;
 
-    const imgAspect = img.width / img.height;
-    let drawW = maxImgW;
-    let drawH = drawW / imgAspect;
-    if (drawH > maxImgH) {
-      drawH = maxImgH;
-      drawW = drawH * imgAspect;
-    }
-    const offX = imgX + (maxImgW - drawW) / 2;
-    const offY = imgY + (maxImgH - drawH) / 2;
+    const mobileCards = [
+      { label: '01. FRONT VIEW (0°)', x: col1X, y: row1Y, img: loadedViews[0] },
+      { label: '02. BACK VIEW (180°)', x: col2X, y: row1Y, img: loadedViews[1] },
+      { label: '03. LEFT 3/4 (-45°)', x: col1X, y: row2Y, img: loadedViews[2] },
+      { label: '04. RIGHT 3/4 (+45°)', x: col2X, y: row2Y, img: loadedViews[3] },
+    ];
 
-    ctx.save();
-    drawRoundedRect(ctx, card.x + 8, card.y + labelH, cardW - 16, cardH - labelH - 8, 12);
-    ctx.clip();
-    ctx.drawImage(img, offX, offY, drawW, drawH);
-    ctx.restore();
+    mobileCards.forEach((card) => {
+      // Card Frame
+      drawRoundedRect(ctx, card.x, card.y, cardW, cardH, 16);
+      ctx.fillStyle = cardBg;
+      ctx.fill();
+      ctx.strokeStyle = cardBorder;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
 
-    // Badge / Label at top-left of card
-    ctx.fillStyle = isLight ? '#EEF2F6' : '#1E2638';
-    drawRoundedRect(ctx, card.x + 20, card.y + 16, 260, 32, 8);
-    ctx.fill();
+      // View Badge Pill
+      ctx.fillStyle = isLight ? '#EEF2F6' : '#1E2638';
+      drawRoundedRect(ctx, card.x + 14, card.y + 12, 210, 28, 6);
+      ctx.fill();
+      ctx.strokeStyle = cardBorder;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = accentColor;
+      ctx.beginPath();
+      ctx.arc(card.x + 26, card.y + 26, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = textPrimary;
+      ctx.font = 'bold 11px "Inter", -apple-system, sans-serif';
+      ctx.fillText(card.label, card.x + 36, card.y + 30);
+
+      // Center-crop jersey view so model is 2.5x larger and fills the portrait card
+      const imgX = card.x + 6;
+      const imgY = card.y + 48;
+      const imgW = cardW - 12;
+      const imgH = cardH - 56;
+
+      const cardAspect = imgW / imgH; // ~0.635
+      const srcAspect = (card.img.width || 1) / (card.img.height || 1);
+
+      let sx = 0, sy = 0, sw = card.img.width, sh = card.img.height;
+      if (srcAspect > cardAspect) {
+        sw = card.img.height * cardAspect;
+        sx = (card.img.width - sw) / 2;
+      } else {
+        sh = card.img.width / cardAspect;
+        sy = (card.img.height - sh) / 2;
+      }
+
+      ctx.save();
+      drawRoundedRect(ctx, imgX, imgY, imgW, imgH, 12);
+      ctx.clip();
+      ctx.drawImage(card.img, sx, sy, sw, sh, imgX, imgY, imgW, imgH);
+      ctx.restore();
+    });
+
+    // Mobile Footer
     ctx.strokeStyle = cardBorder;
     ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(40, 1805);
+    ctx.lineTo(1040, 1805);
     ctx.stroke();
 
-    ctx.fillStyle = accentColor;
-    ctx.beginPath();
-    ctx.arc(card.x + 36, card.y + 32, 4, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillStyle = textSecondary;
+    ctx.font = '500 12px "Inter", -apple-system, sans-serif';
+    ctx.fillText('Client Proofing Specification • Colors may slightly vary on final fabric', 40, 1845);
 
+    ctx.textAlign = 'right';
+    ctx.fillText('3D Digital Apparel Proof', 1040, 1845);
+    ctx.textAlign = 'left';
+
+  } else {
+    // ════════════════════════════════════════════════════════════════════
+    // 🖥️ DESKTOP PRESENTATION (2400 × 1600 Wide Board)
+    // ════════════════════════════════════════════════════════════════════
+
+    // Header Brand (User Logo or User Name)
+    if (logoImg && logoImg.width > 0 && logoImg.height > 0) {
+      const maxLogoW = 320;
+      const maxLogoH = 70;
+      let lw = maxLogoW;
+      let lh = lw / (logoImg.width / logoImg.height);
+      if (lh > maxLogoH) {
+        lh = maxLogoH;
+        lw = lh * (logoImg.width / logoImg.height);
+      }
+      ctx.drawImage(logoImg, 80, 42 + (maxLogoH - lh) / 2, lw, lh);
+      ctx.fillStyle = textSecondary;
+      ctx.font = '600 16px "Inter", -apple-system, sans-serif';
+      ctx.fillText('PROFESSIONAL 3D APPAREL MOCKUP PROOF', 80 + lw + 24, 82);
+    } else {
+      ctx.fillStyle = accentColor;
+      ctx.font = 'bold 36px "Inter", -apple-system, sans-serif';
+      ctx.fillText(displayName, 80, 75);
+
+      ctx.fillStyle = textSecondary;
+      ctx.font = '600 16px "Inter", -apple-system, sans-serif';
+      ctx.fillText('PROFESSIONAL 3D APPAREL MOCKUP PROOF', 80, 108);
+    }
+
+    // Header Order Info (right aligned)
+    ctx.textAlign = 'right';
     ctx.fillStyle = textPrimary;
-    ctx.font = 'bold 13px "Inter", -apple-system, sans-serif';
-    ctx.fillText(card.label, card.x + 48, card.y + 37);
-  });
+    ctx.font = 'bold 22px "Inter", -apple-system, sans-serif';
+    ctx.fillText(orderLabel, 2320, 75);
 
-  // Footer
-  ctx.strokeStyle = cardBorder;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(80, 1545);
-  ctx.lineTo(2320, 1545);
-  ctx.stroke();
+    ctx.fillStyle = textSecondary;
+    ctx.font = '500 16px "Inter", -apple-system, sans-serif';
+    ctx.fillText(`${sleeveLabel}  •  ${dateStr}`, 2320, 105);
+    ctx.textAlign = 'left';
 
-  ctx.fillStyle = textSecondary;
-  ctx.font = '500 14px "Inter", -apple-system, sans-serif';
-  ctx.fillText('Client Proofing Specification • Sublimation Printing • Colors rendered on screen may slightly vary from final fabric', 80, 1575);
+    // Divider
+    ctx.strokeStyle = cardBorder;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(80, 135);
+    ctx.lineTo(2320, 135);
+    ctx.stroke();
 
-  ctx.textAlign = 'right';
-  ctx.fillStyle = textSecondary;
-  ctx.fillText('Powered by Fivenest Design Studio', 2320, 1575);
-  ctx.textAlign = 'left';
+    // 4 View Cards Layout (2 columns x 2 rows)
+    const cardW = 1060;
+    const cardH = 650;
+    const col1X = 80;
+    const col2X = 1260;
+    const row1Y = 165;
+    const row2Y = 855;
+
+    const desktopCards = [
+      { label: '01. FRONT VIEW (0°)', x: col1X, y: row1Y, img: loadedViews[0] },
+      { label: '02. BACK VIEW (180°)', x: col2X, y: row1Y, img: loadedViews[1] },
+      { label: '03. LEFT 3/4 PROFILE (-45°)', x: col1X, y: row2Y, img: loadedViews[2] },
+      { label: '04. RIGHT 3/4 PROFILE (+45°)', x: col2X, y: row2Y, img: loadedViews[3] },
+    ];
+
+    desktopCards.forEach((card) => {
+      // Card frame
+      drawRoundedRect(ctx, card.x, card.y, cardW, cardH, 16);
+      ctx.fillStyle = cardBg;
+      ctx.fill();
+      ctx.strokeStyle = cardBorder;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // View Image inside card
+      const imgPadding = 18;
+      const labelH = 50;
+      const imgX = card.x + imgPadding;
+      const imgY = card.y + labelH;
+      const maxImgW = cardW - imgPadding * 2;
+      const maxImgH = cardH - labelH - imgPadding;
+
+      const imgAspect = card.img.width / card.img.height;
+      let drawW = maxImgW;
+      let drawH = drawW / imgAspect;
+      if (drawH > maxImgH) {
+        drawH = maxImgH;
+        drawW = drawH * imgAspect;
+      }
+      const offX = imgX + (maxImgW - drawW) / 2;
+      const offY = imgY + (maxImgH - drawH) / 2;
+
+      ctx.save();
+      drawRoundedRect(ctx, card.x + 8, card.y + labelH, cardW - 16, cardH - labelH - 8, 12);
+      ctx.clip();
+      ctx.drawImage(card.img, offX, offY, drawW, drawH);
+      ctx.restore();
+
+      // Badge / Label at top-left of card
+      ctx.fillStyle = isLight ? '#EEF2F6' : '#1E2638';
+      drawRoundedRect(ctx, card.x + 20, card.y + 16, 260, 32, 8);
+      ctx.fill();
+      ctx.strokeStyle = cardBorder;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = accentColor;
+      ctx.beginPath();
+      ctx.arc(card.x + 36, card.y + 32, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = textPrimary;
+      ctx.font = 'bold 13px "Inter", -apple-system, sans-serif';
+      ctx.fillText(card.label, card.x + 48, card.y + 37);
+    });
+
+    // Desktop Footer
+    ctx.strokeStyle = cardBorder;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(80, 1545);
+    ctx.lineTo(2320, 1545);
+    ctx.stroke();
+
+    ctx.fillStyle = textSecondary;
+    ctx.font = '500 14px "Inter", -apple-system, sans-serif';
+    ctx.fillText('Client Proofing Specification • Sublimation Printing • Colors rendered on screen may slightly vary from final fabric', 80, 1575);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = textSecondary;
+    ctx.fillText('Powered by Fivenest Design Studio', 2320, 1575);
+    ctx.textAlign = 'left';
+  }
 
   return canvas.toDataURL('image/jpeg', 0.95);
 }
@@ -374,6 +555,7 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
   bgHue = 0,
   bgSaturation = 100,
   bgBrightness = 100,
+  autoRotate = false,
   placketMode = 'matchFront',
   onColorsAnalyzed
 }, ref) => {
@@ -696,6 +878,14 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
       controlsRef.current.update();
     }
   }, [zoom]);
+
+  // OrbitControls 360 Auto-Turntable Movement
+  useEffect(() => {
+    if (controlsRef.current) {
+      controlsRef.current.autoRotate = !!autoRotate;
+      controlsRef.current.autoRotateSpeed = 2.0;
+    }
+  }, [autoRotate]);
 
 
   // Expose imperative API for camera angles, captures, and color analysis
