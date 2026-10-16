@@ -243,23 +243,68 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
             border: '1px solid #D8D5CF',
             borderRadius: '8px',
             padding: '3px 8px',
-            gap: '4px'
+            gap: '5px',
+            display: 'flex',
+            alignItems: 'center'
           }}
         >
-          <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600' }}>Zoom:</span>
-          {[0.5, 1, 1.5, 2].map(z => (
+          <span style={{ fontSize: '11px', color: '#92908A', fontWeight: '600' }}>Zoom Tool:</span>
+          
+          <button
+            type="button"
+            onClick={() => onSetZoom(Math.min(4.0, Math.round(zoom * 1.25 * 100) / 100))}
+            style={{ 
+              padding: '3px 8px', 
+              borderRadius: '5px', 
+              fontSize: '10px', 
+              fontWeight: '700', 
+              background: '#FAF8F5', 
+              color: '#1E293B', 
+              border: '1px solid #CBD5E1', 
+              cursor: 'pointer', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '3px' 
+            }}
+            title="Zoom In (Click canvas or click here)"
+          >
+            <ZoomIn size={12} style={{ color: '#E4572E' }} /> In (+)
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onSetZoom(Math.max(0.50, Math.round((zoom / 1.25) * 100) / 100))}
+            style={{ 
+              padding: '3px 8px', 
+              borderRadius: '5px', 
+              fontSize: '10px', 
+              fontWeight: '700', 
+              background: '#FAF8F5', 
+              color: '#1E293B', 
+              border: '1px solid #CBD5E1', 
+              cursor: 'pointer', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '3px' 
+            }}
+            title="Zoom Out (Alt+Click or Right-Click canvas)"
+          >
+            <ZoomOut size={12} style={{ color: '#4B5563' }} /> Out (-)
+          </button>
+
+          {[0.5, 0.75, 1, 1.5, 2].map(z => (
             <button
               key={z}
               type="button"
               onClick={() => onSetZoom(z)}
               style={{
-                padding: '3px 8px',
+                padding: '3px 7px',
                 borderRadius: '5px',
                 fontSize: '10px',
                 fontWeight: '600',
-                background: zoom === z ? '#E4572E' : '#FFFFFF',
-                color: zoom === z ? '#FFFFFF' : '#686661',
-                border: zoom === z ? '1px solid #E4572E' : '1px solid #D8D5CF',
+                background: Math.abs(zoom - z) < 0.05 ? '#E4572E' : '#FFFFFF',
+                color: Math.abs(zoom - z) < 0.05 ? '#FFFFFF' : '#686661',
+                border: Math.abs(zoom - z) < 0.05 ? '1px solid #E4572E' : '1px solid #D8D5CF',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease'
               }}
@@ -267,6 +312,7 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               {Math.round(z * 100)}%
             </button>
           ))}
+
           <button
             type="button"
             onClick={() => onSetZoom(1)}
@@ -274,7 +320,7 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               padding: '3px 8px', 
               borderRadius: '5px', 
               fontSize: '10px', 
-              fontWeight: '600',
+              fontWeight: '700',
               background: '#FBE7E1', 
               color: '#E4572E', 
               border: '1px solid #F5C4B2', 
@@ -283,9 +329,14 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               alignItems: 'center', 
               gap: '4px' 
             }}
+            title="Reset to 100% (Ctrl+1)"
           >
-            <RotateCcw size={11} /> Reset
+            <RotateCcw size={11} /> 100%
           </button>
+
+          <span style={{ fontSize: '10px', color: '#64748B', marginLeft: '4px', borderLeft: '1px solid #E2E8F0', paddingLeft: '8px' }}>
+            💡 Click canvas to zoom in • Alt+Click or Right-click to zoom out
+          </span>
         </div>
       )}
 

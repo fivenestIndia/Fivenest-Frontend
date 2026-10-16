@@ -26,7 +26,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   const toolDescriptions: Record<CorelTool, string> = {
     pick: 'Pick Tool: Click objects to select. Hold Space to pan canvas.',
     pan: 'Pan Tool: Click and drag to navigate the workspace.',
-    zoom: 'Zoom Tool: Scroll wheel or click to zoom in/out.',
+    zoom: 'Zoom Tool: Click to zoom in (+). Alt+Click or Right-Click to zoom out (-).',
     text: 'Text Tool: Configure name, number, or size tag layer.',
     logo: 'Logo Tool: Place and adjust torso/chest logos.',
     eyedrop: 'Eyedropper: Click swatch to set fill or stroke color.'

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus, Maximize2, Camera, Sparkles, Check, Image as ImageIcon, RotateCcw, RefreshCw, Palette, Eye, EyeOff, ArrowUp, ArrowLeft, ArrowRight, Video } from 'lucide-react';
+import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus, Maximize2, Camera, Sparkles, Check, Image as ImageIcon, RotateCcw, RefreshCw, Palette, Eye, EyeOff, ArrowUp, ArrowLeft, ArrowRight } from 'lucide-react';
 import type { OrderMetadata } from './orderEntry';
 import { ThreeDPreview, type ThreeDPreviewHandle, generatePresentationBoard } from './ThreeDPreview';
 import { defaultSizes } from './sizesDb';
@@ -282,7 +282,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     generatedColor1: '#ffffff',
     generatedColor2: '#ffffff',
     uploadedFileUrl: null,
-    nameConfig: { enabled: true, yPos: 24, fontSize: 2.5, color: '#000000', strokeColor: '#ffffff', strokeWidth: 1.8, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 11, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.18 },
+    nameConfig: { enabled: true, yPos: 24, fontSize: 2.5, color: '#000000', strokeColor: '#ffffff', strokeWidth: 1.8, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 11, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.08 },
     numberConfig: { enabled: true, yPos: 47, fontSize: 9.0, color: '#000000', strokeColor: '#ffffff', strokeWidth: 0.7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8.5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.2 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0.06 },
     guidelines: { vertical: [2.0, 11.0, 20.0], horizontal: [2.5, 6.0, 8.0, 9.5, 16.5] },
@@ -329,7 +329,7 @@ export const defaultDesignConfig: ArtDesignConfig = {
     bgX: 0,
     bgY: 0,
     bgLockAspectRatio: true,
-    nameConfig: { enabled: false, yPos: 24, fontSize: 2.5, color: '#000000', strokeColor: '#ffffff', strokeWidth: 1.8, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 11, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.18 },
+    nameConfig: { enabled: false, yPos: 24, fontSize: 2.5, color: '#000000', strokeColor: '#ffffff', strokeWidth: 1.8, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 11, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.08 },
     numberConfig: { enabled: true, yPos: 47, fontSize: 9.0, color: '#000000', strokeColor: '#ffffff', strokeWidth: 0.7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8.5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.2 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#000000', strokeWidth: 0, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [5.0], horizontal: [5.5] },
@@ -839,6 +839,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [spaceKeyPressed, setSpaceKeyPressed] = useState<boolean>(false);
   const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState<boolean>(false);
+  const [altKeyPressed, setAltKeyPressed] = useState<boolean>(false);
   const [activeTextLayer, setActiveTextLayer] = useState<'name' | 'number' | null>(null);
   const [isGradientModalOpen, setIsGradientModalOpen] = useState<boolean>(false);
   const [gradientModalTarget, setGradientModalTarget] = useState<string>('name');
@@ -1390,6 +1391,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
     const handleWindowBlur = () => {
       setSpaceKeyPressed(false);
+      setAltKeyPressed(false);
       setIsPanning(false);
       panStartRef.current = null;
     };
@@ -1851,7 +1853,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
       setExportMockupStatus(
         presentationFormat === 'mobile'
-          ? 'Composing Mobile/WhatsApp Proof (1080×1920)...'
+          ? 'Composing Mobile/WhatsApp (1080×1920)...'
           : 'Composing Desktop Presentation Board (2400×1600)...'
       );
 
@@ -1869,17 +1871,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const formatTag = presentationFormat === 'mobile' ? 'WhatsApp_9-16' : 'Desktop_Wide';
       const link = document.createElement('a');
       link.href = presentationJpg;
-      link.download = `${orderPrefix}3D_Mockup_Proof_${formatTag}.jpg`;
+      link.download = `${orderPrefix}3D_Mockup_${formatTag}.jpg`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
       toast.success(
         presentationFormat === 'mobile'
-          ? 'WhatsApp-friendly Proof (1080×1920) JPG downloaded!'
+          ? 'WhatsApp (1080×1920) JPG downloaded!'
           : 'Desktop Presentation Board (2400×1600) JPG downloaded!'
       );
-      setExportMockupStatus('Proof JPG downloaded!');
+      setExportMockupStatus('Presentation Board JPG downloaded!');
       setTimeout(() => {
         setIsExportingMockup(false);
         setExportMockupStatus('');
@@ -1905,35 +1907,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     link.click();
     document.body.removeChild(link);
     toast.success('Snapshot JPG downloaded!');
-  };
-
-  const handleRecord360Video = async () => {
-    if (!threeDRef.current || !threeDRef.current.recordTurntableVideo) return;
-    setIsExportingMockup(true);
-    setExportMockupStatus('Starting 360° video recording (0%)...');
-
-    try {
-      const result = await threeDRef.current.recordTurntableVideo(5000, (percent) => {
-        setExportMockupStatus(`Recording 360° Video Proof (${percent}%)...`);
-      });
-
-      setExportMockupStatus('Finalizing video download...');
-      const orderPrefix = metadata?.orderNumber ? `${metadata.orderNumber}_` : '';
-      const link = document.createElement('a');
-      link.href = result.url;
-      link.download = `${orderPrefix}${result.filename}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success('360° Video Proof downloaded!');
-      setTimeout(() => URL.revokeObjectURL(result.url), 4000);
-    } catch (err: any) {
-      console.error('Failed to record 360 video proof:', err);
-      toast.error('Video recording error: ' + (err?.message || 'Unsupported browser capability'));
-    } finally {
-      setIsExportingMockup(false);
-      setExportMockupStatus('');
-    }
   };
 
   const handleTextTextureUpload = (textType: 'name' | 'number', e: React.ChangeEvent<HTMLInputElement>) => {
@@ -3673,6 +3646,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         return;
       }
 
+      if (e.key === 'Alt') {
+        setAltKeyPressed(true);
+      }
+
       // 11. TOOL SHORTCUTS (without Ctrl)
       if (!isCtrl) {
         if (key === 'V' || e.key === 'F1') {
@@ -3806,6 +3783,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       if (e.key === ' ') {
         setSpaceKeyPressed(false);
         panStartRef.current = null;
+      }
+      if (e.key === 'Alt') {
+        setAltKeyPressed(false);
       }
       if (e.key.toLowerCase() === 'z') {
         setZKeyPressed(false);
@@ -5082,6 +5062,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const toolboxFillColor = activeTextForToolbox?.color || '#000000';
   const toolboxStrokeColor = activeTextForToolbox?.strokeColor || '#ffffff';
 
+  const effectiveCanvasCursor = activeTool === 'zoom' 
+    ? (altKeyPressed ? 'zoom-out' : 'zoom-in') 
+    : (spaceKeyPressed || isPanning ? 'inherit' : canvasCursor);
+
   return (
     <div className="cd-studio-container fade-in">
       {/* Global Window Drag & Drop Overlay */}
@@ -5579,6 +5563,61 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ) : (
           <div 
             ref={scrollWrapperRef}
+            onClickCapture={(e) => {
+              if (activeTool === 'zoom') {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const wrapper = scrollWrapperRef.current;
+                if (!wrapper) return;
+
+                const rect = wrapper.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                const clickY = e.clientY - rect.top;
+
+                const isZoomOut = e.altKey || e.shiftKey || altKeyPressed;
+                const zoomFactor = isZoomOut ? (1 / 1.25) : 1.25;
+
+                const newZoom = Math.min(4.0, Math.max(0.50, Math.round(zoom * zoomFactor * 100) / 100));
+                if (newZoom === zoom) return;
+
+                const worldX = (clickX - panOffset.x) / zoom;
+                const worldY = (clickY - panOffset.y) / zoom;
+
+                const newPanX = Math.round(clickX - worldX * newZoom);
+                const newPanY = Math.round(clickY - worldY * newZoom);
+
+                setZoom(newZoom);
+                setPanOffset({ x: newPanX, y: newPanY });
+              }
+            }}
+            onContextMenuCapture={(e) => {
+              if (activeTool === 'zoom') {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const wrapper = scrollWrapperRef.current;
+                if (!wrapper) return;
+
+                const rect = wrapper.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                const clickY = e.clientY - rect.top;
+
+                const zoomFactor = 1 / 1.25; // Right-click with zoom tool zooms out
+
+                const newZoom = Math.min(4.0, Math.max(0.50, Math.round(zoom * zoomFactor * 100) / 100));
+                if (newZoom === zoom) return;
+
+                const worldX = (clickX - panOffset.x) / zoom;
+                const worldY = (clickY - panOffset.y) / zoom;
+
+                const newPanX = Math.round(clickX - worldX * newZoom);
+                const newPanY = Math.round(clickY - worldY * newZoom);
+
+                setZoom(newZoom);
+                setPanOffset({ x: newPanX, y: newPanY });
+              }
+            }}
             style={{ 
               flexGrow: 1, 
               width: '100%', 
@@ -5588,7 +5627,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               boxSizing: 'border-box',
               cursor: (spaceKeyPressed || activeTool === 'pan' || isPanning) 
                 ? (isPanning ? 'grabbing' : 'grab') 
-                : (activeTool === 'zoom' ? 'zoom-in' : 'default'),
+                : (activeTool === 'zoom' ? (altKeyPressed ? 'zoom-out' : 'zoom-in') : 'default'),
               userSelect: 'none',
               position: 'relative',
               touchAction: 'none'
@@ -5618,6 +5657,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               setPanOffset({ x: newPanX, y: newPanY });
             }}
             onMouseDown={(e) => {
+              if (activeTool === 'zoom') {
+                return;
+              }
               if (spaceKeyPressed || activeTool === 'pan' || e.button === 1 || (e.button === 0 && e.target === scrollWrapperRef.current)) {
                 e.preventDefault();
                 setIsPanning(true);
@@ -5735,7 +5777,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           borderRadius: '8px', 
                           border: dualActivePanel === 'collar' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
                           boxShadow: dualActivePanel === 'collar' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
-                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : canvasCursor,
+                          cursor: effectiveCanvasCursor,
                           width: `${Math.round((collarSpreadWidth + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           height: `${Math.round((collarSpreadHeight + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
@@ -5818,7 +5860,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           borderRadius: '8px', 
                           border: dualActivePanel === 'sleeveLeft' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
                           boxShadow: dualActivePanel === 'sleeveLeft' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
-                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : canvasCursor,
+                          cursor: effectiveCanvasCursor,
                           width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
@@ -5883,7 +5925,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           borderRadius: '8px', 
                           border: dualActivePanel === 'front' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
                           boxShadow: dualActivePanel === 'front' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
-                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : canvasCursor,
+                          cursor: effectiveCanvasCursor,
                           width: `${Math.round((width + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           height: `${Math.round((height + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
@@ -5948,7 +5990,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           borderRadius: '8px', 
                           border: dualActivePanel === 'back' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
                           boxShadow: dualActivePanel === 'back' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
-                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : canvasCursor,
+                          cursor: effectiveCanvasCursor,
                           width: `${Math.round((width + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           height: `${Math.round((height + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
@@ -6030,7 +6072,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           borderRadius: '8px', 
                           border: dualActivePanel === 'sleeveRight' ? '2.5px solid #E4572E' : '1.5px solid #D8D5CF', 
                           boxShadow: dualActivePanel === 'sleeveRight' ? '0 8px 30px rgba(228, 87, 46, 0.25), 0 2px 8px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.06)',
-                          cursor: (spaceKeyPressed || isPanning) ? 'inherit' : canvasCursor,
+                          cursor: effectiveCanvasCursor,
                           width: `${Math.round((sleeveSpreadWidth + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           height: `${Math.round((sleeveSpreadHeight + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                           maxWidth: 'none',
@@ -6085,7 +6127,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       borderRadius: '8px', 
                       border: '2px solid rgba(0, 240, 255, 0.5)', 
                       boxShadow: '0 0 50px rgba(0,0,0,0.95)',
-                      cursor: (spaceKeyPressed || zKeyPressed) ? 'inherit' : canvasCursor,
+                      cursor: effectiveCanvasCursor,
                       width: `${Math.round((width + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                       height: `${Math.round((height + (rulersEnabled ? Math.round(0.55 * scale) : 0)) * zoom)}px`,
                       maxWidth: 'none',
@@ -6997,10 +7039,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 </div>
               </div>
 
-              {/* Top-Left Proof Branding Customization */}
+              {/* Top-Left Branding Customization */}
               <div style={{ marginBottom: '8px', background: '#F8FAFC', padding: '6px 8px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
                 <div style={{ fontSize: '10px', fontWeight: '700', color: '#475569', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Top-Left Proof Branding:</span>
+                  <span>Top-Left Branding:</span>
                   <span style={{ fontSize: '9px', color: '#059669', fontWeight: '700' }}>Your Name / Logo</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
@@ -7085,7 +7127,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   }}
                 >
                   <ImageIcon size={13} /> 
-                  {presentationFormat === 'mobile' ? 'Presentation Board (WhatsApp Proof JPG)' : 'Presentation Board (Desktop Wide JPG)'}
+                  {presentationFormat === 'mobile' ? 'Presentation Board (WhatsApp JPG)' : 'Presentation Board (Desktop Wide JPG)'}
                 </button>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
@@ -7129,32 +7171,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     <Camera size={12} /> Current View
                   </button>
                 </div>
-
-                <button
-                  type="button"
-                  disabled={isExportingMockup}
-                  onClick={handleRecord360Video}
-                  className="btn"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    padding: '8px 10px',
-                    fontSize: '11px',
-                    fontWeight: '800',
-                    borderRadius: '6px',
-                    background: '#0F172A',
-                    color: '#38BDF8',
-                    border: '1px solid #334155',
-                    boxShadow: '0 2px 6px rgba(15, 23, 42, 0.25)',
-                    cursor: isExportingMockup ? 'not-allowed' : 'pointer'
-                  }}
-                  title="Record a 5-second 360° video loop of the 3D polo for WhatsApp sharing"
-                >
-                  <Video size={13} style={{ color: '#38BDF8' }} /> 
-                  🎥 360° Video Proof (5s Loop)
-                </button>
               </div>
             </div>
 
