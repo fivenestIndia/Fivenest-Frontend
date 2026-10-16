@@ -6588,6 +6588,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   style={{ display: 'none' }}
                 />
               </div>
+
+              {/* Background Dimension Info in Inches */}
+              <div style={{ marginTop: '6px', fontSize: '10px', color: '#6B7280', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F8FAFC', padding: '4px 6px', borderRadius: '5px', border: '1px dashed #CBD5E1' }}>
+                <span style={{ fontWeight: '600', color: '#475569' }}>📐 Size:</span>
+                <span style={{ fontWeight: '700', color: '#1E293B' }}>16" × 9" in (1920 × 1080 px, 16:9)</span>
+              </div>
             </div>
 
             {/* Card 4: Client 3D Mockup Export */}
