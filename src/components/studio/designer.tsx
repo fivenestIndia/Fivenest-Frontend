@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus, Maximize2, Camera, Sparkles, Check, Image as ImageIcon, RotateCcw, RefreshCw, Palette, Eye, EyeOff, ArrowUp, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus, Maximize2, Camera, Sparkles, Check, Image as ImageIcon, RotateCcw, RefreshCw, Palette, Eye, EyeOff, ArrowUp, ArrowLeft, ArrowRight, Video } from 'lucide-react';
 import type { OrderMetadata } from './orderEntry';
 import { ThreeDPreview, type ThreeDPreviewHandle, generatePresentationBoard } from './ThreeDPreview';
 import { defaultSizes } from './sizesDb';
@@ -1905,6 +1905,35 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     link.click();
     document.body.removeChild(link);
     toast.success('Snapshot JPG downloaded!');
+  };
+
+  const handleRecord360Video = async () => {
+    if (!threeDRef.current || !threeDRef.current.recordTurntableVideo) return;
+    setIsExportingMockup(true);
+    setExportMockupStatus('Starting 360° video recording (0%)...');
+
+    try {
+      const result = await threeDRef.current.recordTurntableVideo(5000, (percent) => {
+        setExportMockupStatus(`Recording 360° Video Proof (${percent}%)...`);
+      });
+
+      setExportMockupStatus('Finalizing video download...');
+      const orderPrefix = metadata?.orderNumber ? `${metadata.orderNumber}_` : '';
+      const link = document.createElement('a');
+      link.href = result.url;
+      link.download = `${orderPrefix}${result.filename}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('360° Video Proof downloaded!');
+      setTimeout(() => URL.revokeObjectURL(result.url), 4000);
+    } catch (err: any) {
+      console.error('Failed to record 360 video proof:', err);
+      toast.error('Video recording error: ' + (err?.message || 'Unsupported browser capability'));
+    } finally {
+      setIsExportingMockup(false);
+      setExportMockupStatus('');
+    }
   };
 
   const handleTextTextureUpload = (textType: 'name' | 'number', e: React.ChangeEvent<HTMLInputElement>) => {
@@ -7100,6 +7129,32 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     <Camera size={12} /> Current View
                   </button>
                 </div>
+
+                <button
+                  type="button"
+                  disabled={isExportingMockup}
+                  onClick={handleRecord360Video}
+                  className="btn"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '8px 10px',
+                    fontSize: '11px',
+                    fontWeight: '800',
+                    borderRadius: '6px',
+                    background: '#0F172A',
+                    color: '#38BDF8',
+                    border: '1px solid #334155',
+                    boxShadow: '0 2px 6px rgba(15, 23, 42, 0.25)',
+                    cursor: isExportingMockup ? 'not-allowed' : 'pointer'
+                  }}
+                  title="Record a 5-second 360° video loop of the 3D polo for WhatsApp sharing"
+                >
+                  <Video size={13} style={{ color: '#38BDF8' }} /> 
+                  🎥 360° Video Proof (5s Loop)
+                </button>
               </div>
             </div>
 
