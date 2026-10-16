@@ -287,7 +287,55 @@ export interface Quotation {
   createdAt: string;
 }
 
-// ── Ledger Entry (derived) ────────────────────────────────────────────────────
+// ── Factory Expense ──────────────────────────────────────────────────────────
+export type ExpenseCategory =
+  | 'electricity'     // Electricity / Light Bill
+  | 'rent'            // Factory / Workshop Rent
+  | 'salary'          // Staff / Karigar Wages
+  | 'raw_material'    // Sublimation Ink, Paper, Fabric, Thread
+  | 'maintenance'     // Machine Maintenance & Service
+  | 'logistics'       // Transport, Delivery & Courier
+  | 'tea_snacks'      // Daily Tea, Refreshments & Misc
+  | 'other';          // Custom / Whatever you want
+
+export interface FactoryExpense {
+  id: string;
+  expenseNumber: string;
+  title: string;
+  category: ExpenseCategory;
+  customCategory?: string;
+  amount: number;
+  date: string; // YYYY-MM-DD
+  paymentMode: PaymentMode;
+  paidTo?: string;
+  referenceNumber?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
+  electricity: '⚡ Light & Electricity Bill',
+  rent: '🏢 Factory / Unit Rent',
+  salary: '👥 Staff & Karigar Wages',
+  raw_material: '🧵 Raw Material (Ink, Paper, Fabric)',
+  maintenance: '🔧 Machine Maintenance & Repair',
+  logistics: '🚚 Transport & Logistics',
+  tea_snacks: '☕ Daily Tea & Misc',
+  other: '➕ Other / Custom Expense',
+};
+
+export const EXPENSE_CATEGORY_COLORS: Record<ExpenseCategory, string> = {
+  electricity: 'bg-amber-50 text-amber-700 border-amber-200',
+  rent: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  salary: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  raw_material: 'bg-orange-50 text-orange-700 border-orange-200',
+  maintenance: 'bg-rose-50 text-rose-700 border-rose-200',
+  logistics: 'bg-sky-50 text-sky-700 border-sky-200',
+  tea_snacks: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+  other: 'bg-zinc-100 text-zinc-700 border-zinc-200',
+};
+
+// ── Ledger Entry (derived per customer) ───────────────────────────────────────
 export interface LedgerEntry {
   id: string;
   date: string;
@@ -301,6 +349,24 @@ export interface LedgerEntry {
   balance: number; // running balance per customer (computed)
 }
 
+// ── Consolidated All-Ledger Entry (Income & Expenses All at once) ─────────────
+export interface AllLedgerEntry {
+  id: string;
+  date: string;
+  type: 'income' | 'expense';
+  source: 'mfg_payment' | 'dsg_payment' | 'prt_payment' | 'general_payment' | 'factory_expense';
+  title: string;
+  partyOrVendor: string;
+  category: string;
+  categoryBadgeClass: string;
+  paymentMode: PaymentMode;
+  referenceNumber: string;
+  notes?: string;
+  credit: number; // Income (+)
+  debit: number;  // Expense (-)
+  balance: number; // Running net cash flow
+}
+
 // ── Store State ───────────────────────────────────────────────────────────────
 export interface OrderStore {
   customers: Customer[];
@@ -310,6 +376,7 @@ export interface OrderStore {
   printingServices: PrintingService[];
   payments: Payment[];
   quotations: Quotation[];
+  factoryExpenses: FactoryExpense[];
   // counters for auto-numbering
   counters: {
     mfg: number;
@@ -317,6 +384,7 @@ export interface OrderStore {
     prt: number;
     pay: number;
     quo: number;
+    exp: number;
   };
 }
 
@@ -346,6 +414,10 @@ export type Action =
   // Payments
   | { type: 'ADD_PAYMENT'; payload: Omit<Payment, 'id' | 'paymentNumber' | 'createdAt'> }
   | { type: 'DELETE_PAYMENT'; payload: string }
+  // Factory Expenses
+  | { type: 'ADD_EXPENSE'; payload: Omit<FactoryExpense, 'id' | 'expenseNumber' | 'createdAt'> }
+  | { type: 'UPDATE_EXPENSE'; payload: FactoryExpense }
+  | { type: 'DELETE_EXPENSE'; payload: string }
   // Quotations
   | { type: 'ADD_QUOTATION'; payload: Omit<Quotation, 'id' | 'quotationNumber' | 'createdAt'> }
   | { type: 'UPDATE_QUOTATION'; payload: Quotation }
@@ -405,7 +477,7 @@ function applyAllocations(state: OrderStore): OrderStore {
 // ─────────────── INITIAL SEED DATA ───────────────────────────────────────────
 
 const SEED: OrderStore = {
-  counters: { mfg: 0, dsg: 0, prt: 0, pay: 0, quo: 0 },
+  counters: { mfg: 0, dsg: 0, prt: 0, pay: 0, quo: 0, exp: 0 },
   printingServices: [
     {
       id: 'svc-1', name: 'Sublimation Printing', pricingMethod: 'per_piece', baseRate: 45,
@@ -429,6 +501,7 @@ const SEED: OrderStore = {
   printingOrders: [],
   payments: [],
   quotations: [],
+  factoryExpenses: [],
 };
 
 // ─────────────── REDUCER ──────────────────────────────────────────────────────
@@ -620,6 +693,37 @@ function reducer(state: OrderStore, action: Action): OrderStore {
       break;
     }
 
+    // ── Factory Expenses ───────────────────────────────────────────────────
+    case 'ADD_EXPENSE': {
+      const n = (state.counters.exp || 0) + 1;
+      const expense: FactoryExpense = {
+        ...action.payload,
+        id: `exp-${uid()}`,
+        expenseNumber: `EXP-${pad(n, 4)}`,
+        createdAt: now(),
+      };
+      next = {
+        ...state,
+        factoryExpenses: [expense, ...(state.factoryExpenses || [])],
+        counters: { ...state.counters, exp: n },
+      };
+      break;
+    }
+    case 'UPDATE_EXPENSE': {
+      next = {
+        ...state,
+        factoryExpenses: (state.factoryExpenses || []).map(e => e.id === action.payload.id ? action.payload : e),
+      };
+      break;
+    }
+    case 'DELETE_EXPENSE': {
+      next = {
+        ...state,
+        factoryExpenses: (state.factoryExpenses || []).filter(e => e.id !== action.payload),
+      };
+      break;
+    }
+
     case 'LOAD_STATE':
       next = action.payload;
       break;
@@ -773,6 +877,201 @@ export function getEffectivePrintingRate(svc: PrintingService, customerId: strin
   return svc.baseRate;
 }
 
+/**
+ * Consolidated All-in-One Ledger showing all Income & Expenses sorted chronologically with running balance
+ */
+export function getAllLedgerEntries(state: OrderStore): AllLedgerEntry[] {
+  const entries: AllLedgerEntry[] = [];
+  const custMap = new Map<string, Customer>();
+  (state.customers || []).forEach(c => custMap.set(c.id, c));
+
+  // 1. Income entries from payments
+  for (const pay of state.payments || []) {
+    const cust = custMap.get(pay.customerId);
+    const partyName = cust?.businessName || cust?.name || 'Customer Payment';
+
+    let source: AllLedgerEntry['source'] = 'general_payment';
+    let catLabel = 'Payment Received';
+    let badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+
+    if (pay.allocations && pay.allocations.length > 0) {
+      const types = Array.from(new Set(pay.allocations.map(a => a.orderType)));
+      if (types.length === 1) {
+        if (types[0] === 'manufacturer') {
+          source = 'mfg_payment';
+          catLabel = 'MFG Payment';
+          badgeClass = 'bg-orange-50 text-orange-700 border-orange-200';
+        } else if (types[0] === 'designer') {
+          source = 'dsg_payment';
+          catLabel = 'Designer Payment';
+          badgeClass = 'bg-purple-50 text-purple-700 border-purple-200';
+        } else if (types[0] === 'printing') {
+          source = 'prt_payment';
+          catLabel = 'Printing Payment';
+          badgeClass = 'bg-blue-50 text-blue-700 border-blue-200';
+        }
+      } else {
+        catLabel = 'Multi-order Payment';
+        badgeClass = 'bg-teal-50 text-teal-700 border-teal-200';
+      }
+    }
+
+    entries.push({
+      id: `all-pay-${pay.id}`,
+      date: pay.date || pay.createdAt?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+      type: 'income',
+      source,
+      title: `Payment Received (${(pay.mode || 'UPI').toUpperCase()})`,
+      partyOrVendor: partyName,
+      category: catLabel,
+      categoryBadgeClass: badgeClass,
+      paymentMode: pay.mode,
+      referenceNumber: pay.paymentNumber || pay.referenceNumber || 'PAY',
+      notes: pay.notes || pay.referenceNumber,
+      credit: pay.amount,
+      debit: 0,
+      balance: 0,
+    });
+  }
+
+  // 2. Factory Expenses (Debits / Outflows)
+  for (const exp of state.factoryExpenses || []) {
+    const catLabel = exp.category === 'other'
+      ? (exp.customCategory || 'Custom Expense')
+      : (EXPENSE_CATEGORY_LABELS[exp.category] || 'Factory Expense');
+    const badgeClass = EXPENSE_CATEGORY_COLORS[exp.category] || 'bg-zinc-100 text-zinc-700 border-zinc-200';
+
+    entries.push({
+      id: `all-exp-${exp.id}`,
+      date: exp.date || exp.createdAt?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+      type: 'expense',
+      source: 'factory_expense',
+      title: exp.title,
+      partyOrVendor: exp.paidTo || 'Factory Overhead',
+      category: catLabel,
+      categoryBadgeClass: badgeClass,
+      paymentMode: exp.paymentMode || 'cash',
+      referenceNumber: exp.expenseNumber || exp.referenceNumber || 'EXP',
+      notes: exp.notes,
+      credit: 0,
+      debit: exp.amount,
+      balance: 0,
+    });
+  }
+
+  // Sort chronologically ascending
+  entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  // Compute running balance
+  let runningBal = 0;
+  for (const item of entries) {
+    runningBal += item.credit - item.debit;
+    item.balance = runningBal;
+  }
+
+  return entries;
+}
+
+export interface MonthlyFinancialSummary {
+  monthKey: string;
+  monthLabel: string;
+  totalIncome: number;
+  totalExpenses: number;
+  netProfit: number;
+  profitMargin: number;
+  expensesByCategory: Array<{
+    category: ExpenseCategory;
+    label: string;
+    amount: number;
+    percentage: number;
+    color: string;
+  }>;
+  monthlyHistory: Array<{
+    monthKey: string;
+    monthLabel: string;
+    income: number;
+    expenses: number;
+    profit: number;
+  }>;
+}
+
+export function getMonthlyFinancialSummary(state: OrderStore, selectedMonth?: string): MonthlyFinancialSummary {
+  const currentMonthKey = selectedMonth || new Date().toISOString().slice(0, 7);
+
+  // Payments in selected month
+  const monthPayments = (state.payments || []).filter(p => (p.date || '').startsWith(currentMonthKey));
+  const totalIncome = monthPayments.reduce((s, p) => s + p.amount, 0);
+
+  // Expenses in selected month
+  const monthExpenses = (state.factoryExpenses || []).filter(e => (e.date || '').startsWith(currentMonthKey));
+  const totalExpenses = monthExpenses.reduce((s, e) => s + e.amount, 0);
+
+  const netProfit = totalIncome - totalExpenses;
+  const profitMargin = totalIncome > 0 ? Math.round((netProfit / totalIncome) * 100) : 0;
+
+  // Breakdown by category
+  const catTotals: Partial<Record<ExpenseCategory, number>> = {};
+  for (const exp of monthExpenses) {
+    catTotals[exp.category] = (catTotals[exp.category] || 0) + exp.amount;
+  }
+
+  const expensesByCategory = (Object.keys(EXPENSE_CATEGORY_LABELS) as ExpenseCategory[])
+    .map(cat => {
+      const amount = catTotals[cat] || 0;
+      const percentage = totalExpenses > 0 ? Math.round((amount / totalExpenses) * 100) : 0;
+      return {
+        category: cat,
+        label: EXPENSE_CATEGORY_LABELS[cat],
+        amount,
+        percentage,
+        color: EXPENSE_CATEGORY_COLORS[cat],
+      };
+    })
+    .filter(c => c.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+
+  // 6 months history
+  const monthlyHistory: MonthlyFinancialSummary['monthlyHistory'] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - i);
+    const key = d.toISOString().slice(0, 7);
+    const label = d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+
+    const inc = (state.payments || [])
+      .filter(p => (p.date || '').startsWith(key))
+      .reduce((s, p) => s + p.amount, 0);
+    const exp = (state.factoryExpenses || [])
+      .filter(e => (e.date || '').startsWith(key))
+      .reduce((s, e) => s + e.amount, 0);
+
+    monthlyHistory.push({
+      monthKey: key,
+      monthLabel: label,
+      income: inc,
+      expenses: exp,
+      profit: inc - exp,
+    });
+  }
+
+  const d = new Date(`${currentMonthKey}-01T00:00:00`);
+  const monthLabel = !isNaN(d.getTime())
+    ? d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+    : currentMonthKey;
+
+  return {
+    monthKey: currentMonthKey,
+    monthLabel,
+    totalIncome,
+    totalExpenses,
+    netProfit,
+    profitMargin,
+    expensesByCategory,
+    monthlyHistory,
+  };
+}
+
 // ─────────────── HOOK ─────────────────────────────────────────────────────────
 
 const STORAGE_KEY = 'fn_orders_v1';
@@ -800,6 +1099,12 @@ export function useOrderStore() {
         saved.designerBills = (saved.designerBills || []).filter(
           b => !['dsg-1', 'dsg-2'].includes(b.id)
         );
+        saved.factoryExpenses = saved.factoryExpenses || [];
+        if (!saved.counters) {
+          saved.counters = { mfg: 0, dsg: 0, prt: 0, pay: 0, quo: 0, exp: 0 };
+        } else if (saved.counters.exp === undefined) {
+          saved.counters.exp = saved.factoryExpenses.length;
+        }
 
         // Synchronize real bills and customers from Production Studio
         const synced = syncProductionBillingToStore(saved);
@@ -879,6 +1184,8 @@ export function useOrderStore() {
     getPrintingService,
     getCustomerLedger: (id: string) => getCustomerLedger(state, id),
     getCustomerSummary: (id: string) => getCustomerSummary(state, id),
+    getAllLedgerEntries: () => getAllLedgerEntries(state),
+    getMonthlyFinancialSummary: (monthKey?: string) => getMonthlyFinancialSummary(state, monthKey),
     getKPIStats: (mode: 'all' | BusinessType) => getKPIStats(state, mode),
     getEffectivePrintingRate,
   };

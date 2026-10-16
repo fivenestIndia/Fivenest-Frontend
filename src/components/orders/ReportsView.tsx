@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
-import { Download, Printer, TrendingUp, Users, IndianRupee } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Download, Printer, TrendingUp, Users, IndianRupee, FileSpreadsheet, BarChart2 } from 'lucide-react';
 import { useOrderStore, getCustomerSummary, fmt } from '../../hooks/useOrderStore';
+import MonthlyAllLedgerView from './MonthlyAllLedgerView';
 
 interface Props {
   store: ReturnType<typeof useOrderStore>;
@@ -24,6 +25,7 @@ function HorizontalBar({ value, max, color, label }: { value: number; max: numbe
 }
 
 export default function ReportsView({ store }: Props) {
+  const [reportTab, setReportTab] = useState<'all_ledger' | 'analytics'>('all_ledger');
   const mfgRevenue = store.state.manufacturerOrders.reduce((s, o) => s + o.grandTotal, 0);
   const dsgRevenue = store.state.designerBills.reduce((s, b) => s + b.grandTotal, 0);
   const prtRevenue = store.state.printingOrders.reduce((s, o) => s + o.grandTotal, 0);
@@ -103,138 +105,174 @@ export default function ReportsView({ store }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Export actions */}
-      <div className="flex justify-end gap-2">
-        <button onClick={handleExportCSV}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#E8E4DE] text-sm font-semibold hover:bg-[#F5F3EF]">
-          <Download size={15}/> Export CSV
-        </button>
-        <button onClick={() => window.print()}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#E8E4DE] text-sm font-semibold hover:bg-[#F5F3EF]">
-          <Printer size={15}/> Print Report
-        </button>
+      {/* ── Report Type Switcher ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-[#E8E4DE] shadow-xs">
+        <div className="flex items-center gap-2 overflow-x-auto">
+          <button
+            onClick={() => setReportTab('all_ledger')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black border transition-all cursor-pointer whitespace-nowrap ${
+              reportTab === 'all_ledger'
+                ? 'bg-[#18181B] text-white border-[#18181B] shadow-xs'
+                : 'bg-[#FAF8F5] text-[#71717A] border-[#E8E4DE] hover:text-[#171717]'
+            }`}
+          >
+            <FileSpreadsheet size={15} className={reportTab === 'all_ledger' ? 'text-emerald-400' : 'text-[#71717A]'} />
+            <span>Monthly All-Ledger (Income & Expenses)</span>
+          </button>
+
+          <button
+            onClick={() => setReportTab('analytics')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black border transition-all cursor-pointer whitespace-nowrap ${
+              reportTab === 'analytics'
+                ? 'bg-[#18181B] text-white border-[#18181B] shadow-xs'
+                : 'bg-[#FAF8F5] text-[#71717A] border-[#E8E4DE] hover:text-[#171717]'
+            }`}
+          >
+            <BarChart2 size={15} className={reportTab === 'analytics' ? 'text-[#E4572E]' : 'text-[#71717A]'} />
+            <span>Revenue & Top Customers Analytics</span>
+          </button>
+        </div>
+
+        {reportTab === 'analytics' && (
+          <div className="flex items-center gap-2 ml-auto">
+            <button onClick={handleExportCSV}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E8E4DE] text-xs font-semibold hover:bg-[#F5F3EF]">
+              <Download size={13}/> Export CSV
+            </button>
+            <button onClick={() => window.print()}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E8E4DE] text-xs font-semibold hover:bg-[#F5F3EF]">
+              <Printer size={13}/> Print
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Revenue by business (bar chart) */}
-      <div className="bg-white border border-[#E8E4DE] rounded-2xl p-6">
-        <h3 className="text-sm font-black text-[#171717] uppercase tracking-wider mb-5">Revenue by Business Category</h3>
-        <div className="space-y-4">
-          <HorizontalBar value={mfgRevenue} max={maxRevenue} color="bg-[#E4572E]" label="Manufacturer" />
-          <HorizontalBar value={dsgRevenue} max={maxRevenue} color="bg-purple-500" label="Designer" />
-          <HorizontalBar value={prtRevenue} max={maxRevenue} color="bg-blue-500" label="Printing" />
-        </div>
-        <div className="mt-5 pt-4 border-t border-[#E8E4DE] flex justify-between text-sm">
-          <span className="text-[#71717A] font-semibold">Total Revenue</span>
-          <span className="font-black text-[#171717] text-lg">{fmt(totalInvoiced)}</span>
-        </div>
-      </div>
-
-      {/* KPI Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {KPI_CARDS.map(card => {
-          const Icon = card.icon;
-          return (
-            <div key={card.label} className="bg-white border border-[#E8E4DE] rounded-2xl p-5">
-              <div className={`w-9 h-9 rounded-xl ${card.bg} flex items-center justify-center mb-3`}>
-                <Icon size={16} className={card.color}/>
-              </div>
-              <p className="text-xl font-black text-[#171717]">{card.value}</p>
-              <p className="text-xs uppercase tracking-wider text-[#71717A] font-semibold mt-1">{card.label}</p>
+      {reportTab === 'all_ledger' ? (
+        <MonthlyAllLedgerView store={store} />
+      ) : (
+        <div className="space-y-6">
+          {/* Revenue by business (bar chart) */}
+          <div className="bg-white border border-[#E8E4DE] rounded-2xl p-6 shadow-xs">
+            <h3 className="text-sm font-black text-[#171717] uppercase tracking-wider mb-5">Revenue by Business Category</h3>
+            <div className="space-y-4">
+              <HorizontalBar value={mfgRevenue} max={maxRevenue} color="bg-[#E4572E]" label="Manufacturer" />
+              <HorizontalBar value={dsgRevenue} max={maxRevenue} color="bg-purple-500" label="Designer" />
+              <HorizontalBar value={prtRevenue} max={maxRevenue} color="bg-blue-500" label="Printing" />
             </div>
-          );
-        })}
-      </div>
+            <div className="mt-5 pt-4 border-t border-[#E8E4DE] flex justify-between text-sm">
+              <span className="text-[#71717A] font-semibold">Total Revenue</span>
+              <span className="font-black text-[#171717] text-lg">{fmt(totalInvoiced)}</span>
+            </div>
+          </div>
 
-      {/* Top customers */}
-      <div className="bg-white border border-[#E8E4DE] rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-[#E8E4DE] bg-[#FAF8F5]">
-          <h3 className="text-sm font-black text-[#171717] uppercase tracking-wider">Top Customers</h3>
-        </div>
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-[#E8E4DE]">
-              {['Rank','Customer','Services','Total Business','Outstanding','Last Order'].map(h => (
-                <th key={h} className="text-left px-5 py-3 text-xs uppercase tracking-wider font-semibold text-[#71717A]">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {topCustomers.map((c, i) => (
-              <tr key={c.id} className="border-t border-[#E8E4DE] hover:bg-[#FAF8F5]">
-                <td className="px-5 py-3">
-                  <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black ${i === 0 ? 'bg-yellow-100 text-yellow-700' : i === 1 ? 'bg-zinc-100 text-zinc-600' : i === 2 ? 'bg-orange-100 text-orange-700' : 'bg-[#FAF8F5] text-[#71717A]'}`}>
-                    {i+1}
-                  </span>
-                </td>
-                <td className="px-5 py-3">
-                  <p className="font-bold text-sm text-[#171717]">{c.businessName}</p>
-                  <p className="text-xs text-[#71717A]">{c.name}</p>
-                </td>
-                <td className="px-5 py-3">
-                  <div className="flex gap-1">
-                    {c.summary.services.map(s => (
-                      <span key={s} className="text-[10px] font-black px-1.5 py-0.5 rounded-full border bg-[#FAF8F5] text-[#52525B] border-[#E8E4DE]">
-                        {s[0].toUpperCase()}
-                      </span>
-                    ))}
+          {/* KPI Summary */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {KPI_CARDS.map(card => {
+              const Icon = card.icon;
+              return (
+                <div key={card.label} className="bg-white border border-[#E8E4DE] rounded-2xl p-5 shadow-xs">
+                  <div className={`w-9 h-9 rounded-xl ${card.bg} flex items-center justify-center mb-3`}>
+                    <Icon size={16} className={card.color}/>
                   </div>
-                </td>
-                <td className="px-5 py-3 font-semibold text-sm">{fmt(c.summary.totalBusiness)}</td>
-                <td className="px-5 py-3">
-                  <span className={`text-sm font-bold ${c.summary.outstanding > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                    {fmt(c.summary.outstanding)}
-                  </span>
-                </td>
-                <td className="px-5 py-3 text-xs text-[#71717A]">
-                  {c.summary.lastOrder !== '—' ? new Date(c.summary.lastOrder).toLocaleDateString('en-IN', {day:'2-digit',month:'short'}) : '—'}
-                </td>
-              </tr>
-            ))}
-            {topCustomers.length === 0 && (
-              <tr><td colSpan={6} className="px-5 py-8 text-center text-[#71717A] text-sm">No customers yet</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Monthly revenue chart */}
-      <div className="bg-white border border-[#E8E4DE] rounded-2xl p-6">
-        <h3 className="text-sm font-black text-[#171717] uppercase tracking-wider mb-5">Monthly Revenue — Last 6 Months</h3>
-        <div className="flex items-end gap-3 h-40">
-          {months.map((m) => {
-            const totalH = maxMonthly > 0 ? (m.total / maxMonthly) * 128 : 0;
-            const mfgH = m.total > 0 ? (m.mfg / m.total) * totalH : 0;
-            const dsgH = m.total > 0 ? (m.dsg / m.total) * totalH : 0;
-            const prtH = m.total > 0 ? (m.prt / m.total) * totalH : 0;
-            return (
-              <div key={m.label} className="flex-1 flex flex-col items-center gap-1">
-                <p className="text-[10px] font-bold text-[#71717A]">{m.total > 0 ? fmt(m.total) : ''}</p>
-                <div className="w-full flex flex-col justify-end" style={{ height: '128px' }}>
-                  <div className="flex flex-col-reverse w-full rounded-t-lg overflow-hidden">
-                    {prtH > 0 && <div style={{ height: `${prtH}px` }} className="bg-blue-400 w-full"/>}
-                    {dsgH > 0 && <div style={{ height: `${dsgH}px` }} className="bg-purple-400 w-full"/>}
-                    {mfgH > 0 && <div style={{ height: `${mfgH}px` }} className="bg-[#E4572E] w-full"/>}
-                    {m.total === 0 && <div style={{ height: '4px' }} className="bg-[#E8E4DE] w-full rounded-t-sm"/>}
-                  </div>
+                  <p className="text-xl font-black text-[#171717]">{card.value}</p>
+                  <p className="text-xs uppercase tracking-wider text-[#71717A] font-semibold mt-1">{card.label}</p>
                 </div>
-                <p className="text-xs font-semibold text-[#52525B]">{m.label}</p>
-              </div>
-            );
-          })}
-        </div>
-        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-[#E8E4DE]">
-          {[
-            { color: 'bg-[#E4572E]', label: 'Manufacturer' },
-            { color: 'bg-purple-400', label: 'Designer' },
-            { color: 'bg-blue-400', label: 'Printing' },
-          ].map(l => (
-            <div key={l.label} className="flex items-center gap-1.5">
-              <div className={`w-3 h-3 rounded-sm ${l.color}`}/>
-              <span className="text-xs text-[#71717A] font-semibold">{l.label}</span>
+              );
+            })}
+          </div>
+
+          {/* Top customers */}
+          <div className="bg-white border border-[#E8E4DE] rounded-2xl overflow-hidden shadow-xs">
+            <div className="px-6 py-4 border-b border-[#E8E4DE] bg-[#FAF8F5]">
+              <h3 className="text-sm font-black text-[#171717] uppercase tracking-wider">Top Customers</h3>
             </div>
-          ))}
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[#E8E4DE]">
+                  {['Rank','Customer','Services','Total Business','Outstanding','Last Order'].map(h => (
+                    <th key={h} className="text-left px-5 py-3 text-xs uppercase tracking-wider font-semibold text-[#71717A]">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {topCustomers.map((c, i) => (
+                  <tr key={c.id} className="border-t border-[#E8E4DE] hover:bg-[#FAF8F5]">
+                    <td className="px-5 py-3">
+                      <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black ${i === 0 ? 'bg-yellow-100 text-yellow-700' : i === 1 ? 'bg-zinc-100 text-zinc-600' : i === 2 ? 'bg-orange-100 text-orange-700' : 'bg-[#FAF8F5] text-[#71717A]'}`}>
+                        {i+1}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <p className="font-bold text-sm text-[#171717]">{c.businessName}</p>
+                      <p className="text-xs text-[#71717A]">{c.name}</p>
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex gap-1">
+                        {c.summary.services.map(s => (
+                          <span key={s} className="text-[10px] font-black px-1.5 py-0.5 rounded-full border bg-[#FAF8F5] text-[#52525B] border-[#E8E4DE]">
+                            {s[0].toUpperCase()}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-5 py-3 font-semibold text-sm">{fmt(c.summary.totalBusiness)}</td>
+                    <td className="px-5 py-3">
+                      <span className={`text-sm font-bold ${c.summary.outstanding > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                        {fmt(c.summary.outstanding)}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-xs text-[#71717A]">
+                      {c.summary.lastOrder !== '—' ? new Date(c.summary.lastOrder).toLocaleDateString('en-IN', {day:'2-digit',month:'short'}) : '—'}
+                    </td>
+                  </tr>
+                ))}
+                {topCustomers.length === 0 && (
+                  <tr><td colSpan={6} className="px-5 py-8 text-center text-[#71717A] text-sm">No customers yet</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Monthly revenue chart */}
+          <div className="bg-white border border-[#E8E4DE] rounded-2xl p-6 shadow-xs">
+            <h3 className="text-sm font-black text-[#171717] uppercase tracking-wider mb-5">Monthly Revenue — Last 6 Months</h3>
+            <div className="flex items-end gap-3 h-40">
+              {months.map((m) => {
+                const totalH = maxMonthly > 0 ? (m.total / maxMonthly) * 128 : 0;
+                const mfgH = m.total > 0 ? (m.mfg / m.total) * totalH : 0;
+                const dsgH = m.total > 0 ? (m.dsg / m.total) * totalH : 0;
+                const prtH = m.total > 0 ? (m.prt / m.total) * totalH : 0;
+                return (
+                  <div key={m.label} className="flex-1 flex flex-col items-center gap-1">
+                    <p className="text-[10px] font-bold text-[#71717A]">{m.total > 0 ? fmt(m.total) : ''}</p>
+                    <div className="w-full flex flex-col justify-end" style={{ height: '128px' }}>
+                      <div className="flex flex-col-reverse w-full rounded-t-lg overflow-hidden">
+                        {prtH > 0 && <div style={{ height: `${prtH}px` }} className="bg-blue-400 w-full"/>}
+                        {dsgH > 0 && <div style={{ height: `${dsgH}px` }} className="bg-purple-400 w-full"/>}
+                        {mfgH > 0 && <div style={{ height: `${mfgH}px` }} className="bg-[#E4572E] w-full"/>}
+                        {m.total === 0 && <div style={{ height: '4px' }} className="bg-[#E8E4DE] w-full rounded-t-sm"/>}
+                      </div>
+                    </div>
+                    <p className="text-xs font-semibold text-[#52525B]">{m.label}</p>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-[#E8E4DE]">
+              {[
+                { color: 'bg-[#E4572E]', label: 'Manufacturer' },
+                { color: 'bg-purple-400', label: 'Designer' },
+                { color: 'bg-blue-400', label: 'Printing' },
+              ].map(l => (
+                <div key={l.label} className="flex items-center gap-1.5">
+                  <div className={`w-3 h-3 rounded-sm ${l.color}`}/>
+                  <span className="text-xs text-[#71717A] font-semibold">{l.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

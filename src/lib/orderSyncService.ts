@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { supabase } from './supabaseClient';
-import type { OrderStore, Customer, ManufacturerOrder, DesignerBill, PrintingOrder, Payment, Quotation } from '../hooks/useOrderStore';
+import type { OrderStore, Customer, ManufacturerOrder, DesignerBill, PrintingOrder, Payment, Quotation, FactoryExpense } from '../hooks/useOrderStore';
 
 async function getAuthToken(): Promise<string | null> {
   try {
@@ -109,6 +109,11 @@ export function mergeOrderStores(local: OrderStore, remote: OrderStore): OrderSt
   (remote.payments || []).forEach(p => p && p.id && payMap.set(p.id, p));
   (local.payments || []).forEach(p => p && p.id && payMap.set(p.id, p));
 
+  // Merge factory expenses
+  const expMap = new Map<string, FactoryExpense>();
+  (remote.factoryExpenses || []).forEach(e => e && e.id && expMap.set(e.id, e));
+  (local.factoryExpenses || []).forEach(e => e && e.id && expMap.set(e.id, e));
+
   // Merge quotations
   const quoMap = new Map<string, Quotation>();
   (remote.quotations || []).forEach(q => q && q.id && quoMap.set(q.id, q));
@@ -121,6 +126,7 @@ export function mergeOrderStores(local: OrderStore, remote: OrderStore): OrderSt
     prt: Math.max(local.counters?.prt || 0, remote.counters?.prt || 0),
     pay: Math.max(local.counters?.pay || 0, remote.counters?.pay || 0),
     quo: Math.max(local.counters?.quo || 0, remote.counters?.quo || 0),
+    exp: Math.max(local.counters?.exp || 0, remote.counters?.exp || 0),
   };
 
   return {
@@ -130,6 +136,7 @@ export function mergeOrderStores(local: OrderStore, remote: OrderStore): OrderSt
     printingOrders: Array.from(prtMap.values()),
     printingServices: local.printingServices || remote.printingServices,
     payments: Array.from(payMap.values()),
+    factoryExpenses: Array.from(expMap.values()),
     quotations: Array.from(quoMap.values()),
     counters
   };

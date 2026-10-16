@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, Bell, Filter, Download, Settings, Factory, Palette, Printer,
   LayoutDashboard, Users, ShoppingBag, FileText, CreditCard, AlertTriangle,
-  BookOpen, BarChart3, X, CheckCircle, ChevronDown, ChevronRight, Cloud, RefreshCw
+  BookOpen, BarChart3, X, CheckCircle, ChevronDown, ChevronRight, Cloud, RefreshCw,
+  Shirt, Zap, FileSpreadsheet, ArrowLeft
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -21,7 +22,11 @@ import ReportsView from '../components/orders/ReportsView';
 import JobSheetModal from '../components/orders/JobSheetModal';
 import DesignerBillModal from '../components/orders/DesignerBillModal';
 import PaymentsHub from '../components/orders/PaymentsHub';
-import { ManufacturerOrder, DesignerBill } from '../hooks/useOrderStore';
+import ExpensesView from '../components/orders/ExpensesView';
+import ExpenseModal from '../components/orders/ExpenseModal';
+import MonthlyAllLedgerView from '../components/orders/MonthlyAllLedgerView';
+import AnimatedFinancialDashboard from '../components/orders/AnimatedFinancialDashboard';
+import { ManufacturerOrder, DesignerBill, FactoryExpense } from '../hooks/useOrderStore';
 
 const cn = (...c: (string|undefined|boolean)[]) => c.filter(Boolean).join(' ');
 
@@ -29,37 +34,45 @@ const cn = (...c: (string|undefined|boolean)[]) => c.filter(Boolean).join(' ');
 type BusinessMode = 'all' | BusinessType;
 
 // ─── Sub-navigation items per mode ───────────────────────────────────────────
-type SubView = 'overview' | 'orders' | 'customers' | 'payments' | 'outstanding' | 'ledger' | 'reports' | 'quotations';
+type SubView = 'overview' | 'expenses' | 'monthly_ledger' | 'orders' | 'customers' | 'payments' | 'outstanding' | 'ledger' | 'reports' | 'quotations';
 
 interface NavItem { key: SubView; label: string; icon: React.FC<{size?: number; className?: string}> }
 
 const NAV_ALL: NavItem[] = [
-  { key: 'overview',     label: 'Overview',       icon: LayoutDashboard },
-  { key: 'customers',    label: 'Customers',      icon: Users           },
-  { key: 'payments',     label: 'Payments & Due', icon: CreditCard      },
-  { key: 'ledger',       label: 'Ledger',         icon: BookOpen        },
-  { key: 'reports',      label: 'Reports',        icon: BarChart3       },
+  { key: 'overview',       label: 'Overview',          icon: LayoutDashboard },
+  { key: 'expenses',       label: 'Factory Expenses',  icon: Zap             },
+  { key: 'monthly_ledger', label: 'All Ledger (P&L)',  icon: FileSpreadsheet },
+  { key: 'customers',      label: 'Customers',         icon: Users           },
+  { key: 'payments',       label: 'Payments & Due',    icon: CreditCard      },
+  { key: 'ledger',         label: 'Party Ledger',      icon: BookOpen        },
+  { key: 'reports',        label: 'Reports',           icon: BarChart3       },
 ];
 const NAV_MFG: NavItem[] = [
-  { key: 'orders',       label: 'Orders',         icon: ShoppingBag     },
-  { key: 'payments',     label: 'Payments & Due', icon: CreditCard      },
-  { key: 'customers',    label: 'Customers',      icon: Users           },
-  { key: 'ledger',       label: 'Ledger',         icon: BookOpen        },
-  { key: 'reports',      label: 'Reports',        icon: BarChart3       },
+  { key: 'orders',         label: 'Orders',            icon: ShoppingBag     },
+  { key: 'expenses',       label: 'Factory Expenses',  icon: Zap             },
+  { key: 'payments',       label: 'Payments & Due',    icon: CreditCard      },
+  { key: 'customers',      label: 'Customers',         icon: Users           },
+  { key: 'monthly_ledger', label: 'All Ledger',        icon: FileSpreadsheet },
+  { key: 'ledger',         label: 'Party Ledger',      icon: BookOpen        },
+  { key: 'reports',        label: 'Reports',           icon: BarChart3       },
 ];
 const NAV_DSG: NavItem[] = [
-  { key: 'orders',       label: 'Bills',          icon: FileText        },
-  { key: 'payments',     label: 'Payments & Due', icon: CreditCard      },
-  { key: 'customers',    label: 'Customers',      icon: Users           },
-  { key: 'ledger',       label: 'Ledger',         icon: BookOpen        },
-  { key: 'reports',      label: 'Reports',        icon: BarChart3       },
+  { key: 'orders',         label: 'Bills',             icon: FileText        },
+  { key: 'expenses',       label: 'Factory Expenses',  icon: Zap             },
+  { key: 'payments',       label: 'Payments & Due',    icon: CreditCard      },
+  { key: 'customers',      label: 'Customers',         icon: Users           },
+  { key: 'monthly_ledger', label: 'All Ledger',        icon: FileSpreadsheet },
+  { key: 'ledger',         label: 'Party Ledger',      icon: BookOpen        },
+  { key: 'reports',        label: 'Reports',           icon: BarChart3       },
 ];
 const NAV_PRT: NavItem[] = [
-  { key: 'orders',       label: 'Orders & Rates', icon: ShoppingBag     },
-  { key: 'payments',     label: 'Payments & Due', icon: CreditCard      },
-  { key: 'customers',    label: 'Customers',      icon: Users           },
-  { key: 'ledger',       label: 'Ledger',         icon: BookOpen        },
-  { key: 'reports',      label: 'Reports',        icon: BarChart3       },
+  { key: 'orders',         label: 'Orders & Rates',    icon: ShoppingBag     },
+  { key: 'expenses',       label: 'Factory Expenses',  icon: Zap             },
+  { key: 'payments',       label: 'Payments & Due',    icon: CreditCard      },
+  { key: 'customers',      label: 'Customers',         icon: Users           },
+  { key: 'monthly_ledger', label: 'All Ledger',        icon: FileSpreadsheet },
+  { key: 'ledger',         label: 'Party Ledger',      icon: BookOpen        },
+  { key: 'reports',        label: 'Reports',           icon: BarChart3       },
 ];
 
 function getNav(mode: BusinessMode): NavItem[] {
@@ -85,15 +98,16 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 }
 
 // ─── Quick New Menu ───────────────────────────────────────────────────────────
-function QuickNewMenu({ onMfgOrder, onDesignerBill, onPrintingOrder, onPayment, onCustomer }: {
+function QuickNewMenu({ onMfgOrder, onDesignerBill, onPrintingOrder, onPayment, onCustomer, onExpense }: {
   onMfgOrder: () => void; onDesignerBill: () => void; onPrintingOrder: () => void;
-  onPayment: () => void; onCustomer: () => void;
+  onPayment: () => void; onCustomer: () => void; onExpense: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const items = [
     { label: 'Manufacturing Order', icon: Factory, color: 'text-[#E4572E]', desc: 'Fabric to sizing order', action: onMfgOrder },
     { label: 'Designer Bill', icon: Palette, color: 'text-purple-600', desc: 'Syncs with Production Studio', action: onDesignerBill },
     { label: 'Printing Order', icon: Printer, color: 'text-blue-600', desc: 'Sublimation & DTF order', action: onPrintingOrder },
+    { label: 'Factory Expense', icon: Zap, color: 'text-amber-600', desc: 'Light bills, rent, worker wages, etc.', action: onExpense },
     { label: 'Receive Payment', icon: CreditCard, color: 'text-emerald-600', desc: 'Record incoming payment', action: onPayment },
     { label: 'New Customer', icon: Users, color: 'text-zinc-600', desc: 'Add party to directory', action: onCustomer },
   ];
@@ -517,6 +531,8 @@ export default function OrderManagement() {
   const [dsgPrefillCustomerId, setDsgPrefillCustomerId] = useState<string | undefined>();
   const [showPaymentDrawer, setShowPaymentDrawer] = useState(false);
   const [paymentCustomerId, setPaymentCustomerId] = useState<string | undefined>();
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [expenseToEdit, setExpenseToEdit] = useState<FactoryExpense | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>('synced');
 
@@ -532,6 +548,11 @@ export default function OrderManagement() {
   const openCustomerLedger = (customerId?: string) => {
     if (customerId) setSelectedLedgerCustomerId(customerId);
     setSubView('ledger');
+  };
+
+  const openExpenseModal = (expense?: FactoryExpense) => {
+    setExpenseToEdit(expense || null);
+    setShowExpenseModal(true);
   };
 
   const openMfgOrder = (customerId?: string) => {
@@ -561,14 +582,26 @@ export default function OrderManagement() {
     <div className="min-h-screen bg-[#F5F3EF] flex flex-col">
       {/* ── Top Header ──────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-30 bg-white border-b border-[#E8E4DE] shadow-sm">
-        <div className="max-w-[1600px] mx-auto px-6 py-3 flex items-center gap-4">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
           {/* Back to home */}
-          <Link to="/" className="flex items-center gap-2 mr-2 shrink-0">
-            <span className="w-8 h-8 rounded-xl bg-[#E4572E] flex items-center justify-center text-white font-black text-sm">F</span>
+          <Link to="/" className="flex items-center gap-2 mr-1 shrink-0" title="Go to FiveNest Home">
+            <span className="w-8 h-8 rounded-xl bg-[#E4572E] flex items-center justify-center text-white font-black text-sm shadow-xs">F</span>
             <span className="text-sm font-bold text-[#171717] hidden sm:block">FiveNest</span>
           </Link>
-          <div className="h-6 w-px bg-[#E8E4DE]"/>
-          <h1 className="text-sm font-black text-[#171717] hidden md:block whitespace-nowrap">Orders & Bills</h1>
+
+          {/* Prominent Back to Production Studio Button */}
+          <Link
+            to="/production"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#E4572E] border border-orange-200/90 text-xs sm:text-sm font-black transition-all hover:scale-[1.02] shadow-xs shrink-0 group"
+            title="Return to Sublimation Production Studio & Canvas"
+          >
+            <Shirt size={16} className="text-[#E4572E] group-hover:rotate-6 transition-transform" />
+            <span className="hidden sm:inline">Production Studio</span>
+            <span className="sm:hidden">Studio</span>
+          </Link>
+
+          <div className="h-6 w-px bg-[#E8E4DE] hidden md:block"/>
+          <h1 className="text-sm font-black text-[#171717] hidden md:block whitespace-nowrap">Orders & Factory Ledger</h1>
 
           {/* Global search */}
           <div className="relative flex-1 max-w-md">
@@ -585,6 +618,7 @@ export default function OrderManagement() {
               onMfgOrder={() => openMfgOrder()}
               onDesignerBill={() => openDesignerBill()}
               onPrintingOrder={openPrintingOrder}
+              onExpense={() => openExpenseModal()}
               onPayment={() => openPayment()}
               onCustomer={() => { setSubView('customers'); }}
             />
@@ -778,9 +812,18 @@ export default function OrderManagement() {
                       Business Command Center
                     </h2>
                     <p className="text-sm text-[#71717A] mt-0.5">
-                      Consolidated operations & quick hub for Manufacturing, Design Studio, and Printing
+                      Consolidated operations & financial control for Manufacturing, Design Studio, and Printing
                     </p>
                   </div>
+
+                  {/* ── Animated Monthly Income vs. Factory Expenses Dashboard ── */}
+                  <AnimatedFinancialDashboard
+                    store={store}
+                    onOpenLedger={() => setSubView('monthly_ledger')}
+                    onNewExpense={() => openExpenseModal()}
+                    onReceivePayment={() => openPayment()}
+                  />
+
                   <KPICards stats={stats} mode="all" />
 
                   {/* ── Smart Business Hub (Manufacturer, Designer, Printing Owner Cards) ── */}
@@ -1065,6 +1108,71 @@ export default function OrderManagement() {
                 </div>
               )}
 
+              {/* Factory Expenses sub-view */}
+              {subView === 'expenses' && (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-xl font-black text-[#171717]">
+                        Factory Expenses & Operational Costs
+                      </h2>
+                      <p className="text-xs text-[#71717A] mt-0.5">
+                        Track light bills, factory unit rent, worker & karigar wages, sublimation ink, and custom expenses
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => openExpenseModal()}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-[#E4572E] text-white text-xs sm:text-sm font-black shadow-md shadow-amber-500/25 hover:shadow-lg transition-all cursor-pointer"
+                    >
+                      <Plus size={16} className="stroke-[3]" />
+                      <span>+ Add Factory Expense</span>
+                    </button>
+                  </div>
+                  <ExpensesView
+                    store={store}
+                    onNewExpense={() => openExpenseModal()}
+                    onEditExpense={(exp) => openExpenseModal(exp)}
+                  />
+                </div>
+              )}
+
+              {/* Monthly All-Ledger (Consolidated Income & Expenses) */}
+              {subView === 'monthly_ledger' && (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-xl font-black text-[#171717]">
+                        Monthly Consolidated Ledger (Income & Expenses)
+                      </h2>
+                      <p className="text-xs text-[#71717A] mt-0.5">
+                        All cash inflow (customer payments received) and outflow (factory expenses paid) in one single running statement
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openExpenseModal()}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-xs font-bold hover:bg-amber-100"
+                      >
+                        <Zap size={14} className="text-amber-600" />
+                        <span>+ Expense</span>
+                      </button>
+                      <button
+                        onClick={() => openPayment()}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 text-xs font-bold hover:bg-emerald-100"
+                      >
+                        <CreditCard size={14} className="text-emerald-600" />
+                        <span>+ Income / Payment</span>
+                      </button>
+                    </div>
+                  </div>
+                  <MonthlyAllLedgerView
+                    store={store}
+                    onReceivePayment={() => openPayment()}
+                    onNewExpense={() => openExpenseModal()}
+                  />
+                </div>
+              )}
+
               {/* Customers sub-view */}
               {subView === 'customers' && (
                 <div className="space-y-4">
@@ -1113,14 +1221,23 @@ export default function OrderManagement() {
               )}
 
               {/* Mobile nav (bottom) */}
-              <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#E8E4DE] flex overflow-x-auto z-20 px-2 py-1">
+              <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#E8E4DE] flex items-center overflow-x-auto z-20 px-2 py-1.5 shadow-lg">
+                <Link
+                  to="/production"
+                  className="flex flex-col items-center gap-0.5 px-2.5 py-1 rounded-xl text-[10px] font-black text-[#E4572E] bg-orange-50 border border-orange-200/90 shrink-0 mr-1"
+                  title="Back to Production Studio"
+                >
+                  <Shirt size={16} />
+                  <span>Studio</span>
+                </Link>
+                <div className="h-5 w-px bg-[#E8E4DE] mx-1 shrink-0" />
                 {nav.map(item => {
                   const Icon = item.icon;
                   const active = subView === item.key;
                   return (
                     <button key={item.key} onClick={() => setSubView(item.key)}
-                      className={cn('flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl text-[10px] font-semibold transition-all whitespace-nowrap', active ? 'text-[#E4572E]' : 'text-[#71717A]')}>
-                      <Icon size={18}/>{item.label}
+                      className={cn('flex flex-col items-center gap-0.5 px-2.5 py-1 rounded-xl text-[10px] font-bold transition-all whitespace-nowrap', active ? 'text-[#E4572E] font-black bg-orange-50/50' : 'text-[#71717A]')}>
+                      <Icon size={16}/>{item.label}
                     </button>
                   );
                 })}
@@ -1178,6 +1295,18 @@ export default function OrderManagement() {
             onClose={() => setViewingDesignerBill(null)}
             onReceivePayment={openPayment}
             onViewCustomerLedger={openCustomerLedger}
+          />
+        )}
+        {showExpenseModal && (
+          <ExpenseModal
+            store={store}
+            expenseToEdit={expenseToEdit}
+            onClose={() => { setShowExpenseModal(false); setExpenseToEdit(null); }}
+            onSaved={() => {
+              setShowExpenseModal(false);
+              setExpenseToEdit(null);
+              showToast(expenseToEdit ? 'Expense updated successfully!' : 'Factory expense saved!');
+            }}
           />
         )}
         {toast && <Toast message={toast} onClose={() => setToast(null)}/>}
