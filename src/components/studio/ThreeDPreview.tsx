@@ -399,6 +399,7 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
   const rightSleeveCanvas = useRef(document.createElement('canvas'));
 
   // Preloaded/cached images for Collar, Placket, and Sleeve stripe trims
+  const trimImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const [loadedTrimImages, setLoadedTrimImages] = useState<{
     collar?: HTMLImageElement;
     placket?: HTMLImageElement;
@@ -412,9 +413,9 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
     const collarArtUrl = designConfig.collar?.uploadedFileUrl;
 
     const urls = {
-      collar: trim?.collar.uploadedUrl,
-      placket: trim?.placket.uploadedUrl,
-      sleeveStripe: trim?.sleeveStripe.uploadedUrl,
+      collar: trim?.collar?.uploadedUrl,
+      placket: trim?.placket?.uploadedUrl,
+      sleeveStripe: trim?.sleeveStripe?.uploadedUrl,
       collarArtwork: collarArtUrl
     };
 
@@ -430,32 +431,51 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
         }
         return Promise.resolve();
       }
-      if (newImages[typedKey]?.src === url) {
+
+      // If already in synchronous cache and complete
+      const existing = trimImageCacheRef.current.get(url);
+      if (existing && existing.complete && existing.naturalWidth > 0) {
+        if (newImages[typedKey] !== existing) {
+          newImages[typedKey] = existing;
+          changed = true;
+        }
         return Promise.resolve();
       }
 
       return new Promise<void>((resolve) => {
         const img = new Image();
-        img.crossOrigin = 'anonymous';
+        // NEVER set crossOrigin on data: or blob: URLs to prevent delays / CORS tainting
+        if (!url.startsWith('data:') && !url.startsWith('blob:') && url.startsWith('http')) {
+          img.crossOrigin = 'anonymous';
+        }
         img.onload = () => {
+          trimImageCacheRef.current.set(url, img);
           newImages[typedKey] = img;
           changed = true;
+          composeTexture();
           resolve();
         };
         img.onerror = () => {
-          console.error(`Failed to load trim image for ${key}: ${url}`);
+          console.warn(`Failed to load trim image for ${key}`);
           resolve();
         };
         img.src = url;
+        trimImageCacheRef.current.set(url, img);
+        if (img.complete && img.naturalWidth > 0) {
+          newImages[typedKey] = img;
+          changed = true;
+          resolve();
+        }
       });
     });
 
     Promise.all(loadPromises).then(() => {
       if (changed) {
         setLoadedTrimImages(newImages);
+        composeTexture();
       }
     });
-  }, [designConfig.trim, designConfig.collar?.uploadedFileUrl]);
+  }, [designConfig.trim?.collar?.uploadedUrl, designConfig.trim?.placket?.uploadedUrl, designConfig.trim?.sleeveStripe?.uploadedUrl, designConfig.collar?.uploadedFileUrl]);
 
   // Re-draw panels and compose onto single 4267x4267 texture sheet
   const composeTexture = () => {
@@ -506,32 +526,53 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
     mainCtx.fillStyle = c1;
     mainCtx.fillRect(240, 1810, 420, 140);
 
-    // 3. Draw Left Sleeve (Component 8: X=[341, 1685], Y=[570, 1500], Size: 1344x930)
-    // Stretches fully to the bottom cuff
-    const leftSleeveCtx = leftSleeveCanvas.current.getContext('2d');
-    if (leftSleeveCtx) {
+    // 3 & 4. Sleeves: Component 8 is wearer's Right arm (3D X < 0), Component 9 is wearer's Left arm (3D X > 0)
+    // Height 960 (Y=570 to Y=1530) stretches fully down to the bottom cuff (cuffs sit at Y=[1445, 1508])
+    const leftUpload = previewSleeveType === 'full' 
+      ? (designConfig.sleeveLeft?.uploadedFileFullUrl || designConfig.sleeveLeft?.uploadedFileUrl)
+      : (designConfig.sleeveLeft?.uploadedFileHalfUrl || designConfig.sleeveLeft?.uploadedFileUrl);
+    const rightUpload = previewSleeveType === 'full'
+      ? (designConfig.sleeveRight?.uploadedFileFullUrl || designConfig.sleeveRight?.uploadedFileUrl)
+      : (designConfig.sleeveRight?.uploadedFileHalfUrl || designConfig.sleeveRight?.uploadedFileUrl);
+
+    // Fallback: If only one sleeve has an upload, use it for both arms
+    const effectiveLeftPanel: 'sleeveLeft' | 'sleeveRight' = (leftUpload || !rightUpload) ? 'sleeveLeft' : 'sleeveRight';
+    const effectiveRightPanel: 'sleeveRight' | 'sleeveLeft' = (rightUpload || !leftUpload) ? 'sleeveRight' : 'sleeveLeft';
+
+    // Component 8 (Wearer Right Sleeve: X=[341, 1685], Y=[570, 1530], Size: 1344x960)
+    const rightSleeveCtx = leftSleeveCanvas.current.getContext('2d');
+    if (rightSleeveCtx) {
       leftSleeveCanvas.current.width = 1344;
-      leftSleeveCanvas.current.height = 930;
-      renderPanelToCanvas('sleeveLeft', leftSleeveCtx, 1344, 930, sleeveScale, true);
+      leftSleeveCanvas.current.height = 960;
+      renderPanelToCanvas(effectiveRightPanel, rightSleeveCtx, 1344, 960, sleeveScale, true);
       mainCtx.drawImage(leftSleeveCanvas.current, 341, 570);
     }
 
-    // 4. Draw Right Sleeve (Component 9: X=[1728, 3072], Y=[570, 1500], Size: 1344x930)
-    // Stretches fully to the bottom cuff
-    const rightSleeveCtx = rightSleeveCanvas.current.getContext('2d');
-    if (rightSleeveCtx) {
+    // Component 9 (Wearer Left Sleeve: X=[1728, 3072], Y=[570, 1530], Size: 1344x960)
+    const leftSleeveCtx = rightSleeveCanvas.current.getContext('2d');
+    if (leftSleeveCtx) {
       rightSleeveCanvas.current.width = 1344;
-      rightSleeveCanvas.current.height = 930;
-      renderPanelToCanvas('sleeveRight', rightSleeveCtx, 1344, 930, sleeveScale, true);
+      rightSleeveCanvas.current.height = 960;
+      renderPanelToCanvas(effectiveLeftPanel, leftSleeveCtx, 1344, 960, sleeveScale, true);
       mainCtx.drawImage(rightSleeveCanvas.current, 1728, 570);
     }
 
     // Draw collar, button placket, cuffs and buttons
-    const activeCollarImg = loadedTrimImages.collar || loadedTrimImages.collarArtwork;
+    const collarUrl = trim?.collar?.uploadedUrl || designConfig.collar?.uploadedFileUrl;
+    let activeCollarImg: HTMLImageElement | null = null;
+    if (collarUrl) {
+      const cached = trimImageCacheRef.current.get(collarUrl);
+      if (cached && cached.complete && cached.naturalWidth > 0) {
+        activeCollarImg = cached;
+      }
+    }
+    if (!activeCollarImg) {
+      activeCollarImg = loadedTrimImages.collar || loadedTrimImages.collarArtwork || null;
+    }
 
     // Component 1: Collar in static2 (Main collar rib: X=[2470, 3045], Y=[1715, 1826])
     // Strictly bounded to Y <= 1826 so collar never bleeds onto upper back/chest
-    if (activeCollarImg) {
+    if (activeCollarImg && activeCollarImg.complete && activeCollarImg.naturalWidth > 0) {
       mainCtx.drawImage(activeCollarImg, 2470, 1715, 575, 111);
     } else {
       mainCtx.fillStyle = trim.collar.color || c1;
@@ -543,28 +584,35 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
     mainCtx.fillStyle = buttonCol;
     mainCtx.fillRect(3150, 40, 980, 700);
 
-    // Component 11: Sleeve cuffs (Left: X=[490, 1557], Right: X=[1820, 2912], Y=[1420, 1520])
+    // Component 11: Sleeve cuffs (Wearer Right: X=[490, 1557], Wearer Left: X=[1820, 2912], Y=[1420, 1520])
     const drawCuff = (x: number, y: number, w: number, h: number) => {
+      // Only draw stripe if user has explicitly enabled Sleeve Bottom Stripe
       if (trim.sleeveStripe?.enabled === true) {
-        if (loadedTrimImages.sleeveStripe) {
-          mainCtx.drawImage(loadedTrimImages.sleeveStripe, x, y, w, h);
+        const stripeUrl = trim.sleeveStripe.uploadedUrl;
+        let stripeImg = stripeUrl ? trimImageCacheRef.current.get(stripeUrl) : null;
+        if (!stripeImg && loadedTrimImages.sleeveStripe) {
+          stripeImg = loadedTrimImages.sleeveStripe;
+        }
+
+        if (stripeImg && stripeImg.complete && stripeImg.naturalWidth > 0) {
+          mainCtx.drawImage(stripeImg, x, y, w, h);
         } else if (trim.sleeveStripe.fillType === 'gradient' || (trim.sleeveStripe.gradientStops && trim.sleeveStripe.gradientStops.length >= 2)) {
           const grad = mainCtx.createLinearGradient(x, y, x + w, y);
           const stops = [...trim.sleeveStripe.gradientStops].sort((a, b) => a.offset - b.offset);
           stops.forEach(s => grad.addColorStop(Math.max(0, Math.min(1, s.offset / 100)), s.color));
           mainCtx.fillStyle = grad;
           mainCtx.fillRect(x, y, w, h);
-        } else {
-          mainCtx.fillStyle = trim.sleeveStripe.color || c1;
+        } else if (trim.sleeveStripe.color) {
+          mainCtx.fillStyle = trim.sleeveStripe.color;
           mainCtx.fillRect(x, y, w, h);
         }
       }
       // Note: when sleeveStripe is not enabled, do not paint solid color!
       // The stretched sleeve artwork covers the sleeve completely down to the bottom cuff.
     };
-    // Left sleeve cuff
+    // Wearer Right sleeve cuff (Comp 8: X=[490, 1557], Y=[1420, 1520])
     drawCuff(490, 1420, 1067, 100);
-    // Right sleeve cuff
+    // Wearer Left sleeve cuff (Comp 9: X=[1820, 2912], Y=[1420, 1520])
     drawCuff(1820, 1420, 1092, 100);
 
     // Component 12: Placket overlay
@@ -599,20 +647,20 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
       poloModelRef.current.traverse((child) => {
         if ((child as any).isMesh) {
           const mesh = child as THREE.Mesh;
-          const matName = (mesh.material as any).name || '';
           const mat = mesh.material as THREE.MeshStandardMaterial;
           if (mat) {
+            const role = (mesh.userData?.role || (mesh.material as any)?.name || mesh.name || '').toLowerCase();
             if (
-              matName.toLowerCase().includes('button') || 
-              matName.toLowerCase().includes('material 1')
+              role.includes('button') || 
+              role.includes('material 1')
             ) {
               const btnCol = trim.buttonColor || '#ffffff';
               mat.color.set(btnCol);
               mat.map = null;
               mat.needsUpdate = true;
             } else if (
-              matName.toLowerCase().includes('sleeve end') || 
-              matName.toLowerCase().includes('material 2')
+              role.includes('sleeve end') || 
+              role.includes('material 2')
             ) {
               mat.map = textureRef.current;
               mat.color.set('#ffffff');
@@ -1062,10 +1110,13 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
               buttonColor: '#ffffff'
             };
 
-            if (
-              matName.toLowerCase().includes('button') || 
-              matName.toLowerCase().includes('material 1')
-            ) {
+            const isButton = matName.toLowerCase().includes('button') || 
+                             matName.toLowerCase().includes('material 1') ||
+                             mesh.name.toLowerCase().includes('button');
+
+            if (isButton) {
+              mat.name = 'button';
+              mesh.userData.role = 'button';
               const btnCol = trim.buttonColor || '#ffffff';
               mat.color.set(btnCol);
               mat.map = null;
@@ -1074,6 +1125,8 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
               matName.toLowerCase().includes('sleeve end') || 
               matName.toLowerCase().includes('material 2')
             ) {
+              mat.name = 'sleeve_end';
+              mesh.userData.role = 'sleeve_end';
               mat.map = texture;
               mat.color.set('#ffffff');
               mesh.material = mat;
@@ -1082,9 +1135,13 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
               matName.toLowerCase().includes('material 0') || 
               mesh.name.toLowerCase().includes('cloth')
             ) {
+              mat.name = 'main_design';
+              mesh.userData.role = 'main_design';
               mat.map = texture;
               mesh.material = mat;
             } else {
+              mat.name = matName || 'other';
+              mesh.userData.role = matName || 'other';
               mat.color.set('#ffffff');
               mesh.material = mat;
             }

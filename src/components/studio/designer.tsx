@@ -1612,43 +1612,61 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const reader = new FileReader();
       reader.onload = (event) => {
         const url = event.target?.result as string;
-        updateTrimConfig(partKey, { uploadedUrl: url });
+        if (!url) return;
+
+        const img = new Image();
+        img.src = url;
+        logoImagesRef.current[url] = img;
+
         if (partKey === 'collar') {
-          const img = new Image();
-          img.onload = () => {
-            logoImagesRef.current[url] = img;
-            const edgeColor = sampleImageEdgeColor(img);
-            const currentCollar = designConfig.collar || defaultDesignConfig.collar!;
-            const updated = {
-              ...designConfig,
-              collar: {
-                ...currentCollar,
-                backgroundType: 'upload' as const,
-                uploadedFileUrl: url,
-                generatedStyle: 'solid',
-                generatedColor1: edgeColor || currentCollar.generatedColor1
-              },
-              trim: {
-                ...(designConfig.trim || {
-                  collar: { color: designConfig.front.generatedColor1, uploadedUrl: null },
-                  placket: { color: designConfig.front.generatedColor1, uploadedUrl: null },
-                  sleeveStripe: { enabled: false, color: designConfig.front.generatedColor1, uploadedUrl: null, height: 2.0, fillType: 'solid' }
-                }),
-                collar: {
-                  ...(designConfig.trim?.collar || { color: designConfig.front.generatedColor1, uploadedUrl: null }),
-                  uploadedUrl: url,
-                  color: edgeColor || designConfig.trim?.collar?.color || designConfig.front.generatedColor1
-                }
-              }
-            };
-            onDesignConfigChange(updated);
-            setPrefTrigger(prev => prev + 1);
+          const edgeColor = sampleImageEdgeColor(img);
+          const currentCollar = designConfig.collar || defaultDesignConfig.collar!;
+          const currentTrim = designConfig.trim || {
+            collar: { color: designConfig.front.generatedColor1, uploadedUrl: null },
+            placket: { color: designConfig.front.generatedColor1, uploadedUrl: null },
+            sleeveStripe: { enabled: false, color: designConfig.front.generatedColor1, uploadedUrl: null, height: 2.0, fillType: 'solid' },
+            buttonColor: '#ffffff'
           };
-          img.src = url;
+          const updated = {
+            ...designConfig,
+            collar: {
+              ...currentCollar,
+              backgroundType: 'upload' as const,
+              uploadedFileUrl: url,
+              generatedStyle: 'solid',
+              generatedColor1: edgeColor || currentCollar.generatedColor1
+            },
+            trim: {
+              ...currentTrim,
+              collar: {
+                ...currentTrim.collar,
+                uploadedUrl: url,
+                color: edgeColor || currentTrim.collar?.color || designConfig.front.generatedColor1
+              }
+            }
+          };
+          onDesignConfigChange(updated);
+          setPrefTrigger(prev => prev + 1);
+
+          img.onload = () => {
+            const sampled = sampleImageEdgeColor(img);
+            if (sampled && sampled !== edgeColor) {
+              const refreshed = {
+                ...updated,
+                collar: { ...updated.collar, generatedColor1: sampled },
+                trim: { ...updated.trim, collar: { ...updated.trim.collar, color: sampled } }
+              };
+              onDesignConfigChange(refreshed);
+              setPrefTrigger(prev => prev + 1);
+            }
+          };
+        } else {
+          updateTrimConfig(partKey, { uploadedUrl: url });
         }
       };
       reader.readAsDataURL(file);
     }
+    e.target.value = '';
   };
 
   const isLightColor = (colorStr: string): boolean => {
@@ -3228,6 +3246,15 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             drawTechnicalMarks(ctx);
           }
         } else {
+          if (is3DPreview) {
+            ctx.fillStyle = designConfig.front?.generatedColor1 || '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+            drawLogos(ctx);
+            drawTexts(ctx);
+            drawTechnicalMarks(ctx);
+            ctx.restore();
+            return;
+          }
           // Standard Photoshop / CorelDraw Transparency Checks Print for Empty Panels
           const checkSize = Math.max(12, Math.round(14 * (scale / 20)));
           for (let cy = 0; cy < height; cy += checkSize) {
@@ -6290,14 +6317,38 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     />
                   </div>
                   <div style={{ flex: 1 }}>
-                    {designConfig.trim?.collar.uploadedUrl ? (
+                    {(designConfig.trim?.collar.uploadedUrl || designConfig.collar?.uploadedFileUrl) ? (
                       <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                         <span style={{ fontSize: '10px', color: '#10b981', fontWeight: '600' }}>Pattern</span>
                         <button 
                           type="button"
                           className="btn btn-secondary" 
                           style={{ padding: '2px 6px', fontSize: '10px' }}
-                          onClick={() => updateTrimConfig('collar', { uploadedUrl: null })}
+                          onClick={() => {
+                            const currentCollar = designConfig.collar || defaultDesignConfig.collar!;
+                            const currentTrim = designConfig.trim || {
+                              collar: { color: designConfig.front.generatedColor1, uploadedUrl: null },
+                              placket: { color: designConfig.front.generatedColor1, uploadedUrl: null },
+                              sleeveStripe: { enabled: false, color: designConfig.front.generatedColor1, uploadedUrl: null, height: 2.0, fillType: 'solid' },
+                              buttonColor: '#ffffff'
+                            };
+                            const updated = {
+                              ...designConfig,
+                              collar: {
+                                ...currentCollar,
+                                uploadedFileUrl: null
+                              },
+                              trim: {
+                                ...currentTrim,
+                                collar: {
+                                  ...currentTrim.collar,
+                                  uploadedUrl: null
+                                }
+                              }
+                            };
+                            onDesignConfigChange(updated);
+                            setPrefTrigger(prev => prev + 1);
+                          }}
                         >
                           Clear
                         </button>
