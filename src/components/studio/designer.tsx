@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus, Maximize2, Camera, Sparkles, Check, Image as ImageIcon, RotateCcw, Palette, Eye, EyeOff } from 'lucide-react';
+import { Upload, Paintbrush, Layers, FolderArchive, ZoomIn, ZoomOut, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, Trash2, Shirt, Plus, Maximize2, Camera, Sparkles, Check, Image as ImageIcon, RotateCcw, Palette, Eye, EyeOff, ArrowUp, ArrowLeft, ArrowRight } from 'lucide-react';
 import type { OrderMetadata } from './orderEntry';
 import { ThreeDPreview, type ThreeDPreviewHandle, generatePresentationBoard } from './ThreeDPreview';
 import { defaultSizes } from './sizesDb';
@@ -175,6 +175,7 @@ export interface TrimConfig {
   collar: TrimPartConfig;
   placket: TrimPartConfig;
   sleeveStripe: TrimPartConfig;
+  buttonColor?: string;
 }
 
 export interface CollarStripe {
@@ -356,7 +357,8 @@ export const defaultDesignConfig: ArtDesignConfig = {
   trim: {
     collar: { enabled: true, color: '#9b4dff', uploadedUrl: null },
     placket: { enabled: true, color: '#9b4dff', uploadedUrl: null },
-    sleeveStripe: { enabled: false, color: '#171717', uploadedUrl: null, height: 2.0, fillType: 'solid' }
+    sleeveStripe: { enabled: false, color: '#171717', uploadedUrl: null, height: 2.0, fillType: 'solid' },
+    buttonColor: '#ffffff'
   }
 };
 
@@ -1582,6 +1584,23 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           ...currentTrim[partKey],
           ...updatedFields
         }
+      }
+    };
+    onDesignConfigChange(updated);
+  };
+
+  const updateButtonColor = (color: string) => {
+    const currentTrim = designConfig.trim || {
+      collar: { color: designConfig.front.generatedColor1, uploadedUrl: null },
+      placket: { color: designConfig.front.generatedColor1, uploadedUrl: null },
+      sleeveStripe: { enabled: false, color: designConfig.front.generatedColor1, uploadedUrl: null, height: 2.0, fillType: 'solid' },
+      buttonColor: '#ffffff'
+    };
+    const updated = {
+      ...designConfig,
+      trim: {
+        ...currentTrim,
+        buttonColor: color
       }
     };
     onDesignConfigChange(updated);
@@ -6111,115 +6130,85 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               </button>
             </div>
 
-            {/* Card 1: 3D Camera Angles & Controls */}
-            <div className="glass-card" style={{ padding: '16px', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Maximize2 size={18} style={{ color: '#E4572E' }} />
-                  <h3 style={{ fontSize: '13px', fontWeight: '800', color: '#1F2937', margin: 0 }}>3D Camera Views</h3>
+            {/* Card 1: 3D Camera Views */}
+            <div className="glass-card" style={{ padding: '10px 12px', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Maximize2 size={15} style={{ color: '#E4572E' }} />
+                  <h3 style={{ fontSize: '12px', fontWeight: '800', color: '#1F2937', margin: 0 }}>Camera Views</h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => threeDRef.current?.resetCamera()}
                   className="btn btn-secondary"
-                  style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  style={{ padding: '2px 8px', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', height: '22px' }}
                   title="Reset Camera Orientation & Zoom"
                 >
-                  <RotateCcw size={12} /> Reset
+                  <RotateCcw size={11} /> Reset
                 </button>
               </div>
 
-              {/* Quick Camera Angles Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '12px' }}>
+              {/* Quick Camera Angle Icon Buttons */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px' }}>
                 <button
                   type="button"
                   onClick={() => threeDRef.current?.setCameraAngle('front')}
                   className="btn btn-secondary"
-                  style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#FAF8F5' }}
+                  style={{ padding: '6px 2px', fontSize: '10px', fontWeight: '700', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', background: '#FAF8F5' }}
+                  title="Front View (0°)"
                 >
-                  Front (0°)
+                  <Eye size={13} style={{ color: '#E4572E' }} />
+                  <span>Front</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => threeDRef.current?.setCameraAngle('back')}
                   className="btn btn-secondary"
-                  style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#FAF8F5' }}
+                  style={{ padding: '6px 2px', fontSize: '10px', fontWeight: '700', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', background: '#FAF8F5' }}
+                  title="Back View (180°)"
                 >
-                  Back (180°)
+                  <RotateCcw size={13} style={{ color: '#4B5563' }} />
+                  <span>Back</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => threeDRef.current?.setCameraAngle('left')}
                   className="btn btn-secondary"
-                  style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#FAF8F5' }}
+                  style={{ padding: '6px 2px', fontSize: '10px', fontWeight: '700', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', background: '#FAF8F5' }}
+                  title="Left 3/4 (-45°)"
                 >
-                  Left 3/4 (-45°)
+                  <ArrowLeft size={13} style={{ color: '#4B5563' }} />
+                  <span>Left</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => threeDRef.current?.setCameraAngle('right')}
                   className="btn btn-secondary"
-                  style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#FAF8F5' }}
+                  style={{ padding: '6px 2px', fontSize: '10px', fontWeight: '700', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', background: '#FAF8F5' }}
+                  title="Right 3/4 (+45°)"
                 >
-                  Right 3/4 (+45°)
+                  <ArrowRight size={13} style={{ color: '#4B5563' }} />
+                  <span>Right</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => threeDRef.current?.setCameraAngle('up')}
                   className="btn btn-secondary"
-                  style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#FAF8F5', gridColumn: 'span 2' }}
-                  title="Elevated Upright View looking from top-front at collar and jersey center"
+                  style={{ padding: '6px 2px', fontSize: '10px', fontWeight: '700', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', background: '#FAF8F5' }}
+                  title="Top Elevated View"
                 >
-                  ▲ Top / Up View (Elevated)
+                  <ArrowUp size={13} style={{ color: '#E4572E' }} />
+                  <span>Top</span>
                 </button>
-              </div>
-
-              {/* Sleeve Style Toggle */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F9FAFB', padding: '8px 12px', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
-                <span style={{ fontSize: '11px', fontWeight: '700', color: '#4B5563' }}>Sleeve Model:</span>
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  <button
-                    type="button"
-                    onClick={() => handleSleeveTypeChange('half')}
-                    style={{
-                      padding: '4px 10px',
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      borderRadius: '6px',
-                      border: previewSleeveType === 'half' ? '1px solid #E4572E' : '1px solid #D1D5DB',
-                      background: previewSleeveType === 'half' ? '#E4572E' : '#FFFFFF',
-                      color: previewSleeveType === 'half' ? '#FFFFFF' : '#374151',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Half Sleeve
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSleeveTypeChange('full')}
-                    style={{
-                      padding: '4px 10px',
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      borderRadius: '6px',
-                      border: previewSleeveType === 'full' ? '1px solid #E4572E' : '1px solid #D1D5DB',
-                      background: previewSleeveType === 'full' ? '#E4572E' : '#FFFFFF',
-                      color: previewSleeveType === 'full' ? '#FFFFFF' : '#374151',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Full Sleeve
-                  </button>
-                </div>
               </div>
             </div>
 
-            {/* Card 2: Collar & Trim Customization (Exclusively in 3D View!) */}
-            <div className="glass-card" style={{ padding: '16px', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Shirt size={18} style={{ color: '#E4572E' }} />
-                  <span style={{ fontSize: '13px', fontWeight: '800', color: '#1F2937' }}>Collar & Trim Customization</span>
+            {/* Card 2: Collar */}
+            <div className="glass-card" style={{ padding: '10px 12px', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Shirt size={15} style={{ color: '#E4572E' }} />
+                  <span style={{ fontSize: '12px', fontWeight: '800', color: '#1F2937' }}>Collar</span>
                 </span>
               </div>
 
@@ -6233,49 +6222,48 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '8px',
-                  padding: '10px 14px',
+                  gap: '6px',
+                  padding: '7px 10px',
                   background: 'linear-gradient(135deg, #E4572E 0%, #EA580C 100%)',
                   color: '#FFFFFF',
-                  borderRadius: '8px',
+                  borderRadius: '6px',
                   border: 'none',
-                  fontWeight: '800',
-                  fontSize: '12px',
-                  boxShadow: '0 2px 8px rgba(228, 87, 46, 0.25)',
+                  fontWeight: '700',
+                  fontSize: '11px',
+                  boxShadow: '0 2px 6px rgba(228, 87, 46, 0.2)',
                   cursor: 'pointer',
-                  marginBottom: '12px'
+                  marginBottom: '8px'
                 }}
               >
-                <Sparkles size={15} /> Auto-Analyse Design & Fill Collar
+                <Sparkles size={13} /> Auto-Analyse & Fill Collar
               </button>
 
               {/* Detected Palette Swatches */}
               {extractedPalette.length > 0 && (
-                <div style={{ marginBottom: '14px', background: '#F8FAFC', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#475569', marginBottom: '6px' }}>
-                    Detected Colors (click to apply to Collar):
+                <div style={{ marginBottom: '8px', background: '#F8FAFC', padding: '6px 8px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#475569', marginBottom: '4px' }}>
+                    Palette (click for Collar):
                   </div>
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                     {extractedPalette.map((col, idx) => (
                       <button
                         key={idx}
                         type="button"
                         onClick={() => handleApplyPaletteColorToCollar(col)}
-                        title={`Click to set collar color to ${col}`}
+                        title={`Collar: ${col}`}
                         style={{
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '6px',
+                          width: '22px',
+                          height: '22px',
+                          borderRadius: '4px',
                           background: col,
                           border: (designConfig.trim?.collar.color === col) ? '2px solid #E4572E' : '1px solid rgba(0,0,0,0.15)',
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'center',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                          justifyContent: 'center'
                         }}
                       >
-                        {(designConfig.trim?.collar.color === col) && <Check size={14} color={isLightColor(col) ? '#000000' : '#ffffff'} />}
+                        {(designConfig.trim?.collar.color === col) && <Check size={11} color={isLightColor(col) ? '#000000' : '#ffffff'} />}
                       </button>
                     ))}
                   </div>
@@ -6283,39 +6271,39 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               )}
 
               {/* Section: Collar & Rib */}
-              <div style={{ marginBottom: '14px' }}>
-                <h4 style={{ fontSize: '12px', fontWeight: '700', color: '#374151', marginBottom: '6px' }}>Collar & Rib Color</h4>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <div style={{ marginBottom: '8px' }}>
+                <h4 style={{ fontSize: '11px', fontWeight: '700', color: '#374151', marginBottom: '4px' }}>Collar & Rib Color</h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                     <input 
                       type="color" 
                       value={designConfig.trim?.collar.color || designConfig.front.generatedColor1} 
                       onChange={(e) => updateTrimConfig('collar', { color: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '36px', height: '36px', cursor: 'pointer' }}
+                      style={{ border: 'none', background: 'none', width: '28px', height: '28px', cursor: 'pointer', padding: 0 }}
                     />
                     <input 
                       type="text" 
                       className="form-input" 
                       value={(designConfig.trim?.collar.color || designConfig.front.generatedColor1).toUpperCase()}
                       onChange={(e) => updateTrimConfig('collar', { color: e.target.value })}
-                      style={{ padding: '6px', fontSize: '12px', width: '85px', borderRadius: '6px' }}
+                      style={{ padding: '3px 6px', fontSize: '11px', width: '70px', borderRadius: '5px' }}
                     />
                   </div>
                   <div style={{ flex: 1 }}>
                     {designConfig.trim?.collar.uploadedUrl ? (
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                        <span style={{ fontSize: '11px', color: '#10b981', fontWeight: '600' }}>Pattern Active</span>
+                      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                        <span style={{ fontSize: '10px', color: '#10b981', fontWeight: '600' }}>Pattern</span>
                         <button 
                           type="button"
                           className="btn btn-secondary" 
-                          style={{ padding: '3px 8px', fontSize: '11px' }}
+                          style={{ padding: '2px 6px', fontSize: '10px' }}
                           onClick={() => updateTrimConfig('collar', { uploadedUrl: null })}
                         >
                           Clear
                         </button>
                       </div>
                     ) : (
-                      <label className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
+                      <label className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '10px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
                         Import Image
                         <input 
                           type="file" 
@@ -6329,83 +6317,132 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 </div>
               </div>
 
+              {/* Section: Button Color */}
+              <div style={{ marginBottom: '8px', background: '#F9FAFB', padding: '6px 8px', borderRadius: '6px', border: '1px solid #E5E7EB' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#374151', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: designConfig.trim?.buttonColor || '#ffffff', border: '1px solid #9ca3af', display: 'inline-block' }} />
+                    Button Color
+                  </span>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {[
+                      { name: 'White', color: '#ffffff' },
+                      { name: 'Black', color: '#171717' },
+                      { name: 'Navy', color: '#0f172a' },
+                      { name: 'Collar', color: designConfig.trim?.collar.color || designConfig.front.generatedColor1 }
+                    ].map((p, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => updateButtonColor(p.color)}
+                        title={`Set buttons to ${p.name}`}
+                        style={{
+                          width: '16px',
+                          height: '16px',
+                          borderRadius: '50%',
+                          background: p.color,
+                          border: (designConfig.trim?.buttonColor || '#ffffff').toLowerCase() === p.color.toLowerCase() ? '2px solid #E4572E' : '1px solid #d1d5db',
+                          cursor: 'pointer',
+                          padding: 0
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <input 
+                    type="color" 
+                    value={designConfig.trim?.buttonColor || '#ffffff'} 
+                    onChange={(e) => updateButtonColor(e.target.value)}
+                    style={{ border: 'none', background: 'none', width: '26px', height: '26px', cursor: 'pointer', padding: 0 }}
+                  />
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={(designConfig.trim?.buttonColor || '#ffffff').toUpperCase()}
+                    onChange={(e) => updateButtonColor(e.target.value)}
+                    style={{ padding: '3px 6px', fontSize: '11px', width: '70px', borderRadius: '5px' }}
+                  />
+                </div>
+              </div>
+
               {/* Section: Placket Mode & Styling */}
-              <div style={{ marginBottom: '14px', background: '#F9FAFB', padding: '10px', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
-                <h4 style={{ fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '6px' }}>Button Placket Styling</h4>
-                <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+              <div style={{ marginBottom: '8px', background: '#F9FAFB', padding: '6px 8px', borderRadius: '6px', border: '1px solid #E5E7EB' }}>
+                <h4 style={{ fontSize: '11px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>Button Placket</h4>
+                <div style={{ display: 'flex', gap: '3px', marginBottom: '6px' }}>
                   <button
                     type="button"
                     onClick={() => setPlacketMode('matchFront')}
                     style={{
                       flex: 1,
-                      padding: '6px 4px',
+                      padding: '4px 2px',
                       fontSize: '10px',
                       fontWeight: '700',
-                      borderRadius: '6px',
+                      borderRadius: '5px',
                       border: placketMode === 'matchFront' ? '1px solid #E4572E' : '1px solid #D1D5DB',
                       background: placketMode === 'matchFront' ? '#E4572E' : '#FFFFFF',
                       color: placketMode === 'matchFront' ? '#FFFFFF' : '#4B5563',
                       cursor: 'pointer'
                     }}
                   >
-                    ✨ Match Design
+                    Match Design
                   </button>
                   <button
                     type="button"
                     onClick={() => setPlacketMode('color')}
                     style={{
                       flex: 1,
-                      padding: '6px 4px',
+                      padding: '4px 2px',
                       fontSize: '10px',
                       fontWeight: '700',
-                      borderRadius: '6px',
+                      borderRadius: '5px',
                       border: placketMode === 'color' ? '1px solid #E4572E' : '1px solid #D1D5DB',
                       background: placketMode === 'color' ? '#E4572E' : '#FFFFFF',
                       color: placketMode === 'color' ? '#FFFFFF' : '#4B5563',
                       cursor: 'pointer'
                     }}
                   >
-                    🎨 Solid Color
+                    Solid
                   </button>
                   <button
                     type="button"
                     onClick={() => setPlacketMode('image')}
                     style={{
                       flex: 1,
-                      padding: '6px 4px',
+                      padding: '4px 2px',
                       fontSize: '10px',
                       fontWeight: '700',
-                      borderRadius: '6px',
+                      borderRadius: '5px',
                       border: placketMode === 'image' ? '1px solid #E4572E' : '1px solid #D1D5DB',
                       background: placketMode === 'image' ? '#E4572E' : '#FFFFFF',
                       color: placketMode === 'image' ? '#FFFFFF' : '#4B5563',
                       cursor: 'pointer'
                     }}
                   >
-                    🖼️ Custom Image
+                    Image
                   </button>
                 </div>
 
                 {placketMode === 'matchFront' && (
-                  <p style={{ fontSize: '11px', color: '#059669', margin: 0, fontWeight: '600' }}>
-                    ✓ Placket seamlessly completes front chest artwork.
+                  <p style={{ fontSize: '10px', color: '#059669', margin: 0, fontWeight: '600' }}>
+                    ✓ Front design fills placket seamlessly.
                   </p>
                 )}
 
                 {placketMode === 'color' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <input 
                       type="color" 
                       value={designConfig.trim?.placket.color || designConfig.front.generatedColor1} 
                       onChange={(e) => updateTrimConfig('placket', { color: e.target.value })}
-                      style={{ border: 'none', background: 'none', width: '32px', height: '32px', cursor: 'pointer' }}
+                      style={{ border: 'none', background: 'none', width: '26px', height: '26px', cursor: 'pointer', padding: 0 }}
                     />
                     <input 
                       type="text" 
                       className="form-input" 
                       value={(designConfig.trim?.placket.color || designConfig.front.generatedColor1).toUpperCase()}
                       onChange={(e) => updateTrimConfig('placket', { color: e.target.value })}
-                      style={{ padding: '4px 6px', fontSize: '11px', width: '80px', borderRadius: '6px' }}
+                      style={{ padding: '3px 6px', fontSize: '11px', width: '70px', borderRadius: '5px' }}
                     />
                   </div>
                 )}
@@ -6413,20 +6450,20 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 {placketMode === 'image' && (
                   <div>
                     {designConfig.trim?.placket.uploadedUrl ? (
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                        <span style={{ fontSize: '11px', color: '#10b981', fontWeight: '600' }}>Image Active</span>
+                      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                        <span style={{ fontSize: '10px', color: '#10b981', fontWeight: '600' }}>Active</span>
                         <button 
                           type="button"
                           className="btn btn-secondary" 
-                          style={{ padding: '3px 8px', fontSize: '11px' }}
+                          style={{ padding: '2px 6px', fontSize: '10px' }}
                           onClick={() => updateTrimConfig('placket', { uploadedUrl: null })}
                         >
                           Clear
                         </button>
                       </div>
                     ) : (
-                      <label className="btn btn-secondary" style={{ padding: '5px 10px', fontSize: '11px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
-                        Upload Placket Image
+                      <label className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '10px', cursor: 'pointer', textAlign: 'center', display: 'inline-block' }}>
+                        Upload Image
                         <input 
                           type="file" 
                           accept="image/*" 
@@ -6440,51 +6477,52 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               </div>
 
               {/* Section: Sleeve Bottom Stripe */}
-              <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#111827' }}>Sleeve Bottom Stripe</span>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '600', color: '#374151' }}>
+              <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '6px', padding: '6px 8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#111827' }}>Sleeve Bottom Stripe</span>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '10px', fontWeight: '600', color: '#374151' }}>
                     <input 
                       type="checkbox"
-                      checked={designConfig.trim?.sleeveStripe.enabled !== false}
+                      checked={designConfig.trim?.sleeveStripe.enabled === true}
                       onChange={(e) => updateTrimConfig('sleeveStripe', { enabled: e.target.checked })}
                       style={{ accentColor: '#E4572E' }}
                     />
                     Enabled
                   </label>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <input 
-                    type="color" 
-                    value={designConfig.trim?.sleeveStripe.color || '#171717'} 
-                    onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
-                    style={{ border: 'none', background: 'none', width: '32px', height: '32px', cursor: 'pointer' }}
-                  />
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    value={(designConfig.trim?.sleeveStripe.color || '#171717').toUpperCase()}
-                    onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
-                    style={{ padding: '4px 6px', fontSize: '11px', width: '80px', borderRadius: '6px' }}
-                  />
-                </div>
+                {designConfig.trim?.sleeveStripe.enabled === true && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <input 
+                      type="color" 
+                      value={designConfig.trim?.sleeveStripe.color || '#171717'} 
+                      onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
+                      style={{ border: 'none', background: 'none', width: '26px', height: '26px', cursor: 'pointer', padding: 0 }}
+                    />
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={(designConfig.trim?.sleeveStripe.color || '#171717').toUpperCase()}
+                      onChange={(e) => updateTrimConfig('sleeveStripe', { color: e.target.value })}
+                      style={{ padding: '3px 6px', fontSize: '11px', width: '70px', borderRadius: '5px' }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Card 3: 3D Background Studio */}
-            <div className="glass-card" style={{ padding: '16px', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                <Palette size={18} style={{ color: '#E4572E' }} />
-                <h3 style={{ fontSize: '13px', fontWeight: '800', color: '#1F2937', margin: 0 }}>3D Studio Background</h3>
+            <div className="glass-card" style={{ padding: '10px 12px', background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                <Palette size={15} style={{ color: '#E4572E' }} />
+                <h3 style={{ fontSize: '12px', fontWeight: '800', color: '#1F2937', margin: 0 }}>3D Studio Background</h3>
               </div>
 
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '4px', marginBottom: '8px', flexWrap: 'wrap' }}>
                 {[
-                  { label: 'Studio Dark', color: '#0a0a0f' },
-                  { label: 'Clean White', color: '#ffffff' },
-                  { label: 'Slate Gray', color: '#1e293b' },
-                  { label: 'Charcoal', color: '#18181b' },
-                  { label: 'Soft Gray', color: '#f1f5f9' },
+                  { label: 'Dark', color: '#0a0a0f' },
+                  { label: 'White', color: '#ffffff' },
+                  { label: 'Slate', color: '#1e293b' },
+                  { label: 'Gray', color: '#f1f5f9' },
                 ].map((bg, idx) => (
                   <button
                     key={idx}
@@ -6494,10 +6532,10 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       setThreeDBgImageUrl(null);
                     }}
                     style={{
-                      padding: '5px 8px',
+                      padding: '3px 6px',
                       fontSize: '10px',
                       fontWeight: '700',
-                      borderRadius: '6px',
+                      borderRadius: '5px',
                       border: (threeDBgColor === bg.color && !threeDBgImageUrl) ? '2px solid #E4572E' : '1px solid #D1D5DB',
                       background: bg.color,
                       color: isLightColor(bg.color) ? '#1F2937' : '#FFFFFF',
@@ -6509,47 +6547,39 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 ))}
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                <span style={{ fontSize: '11px', fontWeight: '600', color: '#4B5563' }}>Custom Color:</span>
-                <input 
-                  type="color" 
-                  value={threeDBgColor} 
-                  onChange={(e) => {
-                    setThreeDBgColor(e.target.value);
-                    setThreeDBgImageUrl(null);
-                  }}
-                  style={{ border: 'none', background: 'none', width: '32px', height: '32px', cursor: 'pointer' }}
-                />
-                <span style={{ fontSize: '11px', fontWeight: '700', color: '#374151' }}>{threeDBgColor.toUpperCase()}</span>
-              </div>
-
-              {/* Upload Custom Background Image */}
-              <div style={{ background: '#F8FAFC', padding: '10px', borderRadius: '8px', border: '1px dashed #CBD5E1' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#1E293B' }}>Upload Custom Backdrop</div>
-                    <div style={{ fontSize: '10px', color: '#64748B' }}>Add stadium, locker room, or client branding</div>
-                  </div>
-                  {threeDBgImageUrl ? (
-                    <button
-                      type="button"
-                      onClick={() => setThreeDBgImageUrl(null)}
-                      className="btn btn-secondary"
-                      style={{ padding: '4px 8px', fontSize: '10px' }}
-                    >
-                      Remove BG
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => bgUploadInputRef.current?.click()}
-                      className="btn btn-secondary"
-                      style={{ padding: '5px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                    >
-                      <Upload size={12} /> Upload Image
-                    </button>
-                  )}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input 
+                    type="color" 
+                    value={threeDBgColor} 
+                    onChange={(e) => {
+                      setThreeDBgColor(e.target.value);
+                      setThreeDBgImageUrl(null);
+                    }}
+                    style={{ border: 'none', background: 'none', width: '26px', height: '26px', cursor: 'pointer', padding: 0 }}
+                  />
+                  <span style={{ fontSize: '10px', fontWeight: '700', color: '#374151' }}>{threeDBgColor.toUpperCase()}</span>
                 </div>
+
+                {threeDBgImageUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => setThreeDBgImageUrl(null)}
+                    className="btn btn-secondary"
+                    style={{ padding: '3px 6px', fontSize: '10px' }}
+                  >
+                    Remove BG
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => bgUploadInputRef.current?.click()}
+                    className="btn btn-secondary"
+                    style={{ padding: '3px 8px', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <Upload size={11} /> Backdrop
+                  </button>
+                )}
                 <input 
                   ref={bgUploadInputRef}
                   type="file"
@@ -6560,24 +6590,20 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               </div>
             </div>
 
-            {/* Card 4: Client 3D Mockup Exporter (4 Dimension JPGs) */}
-            <div className="glass-card" style={{ padding: '16px', background: '#FFFFFF', border: '2px solid #E4572E', borderRadius: '10px', boxShadow: '0 4px 14px rgba(228, 87, 46, 0.12)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                <Camera size={18} style={{ color: '#E4572E' }} />
-                <h3 style={{ fontSize: '13px', fontWeight: '800', color: '#E4572E', margin: 0 }}>Client 3D Mockup Export</h3>
+            {/* Card 4: Client 3D Mockup Export */}
+            <div className="glass-card" style={{ padding: '10px 12px', background: '#FFFFFF', border: '1.5px solid #E4572E', borderRadius: '8px', boxShadow: '0 2px 8px rgba(228, 87, 46, 0.1)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                <Camera size={15} style={{ color: '#E4572E' }} />
+                <h3 style={{ fontSize: '12px', fontWeight: '800', color: '#E4572E', margin: 0 }}>Client Mockup Export</h3>
               </div>
-              <p style={{ fontSize: '11px', color: '#6B7280', margin: '0 0 12px 0', lineHeight: '1.4' }}>
-                Export 4-dimension high-resolution JPG images (Front 0°, Back 180°, Left 3/4, Right 3/4) to show clients.
-              </p>
 
               {exportMockupStatus && (
-                <div style={{ marginBottom: '10px', padding: '6px 10px', background: '#EFF6FF', color: '#1D4ED8', borderRadius: '6px', fontSize: '11px', fontWeight: '700', textAlign: 'center' }}>
+                <div style={{ marginBottom: '8px', padding: '4px 8px', background: '#EFF6FF', color: '#1D4ED8', borderRadius: '5px', fontSize: '10px', fontWeight: '700', textAlign: 'center' }}>
                   {exportMockupStatus}
                 </div>
               )}
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {/* Button 1: Download 4 Angles ZIP */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <button
                   type="button"
                   disabled={isExportingMockup}
@@ -6587,18 +6613,17 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '8px',
-                    padding: '10px 14px',
-                    fontSize: '12px',
-                    fontWeight: '800',
-                    borderRadius: '8px',
+                    gap: '6px',
+                    padding: '7px 10px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    borderRadius: '6px',
                     cursor: isExportingMockup ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  <FolderArchive size={15} /> Download 4 Angles (ZIP)
+                  <FolderArchive size={13} /> 4 Angles (ZIP)
                 </button>
 
-                {/* Button 2: Download 4-in-1 Client Presentation Board JPG */}
                 <button
                   type="button"
                   disabled={isExportingMockup}
@@ -6608,21 +6633,20 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '8px',
-                    padding: '10px 14px',
-                    fontSize: '12px',
-                    fontWeight: '800',
-                    borderRadius: '8px',
+                    gap: '6px',
+                    padding: '7px 10px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    borderRadius: '6px',
                     background: '#1F2937',
                     color: '#FFFFFF',
                     border: 'none',
                     cursor: isExportingMockup ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  <ImageIcon size={15} /> Download 4-in-1 Presentation Board (JPG)
+                  <ImageIcon size={13} /> Presentation Board (JPG)
                 </button>
 
-                {/* Button 3: Snapshot Current View */}
                 <button
                   type="button"
                   disabled={isExportingMockup}
@@ -6632,15 +6656,15 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '6px',
-                    padding: '8px 12px',
-                    fontSize: '11px',
+                    gap: '4px',
+                    padding: '6px 10px',
+                    fontSize: '10px',
                     fontWeight: '700',
-                    borderRadius: '8px',
+                    borderRadius: '6px',
                     cursor: isExportingMockup ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  <Camera size={13} /> Snapshot Current View (JPG)
+                  <Camera size={12} /> Snapshot View (JPG)
                 </button>
               </div>
             </div>

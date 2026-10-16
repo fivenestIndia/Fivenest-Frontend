@@ -473,13 +473,14 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
     const trim = designConfig.trim || {
       collar: { color: c1, uploadedUrl: null },
       placket: { color: c1, uploadedUrl: null },
-      sleeveStripe: { color: c1, uploadedUrl: null }
+      sleeveStripe: { color: c1, uploadedUrl: null },
+      buttonColor: '#ffffff'
     };
 
-    // 1. Draw Front panel (Component 14: X=[64, 1450], Y=[1962, 3861], Size: 1386x1899)
+    // 1. Draw Front panel (Component 14: X=[64, 1450], Y=[1820, 3870], Size: 1386x2050)
     const sizeConf = defaultSizes["40"];
     const frontScale = 1386 / sizeConf.front.w;
-    const backScale = 1515 / sizeConf.back.w;
+    const backScale = 1540 / sizeConf.back.w;
     const isFullSleeve = previewSleeveType === 'full';
     const sleeveW = isFullSleeve ? sizeConf.full.w : sizeConf.half.w;
     const sleeveScale = 1344 / sleeveW;
@@ -487,58 +488,62 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
     const frontCtx = frontCanvas.current.getContext('2d');
     if (frontCtx) {
       frontCanvas.current.width = 1386;
-      frontCanvas.current.height = 1899;
-      renderPanelToCanvas('front', frontCtx, 1386, 1899, frontScale, true);
-      mainCtx.drawImage(frontCanvas.current, 64, 1962);
+      frontCanvas.current.height = 2050;
+      renderPanelToCanvas('front', frontCtx, 1386, 2050, frontScale, true);
+      mainCtx.drawImage(frontCanvas.current, 64, 1820);
     }
 
-    // 2. Draw Back panel (Component 15: X=[2260, 3810], Y=[1950, 4130], Size: 1540x2170)
+    // 2. Draw Back panel (Component 15: X=[2260, 3810], Y=[1800, 4120], Size: 1540x2320)
     const backCtx = backCanvas.current.getContext('2d');
     if (backCtx) {
       backCanvas.current.width = 1540;
-      backCanvas.current.height = 2170;
-      renderPanelToCanvas('back', backCtx, 1540, 2170, backScale, true);
-      mainCtx.drawImage(backCanvas.current, 2260, 1950, 1540, 2170);
+      backCanvas.current.height = 2320;
+      renderPanelToCanvas('back', backCtx, 1540, 2320, backScale, true);
+      mainCtx.drawImage(backCanvas.current, 2260, 1800, 1540, 2320);
     }
 
     // Bottom hem seam strip (X=[240, 640], Y=[1810, 1950]) - ensure clean folded hem matching body color
     mainCtx.fillStyle = c1;
     mainCtx.fillRect(240, 1810, 420, 140);
 
-    // 3. Draw Left Sleeve (Component 8: X=[341, 1685], Y=[576, 1280], Size: 1344x704)
+    // 3. Draw Left Sleeve (Component 8: X=[341, 1685], Y=[570, 1500], Size: 1344x930)
+    // Stretches fully to the bottom cuff
     const leftSleeveCtx = leftSleeveCanvas.current.getContext('2d');
     if (leftSleeveCtx) {
       leftSleeveCanvas.current.width = 1344;
-      leftSleeveCanvas.current.height = 704;
-      renderPanelToCanvas('sleeveLeft', leftSleeveCtx, 1344, 704, sleeveScale, true);
-      mainCtx.drawImage(leftSleeveCanvas.current, 341, 576);
+      leftSleeveCanvas.current.height = 930;
+      renderPanelToCanvas('sleeveLeft', leftSleeveCtx, 1344, 930, sleeveScale, true);
+      mainCtx.drawImage(leftSleeveCanvas.current, 341, 570);
     }
 
-    // 4. Draw Right Sleeve (Component 9: X=[1728, 3072], Y=[576, 1280], Size: 1344x704)
+    // 4. Draw Right Sleeve (Component 9: X=[1728, 3072], Y=[570, 1500], Size: 1344x930)
+    // Stretches fully to the bottom cuff
     const rightSleeveCtx = rightSleeveCanvas.current.getContext('2d');
     if (rightSleeveCtx) {
       rightSleeveCanvas.current.width = 1344;
-      rightSleeveCanvas.current.height = 704;
-      renderPanelToCanvas('sleeveRight', rightSleeveCtx, 1344, 704, sleeveScale, true);
-      mainCtx.drawImage(rightSleeveCanvas.current, 1728, 576);
+      rightSleeveCanvas.current.height = 930;
+      renderPanelToCanvas('sleeveRight', rightSleeveCtx, 1344, 930, sleeveScale, true);
+      mainCtx.drawImage(rightSleeveCanvas.current, 1728, 570);
     }
 
-    // Draw collar, button placket, cuffs and other parts with solid matches or custom images
+    // Draw collar, button placket, cuffs and buttons
     const activeCollarImg = loadedTrimImages.collar || loadedTrimImages.collarArtwork;
 
-    // Component 1: Collar in static2 (Main collar: X=[2470, 3045], Y=[1715, 1835])
+    // Component 1: Collar in static2 (Main collar rib: X=[2470, 3045], Y=[1715, 1826])
+    // Strictly bounded to Y <= 1826 so collar never bleeds onto upper back/chest
     if (activeCollarImg) {
-      mainCtx.drawImage(activeCollarImg, 2470, 1715, 575, 120);
-      mainCtx.drawImage(activeCollarImg, 2630, 1825, 650, 275);
-      mainCtx.drawImage(activeCollarImg, 3157, 42, 960, 960);
+      mainCtx.drawImage(activeCollarImg, 2470, 1715, 575, 111);
     } else {
       mainCtx.fillStyle = trim.collar.color || c1;
-      mainCtx.fillRect(2470, 1715, 575, 120);
-      mainCtx.fillRect(2630, 1825, 650, 275);
-      mainCtx.fillRect(3157, 42, 960, 960);
+      mainCtx.fillRect(2470, 1715, 575, 111);
     }
 
-    // Component 11: Sleeve cuffs (Left: X=[490, 1557], Right: X=[1820, 2912], Y=[1420, 1540])
+    // Button area on texture sheet (X=[3150, 4100], Y=[40, 700])
+    const buttonCol = trim.buttonColor || '#ffffff';
+    mainCtx.fillStyle = buttonCol;
+    mainCtx.fillRect(3150, 40, 980, 700);
+
+    // Component 11: Sleeve cuffs (Left: X=[490, 1557], Right: X=[1820, 2912], Y=[1420, 1520])
     const drawCuff = (x: number, y: number, w: number, h: number) => {
       if (trim.sleeveStripe?.enabled === true) {
         if (loadedTrimImages.sleeveStripe) {
@@ -553,15 +558,14 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
           mainCtx.fillStyle = trim.sleeveStripe.color || c1;
           mainCtx.fillRect(x, y, w, h);
         }
-      } else {
-        mainCtx.fillStyle = c1;
-        mainCtx.fillRect(x, y, w, h);
       }
+      // Note: when sleeveStripe is not enabled, do not paint solid color!
+      // The stretched sleeve artwork covers the sleeve completely down to the bottom cuff.
     };
     // Left sleeve cuff
-    drawCuff(490, 1420, 1067, 120);
+    drawCuff(490, 1420, 1067, 100);
     // Right sleeve cuff
-    drawCuff(1820, 1420, 1092, 120);
+    drawCuff(1820, 1420, 1092, 100);
 
     // Component 12: Placket overlay
     // Note: When placketMode === 'matchFront' (default), all placket vertices in the 3D model are
@@ -588,7 +592,8 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
       const trim = designConfig.trim || {
         collar: { color: c1, uploadedUrl: null },
         placket: { color: c1, uploadedUrl: null },
-        sleeveStripe: { color: c1, uploadedUrl: null }
+        sleeveStripe: { color: c1, uploadedUrl: null },
+        buttonColor: '#ffffff'
       };
 
       poloModelRef.current.traverse((child) => {
@@ -601,17 +606,17 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
               matName.toLowerCase().includes('button') || 
               matName.toLowerCase().includes('material 1')
             ) {
-              if (placketMode === 'matchFront') {
-                mat.color.set(trim.collar.color || '#ffffff');
-              } else {
-                mat.color.set(trim.placket.color || '#ffffff');
-              }
+              const btnCol = trim.buttonColor || '#ffffff';
+              mat.color.set(btnCol);
+              mat.map = null;
+              mat.needsUpdate = true;
             } else if (
               matName.toLowerCase().includes('sleeve end') || 
               matName.toLowerCase().includes('material 2')
             ) {
               mat.map = textureRef.current;
               mat.color.set('#ffffff');
+              mat.needsUpdate = true;
             }
           }
         }
@@ -1053,18 +1058,17 @@ export const ThreeDPreview = forwardRef<ThreeDPreviewHandle, ThreeDPreviewProps>
             const trim = designConfig.trim || {
               collar: { color: c1, uploadedUrl: null },
               placket: { color: c1, uploadedUrl: null },
-              sleeveStripe: { color: c1, uploadedUrl: null }
+              sleeveStripe: { color: c1, uploadedUrl: null },
+              buttonColor: '#ffffff'
             };
 
             if (
               matName.toLowerCase().includes('button') || 
               matName.toLowerCase().includes('material 1')
             ) {
-              if (placketMode === 'matchFront') {
-                mat.color.set(trim.collar.color || '#ffffff');
-              } else {
-                mat.color.set(trim.placket.color || '#ffffff');
-              }
+              const btnCol = trim.buttonColor || '#ffffff';
+              mat.color.set(btnCol);
+              mat.map = null;
               mesh.material = mat;
             } else if (
               matName.toLowerCase().includes('sleeve end') || 
