@@ -4,6 +4,20 @@ import Home from './pages/Home';
 import OrderManagement from './pages/OrderManagement';
 import WebStudio from './pages/WebStudio';
 import Contact from './pages/Contact';
+import DesignDashboard from './pages/DesignDashboard';
+
+// Helper to detect if accessed from an admin / design dashboard subdomain
+function isSubdomainAdmin(): boolean {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname.toLowerCase();
+  return (
+    host.startsWith('admin.') ||
+    host.startsWith('dashboard.') ||
+    host.startsWith('design.') ||
+    host.startsWith('finance.') ||
+    host.startsWith('command.')
+  );
+}
 
 // Scroll to top on route change (for non-studio pages)
 function ScrollToTop() {
@@ -71,11 +85,29 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 }
 
 export default function App() {
+  const onAdminSubdomain = isSubdomainAdmin();
+
   return (
     <ErrorBoundary>
       <Router>
         <ScrollToTop />
         <Routes>
+          {/* If accessed on an admin subdomain (e.g. admin.fivenest.in, dashboard.fivenest.in) */}
+          {onAdminSubdomain && (
+            <>
+              <Route path="/" element={<DesignDashboard />} />
+              <Route path="*" element={<DesignDashboard />} />
+            </>
+          )}
+
+          {/* Dedicated Admin Design & Financial Dashboard Routes */}
+          <Route path="/admin" element={<DesignDashboard />} />
+          <Route path="/admin/*" element={<DesignDashboard />} />
+          <Route path="/dashboard" element={<DesignDashboard />} />
+          <Route path="/dashboard/*" element={<DesignDashboard />} />
+          <Route path="/design-dashboard" element={<DesignDashboard />} />
+          <Route path="/design-dashboard/*" element={<DesignDashboard />} />
+
           {/* Studio routes — standalone full viewport */}
           <Route path="/production" element={<WebStudio />} />
           <Route path="/production/*" element={<WebStudio />} />

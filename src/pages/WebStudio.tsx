@@ -523,13 +523,38 @@ export default function WebStudio() {
 
             {/* Profile / Wallet Control Button */}
             {currentUser ? (
-              <div 
-                className="user-wallet-pill"
-                onClick={() => setLoginModalOpen(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#FFFFFF', border: '1px solid #D0CCC5', padding: '5px 12px', borderRadius: '7px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}
-              >
-                <span style={{ color: '#171717' }}>{currentUser.name.split(' ')[0]}</span>
-                <span style={{ color: '#2F7D5C', fontWeight: '800' }}>₹{currentUser.balance.toFixed(2)}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {(currentUser.email?.toLowerCase().trim() === 'fivenest.india@gmail.com' || 
+                  currentUser.email?.toLowerCase().trim() === 'vilesh332.1@gmail.com' || 
+                  currentUser.email?.toLowerCase().trim() === 'wavredeepika9@gmail.com') && (
+                  <a
+                    href="/admin"
+                    title="Open FiveNest Design & Financial Command Center"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      background: 'linear-gradient(135deg, #E4572E 0%, #EA580C 100%)',
+                      color: '#FFFFFF',
+                      padding: '5px 9px',
+                      borderRadius: '7px',
+                      fontSize: '11px',
+                      fontWeight: '800',
+                      textDecoration: 'none',
+                      boxShadow: '0 2px 6px rgba(228, 87, 46, 0.3)'
+                    }}
+                  >
+                    <span>⚡ Admin</span>
+                  </a>
+                )}
+                <div 
+                  className="user-wallet-pill"
+                  onClick={() => setLoginModalOpen(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#FFFFFF', border: '1px solid #D0CCC5', padding: '5px 12px', borderRadius: '7px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}
+                >
+                  <span style={{ color: '#171717' }}>{currentUser.name.split(' ')[0]}</span>
+                  <span style={{ color: '#2F7D5C', fontWeight: '800' }}>₹{currentUser.balance.toFixed(2)}</span>
+                </div>
               </div>
             ) : (
               <button 

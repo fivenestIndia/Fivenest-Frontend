@@ -7,6 +7,7 @@ import licenseRoutes from "./routes/license.js";
 import agentRoutes from "./routes/agent.js";
 import ordersRoutes from "./routes/orders.js";
 import sizesRoutes from "./routes/sizes.js";
+import adminRoutes from "./routes/admin.js";
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 
@@ -41,6 +42,7 @@ app.use(
       if (
         !origin ||
         allowedOrigins.indexOf(origin) !== -1 ||
+        (origin && (origin.endsWith('.fivenest.in') || origin === 'https://fivenest.in')) ||
         (process.env.NODE_ENV !== 'production' && origin && origin.startsWith("http://localhost:"))
       ) {
         callback(null, true);
@@ -101,6 +103,7 @@ app.get("/health", (req, res) => {
 
 // Register API Routes
 app.use("/api/payment", paymentRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api/license", licenseRoutes);
 app.use("/api/agent", agentRoutes);
 app.use("/api/orders", ordersRoutes);
