@@ -52,13 +52,26 @@ export default function WebStudio() {
 
   const [sizeDB, setSizeDB] = useState<SizeDatabase>(defaultSizes);
 
+  const isSpareTestAccount = (email?: string | null): boolean => {
+    if (!email) return false;
+    const clean = email.toLowerCase().trim();
+    const normalized = clean.replace(/\./g, '');
+    return (
+      clean === 'vilesh.mob@gmail.com' ||
+      clean === 'vileshmob@gmail.com' ||
+      normalized.startsWith('vileshmob@') ||
+      clean === 'demo@fivenest.in' ||
+      clean === 'newuser@fivenest.in'
+    );
+  };
+
   // Authentication & billing states
   const [currentUser, setCurrentUser] = useState<{ email: string; name: string; balance: number; id?: string } | null>(() => {
     try {
       const saved = localStorage.getItem('fivenest_active_user');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed?.email?.toLowerCase().trim() === 'vileshmob@gmail.com') {
+        if (isSpareTestAccount(parsed?.email)) {
           localStorage.removeItem('fivenest_active_user');
           return null;
         }
@@ -101,7 +114,7 @@ export default function WebStudio() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
-          if (session.user.email?.toLowerCase().trim() === 'vileshmob@gmail.com') {
+          if (isSpareTestAccount(session.user.email)) {
             await supabase.auth.signOut();
             localStorage.removeItem('fivenest_active_user');
             setCurrentUser(null);
@@ -121,7 +134,7 @@ export default function WebStudio() {
           if (cached) {
             try {
               const parsed = JSON.parse(cached);
-              if (parsed?.email?.toLowerCase().trim() === 'vileshmob@gmail.com') {
+              if (isSpareTestAccount(parsed?.email)) {
                 localStorage.removeItem('fivenest_active_user');
                 setCurrentUser(null);
                 return;
@@ -140,7 +153,7 @@ export default function WebStudio() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
-        if (session.user.email?.toLowerCase().trim() === 'vileshmob@gmail.com') {
+        if (isSpareTestAccount(session.user.email)) {
           await supabase.auth.signOut();
           localStorage.removeItem('fivenest_active_user');
           setCurrentUser(null);
