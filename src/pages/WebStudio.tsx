@@ -56,7 +56,15 @@ export default function WebStudio() {
   const [currentUser, setCurrentUser] = useState<{ email: string; name: string; balance: number; id?: string } | null>(() => {
     try {
       const saved = localStorage.getItem('fivenest_active_user');
-      return saved ? JSON.parse(saved) : null;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.email?.toLowerCase().trim() === 'vileshmob@gmail.com') {
+          localStorage.removeItem('fivenest_active_user');
+          return null;
+        }
+        return parsed;
+      }
+      return null;
     } catch {
       return null;
     }
@@ -93,6 +101,12 @@ export default function WebStudio() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
+          if (session.user.email?.toLowerCase().trim() === 'vileshmob@gmail.com') {
+            await supabase.auth.signOut();
+            localStorage.removeItem('fivenest_active_user');
+            setCurrentUser(null);
+            return;
+          }
           const details = await fetchUserWallet(session.user.id);
           const updated = {
             id: session.user.id,
@@ -104,6 +118,16 @@ export default function WebStudio() {
           localStorage.setItem('fivenest_active_user', JSON.stringify(updated));
         } else {
           const cached = localStorage.getItem('fivenest_active_user');
+          if (cached) {
+            try {
+              const parsed = JSON.parse(cached);
+              if (parsed?.email?.toLowerCase().trim() === 'vileshmob@gmail.com') {
+                localStorage.removeItem('fivenest_active_user');
+                setCurrentUser(null);
+                return;
+              }
+            } catch {}
+          }
           if (!cached) {
             setCurrentUser(null);
           }
@@ -116,6 +140,12 @@ export default function WebStudio() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
+        if (session.user.email?.toLowerCase().trim() === 'vileshmob@gmail.com') {
+          await supabase.auth.signOut();
+          localStorage.removeItem('fivenest_active_user');
+          setCurrentUser(null);
+          return;
+        }
         try {
           const details = await fetchUserWallet(session.user.id);
           const updated = {
