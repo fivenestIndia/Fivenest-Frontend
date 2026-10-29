@@ -902,22 +902,64 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   useEffect(() => { redoStackRef.current = redoStack; }, [redoStack]);
   useEffect(() => { designConfigRef.current = designConfig; }, [designConfig]);
 
-  const undoableConfigChange = (newConfig: ArtDesignConfig) => {
-    try {
-      const clone = JSON.parse(JSON.stringify(designConfigRef.current));
-      const nextStack = [...undoStackRef.current.slice(-29), clone];
-      undoStackRef.current = nextStack;
-      setUndoStack(nextStack);
-      redoStackRef.current = [];
-      setRedoStack([]);
-    } catch (e) {
-      console.error('Error saving undo snapshot', e);
-    }
-    onDesignConfigChange(newConfig);
+  // Helper to clone designConfig safely without duplicating multi-megabyte base64 artwork strings
+  const createSafeSnapshot = (cfg: ArtDesignConfig): ArtDesignConfig => {
+    const clone: any = { ...cfg };
+    const panels = ["front", "back", "sleeveLeft", "sleeveRight", "a4Print", "collar", "trim"];
+    panels.forEach(p => {
+      if (clone[p]) {
+        clone[p] = { ...clone[p] };
+        if (clone[p].nameConfig) clone[p].nameConfig = { ...clone[p].nameConfig };
+        if (clone[p].numberConfig) clone[p].numberConfig = { ...clone[p].numberConfig };
+        if (clone[p].sizeTagConfig) clone[p].sizeTagConfig = { ...clone[p].sizeTagConfig };
+      }
+    });
+    return clone as ArtDesignConfig;
   };
+
+  const undoDebounceTimerRef = useRef<any>(null);
+  const pendingInitialSnapshotRef = useRef<ArtDesignConfig | null>(null);
+
+  const undoableConfigChange = (newConfig: ArtDesignConfig) => {
+    // 1. Immediately apply change for 60fps responsive UI
+    onDesignConfigChange(newConfig);
+
+    // 2. Capture clean snapshot of state before user started moving slider
+    if (!pendingInitialSnapshotRef.current) {
+      pendingInitialSnapshotRef.current = createSafeSnapshot(designConfigRef.current);
+    }
+
+    // 3. Debounce recording into undo stack so dragging sliders does not allocate gigabytes of memory
+    if (undoDebounceTimerRef.current) {
+      clearTimeout(undoDebounceTimerRef.current);
+    }
+
+    undoDebounceTimerRef.current = setTimeout(() => {
+      try {
+        if (pendingInitialSnapshotRef.current) {
+          const snapshot = pendingInitialSnapshotRef.current;
+          pendingInitialSnapshotRef.current = null;
+          const nextStack = [...undoStackRef.current.slice(-29), snapshot];
+          undoStackRef.current = nextStack;
+          setUndoStack(nextStack);
+          redoStackRef.current = [];
+          setRedoStack([]);
+        }
+      } catch (e) {
+        console.error("Error saving undo snapshot", e);
+      }
+    }, 350);
+  };
+
   const handleUndo = () => {
+    if (undoDebounceTimerRef.current) {
+      clearTimeout(undoDebounceTimerRef.current);
+      undoDebounceTimerRef.current = null;
+    }
+    pendingInitialSnapshotRef.current = null;
+
     if (undoStackRef.current.length === 0) {
-      toast.info('Nothing to undo');
+      toast.info("Nothing to undo");
       return;
     }
     const prev = undoStackRef.current[undoStackRef.current.length - 1];
@@ -926,20 +968,21 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     setUndoStack(nextStack);
 
     try {
-      const currentClone = JSON.parse(JSON.stringify(designConfigRef.current));
+      const currentClone = createSafeSnapshot(designConfigRef.current);
       const nextRedo = [...redoStackRef.current, currentClone];
       redoStackRef.current = nextRedo;
       setRedoStack(nextRedo);
     } catch (e) {
-      console.error('Error recording redo snapshot', e);
+      console.error("Error recording redo snapshot", e);
     }
 
     onDesignConfigChange(prev);
-    toast.success('Undo');
+    toast.success("Undo");
   };
+
   const handleRedo = () => {
     if (redoStackRef.current.length === 0) {
-      toast.info('Nothing to redo');
+      toast.info("Nothing to redo");
       return;
     }
     const next = redoStackRef.current[redoStackRef.current.length - 1];
@@ -948,16 +991,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     setRedoStack(nextRedo);
 
     try {
-      const currentClone = JSON.parse(JSON.stringify(designConfigRef.current));
+      const currentClone = createSafeSnapshot(designConfigRef.current);
       const nextStack = [...undoStackRef.current, currentClone];
       undoStackRef.current = nextStack;
       setUndoStack(nextStack);
     } catch (e) {
-      console.error('Error recording undo snapshot', e);
+      console.error("Error recording redo snapshot", e);
     }
 
     onDesignConfigChange(next);
-    toast.success('Redo');
+    toast.success("Redo");
   };
   // Keep refs up to date so keyboard handler always has fresh callbacks
   const handleUndoRef = useRef(handleUndo);

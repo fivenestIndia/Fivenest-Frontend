@@ -789,24 +789,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
               {loading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : null}
               {loading ? 'Signing In...' : 'Sign In'}
             </button>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0' }}>
-              <hr style={{ flex: 1, border: 'none', borderTop: '1px solid rgba(255,255,255,0.08)' }} />
-              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', whiteSpace: 'nowrap' }}>OR QUICK DEMO</span>
-              <hr style={{ flex: 1, border: 'none', borderTop: '1px solid rgba(255,255,255,0.08)' }} />
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button type="button" onClick={() => handleDemoLogin('demo')} disabled={loading}
-                style={{ flex: 1, padding: '9px 6px', borderRadius: '8px', border: '1px solid rgba(0,220,120,0.3)', background: 'rgba(0,220,120,0.08)', color: '#00e676', fontSize: '11px', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer' }}>
-                Demo (₹100 credits)
-              </button>
-              <button type="button" onClick={() => handleDemoLogin('empty')} disabled={loading}
-                style={{ flex: 1, padding: '9px 6px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.6)', fontSize: '11px', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer' }}>
-                New Client (₹0)
-              </button>
-            </div>
-
           </form>
         )}
 

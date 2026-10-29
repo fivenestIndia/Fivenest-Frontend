@@ -320,8 +320,9 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
   const hasCollar = Boolean(designConfig.collar?.uploadedFileUrl || designConfig.trim?.collar?.uploadedUrl);
   const anyArtworkUploaded = hasFront || hasBack || hasSleeve || hasCollar;
 
-  // Cost calculation (default ₹3.00/pc with logo watermark)
-  const orderCost = Math.max(0, (records.length > 0 ? totalQty : 1) * 3.00);
+  // Cost calculation (default ₹3.00/pc with logo watermark; free for main admin account)
+  const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
+  const orderCost = isOwnerExempt ? 0 : Math.max(0, (records.length > 0 ? totalQty : 1) * 3.00);
 
   // ── SheetJS Dynamic Loader for Excel Files ──
   const loadXLSX = (): Promise<any> => {

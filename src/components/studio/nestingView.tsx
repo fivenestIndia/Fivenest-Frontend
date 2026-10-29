@@ -597,6 +597,18 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
   const [customTopupAmount, setCustomTopupAmount] = useState<string>('');
 
   const executePaymentWithWallet = async () => {
+    const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
+    if (isOwnerExempt) {
+      setShowPaymentModal(false);
+      const action = pendingExportActionRef.current || pendingExportAction;
+      if (action) {
+        pendingExportActionRef.current = null;
+        setPendingExportAction(null);
+        await action();
+      }
+      return;
+    }
+
     if (!currentUser) {
       alert("Authentication Required:\n\nPlease Sign In or Register to export production-ready prints.");
       onOpenLogin();
@@ -2435,6 +2447,9 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
   };
 
   const calculateCost = () => {
+    const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
+    if (isOwnerExempt) return 0;
+
     const items = getItemsToExport();
     const backHasArtwork = Boolean(
       designConfig?.back?.uploadedFileUrl || 
@@ -3060,8 +3075,9 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             setExportProgressPct(Math.round(15 + ((i / renderActions.length) * 65)));
             setExportProgress(`Rendering ${action.folder || 'other'} panel: ${outFileName} (${i + 1}/${renderActions.length}) at ${activeDpi} DPI...`);
 
-            // Yield control to main thread so browser repaints progress text
-            await new Promise(r => setTimeout(r, 0));
+            // Yield control to main thread so browser repaints progress text and GC frees memory
+            const gcYieldMs = (renderActions.length > 25 && i % 3 === 0) ? 50 : 10;
+            await new Promise(r => setTimeout(r, gcYieldMs));
 
             const itemCanvas = await renderPanelGraphic(action.representativeItem, activeDpi);
             let blob = await getCanvasBlobForFormat(itemCanvas, exportFormat, colorProfile, activeDpi);
@@ -3084,7 +3100,13 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
           setExportProgressPct(82);
           setExportProgress("Compiling ZIP package...");
-          const content = await zip.generateAsync({ type: "blob" });
+          const content = await zip.generateAsync(
+            { type: "blob", compression: "DEFLATE", compressionOptions: { level: 4 } },
+            (metadata) => {
+              setExportProgressPct(Math.round(82 + (metadata.percent * 0.12)));
+              setExportProgress(`Compiling ZIP package (${Math.round(metadata.percent)}%)...`);
+            }
+          );
           
           const link = document.createElement('a');
           link.href = URL.createObjectURL(content);
@@ -3096,7 +3118,11 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           // Billing is logged once at end of full export (not here, to avoid duplicates)
 
           // Now, generate and download a 72 DPI preview PDF alongside only if requested and activeDpi > 72
-          const needPreviewPdf = !testMode && activeDpi > 72 && includePreviewPdf;
+          // Bulk order protection: If order is large (> 40 panels), skip building 100+ page PDF in memory to avoid Chrome OOM crash
+          const needPreviewPdf = !testMode && activeDpi > 72 && includePreviewPdf && renderActions.length <= 40;
+          if (!testMode && activeDpi > 72 && includePreviewPdf && renderActions.length > 40) {
+            console.log("Bulk order with " + renderActions.length + " panels: 72 DPI Preview PDF omitted to prevent browser memory exhaustion.");
+          }
           if (needPreviewPdf && renderActions.length > 0) {
             setExportProgressPct(90);
             setExportProgress("Generating preview PDF at 72 DPI...");
@@ -3429,7 +3455,9 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       }
     };
 
-    if (testMode || calculatedCost === 0) {
+    const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
+
+    if (testMode || calculatedCost === 0 || isOwnerExempt) {
       await executeExport();
     } else {
       if (!currentUser) {
