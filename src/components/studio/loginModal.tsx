@@ -689,42 +689,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
             fontSize: '12px', marginBottom: '16px', fontWeight: '500', lineHeight: '1.5'
           }}>
             <div>⚠️ {errorMessage}</div>
-            {(isNetworkError || errorMessage.includes('blocked') || errorMessage.includes('ad-blocker') || errorMessage.includes('failed') || errorMessage.includes('fetch') || errorMessage.includes('rate limit') || errorMessage.includes('registered') || errorMessage.includes('Server')) && (
-              <button
-                type="button"
-                onClick={() => {
-                  const localUser = {
-                    email: email.trim() || 'designer@fivenest.in',
-                    name: name.trim() || (email.trim() ? email.split('@')[0] : 'Designer'),
-                    balance: 100
-                  };
-                  localStorage.setItem('fivenest_active_user', JSON.stringify(localUser));
-                  onLoginStateChange(localUser);
-                  window.dispatchEvent(new CustomEvent('fivenest_user_updated', { detail: localUser }));
-                  setSuccessMessage(`Signed in as ${localUser.name} (Instant Access)!`);
-                  setTimeout(() => { clearMessages(); onClose(); }, 800);
-                }}
-                style={{
-                  marginTop: '10px',
-                  padding: '9px 12px',
-                  background: '#E4572E',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '7px',
-                  fontWeight: '700',
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  boxShadow: '0 2px 8px rgba(228,87,46,0.3)'
-                }}
-              >
-                ⚡ Continue as {name.trim() || (email.trim() ? email.split('@')[0] : 'Designer')} (Instant Access)
-              </button>
-            )}
           </div>
         )}
         {successMessage && (
@@ -876,41 +840,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
               {loading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : null}
               {loading ? 'Sending Reset Link...' : 'Send Reset Link'}
             </button>
-            <div style={{ marginTop: '10px', padding: '10px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', textAlign: 'center' }}>
-              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', display: 'block', marginBottom: '8px' }}>
-                Not receiving the reset email? Access your studio immediately:
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  const cleanEmail = email.trim() || 'designer@fivenest.in';
-                  const localUser = {
-                    id: cleanEmail,
-                    email: cleanEmail,
-                    name: cleanEmail.split('@')[0],
-                    balance: 100
-                  };
-                  localStorage.setItem('fivenest_active_user', JSON.stringify(localUser));
-                  onLoginStateChange(localUser);
-                  window.dispatchEvent(new CustomEvent('fivenest_user_updated', { detail: localUser }));
-                  setSuccessMessage(`✅ Signed in as ${localUser.name}!`);
-                  setTimeout(() => { clearMessages(); onClose(); }, 700);
-                }}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  borderRadius: '6px',
-                  border: '1px solid rgba(228,87,46,0.3)',
-                  background: 'rgba(228,87,46,0.08)',
-                  color: '#E4572E',
-                  fontSize: '11.5px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
-              >
-                ⚡ Instant Sign In with {email.trim() ? email.trim() : 'Email'}
-              </button>
-            </div>
           </form>
         )}
 

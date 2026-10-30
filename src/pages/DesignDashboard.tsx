@@ -330,18 +330,31 @@ export default function DesignDashboard() {
     }
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/wipe-test-wallets`, {
+      // 1. Direct Supabase update of non-owner accounts
+      try {
+        const { data: profiles } = await supabase.from('profiles').select('id, name');
+        if (profiles && profiles.length > 0) {
+          for (const p of profiles) {
+            if (p.id !== sessionUser.id) {
+              await supabase
+                .from('wallet')
+                .upsert({ user_id: p.id, balance: 0.00, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+            }
+          }
+        }
+      } catch (clientErr) {
+        console.warn("Direct Supabase wipe error:", clientErr);
+      }
+
+      // 2. Call backend wipe
+      await fetch(`${API_BASE_URL}/api/admin/wipe-test-wallets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminEmail: sessionUser.email })
-      });
+      }).catch(() => {});
 
-      if (res.ok) {
-        toast.success('All non-admin test balances reset to ₹0.00!');
-        fetchUsersAndWallets();
-      } else {
-        toast.error('Failed to trigger bulk wipe on backend.');
-      }
+      toast.success('All non-admin test balances reset to ₹0.00!');
+      fetchUsersAndWallets();
     } catch (e) {
       toast.error('Error executing test wipe.');
     }

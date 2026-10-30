@@ -52,6 +52,13 @@ export default function WebStudio() {
 
   const [sizeDB, setSizeDB] = useState<SizeDatabase>(defaultSizes);
 
+  const PRODUCTION_AUTH_CUTOVER_VERSION = '20261030_v5_live_reset';
+
+  const isMainOwnerAccount = (email?: string | null): boolean => {
+    if (!email) return false;
+    return email.toLowerCase().trim() === 'fivenest.india@gmail.com';
+  };
+
   const isSpareTestAccount = (email?: string | null): boolean => {
     if (!email) return false;
     const clean = email.toLowerCase().trim();
@@ -68,7 +75,29 @@ export default function WebStudio() {
   // Authentication & billing states
   const [currentUser, setCurrentUser] = useState<{ email: string; name: string; balance: number; id?: string } | null>(() => {
     try {
+      const cutoverDone = localStorage.getItem('fivenest_auth_cutover') === PRODUCTION_AUTH_CUTOVER_VERSION;
       const saved = localStorage.getItem('fivenest_active_user');
+
+      // One-time global purge across all computers/browsers:
+      // Clear out any stale test account sessions (e.g., Ajay) and reset to clean state
+      if (!cutoverDone) {
+        localStorage.setItem('fivenest_auth_cutover', PRODUCTION_AUTH_CUTOVER_VERSION);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (isMainOwnerAccount(parsed?.email)) {
+            return parsed;
+          }
+        }
+        localStorage.removeItem('fivenest_active_user');
+        localStorage.removeItem('teedex_active_user');
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+            localStorage.removeItem(key);
+          }
+        });
+        return null;
+      }
+
       if (saved) {
         const parsed = JSON.parse(saved);
         if (isSpareTestAccount(parsed?.email)) {
@@ -112,10 +141,28 @@ export default function WebStudio() {
 
     const checkSession = async () => {
       try {
+        const cutoverDone = localStorage.getItem('fivenest_auth_cutover') === PRODUCTION_AUTH_CUTOVER_VERSION;
+        if (!cutoverDone) {
+          localStorage.setItem('fivenest_auth_cutover', PRODUCTION_AUTH_CUTOVER_VERSION);
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user && !isMainOwnerAccount(session.user.email)) {
+            await supabase.auth.signOut().catch(() => {});
+            localStorage.removeItem('fivenest_active_user');
+            localStorage.removeItem('teedex_active_user');
+            Object.keys(localStorage).forEach(key => {
+              if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+                localStorage.removeItem(key);
+              }
+            });
+            setCurrentUser(null);
+            return;
+          }
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           if (isSpareTestAccount(session.user.email)) {
-            await supabase.auth.signOut();
+            await supabase.auth.signOut().catch(() => {});
             localStorage.removeItem('fivenest_active_user');
             setCurrentUser(null);
             return;
@@ -125,21 +172,27 @@ export default function WebStudio() {
             id: session.user.id,
             email: session.user.email || '',
             name: details.name || session.user.user_metadata?.name || (session.user.email ? session.user.email.split('@')[0] : 'User'),
-            balance: details.balance
+            balance: isMainOwnerAccount(session.user.email) ? details.balance : Math.max(0, details.balance)
           };
           setCurrentUser(updated);
           localStorage.setItem('fivenest_active_user', JSON.stringify(updated));
         } else {
+          // No active Supabase session
           const cached = localStorage.getItem('fivenest_active_user');
           if (cached) {
             try {
               const parsed = JSON.parse(cached);
-              if (isSpareTestAccount(parsed?.email)) {
+              // In production, unverified non-owner accounts MUST NOT stay logged in without an active session
+              if (!isMainOwnerAccount(parsed?.email)) {
                 localStorage.removeItem('fivenest_active_user');
                 setCurrentUser(null);
                 return;
               }
-            } catch {}
+            } catch {
+              localStorage.removeItem('fivenest_active_user');
+              setCurrentUser(null);
+              return;
+            }
           }
           if (!cached) {
             setCurrentUser(null);
