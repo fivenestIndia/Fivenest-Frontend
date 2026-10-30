@@ -9,6 +9,7 @@ import { fivenestLabelTagDataUrl } from '../../assets/labelTagBase64';
 import { ExportProcessingModal } from './ExportProcessingModal';
 import { recordBillingExport } from './billingSystem';
 import { initiateRazorpayRecharge } from '../../lib/razorpayService';
+import { loadFontBinaryIntoBrowser, dataUrlToArrayBuffer } from '../../lib/fontLoader';
 
 // ---- Export format utilities ----
 type ExportFormat = 'jpg' | 'png' | 'tiff';
@@ -827,9 +828,18 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               if (f.family === font.name) alreadyLoaded = true;
             });
             if (!alreadyLoaded) {
-              const fontFace = new FontFace(font.name, `url(${font.url})`);
-              const loaded = await fontFace.load();
-              document.fonts.add(loaded);
+              try {
+                const fontFace = new FontFace(font.name, `url(${font.url})`);
+                const loaded = await fontFace.load();
+                document.fonts.add(loaded);
+              } catch (loadErr) {
+                try {
+                  const rawBuffer = dataUrlToArrayBuffer(font.url);
+                  await loadFontBinaryIntoBrowser(font.name, rawBuffer);
+                } catch (repairErr) {
+                  console.warn("Could not repair stored font in nestingView:", font.name, repairErr);
+                }
+              }
             }
           } catch (e) {
             console.error("Error loading custom font from storage", e);

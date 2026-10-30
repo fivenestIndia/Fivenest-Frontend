@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import type { CorelTool } from './ToolBox';
 import { getEffectiveStrokes, type PanelConfig, type TextConfig, type StrokeConfig } from '../designer';
+import { loadFontBinaryIntoBrowser, dataUrlToArrayBuffer } from '../../../lib/fontLoader';
 
 interface PropertyBarProps {
   activeTool: CorelTool;
@@ -83,9 +84,18 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
           if (f.family === font.name) alreadyLoaded = true;
         });
         if (!alreadyLoaded) {
-          const fontFace = new FontFace(font.name, `url(${font.url})`);
-          const loaded = await fontFace.load();
-          document.fonts.add(loaded);
+          try {
+            const fontFace = new FontFace(font.name, `url(${font.url})`);
+            const loaded = await fontFace.load();
+            document.fonts.add(loaded);
+          } catch (loadErr) {
+            try {
+              const rawBuffer = dataUrlToArrayBuffer(font.url);
+              await loadFontBinaryIntoBrowser(font.name, rawBuffer);
+            } catch (repairErr) {
+              console.warn('Could not repair stored font in PropertyBar:', font.name, repairErr);
+            }
+          }
         }
       } catch (e) {
         console.error('Error registering custom font in PropertyBar:', font.name, e);

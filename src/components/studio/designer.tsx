@@ -15,6 +15,11 @@ import { GradientEditorModal } from './coreldraw/GradientEditorModal';
 import { TextSpecificationModal } from './coreldraw/TextSpecificationModal';
 import ArtboardFillModal from './ArtboardFillModal';
 import { RULER_UNITS, DEFAULT_STUDIO_FONTS, type RulerUnit } from './rulerUnits';
+import { 
+  processAndRegisterUploadedFont, 
+  loadFontBinaryIntoBrowser, 
+  dataUrlToArrayBuffer 
+} from '../../lib/fontLoader';
 
 export interface StrokeConfig {
   id?: string;
@@ -1216,9 +1221,19 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               if (f.family === font.name) alreadyLoaded = true;
             });
             if (!alreadyLoaded) {
-              const fontFace = new FontFace(font.name, `url(${font.url})`);
-              const loaded = await fontFace.load();
-              document.fonts.add(loaded);
+              try {
+                const fontFace = new FontFace(font.name, `url(${font.url})`);
+                const loaded = await fontFace.load();
+                document.fonts.add(loaded);
+              } catch (loadErr) {
+                // If legacy saved data URL has corrupted post table, auto-repair and load
+                try {
+                  const rawBuffer = dataUrlToArrayBuffer(font.url);
+                  await loadFontBinaryIntoBrowser(font.name, rawBuffer);
+                } catch (repairErr) {
+                  console.warn("Could not repair stored font:", font.name, repairErr);
+                }
+              }
             }
           } catch (e) {
             console.error("Error loading custom font from storage", e);
@@ -9256,29 +9271,32 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 <input 
                   type="file" 
                   accept=".otf,.ttf,.woff,.woff2,font/otf,font/ttf,font/woff,font/woff2,application/x-font-opentype,application/x-font-truetype,application/font-woff,application/font-woff2" 
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (file) {
-                      const fontName = file.name.substring(0, file.name.lastIndexOf('.'));
-                      const reader = new FileReader();
-                      reader.onload = async (uploadEvent) => {
-                        const dataUrl = uploadEvent.target?.result as string;
-                        try {
-                          const fontFace = new FontFace(fontName, `url(${dataUrl})`);
-                          const loadedFace = await fontFace.load();
-                          document.fonts.add(loadedFace);
-                          
-                          const newFont = { name: fontName, url: dataUrl };
-                          const updated = [...customFonts, newFont];
-                          setCustomFonts(updated);
-                          localStorage.setItem('teedex_custom_fonts', JSON.stringify(updated));
-                          setPrefTrigger(prev => prev + 1);
-                        } catch (err) {
-                          console.error("Failed to register font:", err);
-                          alert("Could not load font file. Please verify it is a valid OTF, TTF, or WOFF file.");
+                      try {
+                        const newFont = await processAndRegisterUploadedFont(file);
+                        const filtered = customFonts.filter(f => f.name !== newFont.name);
+                        const updated = [...filtered, newFont];
+                        setCustomFonts(updated);
+                        localStorage.setItem('teedex_custom_fonts', JSON.stringify(updated));
+                        window.dispatchEvent(new Event('storage-preference-changed'));
+                        setPrefTrigger(prev => prev + 1);
+
+                        // Auto-assign to current text layer if active
+                        const activeLayer = activeTextLayer || (activePanel.nameConfig?.enabled ? 'name' : activePanel.numberConfig?.enabled ? 'number' : null);
+                        if (activeLayer === 'name' && activePanel.nameConfig) {
+                          updateTextConfig('name', { fontFamily: newFont.name });
+                        } else if (activeLayer === 'number' && activePanel.numberConfig) {
+                          updateTextConfig('number', { fontFamily: newFont.name });
                         }
-                      };
-                      reader.readAsDataURL(file);
+                        toast.success(`Font "${newFont.name}" uploaded & applied successfully!`);
+                      } catch (err: any) {
+                        console.error("Failed to register font:", err);
+                        alert(`Could not load font file "${file.name}": ${err?.message || 'Invalid format'}\n\nPlease verify it is a valid OTF, TTF, or WOFF file.`);
+                      } finally {
+                        e.target.value = '';
+                      }
                     }
                   }} 
                   style={{ display: 'none' }} 
