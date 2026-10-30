@@ -100,6 +100,134 @@ router.get("/live-payments", async (req, res) => {
 });
 
 /**
+ * @route GET /api/admin/users-wallets
+ * @desc Fetch all users, profiles, and wallet balances using Supabase Admin (bypasses RLS)
+ */
+router.get("/users-wallets", async (req, res) => {
+  const requesterEmail = req.query.adminEmail || req.headers["x-admin-email"];
+  if (!requesterEmail || !isAuthorizedAdmin(requesterEmail)) {
+    return res.status(403).json({ error: "Access denied. Admin authorization required." });
+  }
+
+  try {
+    const { supabaseAdmin } = await import("../config/supabase.js");
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: "Supabase Admin client is not initialized on the server." });
+    }
+
+    // 1. Fetch all users from Supabase Auth admin
+    let authUsers = [];
+    try {
+      const { data: authData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+      authUsers = authData?.users || [];
+    } catch (e) {
+      console.warn("Failed to list auth users via admin:", e.message);
+    }
+
+    // 2. Fetch all profiles
+    let profiles = [];
+    try {
+      const { data: pData } = await supabaseAdmin.from("profiles").select("*");
+      profiles = pData || [];
+    } catch (e) {
+      console.warn("Failed to fetch profiles:", e.message);
+    }
+
+    // 3. Fetch all wallets
+    let wallets = [];
+    try {
+      const { data: wData } = await supabaseAdmin.from("wallet").select("*");
+      wallets = wData || [];
+    } catch (e) {
+      console.warn("Failed to fetch wallets:", e.message);
+    }
+
+    // Lookup maps
+    const profileMap = new Map(profiles.map(p => [p.id, p]));
+    const walletMap = new Map(wallets.map(w => [w.user_id, parseFloat(w.balance) || 0]));
+
+    // All distinct user IDs
+    const allUserIds = new Set([
+      ...authUsers.map(u => u.id),
+      ...profiles.map(p => p.id),
+      ...wallets.map(w => w.user_id)
+    ]);
+
+    const usersList = [];
+    for (const uid of allUserIds) {
+      const authU = authUsers.find(u => u.id === uid);
+      const prof = profileMap.get(uid);
+      const balance = walletMap.get(uid) || 0;
+
+      const email = authU?.email || prof?.email || (uid === '06b0361a-d777-4957-9bb1-adb5ca3d0bea' ? 'fivenest.india@gmail.com' : `user-${uid.slice(0, 6)}@fivenest.in`);
+      const name = prof?.name || authU?.user_metadata?.name || email.split('@')[0] || 'User';
+
+      usersList.push({
+        id: uid,
+        name: name,
+        email: email,
+        balance: Number(balance.toFixed(2)),
+        createdAt: authU?.created_at || prof?.created_at || new Date().toISOString()
+      });
+    }
+
+    // Sort: Main owner first, then by balance desc
+    usersList.sort((a, b) => {
+      const aOwner = a.email.toLowerCase() === "fivenest.india@gmail.com";
+      const bOwner = b.email.toLowerCase() === "fivenest.india@gmail.com";
+      if (aOwner) return -1;
+      if (bOwner) return 1;
+      return b.balance - a.balance;
+    });
+
+    const totalWallets = usersList.reduce((sum, u) => sum + u.balance, 0);
+
+    return res.status(200).json({
+      success: true,
+      totalUsers: usersList.length,
+      totalWalletsBalance: Number(totalWallets.toFixed(2)),
+      users: usersList
+    });
+  } catch (error) {
+    console.error("Admin users-wallets fetch error:", error);
+    return res.status(500).json({ error: error.message || "Failed to fetch user accounts and wallets." });
+  }
+});
+
+/**
+ * @route GET /api/admin/ledger
+ * @desc Fetch all credit and deduction transactions using Supabase Admin
+ */
+router.get("/ledger", async (req, res) => {
+  const requesterEmail = req.query.adminEmail || req.headers["x-admin-email"];
+  if (!requesterEmail || !isAuthorizedAdmin(requesterEmail)) {
+    return res.status(403).json({ error: "Access denied. Admin authorization required." });
+  }
+
+  try {
+    const { supabaseAdmin } = await import("../config/supabase.js");
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: "Supabase Admin client not configured." });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("credit_transactions")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json({ success: true, transactions: data || [] });
+  } catch (error) {
+    console.error("Admin ledger fetch error:", error);
+    return res.status(500).json({ error: error.message || "Failed to fetch ledger." });
+  }
+});
+
+/**
  * @route POST /api/admin/adjust-wallet
  * @desc Adjust or set any user's wallet balance directly
  */

@@ -178,17 +178,26 @@ export default function DesignDashboard() {
     }
   };
 
-  // 3. Fetch User Accounts & Wallets from Supabase
+  // 3. Fetch User Accounts & Wallets via Backend Supabase Admin (bypasses browser RLS)
   const fetchUsersAndWallets = async () => {
     if (!sessionUser || !isAuthorizedAdmin(sessionUser.email)) return;
     setLoadingUsers(true);
     try {
-      // 1. Get profiles
+      // 1. Try secure backend endpoint first
+      const res = await fetch(`${API_BASE_URL}/api/admin/users-wallets?adminEmail=${encodeURIComponent(sessionUser.email)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.users)) {
+          setUsers(data.users);
+          return;
+        }
+      }
+
+      // 2. Client-side fallback if backend endpoint unreachable
       const { data: profiles, error: pErr } = await supabase
         .from('profiles')
         .select('id, name, created_at');
 
-      // 2. Get wallets
       const { data: wallets, error: wErr } = await supabase
         .from('wallet')
         .select('user_id, balance, updated_at');
@@ -196,7 +205,6 @@ export default function DesignDashboard() {
       if (!pErr && profiles) {
         const walletMap = new Map((wallets || []).map(w => [w.user_id, parseFloat(w.balance) || 0]));
         
-        // Match users with balances
         const accounts: UserAccount[] = profiles.map(p => ({
           id: p.id,
           name: p.name || 'Client',
@@ -214,11 +222,22 @@ export default function DesignDashboard() {
     }
   };
 
-  // 4. Fetch Credit & Export Transactions
+  // 4. Fetch Credit & Export Transactions via Backend Supabase Admin
   const fetchTransactions = async () => {
     if (!sessionUser || !isAuthorizedAdmin(sessionUser.email)) return;
     setLoadingTransactions(true);
     try {
+      // 1. Try backend endpoint first
+      const res = await fetch(`${API_BASE_URL}/api/admin/ledger?adminEmail=${encodeURIComponent(sessionUser.email)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.transactions)) {
+          setTransactions(data.transactions);
+          return;
+        }
+      }
+
+      // 2. Client-side fallback
       const { data, error } = await supabase
         .from('credit_transactions')
         .select('*')
@@ -279,7 +298,7 @@ export default function DesignDashboard() {
     }
   };
 
-  // Handle Wallet Update
+  // Handle Wallet Update via Backend (bypasses browser RLS restrictions)
   const handleSaveWalletAdjustment = async () => {
     if (!editingUser || !sessionUser) return;
     const newBal = parseFloat(editBalanceValue);
@@ -290,28 +309,40 @@ export default function DesignDashboard() {
 
     setIsSavingWallet(true);
     try {
-      // 1. Direct Supabase update if possible
-      const { error: wErr } = await supabase
-        .from('wallet')
-        .upsert({
-          user_id: editingUser.id,
-          balance: newBal,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id' });
-
-      // 2. Log credit transaction audit trail
-      await supabase.from('credit_transactions').insert({
-        user_id: editingUser.id,
-        amount: Math.abs(newBal - editingUser.balance),
-        transaction_type: newBal >= editingUser.balance ? 'admin_credit' : 'admin_debit',
-        description: editNote.trim() || `Manual wallet adjustment by ${sessionUser.email} (Set to ₹${newBal.toFixed(2)})`
+      // 1. Call Backend Admin Endpoint with service-role permissions
+      const res = await fetch(`${API_BASE_URL}/api/admin/adjust-wallet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminEmail: sessionUser.email,
+          targetUserId: editingUser.id,
+          targetEmail: editingUser.email,
+          newBalance: newBal,
+          note: editNote.trim() || `Manual adjustment by ${sessionUser.email} (Set to ₹${newBal.toFixed(2)})`
+        })
       });
+
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || 'Server failed to update wallet in database.');
+      }
+
+      // 2. Also attempt direct client log if permitted
+      try {
+        await supabase.from('credit_transactions').insert({
+          user_id: editingUser.id,
+          amount: Math.abs(newBal - editingUser.balance),
+          transaction_type: newBal >= editingUser.balance ? 'admin_credit' : 'admin_debit',
+          description: editNote.trim() || `Manual wallet adjustment by ${sessionUser.email} (Set to ₹${newBal.toFixed(2)})`
+        });
+      } catch {}
 
       toast.success(`Updated ${editingUser.name}'s wallet to ₹${newBal.toFixed(2)}`);
       setEditingUser(null);
-      fetchUsersAndWallets();
-      fetchTransactions();
+      await fetchUsersAndWallets();
+      await fetchTransactions();
     } catch (err: any) {
+      console.error("Wallet adjustment failed:", err);
       toast.error(err.message || 'Failed to update wallet balance');
     } finally {
       setIsSavingWallet(false);
@@ -330,31 +361,20 @@ export default function DesignDashboard() {
     }
 
     try {
-      // 1. Direct Supabase update of non-owner accounts
-      try {
-        const { data: profiles } = await supabase.from('profiles').select('id, name');
-        if (profiles && profiles.length > 0) {
-          for (const p of profiles) {
-            if (p.id !== sessionUser.id) {
-              await supabase
-                .from('wallet')
-                .upsert({ user_id: p.id, balance: 0.00, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
-            }
-          }
-        }
-      } catch (clientErr) {
-        console.warn("Direct Supabase wipe error:", clientErr);
-      }
-
-      // 2. Call backend wipe
-      await fetch(`${API_BASE_URL}/api/admin/wipe-test-wallets`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/wipe-test-wallets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminEmail: sessionUser.email })
-      }).catch(() => {});
+      });
 
-      toast.success('All non-admin test balances reset to ₹0.00!');
-      fetchUsersAndWallets();
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success('All non-admin test balances reset to ₹0.00!');
+      } else {
+        toast.error(data.error || 'Failed to wipe balances.');
+      }
+      await fetchUsersAndWallets();
+      await fetchTransactions();
     } catch (e) {
       toast.error('Error executing test wipe.');
     }
