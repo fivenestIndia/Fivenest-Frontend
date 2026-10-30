@@ -1,9 +1,9 @@
 /**
  * FiveNest Robust Font Loader & Sanitizer
  * 
- * Automatically repairs corrupted font headers (e.g. legacy Windows Type 1 converted TTFs
- * where the 'post' table has invalid glyph name indices like 65535, causing browser OTS drop),
- * extracts authentic font family names from the 'name' table, and registers custom fonts seamlessly.
+ * Automatically repairs corrupted font headers (e.g. legacy Windows Type 1 converted TTFs,
+ * invalid post format 2.0 indices like 65535, malformed legacy kern searchRange values,
+ * unconsumed trailing garbage bytes from downloaders/scrapers, and table checksum mismatches).
  */
 
 // Convert ArrayBuffer or Uint8Array to a Base64 Data URL safely in chunks
@@ -104,173 +104,201 @@ function formatFallbackName(filename: string): string {
   return name.replace(/\b\w/g, c => c.toUpperCase()) || 'Custom Font';
 }
 
-// Recompute head table checkSumAdjustment to strictly satisfy OTS & TrueType specs
-function updateHeadCheckSumAdjustment(data: Uint8Array, view: DataView) {
+/**
+ * Cleanly rebuilds and repairs a TTF/OTF font file:
+ * - Trims unconsumed trailing bytes/garbage after the last table (causes OTS drop)
+ * - Converts or repairs 'post' table (Format 3.0 eliminates glyph index 65535 corruption)
+ * - Repairs or removes malformed legacy 'kern' tables (fixes searchRange mismatches)
+ * - Strictly satisfies table 4-byte alignment and recalculates head checkSumAdjustment
+ */
+export function cleanRebuildFont(
+  buffer: ArrayBuffer,
+  options: { postFormat3?: boolean; dropKern?: boolean } = {}
+): ArrayBuffer {
   try {
-    const numTables = view.getUint16(4);
-    let headOffset = 0;
-    for (let i = 0; i < numTables; i++) {
-      const dirOffset = 12 + i * 16;
-      if (dirOffset + 16 > data.length) break;
-      if (view.getUint32(dirOffset) === 0x68656164) { // "head"
-        headOffset = view.getUint32(dirOffset + 8);
-        break;
-      }
-    }
-    if (!headOffset || headOffset + 12 > data.length) return;
-    view.setUint32(headOffset + 8, 0); // clear checkSumAdjustment before summing
-    let sum = 0;
-    for (let i = 0; i < data.length; i += 4) {
-      if (i + 4 <= data.length) {
-        sum = (sum + view.getUint32(i)) >>> 0;
-      } else {
-        let lastWord = 0;
-        for (let b = 0; b < 4; b++) {
-          lastWord = (lastWord << 8) | (i + b < data.length ? data[i + b] : 0);
-        }
-        sum = (sum + (lastWord >>> 0)) >>> 0;
-      }
-    }
-    const adjustment = (0xB1B0AFBA - sum) >>> 0;
-    view.setUint32(headOffset + 8, adjustment);
-  } catch (e) {
-    console.warn("Failed to update head checkSumAdjustment:", e);
-  }
-}
-
-// Strategy 1: Clamp corrupted post format 2.0 glyph name indices (such as 65535) to 0 (.notdef)
-export function sanitizeFontPostTable(buffer: ArrayBuffer): { buffer: ArrayBuffer; repaired: boolean } {
-  try {
-    const data = new Uint8Array(buffer.slice(0));
+    const data = new Uint8Array(buffer);
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+    if (data.length < 12) return buffer;
 
-    if (data.length < 12) return { buffer, repaired: false };
     const sfntVersion = view.getUint32(0);
+    // 0x00010000 (TrueType), 0x4F54544F (OTTO/CFF), 0x74727565 (true)
     if (sfntVersion !== 0x00010000 && sfntVersion !== 0x4F54544F && sfntVersion !== 0x74727565) {
-      return { buffer, repaired: false };
+      return buffer;
     }
 
     const numTables = view.getUint16(4);
-    let postDirOffset = 0;
-    let postOffset = 0;
-    let postLength = 0;
+    const tables: { tag: string; offset: number; length: number }[] = [];
 
     for (let i = 0; i < numTables; i++) {
-      const dirOffset = 12 + i * 16;
-      if (dirOffset + 16 > data.length) break;
-      const tag = view.getUint32(dirOffset);
-      if (tag === 0x706F7374) { // "post"
-        postDirOffset = dirOffset;
-        postOffset = view.getUint32(dirOffset + 8);
-        postLength = view.getUint32(dirOffset + 12);
-        break;
+      const o = 12 + i * 16;
+      if (o + 16 > data.length) break;
+      const tag = String.fromCharCode(data[o], data[o + 1], data[o + 2], data[o + 3]);
+      const offset = view.getUint32(o + 8);
+      const length = view.getUint32(o + 12);
+      if (offset + length <= data.length) {
+        if (options.dropKern && tag === 'kern') continue;
+        tables.push({ tag, offset, length });
       }
     }
 
-    if (!postOffset || postOffset + 32 > data.length) return { buffer, repaired: false };
+    if (tables.length === 0) return buffer;
 
-    const format = view.getUint32(postOffset);
-    if (format === 0x00020000) {
-      let needsRepair = false;
-      if (postOffset + 34 <= data.length) {
-        const numGlyphs = view.getUint16(postOffset + 32);
-        const glyphNameIndexOffset = postOffset + 34;
-        const stringOffset = glyphNameIndexOffset + numGlyphs * 2;
+    // OpenType spec strictly mandates alphabetical table tag order in directory
+    tables.sort((a, b) => a.tag.localeCompare(b.tag));
 
-        let customStringCount = 0;
-        let curr = stringOffset;
-        while (curr < postOffset + postLength && curr < data.length) {
-          const sLen = data[curr];
-          curr += 1 + sLen;
-          customStringCount++;
-        }
+    const newNumTables = tables.length;
+    const maxPow2 = 1 << Math.floor(Math.log2(newNumTables));
+    const searchRange = maxPow2 * 16;
+    const entrySelector = Math.floor(Math.log2(maxPow2));
+    const rangeShift = newNumTables * 16 - searchRange;
 
-        const maxAllowedIndex = 258 + customStringCount;
-        for (let g = 0; g < numGlyphs; g++) {
-          if (glyphNameIndexOffset + g * 2 + 2 > data.length) break;
-          const idx = view.getUint16(glyphNameIndexOffset + g * 2);
-          if (idx >= maxAllowedIndex) {
-            needsRepair = true;
-            view.setUint16(glyphNameIndexOffset + g * 2, 0); // Clamp to 0 (.notdef)
+    const newHeaderLen = 12 + newNumTables * 16;
+    let curOffset = (newHeaderLen + 3) & ~3;
+
+    const tableDataList: {
+      tag: string;
+      newOffset: number;
+      length: number;
+      checkSum: number;
+      data: Uint8Array;
+    }[] = [];
+
+    for (const t of tables) {
+      let tData = new Uint8Array(data.subarray(t.offset, t.offset + t.length));
+
+      // Option 1: Cleanly convert post table to Format 3.0 (32 bytes)
+      if (t.tag === 'post' && options.postFormat3 && tData.length >= 32) {
+        const p3 = new Uint8Array(32);
+        p3.set(tData.subarray(0, 32));
+        const p3View = new DataView(p3.buffer);
+        p3View.setUint32(0, 0x00030000); // Format 3.0
+        tData = p3;
+      } else if (t.tag === 'post' && !options.postFormat3 && tData.length >= 34) {
+        // Option 2: Clamp corrupted post format 2.0 glyph name indices (such as 65535)
+        const pView = new DataView(tData.buffer, tData.byteOffset, tData.byteLength);
+        if (pView.getUint32(0) === 0x00020000) {
+          const numGlyphs = pView.getUint16(32);
+          let customStrings = 0;
+          let curr = 34 + numGlyphs * 2;
+          while (curr < tData.length) {
+            const sLen = tData[curr];
+            curr += 1 + sLen;
+            customStrings++;
           }
-        }
-      }
-
-      if (needsRepair) {
-        let sum = 0;
-        for (let p = 0; p < postLength; p += 4) {
-          if (postOffset + p + 4 <= data.length) {
-            sum = (sum + view.getUint32(postOffset + p)) >>> 0;
-          } else {
-            let lastWord = 0;
-            for (let b = 0; b < 4; b++) {
-              lastWord = (lastWord << 8) | (postOffset + p + b < data.length ? data[postOffset + p + b] : 0);
+          const maxAllowed = 258 + customStrings;
+          for (let g = 0; g < numGlyphs; g++) {
+            if (34 + g * 2 + 2 <= tData.length) {
+              const idx = pView.getUint16(34 + g * 2);
+              if (idx >= maxAllowed) {
+                pView.setUint16(34 + g * 2, 0); // Clamp to .notdef
+              }
             }
-            sum = (sum + (lastWord >>> 0)) >>> 0;
           }
         }
-        view.setUint32(postDirOffset + 4, sum);
-        updateHeadCheckSumAdjustment(data, view);
-        return { buffer: data.buffer, repaired: true };
       }
-    }
-  } catch (e) {
-    console.warn("Post table sanitization check error:", e);
-  }
 
-  return { buffer, repaired: false };
+      // Repair malformed legacy kern table searchRange
+      if (t.tag === 'kern' && tData.length >= 14) {
+        const kView = new DataView(tData.buffer, tData.byteOffset, tData.byteLength);
+        if (kView.getUint16(0) === 0 && kView.getUint16(2) >= 1) {
+          if ((kView.getUint16(4) & 0x01) === 0x01) { // Format 0
+            const nPairs = kView.getUint16(6);
+            const maxPow = 1 << Math.floor(Math.log2(nPairs || 1));
+            kView.setUint16(8, maxPow * 6);
+            kView.setUint16(10, Math.floor(Math.log2(maxPow)));
+            kView.setUint16(12, nPairs * 6 - maxPow * 6);
+          }
+        }
+      }
+
+      // Compute table checksum
+      let sum = 0;
+      const pLen = (tData.length + 3) & ~3;
+      for (let p = 0; p < pLen; p += 4) {
+        let word = 0;
+        for (let b = 0; b < 4; b++) {
+          word = (word << 8) | (p + b < tData.length ? tData[p + b] : 0);
+        }
+        sum = (sum + (word >>> 0)) >>> 0;
+      }
+
+      tableDataList.push({
+        tag: t.tag,
+        newOffset: curOffset,
+        length: tData.length,
+        checkSum: sum,
+        data: tData,
+      });
+      curOffset = (curOffset + tData.length + 3) & ~3;
+    }
+
+    const out = new Uint8Array(curOffset);
+    const outView = new DataView(out.buffer);
+    outView.setUint32(0, sfntVersion);
+    outView.setUint16(4, newNumTables);
+    outView.setUint16(6, searchRange);
+    outView.setUint16(8, entrySelector);
+    outView.setUint16(10, rangeShift);
+
+    let headOffset = 0;
+    for (let i = 0; i < tables.length; i++) {
+      const t = tableDataList[i];
+      const dirOffset = 12 + i * 16;
+      for (let c = 0; c < 4; c++) out[dirOffset + c] = t.tag.charCodeAt(c);
+      outView.setUint32(dirOffset + 4, t.checkSum);
+      outView.setUint32(dirOffset + 8, t.newOffset);
+      outView.setUint32(dirOffset + 12, t.length);
+
+      out.set(t.data, t.newOffset);
+      if (t.tag === 'head') headOffset = t.newOffset;
+    }
+
+    // Recompute head checkSumAdjustment
+    if (headOffset && headOffset + 12 <= out.length) {
+      outView.setUint32(headOffset + 8, 0);
+      let totalSum = 0;
+      for (let i = 0; i < out.length; i += 4) {
+        let word = 0;
+        for (let b = 0; b < 4; b++) {
+          word = (word << 8) | (i + b < out.length ? out[i + b] : 0);
+        }
+        totalSum = (totalSum + (word >>> 0)) >>> 0;
+      }
+      const adj = (0xB1B0AFBA - totalSum) >>> 0;
+      outView.setUint32(headOffset + 8, adj);
+    }
+
+    return out.buffer;
+  } catch (err) {
+    console.warn("Font rebuild error, using original buffer:", err);
+    return buffer;
+  }
 }
 
-// Strategy 2: Convert post table to Format 3.0 (removes all stringData & glyph name index tables entirely)
+// Backward-compatible exports
+export function sanitizeFontPostTable(buffer: ArrayBuffer): { buffer: ArrayBuffer; repaired: boolean } {
+  const repaired = cleanRebuildFont(buffer, { postFormat3: false, dropKern: false });
+  return { buffer: repaired, repaired: repaired.byteLength !== buffer.byteLength };
+}
+
 export function convertPostToFormat3(buffer: ArrayBuffer): { buffer: ArrayBuffer; repaired: boolean } {
-  try {
-    const data = new Uint8Array(buffer.slice(0));
-    const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-
-    if (data.length < 12) return { buffer, repaired: false };
-    const numTables = view.getUint16(4);
-    for (let i = 0; i < numTables; i++) {
-      const dirOffset = 12 + i * 16;
-      if (dirOffset + 16 > data.length) break;
-      const tag = view.getUint32(dirOffset);
-      if (tag === 0x706F7374) { // "post"
-        const postOffset = view.getUint32(dirOffset + 8);
-        if (postOffset + 32 > data.length) break;
-
-        // Set format to 3.0
-        view.setUint32(postOffset, 0x00030000);
-        // Set post length to 32 bytes in table directory
-        view.setUint32(dirOffset + 12, 32);
-
-        // Recalculate 32-byte checksum
-        let sum = 0;
-        for (let p = 0; p < 32; p += 4) {
-          sum = (sum + view.getUint32(postOffset + p)) >>> 0;
-        }
-        view.setUint32(dirOffset + 4, sum);
-        updateHeadCheckSumAdjustment(data, view);
-        return { buffer: data.buffer, repaired: true };
-      }
-    }
-  } catch (e) {
-    console.warn("Format 3 conversion error:", e);
-  }
-
-  return { buffer, repaired: false };
+  const repaired = cleanRebuildFont(buffer, { postFormat3: true, dropKern: true });
+  return { buffer: repaired, repaired: true };
 }
 
 /**
  * Robustly load a font buffer into the browser document.fonts registry.
- * Tries direct load, then clamped format 2.0, then format 3.0, and both Binary & DataURL methods.
+ * Tries bulletproof format 3.0 rebuild (which eliminates trailing garbage & OTS bugs),
+ * then clamped format 2.0 rebuild, and both Binary & DataURL methods.
  */
 export async function loadFontBinaryIntoBrowser(
   fontName: string,
   rawBuffer: ArrayBuffer
 ): Promise<{ fontFace: FontFace; cleanBuffer: ArrayBuffer; dataUrl: string }> {
-  const attempts = [
+  const attempts: { buf: ArrayBuffer; desc: string }[] = [
+    { buf: cleanRebuildFont(rawBuffer, { postFormat3: true, dropKern: true }), desc: 'clean format 3.0 (OTS-safe)' },
+    { buf: cleanRebuildFont(rawBuffer, { postFormat3: false, dropKern: false }), desc: 'repaired format 2.0 with clamped indices' },
     { buf: rawBuffer, desc: 'original buffer' },
-    { buf: sanitizeFontPostTable(rawBuffer).buffer, desc: 'clamped post indices' },
-    { buf: convertPostToFormat3(rawBuffer).buffer, desc: 'format 3.0 post table' },
   ];
 
   let lastError: any = null;
