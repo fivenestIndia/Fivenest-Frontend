@@ -62,11 +62,7 @@ export default function WebStudio() {
   const isSpareTestAccount = (email?: string | null): boolean => {
     if (!email) return false;
     const clean = email.toLowerCase().trim();
-    const normalized = clean.replace(/\./g, '');
     return (
-      clean === 'vilesh.mob@gmail.com' ||
-      clean === 'vileshmob@gmail.com' ||
-      normalized.startsWith('vileshmob@') ||
       clean === 'demo@fivenest.in' ||
       clean === 'newuser@fivenest.in'
     );
@@ -141,21 +137,28 @@ export default function WebStudio() {
 
     const checkSession = async () => {
       try {
+        const isOAuthReturn = typeof window !== 'undefined' && (
+          window.location.hash.includes('access_token=') || 
+          window.location.search.includes('code=')
+        );
+
         const cutoverDone = localStorage.getItem('fivenest_auth_cutover') === PRODUCTION_AUTH_CUTOVER_VERSION;
         if (!cutoverDone) {
           localStorage.setItem('fivenest_auth_cutover', PRODUCTION_AUTH_CUTOVER_VERSION);
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user && !isMainOwnerAccount(session.user.email)) {
-            await supabase.auth.signOut().catch(() => {});
-            localStorage.removeItem('fivenest_active_user');
-            localStorage.removeItem('teedex_active_user');
-            Object.keys(localStorage).forEach(key => {
-              if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
-                localStorage.removeItem(key);
-              }
-            });
-            setCurrentUser(null);
-            return;
+          if (!isOAuthReturn) {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user && !isMainOwnerAccount(session.user.email)) {
+              await supabase.auth.signOut().catch(() => {});
+              localStorage.removeItem('fivenest_active_user');
+              localStorage.removeItem('teedex_active_user');
+              Object.keys(localStorage).forEach(key => {
+                if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+                  localStorage.removeItem(key);
+                }
+              });
+              setCurrentUser(null);
+              return;
+            }
           }
         }
 
@@ -168,14 +171,32 @@ export default function WebStudio() {
             return;
           }
           const details = await fetchUserWallet(session.user.id);
+          const metaName = session.user.user_metadata?.full_name || session.user.user_metadata?.name;
+          const resolvedName = (details.name && details.name !== 'User') 
+            ? details.name 
+            : (metaName || (session.user.email ? session.user.email.split('@')[0] : 'User'));
+
+          // Sync Google profile name to profiles table if missing
+          if (metaName && (!details.name || details.name === 'User')) {
+            supabase.from('profiles').upsert({
+              id: session.user.id,
+              email: session.user.email,
+              name: metaName
+            }, { onConflict: 'id' }).catch(() => {});
+          }
+
           const updated = {
             id: session.user.id,
             email: session.user.email || '',
-            name: details.name || session.user.user_metadata?.name || (session.user.email ? session.user.email.split('@')[0] : 'User'),
+            name: resolvedName,
             balance: isMainOwnerAccount(session.user.email) ? details.balance : Math.max(0, details.balance)
           };
           setCurrentUser(updated);
           localStorage.setItem('fivenest_active_user', JSON.stringify(updated));
+
+          if (isOAuthReturn && window.history?.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
         } else {
           // No active Supabase session
           const cached = localStorage.getItem('fivenest_active_user');
@@ -214,14 +235,31 @@ export default function WebStudio() {
         }
         try {
           const details = await fetchUserWallet(session.user.id);
+          const metaName = session.user.user_metadata?.full_name || session.user.user_metadata?.name;
+          const resolvedName = (details.name && details.name !== 'User') 
+            ? details.name 
+            : (metaName || (session.user.email ? session.user.email.split('@')[0] : 'User'));
+
+          if (metaName && (!details.name || details.name === 'User')) {
+            supabase.from('profiles').upsert({
+              id: session.user.id,
+              email: session.user.email,
+              name: metaName
+            }, { onConflict: 'id' }).catch(() => {});
+          }
+
           const updated = {
             id: session.user.id,
             email: session.user.email || '',
-            name: details.name || session.user.user_metadata?.name || (session.user.email ? session.user.email.split('@')[0] : 'User'),
-            balance: details.balance
+            name: resolvedName,
+            balance: isMainOwnerAccount(session.user.email) ? details.balance : Math.max(0, details.balance)
           };
           setCurrentUser(updated);
           localStorage.setItem('fivenest_active_user', JSON.stringify(updated));
+
+          if ((window.location.hash.includes('access_token=') || window.location.search.includes('code=')) && window.history?.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
         } catch (e) {}
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);

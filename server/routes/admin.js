@@ -160,7 +160,7 @@ router.get("/users-wallets", async (req, res) => {
       const balance = walletMap.get(uid) || 0;
 
       const email = authU?.email || prof?.email || (uid === '06b0361a-d777-4957-9bb1-adb5ca3d0bea' ? 'fivenest.india@gmail.com' : `user-${uid.slice(0, 6)}@fivenest.in`);
-      const name = prof?.name || authU?.user_metadata?.name || email.split('@')[0] || 'User';
+      const name = prof?.name || authU?.user_metadata?.full_name || authU?.user_metadata?.name || email.split('@')[0] || 'User';
 
       usersList.push({
         id: uid,
