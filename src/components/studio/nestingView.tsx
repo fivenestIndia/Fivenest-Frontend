@@ -3512,7 +3512,27 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       setPaymentCost(calculatedCost);
       pendingExportActionRef.current = executeExport;
       setPendingExportAction(() => executeExport);
-      if (currentUser.balance >= calculatedCost) {
+
+      // Check freshest balance from database
+      let freshBalance = currentUser.balance;
+      try {
+        let userId = (currentUser as any)?.id;
+        try {
+          const { data: authData } = await supabase.auth.getUser();
+          if (authData?.user?.id) userId = authData.user.id;
+        } catch {}
+        if (userId) {
+          const details = await fetchUserWallet(userId);
+          if (details && typeof details.balance === 'number') {
+            freshBalance = details.balance;
+            const updated = { ...currentUser, balance: freshBalance };
+            localStorage.setItem('fivenest_active_user', JSON.stringify(updated));
+            onUserChange(updated);
+          }
+        }
+      } catch (e) {}
+
+      if (freshBalance >= calculatedCost) {
         setUpiPaymentMethod('wallet');
       } else {
         setUpiPaymentMethod('upi');
@@ -4609,79 +4629,100 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                   </div>
                 ) : (
                   <>
-                    {/* Primary Button to launch Live Razorpay UPI Checkout */}
-                    <button
-                      type="button"
-                      onClick={handleDirectUpiPayment}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        background: 'linear-gradient(135deg, #E4572E 0%, #EA580C 100%)',
-                        color: '#FFFFFF',
-                        border: 'none',
-                        borderRadius: '10px',
-                        fontSize: '13px',
-                        fontWeight: '800',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        boxShadow: '0 4px 14px rgba(228, 87, 46, 0.35)',
-                        transition: 'all 0.2s'
-                      }}
-                    >
-                      <QrCode size={16} />
-                      <span>Open Live UPI QR Code (₹{paymentCost.toFixed(2)})</span>
-                    </button>
-
                     <div 
                       onClick={handleDirectUpiPayment}
                       style={{ 
-                        padding: '12px', 
-                        background: '#FFFFFF', 
-                        borderRadius: '12px', 
-                        border: '1.5px solid #FCD7C8',
-                        position: 'relative', 
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                        width: '100%',
+                        padding: '22px 18px', 
+                        background: 'linear-gradient(180deg, #FFFFFF 0%, #FFF8F5 100%)', 
+                        borderRadius: '16px', 
+                        border: '2px solid #FCD7C8',
+                        boxShadow: '0 8px 24px rgba(228, 87, 46, 0.12)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '14px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        boxSizing: 'border-box'
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#E4572E')}
+                      onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#FCD7C8')}
+                    >
+                      <div style={{
+                        width: '54px',
+                        height: '54px',
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #FFF0EB 0%, #FFE4D6 100%)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        cursor: 'pointer'
-                      }}
-                      title="Click to open live UPI QR code"
-                    >
-                      <img 
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&color=0a0a0f&bgcolor=ffffff&qzone=1&data=${encodeURIComponent(`upi://pay?pa=vilesh332-1@okhdfcbank&pn=FiveNest%20Studio&am=${paymentCost}&cu=INR&tn=FiveNest%20Sublimation%20Export`)}`} 
-                        alt="UPI Payment QR Code" 
-                        style={{ width: '160px', height: '160px', display: 'block' }}
-                      />
-                      
-                      {/* Pulse Scan Line overlay */}
-                      <div className="scan-line" style={{
-                        position: 'absolute',
-                        left: '12px',
-                        right: '12px',
-                        height: '2px',
-                        background: '#E4572E',
-                        boxShadow: '0 0 10px #E4572E',
-                        animation: 'scan 2.5s linear infinite'
-                      }}></div>
-                      <style>{`
-                        @keyframes scan {
-                          0% { top: 12px; }
-                          50% { top: 172px; }
-                          100% { top: 12px; }
-                        }
-                        @keyframes spin { to { transform: rotate(360deg); } }
-                        .spin { animation: spin 1s linear infinite; }
-                      `}</style>
-                    </div>
-                    
-                    <div style={{ textAlign: 'center' }}>
-                      <p style={{ fontSize: '11px', color: '#6B7280', margin: 0, lineHeight: 1.5 }}>
-                        Click the button or QR above to open the <strong>Live Razorpay QR</strong>.<br />
-                        Pay with <strong>GPay, PhonePe, Paytm, or BHIM</strong> to start your export immediately.
+                        color: '#E4572E',
+                        boxShadow: '0 4px 12px rgba(228, 87, 46, 0.2)'
+                      }}>
+                        <QrCode size={28} />
+                      </div>
+
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '15px', fontWeight: '800', color: '#1F2937', marginBottom: '4px' }}>
+                          Instant UPI & QR by Razorpay
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                          Amount Due: <strong style={{ color: '#E4572E', fontSize: '15px' }}>₹{paymentCost.toFixed(2)} INR</strong>
+                        </div>
+                      </div>
+
+                      {/* Supported UPI Badges */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                        {['Google Pay', 'PhonePe', 'Paytm', 'BHIM', 'UPI QR'].map((badge) => (
+                          <span 
+                            key={badge} 
+                            style={{ 
+                              padding: '3px 8px', 
+                              background: '#FFFFFF', 
+                              border: '1px solid #E5E7EB', 
+                              borderRadius: '6px', 
+                              fontSize: '10px', 
+                              fontWeight: '700', 
+                              color: '#374151' 
+                            }}
+                          >
+                            {badge}
+                          </span>
+                        ))}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDirectUpiPayment();
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '13px 18px',
+                          background: 'linear-gradient(135deg, #E4572E 0%, #EA580C 100%)',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          borderRadius: '10px',
+                          fontSize: '13px',
+                          fontWeight: '800',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          boxShadow: '0 4px 14px rgba(228, 87, 46, 0.35)',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <QrCode size={16} />
+                        <span>⚡ Open Live Razorpay QR (₹{paymentCost.toFixed(2)})</span>
+                      </button>
+
+                      <p style={{ fontSize: '11px', color: '#6B7280', margin: 0, textAlign: 'center', lineHeight: 1.4 }}>
+                        🔒 Click above to open Razorpay's live UPI QR popup.<br />
+                        <strong>Export starts automatically</strong> the instant your phone payment confirms.
                       </p>
                     </div>
                   </>

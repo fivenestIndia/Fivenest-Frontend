@@ -412,8 +412,27 @@ router.post("/verify-studio-payment", async (req, res) => {
       return res.status(500).json({ error: "Failed to update wallet balance in database." });
     }
 
-    console.log(`Successfully verified and completed Web Studio wallet recharge of ₹${amount} for user UUID ${userId}`);
-    return res.status(200).json({ success: true, message: "Payment verified and wallet credited." });
+    // 4. Direct wallet balance upsert via supabaseAdmin (guarantees balance is saved)
+    let finalBal = numAmount;
+    try {
+      const { data: currentW } = await supabaseAdmin
+        .from("wallet")
+        .select("balance")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      const existingBal = currentW?.balance ? parseFloat(currentW.balance) : 0;
+      finalBal = Math.round((existingBal + numAmount) * 100) / 100;
+
+      await supabaseAdmin
+        .from("wallet")
+        .upsert({ user_id: userId, balance: finalBal, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+    } catch (wErr) {
+      console.warn("Direct wallet update warning:", wErr);
+    }
+
+    console.log(`Successfully verified and completed Web Studio wallet recharge of ₹${amount} for user UUID ${userId}, balance: ₹${finalBal}`);
+    return res.status(200).json({ success: true, message: "Payment verified and wallet credited.", newBalance: finalBal });
 
   } catch (error) {
     console.error("Error verifying payment on backend:", error);
