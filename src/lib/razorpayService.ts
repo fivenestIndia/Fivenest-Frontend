@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { type SubscriptionPlan, type UserSubscriptionState, saveSubscription } from './subscriptionPlans';
 
 export const loadRazorpayScript = (): Promise<boolean> => {
   return new Promise((resolve) => {
@@ -33,6 +34,7 @@ async function getAuthToken(): Promise<string | null> {
 export interface InitiateRazorpayParams {
   amount: number;
   currentUser: { email: string; name: string; balance: number; id?: string };
+  plan?: SubscriptionPlan;
   onSuccess: (newBalance: number, paymentId: string) => void;
   onError: (errorMsg: string) => void;
   onDismiss?: () => void;
@@ -41,6 +43,7 @@ export interface InitiateRazorpayParams {
 export const initiateRazorpayRecharge = async ({
   amount,
   currentUser,
+  plan,
   onSuccess,
   onError,
   onDismiss
@@ -152,12 +155,16 @@ export const initiateRazorpayRecharge = async ({
             : Math.round((currentBal + amount) * 100) / 100;
 
           // Record transaction in Supabase
+          const txnDesc = plan 
+            ? `Subscription Recharge: ${plan.name} (₹${amount}) - Valid for ${plan.validityLabel} (Txn: ${paymentResponse.razorpay_payment_id})`
+            : `Razorpay Online Recharge: ₹${amount} (Txn: ${paymentResponse.razorpay_payment_id})`;
+
           try {
             await supabase.from('credit_transactions').insert({
               user_id: targetUserId,
               amount,
               transaction_type: 'topup',
-              description: `Razorpay Online Recharge: ₹${amount} (Txn: ${paymentResponse.razorpay_payment_id})`
+              description: txnDesc
             });
           } catch (e) {}
 
@@ -166,7 +173,37 @@ export const initiateRazorpayRecharge = async ({
             await supabase.from('wallet').upsert({ user_id: targetUserId, balance: targetBalance }, { onConflict: 'user_id' });
           } catch (e) {}
 
-          const updatedUser = { ...currentUser, id: targetUserId, balance: targetBalance };
+          // If a subscription plan was chosen, activate it!
+          let activeSub: UserSubscriptionState | null = null;
+          if (plan) {
+            const now = new Date();
+            const expires = new Date(now.getTime() + (plan.validityDays > 0 ? plan.validityDays : 30) * 86400000);
+            activeSub = {
+              planId: plan.id,
+              planName: plan.name,
+              planAmount: plan.upfront,
+              rateWithTag: plan.rateWithTag,
+              rateWithoutTag: plan.rateWithoutTag,
+              purchasedAt: now.toISOString(),
+              expiresAt: expires.toISOString(),
+              hasOrderAccess: plan.hasOrderPortalAccess
+            };
+            saveSubscription(activeSub);
+          }
+
+          const updatedUser: any = { 
+            ...currentUser, 
+            id: targetUserId, 
+            balance: targetBalance 
+          };
+          if (activeSub) {
+            updatedUser.subscription = activeSub;
+            updatedUser.planId = activeSub.planId;
+            updatedUser.planAmount = activeSub.planAmount;
+            updatedUser.planExpiresAt = activeSub.expiresAt;
+            updatedUser.hasOrderAccess = activeSub.hasOrderAccess;
+          }
+
           try {
             localStorage.setItem('fivenest_active_user', JSON.stringify(updatedUser));
           } catch (e) {}

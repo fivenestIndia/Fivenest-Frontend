@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import { jsPDF } from 'jspdf';
 import confetti from 'canvas-confetti';
-import { Play, Download, Sliders, Coins, QrCode, CheckCircle, AlertTriangle, Loader2, X, Palette } from 'lucide-react';
+import { Play, Download, Sliders, Coins, QrCode, CheckCircle, AlertTriangle, Loader2, X, Palette, Award } from 'lucide-react';
 import JSZip from 'jszip';
 import { supabase, fetchUserWallet } from '../../lib/supabaseClient';
 import { fivenestLabelTagDataUrl } from '../../assets/labelTagBase64';
@@ -10,6 +10,14 @@ import { ExportProcessingModal } from './ExportProcessingModal';
 import { recordBillingExport } from './billingSystem';
 import { initiateRazorpayRecharge } from '../../lib/razorpayService';
 import { loadFontBinaryIntoBrowser, dataUrlToArrayBuffer } from '../../lib/fontLoader';
+import { SubscriptionModal } from './SubscriptionModal';
+import { 
+  getUserJerseyRate, 
+  getSavedSubscription, 
+  isSubscriptionActive,
+  DEFAULT_SPOT_RATE_WITH_TAG, 
+  DEFAULT_SPOT_RATE_WITHOUT_TAG 
+} from '../../lib/subscriptionPlans';
 
 // ---- Export format utilities ----
 type ExportFormat = 'jpg' | 'png' | 'tiff';
@@ -588,6 +596,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
   // Payment states
   const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState<boolean>(false);
   const [paymentCost, setPaymentCost] = useState<number>(0);
   const [pendingExportAction, setPendingExportAction] = useState<(() => Promise<void>) | null>(null);
   const pendingExportActionRef = useRef<(() => Promise<void>) | null>(null);
@@ -2465,7 +2474,9 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
   const logPrintProductionExportBillingEntry = (backPanelCount: number) => {
     try {
-      const activeRate = includeWatermarkLogo ? 3.00 : 5.00;
+      const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
+      const userSub = (currentUser as any)?.subscription || getSavedSubscription();
+      const activeRate = getUserJerseyRate(userSub, includeWatermarkLogo, isOwnerExempt);
       const cleanCust = metadata?.customerName?.trim() || "Deep Textile";
       const cleanFile = metadata?.fileName?.trim() 
         ? metadata.fileName.trim() 
@@ -2499,7 +2510,8 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       (designConfig?.back?.backgroundType === 'upload' && designConfig?.back?.uploadedFileUrl) ||
       designConfig?.back?.backgroundType === 'generate'
     );
-    const activeRate = includeWatermarkLogo ? 3.00 : 5.00;
+    const userSub = (currentUser as any)?.subscription || getSavedSubscription();
+    const activeRate = getUserJerseyRate(userSub, includeWatermarkLogo, isOwnerExempt);
     return items.reduce((acc, item) => {
       if (item.panelType === 'back') {
         return acc + (backHasArtwork ? activeRate : 0);
@@ -4381,33 +4393,79 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               <QrCode size={20} style={{ color: '#E4572E' }} /> Sublimation Panel Checkout
             </h3>
             
-            <p style={{ fontSize: '12px', color: '#4B5563', marginBottom: '18px', lineHeight: '1.4' }}>
-              Production rendering is billed at <strong>₹3.00/pc</strong> for Back panels with FiveNest label tag (or ₹5.00/pc standard). Front and sleeve panels are free.
-            </p>
+            {(() => {
+              const activeSub = (currentUser as any)?.subscription || getSavedSubscription();
+              const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
+              const activeRate = getUserJerseyRate(activeSub, includeWatermarkLogo, isOwnerExempt);
+              return (
+                <>
+                  <p style={{ fontSize: '12px', color: '#4B5563', marginBottom: '14px', lineHeight: '1.4' }}>
+                    {activeSub && isSubscriptionActive(activeSub) ? (
+                      <span style={{ color: '#15803D', fontWeight: '600' }}>
+                        🎉 <strong>{activeSub.planName}</strong> active: Billed at <strong>₹{activeRate.toFixed(2)}/pc</strong> for Back panels. Front & sleeves are free.
+                      </span>
+                    ) : (
+                      <span>
+                        On-the-spot rendering is billed at <strong>₹3.50/pc</strong> for Back panels with FiveNest label tag (or <strong>₹5.50/pc</strong> standard). Front and sleeve panels are free.
+                      </span>
+                    )}
+                  </p>
 
-            {/* Pricing Breakdown Card */}
-            <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '10px', padding: '14px 16px', marginBottom: '18px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: '#6B7280' }}>Player Roster Count:</span>
-                <span style={{ fontWeight: '700', color: '#111827' }}>{records.reduce((acc, r) => acc + r.qty, 0)} players</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: '#6B7280' }}>Charged Back Panels:</span>
-                <span style={{ fontWeight: '700', color: '#111827' }}>{getItemsToExport().filter(item => item.panelType === 'back').length} pcs (₹{includeWatermarkLogo ? '3.00' : '5.00'} each)</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: '#6B7280' }}>Charged A4 Prints:</span>
-                <span style={{ fontWeight: '700', color: '#111827' }}>{getItemsToExport().filter(item => item.panelType === 'a4-print').length} pcs (₹0.50 each)</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: '#6B7280' }}>Free Panels (Front/Sleeve):</span>
-                <span style={{ fontWeight: '700', color: '#15803D' }}>{getItemsToExport().filter(item => item.panelType !== 'back' && item.panelType !== 'a4-print').length} pcs (₹0.00)</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', borderTop: '1px solid #E8E4DE', paddingTop: '10px', marginTop: '4px' }}>
-                <span style={{ fontWeight: '800', color: '#111827' }}>Total Amount Due:</span>
-                <span style={{ fontWeight: '900', color: '#E4572E', fontSize: '17px' }}>₹{paymentCost.toFixed(2)} INR</span>
-              </div>
-            </div>
+                  {/* Pricing Breakdown Card */}
+                  <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '10px', padding: '14px 16px', marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                      <span style={{ color: '#6B7280' }}>Player Roster Count:</span>
+                      <span style={{ fontWeight: '700', color: '#111827' }}>{records.reduce((acc, r) => acc + r.qty, 0)} players</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                      <span style={{ color: '#6B7280' }}>Charged Back Panels:</span>
+                      <span style={{ fontWeight: '700', color: '#111827' }}>
+                        {getItemsToExport().filter(item => item.panelType === 'back').length} pcs (₹{activeRate.toFixed(2)} each)
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                      <span style={{ color: '#6B7280' }}>Charged A4 Prints:</span>
+                      <span style={{ fontWeight: '700', color: '#111827' }}>{getItemsToExport().filter(item => item.panelType === 'a4-print').length} pcs (₹0.50 each)</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                      <span style={{ color: '#6B7280' }}>Free Panels (Front/Sleeve):</span>
+                      <span style={{ fontWeight: '700', color: '#15803D' }}>{getItemsToExport().filter(item => item.panelType !== 'back' && item.panelType !== 'a4-print').length} pcs (₹0.00)</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', borderTop: '1px solid #E8E4DE', paddingTop: '10px', marginTop: '4px' }}>
+                      <span style={{ fontWeight: '800', color: '#111827' }}>Total Amount Due:</span>
+                      <span style={{ fontWeight: '900', color: '#E4572E', fontSize: '17px' }}>₹{paymentCost.toFixed(2)} INR</span>
+                    </div>
+                  </div>
+
+                  {/* Subscription Upsell Card */}
+                  <div 
+                    onClick={() => setShowSubscriptionModal(true)}
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(228,87,46,0.08) 0%, rgba(245,158,11,0.08) 100%)',
+                      border: '1px solid rgba(228,87,46,0.3)',
+                      borderRadius: '10px',
+                      padding: '9px 12px',
+                      marginBottom: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '14px' }}>💎</span>
+                      <div style={{ fontSize: '11px', color: '#1F2937' }}>
+                        <strong>Save up to 43% with Subscriptions</strong> (as low as ₹2.00/pc & Order Portal)
+                      </div>
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#E4572E' }}>
+                      View Plans →
+                    </span>
+                  </div>
+                </>
+              );
+            })()}
 
             {/* Payment Method Selector */}
             <div style={{ display: 'flex', background: '#F3F4F6', padding: '4px', borderRadius: '10px', border: '1px solid #E5E7EB', gap: '4px', marginBottom: '18px' }}>
@@ -4603,13 +4661,25 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
                     <button 
                       className="btn btn-secondary"
-                      onClick={() => {
-                        setShowPaymentModal(false);
-                        onOpenLogin();
+                      onClick={() => setShowSubscriptionModal(true)}
+                      style={{ 
+                        width: '100%', 
+                        padding: '10px', 
+                        fontSize: '11px', 
+                        fontWeight: '800', 
+                        borderRadius: '8px', 
+                        background: 'linear-gradient(135deg, rgba(228,87,46,0.1) 0%, rgba(245,158,11,0.1) 100%)', 
+                        border: '1px solid rgba(228,87,46,0.3)', 
+                        color: '#E4572E',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        cursor: 'pointer'
                       }}
-                      style={{ width: '100%', padding: '9px', fontSize: '11px', borderRadius: '8px', background: '#FAF8F5', border: '1px solid #D1D5DB', color: '#374151' }}
                     >
-                      Or Recharge via Razorpay
+                      <Award size={13} />
+                      <span>💎 View Subscription & Recharge Plans</span>
                     </button>
                   </div>
                 )}
@@ -4755,6 +4825,15 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
         totalPanels={getItemsToExport().length}
         orderName={metadata.customerName ? `${metadata.customerName} — Order ${metadata.orderNum || '#'}` : undefined}
         colorProfile={colorProfile}
+      />
+
+      {/* ── Subscription & Recharge Plans Modal ── */}
+      <SubscriptionModal
+        isOpen={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        currentUser={currentUser}
+        onUserUpdate={onUserChange}
+        onOpenLogin={onOpenLogin}
       />
     </div>
   );

@@ -27,6 +27,9 @@ import ExpenseModal from '../components/orders/ExpenseModal';
 import MonthlyAllLedgerView from '../components/orders/MonthlyAllLedgerView';
 import AnimatedFinancialDashboard from '../components/orders/AnimatedFinancialDashboard';
 import { ManufacturerOrder, DesignerBill, FactoryExpense } from '../hooks/useOrderStore';
+import { supabase } from '../lib/supabaseClient';
+import { canAccessOrderPortal, getSavedSubscription, type UserSubscriptionState } from '../lib/subscriptionPlans';
+import { SubscriptionModal } from '../components/studio/SubscriptionModal';
 
 const cn = (...c: (string|undefined|boolean)[]) => c.filter(Boolean).join(' ');
 
@@ -536,6 +539,54 @@ export default function OrderManagement() {
   const [toast, setToast] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>('synced');
 
+  // User & Subscription access gate
+  const [currentUser, setCurrentUser] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem('fivenest_active_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [subscription, setSubscription] = useState<UserSubscriptionState | null>(() => getSavedSubscription());
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState<boolean>(false);
+  const [checkingAuth, setCheckingAuth] = useState<boolean>(true);
+
+  React.useEffect(() => {
+    async function verifyUser() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setCurrentUser((prev: any) => ({
+            ...(prev || {}),
+            id: session.user.id,
+            email: session.user.email || prev?.email || '',
+            name: session.user.user_metadata?.full_name || prev?.name || 'User'
+          }));
+        }
+      } catch (e) {}
+      setCheckingAuth(false);
+    }
+    verifyUser();
+
+    const handleSubUpdate = (e: any) => {
+      setSubscription(e.detail);
+    };
+    const handleUserUpdate = (e: any) => {
+      setCurrentUser(e.detail);
+      setSubscription(getSavedSubscription());
+    };
+    window.addEventListener('fivenest_subscription_updated', handleSubUpdate);
+    window.addEventListener('fivenest_user_updated', handleUserUpdate);
+    return () => {
+      window.removeEventListener('fivenest_subscription_updated', handleSubUpdate);
+      window.removeEventListener('fivenest_user_updated', handleUserUpdate);
+    };
+  }, []);
+
+  const hasAccess = canAccessOrderPortal(currentUser, subscription);
+
   React.useEffect(() => {
     return subscribeSyncStatus((st) => setSyncStatus(st));
   }, []);
@@ -578,6 +629,65 @@ export default function OrderManagement() {
     setSubView('orders');
   };
 
+  // Access control gate: Only plans >= ₹2,500 or admins can access Order Portal
+  if (!checkingAuth && !hasAccess) {
+    return (
+      <div className="min-h-screen bg-[#090D16] text-[#F8FAFC] flex items-center justify-center p-6 font-sans">
+        <div className="max-w-md w-full bg-[#0F172A] border border-white/10 rounded-2xl p-8 text-center shadow-2xl relative">
+          <div className="w-16 h-16 rounded-full bg-orange-500/10 border border-orange-500/30 text-[#E4572E] flex items-center justify-center mx-auto mb-5 shadow-lg">
+            <ShoppingBag size={30} />
+          </div>
+
+          <h2 className="text-xl font-black text-white mb-2">
+            Order Portal Access Restricted
+          </h2>
+          
+          <p className="text-sm text-[#94A3B8] leading-relaxed mb-6">
+            Manufacturing orders, job sheets, client billing, and factory ledgers are exclusively available on plans <strong>₹2,500 and above</strong> (Monthly Growth, Pro, Factory & Quarterly plans).
+          </p>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-6 text-left text-xs text-[#CBD5E1] flex flex-col gap-2">
+            <div className="flex items-center gap-2 text-emerald-400 font-bold">
+              <CheckCircle size={15} /> Included in Plans ₹2,500 & Above:
+            </div>
+            <div>• Complete Manufacturing Order creation with sizing breakdown</div>
+            <div>• Sublimation & DTF Job Sheets with PDF print downloads</div>
+            <div>• Factory Expenses, Profit & Loss reports & Party Ledgers</div>
+            <div>• 100% of upfront plan amount is credited directly to your export wallet!</div>
+          </div>
+
+          <div className="flex flex-col gap-2.5">
+            <button
+              onClick={() => setShowSubscriptionModal(true)}
+              className="w-full py-3.5 px-4 rounded-xl border-none bg-gradient-to-r from-[#E4572E] to-[#EA580C] text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-orange-500/30 hover:brightness-110 transition-all cursor-pointer"
+            >
+              <Zap size={16} />
+              <span>Unlock Order Portal — Choose Plan (₹2,500+)</span>
+            </button>
+
+            <Link to="/studio" className="no-underline">
+              <button
+                className="w-full py-2.5 px-4 rounded-xl border border-white/10 bg-white/5 text-[#94A3B8] hover:text-white text-xs font-semibold cursor-pointer transition-all"
+              >
+                Back to Web Studio
+              </button>
+            </Link>
+          </div>
+
+          <SubscriptionModal
+            isOpen={showSubscriptionModal}
+            onClose={() => setShowSubscriptionModal(false)}
+            currentUser={currentUser}
+            onUserUpdate={(u) => {
+              setCurrentUser(u);
+              setSubscription(getSavedSubscription());
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F5F3EF] flex flex-col">
       {/* ── Top Header ──────────────────────────────────────────────────────── */}
@@ -614,6 +724,14 @@ export default function OrderManagement() {
           </div>
 
           <div className="flex items-center gap-2 ml-auto">
+            <button
+              onClick={() => setShowSubscriptionModal(true)}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#E4572E] border border-orange-200 text-xs font-bold transition-all cursor-pointer"
+              title="View Subscription & Recharge Plans"
+            >
+              <Zap size={13} />
+              <span>Plans / Recharge</span>
+            </button>
             <QuickNewMenu
               onMfgOrder={() => openMfgOrder()}
               onDesignerBill={() => openDesignerBill()}
@@ -1311,6 +1429,16 @@ export default function OrderManagement() {
         )}
         {toast && <Toast message={toast} onClose={() => setToast(null)}/>}
       </AnimatePresence>
+
+      <SubscriptionModal
+        isOpen={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        currentUser={currentUser}
+        onUserUpdate={(u) => {
+          setCurrentUser(u);
+          setSubscription(getSavedSubscription());
+        }}
+      />
     </div>
   );
 }

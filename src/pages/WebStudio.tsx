@@ -15,6 +15,8 @@ import { MobileStudioView } from '../components/studio/MobileStudioView';
 import { HelpCenter } from '../components/studio/helpCenter';
 import { BillingSystem } from '../components/studio/billingSystem';
 import { LoginModal } from '../components/studio/loginModal';
+import { SubscriptionModal } from '../components/studio/SubscriptionModal';
+import { canAccessOrderPortal, getSavedSubscription, type UserSubscriptionState } from '../lib/subscriptionPlans';
 
 
 export default function WebStudio() {
@@ -109,6 +111,18 @@ export default function WebStudio() {
   });
   const [testMode, setTestMode] = useState<boolean>(false);
   const [loginModalOpen, setLoginModalOpen] = useState<boolean>(false);
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState<boolean>(false);
+  const [subscription, setSubscription] = useState<UserSubscriptionState | null>(() => getSavedSubscription());
+
+  useEffect(() => {
+    const handleSubUpdate = (e: any) => {
+      setSubscription(e.detail);
+    };
+    window.addEventListener('fivenest_subscription_updated', handleSubUpdate);
+    return () => {
+      window.removeEventListener('fivenest_subscription_updated', handleSubUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem('teedex_size_database');
@@ -589,15 +603,17 @@ export default function WebStudio() {
           </h1>
           
           <div className="navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {/* Direct Switch to Order Management Portal */}
-            <Link to="/orders" style={{ textDecoration: 'none' }}>
-              <button 
-                className="btn btn-secondary"
-                style={{ padding: '5px 12px', borderRadius: '7px', fontSize: '12px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '5px', background: '#FFFFFF', border: '1px solid #D0CCC5', color: '#242321' }}
-              >
-                <Package size={13} /> Orders
-              </button>
-            </Link>
+            {/* Direct Switch to Order Management Portal (Only for plans >= ₹2,500 or admins) */}
+            {canAccessOrderPortal(currentUser, subscription) && (
+              <Link to="/orders" style={{ textDecoration: 'none' }}>
+                <button 
+                  className="btn btn-secondary"
+                  style={{ padding: '5px 12px', borderRadius: '7px', fontSize: '12px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '5px', background: '#FFFFFF', border: '1px solid #D0CCC5', color: '#242321' }}
+                >
+                  <Package size={13} /> Orders
+                </button>
+              </Link>
+            )}
 
             {/* Test Mode Toggle */}
             <label className="test-mode-toggle" style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px', background: testMode ? '#FBF2DC' : '#F5F3EF', padding: '5px 11px', borderRadius: '7px', border: testMode ? '1px solid #D4B76A' : '1px solid #D8D5CF', userSelect: 'none', transition: 'all 0.15s ease' }}>
@@ -638,10 +654,35 @@ export default function WebStudio() {
                     <span>⚡ Admin</span>
                   </a>
                 )}
+
+                {/* Subscription & Recharge Plans Button */}
+                <button
+                  type="button"
+                  onClick={() => setSubscriptionModalOpen(true)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    background: 'linear-gradient(135deg, rgba(228,87,46,0.1) 0%, rgba(245,158,11,0.1) 100%)',
+                    border: '1px solid rgba(228,87,46,0.3)',
+                    color: '#E4572E',
+                    padding: '5px 10px',
+                    borderRadius: '7px',
+                    fontSize: '11px',
+                    fontWeight: '800',
+                    cursor: 'pointer'
+                  }}
+                  title="View Subscription & Recharge Plans"
+                >
+                  <Award size={13} />
+                  <span>Plans / Recharge</span>
+                </button>
+
                 <div 
                   className="user-wallet-pill"
-                  onClick={() => setLoginModalOpen(true)}
+                  onClick={() => setSubscriptionModalOpen(true)}
                   style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#FFFFFF', border: '1px solid #D0CCC5', padding: '5px 12px', borderRadius: '7px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}
+                  title="Click to recharge wallet or choose subscription plan"
                 >
                   <span style={{ color: '#171717' }}>{currentUser.name.split(' ')[0]}</span>
                   <span style={{ color: '#2F7D5C', fontWeight: '800' }}>₹{currentUser.balance.toFixed(2)}</span>
@@ -745,8 +786,21 @@ export default function WebStudio() {
           onClose={() => setLoginModalOpen(false)} 
           onLoginStateChange={setCurrentUser}
           currentUser={currentUser}
+          onOpenSubscription={() => {
+            setLoginModalOpen(false);
+            setSubscriptionModalOpen(true);
+          }}
         />
       )}
+
+      {/* Subscription & Recharge Plans Modal */}
+      <SubscriptionModal
+        isOpen={subscriptionModalOpen}
+        onClose={() => setSubscriptionModalOpen(false)}
+        currentUser={currentUser}
+        onUserUpdate={handleUserChange}
+        onOpenLogin={() => setLoginModalOpen(true)}
+      />
     </div>
   );
 }

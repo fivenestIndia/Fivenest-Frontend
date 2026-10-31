@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Lock, User, X, Coins, LogOut, Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, User, X, Coins, LogOut, Eye, EyeOff, Loader2, ArrowLeft, Award } from 'lucide-react';
 import { supabase, fetchUserWallet, supabaseUrl, supabaseAnonKey } from '../../lib/supabaseClient';
 
 const SUPABASE_CONFIGURED = !!supabaseUrl && !!supabaseAnonKey;
@@ -9,6 +9,7 @@ interface LoginModalProps {
   onClose: () => void;
   onLoginStateChange: (user: { email: string; name: string; balance: number; id?: string } | null) => void;
   currentUser: { email: string; name: string; balance: number; id?: string } | null;
+  onOpenSubscription?: () => void;
 }
 
 type Tab = 'login' | 'register' | 'wallet' | 'forgot';
@@ -53,7 +54,7 @@ const GoogleIcon = () => (
   </svg>
 );
 
-export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateChange, currentUser }) => {
+export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateChange, currentUser, onOpenSubscription }) => {
   const [activeTab, setActiveTab] = useState<Tab>('login');
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
@@ -1020,11 +1021,46 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
             {/* Recharge */}
             <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '16px' }}>
               <h4 style={{ fontSize: '13px', fontWeight: '700', color: '#E4572E', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                💳 Recharge Wallet
+                💳 Recharge Wallet & Subscriptions
               </h4>
-              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '14px' }}>
-                Add credits to unlock high-resolution sublimation exports.
+              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '12px' }}>
+                Lock in discounted rates and unlock full Order Portal access.
               </p>
+
+              {onOpenSubscription && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenSubscription();
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '11px 14px',
+                    borderRadius: '9px',
+                    background: 'linear-gradient(135deg, rgba(228,87,46,0.18) 0%, rgba(245,158,11,0.18) 100%)',
+                    border: '1px solid rgba(228,87,46,0.45)',
+                    color: '#FF7A50',
+                    fontSize: '12px',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    marginBottom: '14px',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  <Award size={15} />
+                  <span>💎 View Subscription Plans (Up to 43% Off & Order Portal)</span>
+                </button>
+              )}
+
+              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', fontWeight: '600' }}>
+                Or Quick Top-up Amount:
+              </div>
+
               <div style={{ display: 'flex', gap: '7px', marginBottom: '12px' }}>
                 {[10, 50, 100, 500].map(amt => (
                   <button key={amt} type="button" onClick={() => { setRechargeAmount(amt); setCustomInputVal(String(amt)); clearMessages(); }}
