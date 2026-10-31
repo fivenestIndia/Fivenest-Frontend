@@ -695,69 +695,102 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
     }
   };
 
-  const executePaymentWithUPI = () => {
-    setSimulatedPaymentLoading(true);
-    setTimeout(async () => {
-      try {
-        let serverBalance: number | null = null;
-        try {
-          let userId = (currentUser as any)?.id;
+  const [upiLoading, setUpiLoading] = useState<boolean>(false);
+
+  const handleDirectUpiPayment = async () => {
+    if (upiLoading) return;
+
+    const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
+    if (isOwnerExempt || paymentCost <= 0) {
+      setShowPaymentModal(false);
+      const action = pendingExportActionRef.current || pendingExportAction;
+      if (action) {
+        pendingExportActionRef.current = null;
+        setPendingExportAction(null);
+        await action();
+      }
+      return;
+    }
+
+    if (!currentUser) {
+      alert("Authentication Required:\n\nPlease sign in before completing payment.");
+      setShowPaymentModal(false);
+      onOpenLogin();
+      return;
+    }
+
+    setUpiLoading(true);
+
+    try {
+      await initiateRazorpayRecharge({
+        amount: paymentCost,
+        currentUser,
+        onSuccess: async (newBalance) => {
+          let serverBalance = newBalance;
           try {
-            const { data: authData } = await supabase.auth.getUser();
-            if (authData?.user?.id) userId = authData.user.id;
-          } catch {}
+            let userId = (currentUser as any)?.id;
+            try {
+              const { data: authData } = await supabase.auth.getUser();
+              if (authData?.user?.id) userId = authData.user.id;
+            } catch {}
 
-          if (userId) {
-            // 1. Simulate webhook wallet topup in database
-            await supabase.from('credit_transactions').insert({
-              user_id: userId,
-              amount: paymentCost,
-              transaction_type: 'topup',
-              description: `Simulated UPI payment topup for order export`
-            });
+            if (userId) {
+              // Deduct export credits in database
+              await supabase.rpc('deduct_export_credits', {
+                amount_to_deduct: paymentCost,
+                export_desc: `Exported ${records.reduce((acc, r) => acc + r.qty, 0)} items (Live UPI: ₹${paymentCost})`
+              }).catch(() => {});
 
-            // 2. Perform credit deduction
-            await supabase.rpc('deduct_export_credits', {
-              amount_to_deduct: paymentCost,
-              export_desc: `Exported ${records.reduce((acc, r) => acc + r.qty, 0)} items via UPI`
-            });
-
-            // 3. Fetch latest balance
-            const details = await fetchUserWallet(userId);
-            if (details && typeof details.balance === 'number' && !isNaN(details.balance)) {
-              serverBalance = details.balance;
+              const details = await fetchUserWallet(userId);
+              if (details && typeof details.balance === 'number' && !isNaN(details.balance)) {
+                serverBalance = details.balance;
+              } else {
+                serverBalance = Math.max(0, newBalance - paymentCost);
+              }
+            } else {
+              serverBalance = Math.max(0, newBalance - paymentCost);
             }
+          } catch (e) {
+            console.warn("Deduct RPC warning:", e);
+            serverBalance = Math.max(0, newBalance - paymentCost);
           }
-        } catch (supabaseErr) {
-          console.warn("UPI simulation warning:", supabaseErr);
-        }
 
-        if (currentUser) {
           const updatedUser = {
             ...currentUser,
-            balance: serverBalance !== null ? serverBalance : currentUser.balance
+            balance: serverBalance
           };
           localStorage.setItem('fivenest_active_user', JSON.stringify(updatedUser));
           onUserChange(updatedUser);
-          window.dispatchEvent(new CustomEvent('fivenest_user_updated', { detail: updatedUser }));
-        }
-        
-        setSimulatedPaymentLoading(false);
-        setShowPaymentModal(false);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('fivenest_user_updated', { detail: updatedUser }));
+          }
 
-        const action = pendingExportActionRef.current || pendingExportAction;
-        if (action) {
-          pendingExportActionRef.current = null;
-          setPendingExportAction(null);
-          await action();
+          setUpiLoading(false);
+          setShowPaymentModal(false);
+
+          // Trigger export immediately!
+          const action = pendingExportActionRef.current || pendingExportAction;
+          if (action) {
+            pendingExportActionRef.current = null;
+            setPendingExportAction(null);
+            await action();
+          }
+        },
+        onError: (errMsg) => {
+          setUpiLoading(false);
+          alert(`Payment could not be completed: ${errMsg}`);
+        },
+        onDismiss: () => {
+          setUpiLoading(false);
         }
-      } catch (err) {
-        console.error("UPI simulation failed:", err);
-        setSimulatedPaymentLoading(false);
-        setShowPaymentModal(false);
-      }
-    }, 1500);
+      });
+    } catch (err: any) {
+      setUpiLoading(false);
+      alert(`Payment error: ${err.message || err}`);
+    }
   };
+
+  const executePaymentWithUPI = handleDirectUpiPayment;
 
   // Add funds to wallet via Razorpay
   const [topupLoading, setTopupLoading] = useState(false);
@@ -4452,6 +4485,32 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                       <AlertTriangle size={14} /> Insufficient balance (₹{currentUser.balance.toFixed(2)}). Add funds below.
                     </div>
 
+                    {/* Direct 1-click Pay Exact Amount */}
+                    <button 
+                      type="button"
+                      onClick={handleDirectUpiPayment}
+                      disabled={upiLoading}
+                      style={{ 
+                        width: '100%', 
+                        padding: '11px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        gap: '7px', 
+                        borderRadius: '9px', 
+                        fontSize: '12px', 
+                        fontWeight: '800', 
+                        background: 'linear-gradient(135deg, #E4572E 0%, #EA580C 100%)', 
+                        color: '#FFFFFF', 
+                        border: 'none', 
+                        boxShadow: '0 4px 12px rgba(228, 87, 46, 0.25)',
+                        cursor: upiLoading ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      {upiLoading ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <QrCode size={15} />}
+                      <span>Pay Exact ₹{paymentCost.toFixed(2)} via UPI & Export</span>
+                    </button>
+
                     {/* Custom topup input - 5 digits max */}
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <div style={{ position: 'relative', flex: 1 }}>
@@ -4540,26 +4599,60 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             {/* UPI QR Scanner Panel */}
             {upiPaymentMethod === 'upi' && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', position: 'relative' }}>
-                {simulatedPaymentLoading ? (
-                  <div style={{ height: '200px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                {upiLoading ? (
+                  <div style={{ height: '220px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
                     <Loader2 size={36} className="spin" style={{ color: '#E4572E' }} />
-                    <p style={{ fontSize: '13px', color: '#4B5563' }}>Confirming UPI Payment...</p>
+                    <p style={{ fontSize: '13px', color: '#1F2937', fontWeight: '700', margin: 0 }}>Waiting for UPI Payment...</p>
+                    <p style={{ fontSize: '11px', color: '#6B7280', margin: 0, textAlign: 'center' }}>
+                      Approve payment on your phone in GPay, PhonePe, or Paytm.<br />Export will start immediately upon confirmation.
+                    </p>
                   </div>
                 ) : (
                   <>
-                    <div style={{ 
-                      padding: '12px', 
-                      background: '#FFFFFF', 
-                      borderRadius: '12px', 
-                      border: '1px solid #E8E4DE',
-                      position: 'relative', 
-                      boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
+                    {/* Primary Button to launch Live Razorpay UPI Checkout */}
+                    <button
+                      type="button"
+                      onClick={handleDirectUpiPayment}
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        background: 'linear-gradient(135deg, #E4572E 0%, #EA580C 100%)',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: '10px',
+                        fontSize: '13px',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        boxShadow: '0 4px 14px rgba(228, 87, 46, 0.35)',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <QrCode size={16} />
+                      <span>Open Live UPI QR Code (₹{paymentCost.toFixed(2)})</span>
+                    </button>
+
+                    <div 
+                      onClick={handleDirectUpiPayment}
+                      style={{ 
+                        padding: '12px', 
+                        background: '#FFFFFF', 
+                        borderRadius: '12px', 
+                        border: '1.5px solid #FCD7C8',
+                        position: 'relative', 
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer'
+                      }}
+                      title="Click to open live UPI QR code"
+                    >
                       <img 
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&color=0a0a0f&bgcolor=ffffff&qzone=1&data=${encodeURIComponent(`upi://pay?pa=fivenest@ybl&pn=FiveNest%20Studio&am=${paymentCost}&cu=INR&tn=FiveNest%20Sublimation%20Export`)}`} 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&color=0a0a0f&bgcolor=ffffff&qzone=1&data=${encodeURIComponent(`upi://pay?pa=vilesh332-1@okhdfcbank&pn=FiveNest%20Studio&am=${paymentCost}&cu=INR&tn=FiveNest%20Sublimation%20Export`)}`} 
                         alt="UPI Payment QR Code" 
                         style={{ width: '160px', height: '160px', display: 'block' }}
                       />
@@ -4585,9 +4678,12 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                       `}</style>
                     </div>
                     
-                    <p style={{ fontSize: '11px', color: '#6B7280', textAlign: 'center', margin: 0 }}>
-                      Scan QR code using GPay, PhonePe, Paytm, or BHIM to pay ₹{paymentCost.toFixed(2)} INR.
-                    </p>
+                    <div style={{ textAlign: 'center' }}>
+                      <p style={{ fontSize: '11px', color: '#6B7280', margin: 0, lineHeight: 1.5 }}>
+                        Click the button or QR above to open the <strong>Live Razorpay QR</strong>.<br />
+                        Pay with <strong>GPay, PhonePe, Paytm, or BHIM</strong> to start your export immediately.
+                      </p>
+                    </div>
                   </>
                 )}
               </div>
