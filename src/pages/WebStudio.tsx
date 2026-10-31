@@ -798,7 +798,7 @@ export default function WebStudio() {
         isOpen={subscriptionModalOpen}
         onClose={() => setSubscriptionModalOpen(false)}
         currentUser={currentUser}
-        onUserUpdate={handleUserChange}
+        onUserUpdate={setCurrentUser}
         onOpenLogin={() => setLoginModalOpen(true)}
       />
     </div>
