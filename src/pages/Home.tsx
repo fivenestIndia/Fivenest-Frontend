@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowRight, Zap, Package, Settings, Users, Clock, CheckCircle, 
   Star, ChevronDown, ChevronRight, Play, BarChart3, FileText, Wallet, 
-  Shield, Sparkles, Layers, Sliders, Scissors, Printer, Download,
+  Shield, ShieldCheck, Sparkles, Layers, Sliders, Scissors, Printer, Download,
   TrendingUp, Award, HelpCircle, Check, ArrowUpRight, Flame, Laptop, Folder
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -1258,6 +1258,72 @@ export default function Home() {
               ))}
             </div>
           )}
+
+          {/* ── 2-STAGE ₹500 FREE TRIAL OFFER BANNER ── */}
+          <div className="mt-14 max-w-4xl mx-auto rounded-3xl bg-gradient-to-br from-[#171717] via-[#242321] to-[#121212] p-8 sm:p-10 border border-white/10 text-white shadow-2xl relative overflow-hidden">
+            {/* glowing corner accent */}
+            <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-[#E4572E]/30 to-transparent rounded-full blur-3xl pointer-events-none" />
+            
+            <div className="relative z-10">
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+                  <Sparkles size={14} /> New Factory Offer
+                </div>
+                <span className="text-xs text-neutral-400 font-mono">14 Days Validity • Zero Automatic Charges</span>
+              </div>
+
+              <h3 className="text-2xl sm:text-4xl font-black text-white tracking-tight mb-3">
+                Get up to ₹500 in free production credits
+              </h3>
+              <p className="text-sm sm:text-base text-neutral-300 max-w-2xl leading-relaxed mb-8">
+                Available to eligible new businesses after verification and approval. Valid for 14 days from activation. One offer per business. No automatic charges. Enough to complete several real orders (~166 tagged or 100 untagged jerseys).
+              </p>
+
+              {/* Two-Stage Progress Display */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-neutral-400">STAGE 1</span>
+                    <span className="text-xs font-bold text-neutral-300">₹0</span>
+                  </div>
+                  <p className="font-bold text-white text-sm mb-1">Instant Signup</p>
+                  <p className="text-xs text-neutral-400">Explore sample rosters, vector designs, and 3D mockups freely.</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-emerald-400">STAGE 2</span>
+                    <span className="text-base font-extrabold text-emerald-400">+₹100</span>
+                  </div>
+                  <p className="font-bold text-white text-sm mb-1">Admin Approves Business</p>
+                  <p className="text-xs text-neutral-300">Verified mobile & basic business details start your 14-day validity.</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-[#E4572E]/10 border border-[#E4572E]/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-[#FF7A50]">STAGE 3</span>
+                    <span className="text-base font-extrabold text-[#FF7A50]">+₹400 Extra</span>
+                  </div>
+                  <p className="font-bold text-white text-sm mb-1">Genuine Usage Confirmed</p>
+                  <p className="text-xs text-neutral-300">Brief onboarding call or admin review releases the full ₹500 total trial.</p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-white/10">
+                <div className="flex items-center gap-3 text-xs text-neutral-400">
+                  <ShieldCheck size={18} className="text-emerald-400 flex-shrink-0" />
+                  <span>Trial export rate: Standard ₹3.50 with tag / ₹5.50 without tag. Same-order corrections are 100% free.</span>
+                </div>
+                <Link
+                  to="/production"
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-[#E4572E] to-[#EA580C] hover:opacity-95 text-white font-extrabold text-xs sm:text-sm text-center shadow-lg shadow-[#E4572E]/30 transition-all flex items-center justify-center gap-2"
+                >
+                  <span>Claim Free Trial in Studio</span>
+                  <ArrowRight size={15} />
+                </Link>
+              </div>
+            </div>
+          </div>
 
         </div>
       </section>

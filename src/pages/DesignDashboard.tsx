@@ -23,9 +23,21 @@ import {
   Coins,
   ChevronRight,
   TrendingUp,
-  Receipt
+  Receipt,
+  Clock,
+  Phone,
+  Building2,
+  MessageSquare,
+  Check,
+  X,
+  Filter
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { 
+  fetchAllTrialClaimsAdmin, 
+  submitAdminDecision, 
+  TrialClaimRecord 
+} from '../lib/trialManager';
 
 // Authorized admin accounts list
 export const AUTHORIZED_ADMIN_EMAILS = [
@@ -97,7 +109,28 @@ interface CreditTransaction {
 export default function DesignDashboard() {
   const [sessionUser, setSessionUser] = useState<{ email: string; id?: string; name?: string } | null>(null);
   const [loadingAuth, setLoadingAuth] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<'payments' | 'users' | 'exports'>('payments');
+  const [activeTab, setActiveTab] = useState<'payments' | 'trials' | 'users' | 'exports'>('trials');
+
+  // Trial Claims state
+  const [trialClaims, setTrialClaims] = useState<TrialClaimRecord[]>([]);
+  const [loadingTrials, setLoadingTrials] = useState(false);
+  const [trialFilter, setTrialFilter] = useState<'all' | 'pending' | 'stage1' | 'full' | 'clarification' | 'rejected'>('all');
+  const [trialSearch, setTrialSearch] = useState('');
+  const [trialStats, setTrialStats] = useState({
+    total: 0,
+    pending: 0,
+    stage1Approved: 0,
+    fullTrialActive: 0,
+    clarification: 0,
+    rejected: 0,
+    flaggedDuplicates: 0,
+    totalCreditDispatched: 0,
+    totalCreditUsed: 0
+  });
+  const [actingClaim, setActingClaim] = useState<TrialClaimRecord | null>(null);
+  const [clarificationModalOpen, setClarificationModalOpen] = useState(false);
+  const [clarificationText, setClarificationText] = useState('');
+  const [historyModalClaim, setHistoryModalClaim] = useState<TrialClaimRecord | null>(null);
 
   // Login form state (if not authenticated as admin)
   const [loginEmail, setLoginEmail] = useState('');
@@ -275,13 +308,149 @@ export default function DesignDashboard() {
     }
   };
 
+  // 5. Fetch Trial Claims for Approval
+  const fetchTrials = async () => {
+    if (!sessionUser || !isAuthorizedAdmin(sessionUser.email)) return;
+    setLoadingTrials(true);
+    try {
+      const res = await fetchAllTrialClaimsAdmin(sessionUser.email);
+      if (res.success) {
+        setTrialClaims(res.claims);
+        setTrialStats(res.stats);
+      }
+    } catch (e) {
+      console.error("Error fetching trials:", e);
+    } finally {
+      setLoadingTrials(false);
+    }
+  };
+
   useEffect(() => {
     if (sessionUser && isAuthorizedAdmin(sessionUser.email)) {
       fetchLivePayments();
       fetchUsersAndWallets();
       fetchTransactions();
+      fetchTrials();
     }
   }, [sessionUser]);
+
+  // Handle Trial Decisions
+  const handleApproveStage1 = async (claim: TrialClaimRecord) => {
+    if (!sessionUser) return;
+    const ok = window.confirm(`Approve Stage 1 for ${claim.businessName}?\n\nThis will credit ₹100 promotional balance to their workspace with 14-day validity.`);
+    if (!ok) return;
+
+    toast.loading(`Approving Stage 1 for ${claim.businessName}...`);
+    const res = await submitAdminDecision({
+      adminEmail: sessionUser.email,
+      claimId: claim.id,
+      action: 'approve_stage1',
+      customAmount: 100
+    });
+    toast.dismiss();
+
+    if (res.success) {
+      toast.success(res.message || `Stage 1 approved: ₹100 credited!`);
+      fetchTrials();
+      fetchUsersAndWallets();
+    } else {
+      toast.error(res.error || 'Failed to approve Stage 1.');
+    }
+  };
+
+  const handleApproveStage2 = async (claim: TrialClaimRecord) => {
+    if (!sessionUser) return;
+    const ok = window.confirm(`Confirm Onboarding & Release Stage 2 for ${claim.businessName}?\n\nThis will add an additional ₹400 promotional balance (total ₹500 trial).`);
+    if (!ok) return;
+
+    toast.loading(`Releasing Stage 2 bonus (+₹400) for ${claim.businessName}...`);
+    const res = await submitAdminDecision({
+      adminEmail: sessionUser.email,
+      claimId: claim.id,
+      action: 'approve_stage2_onboarding',
+      customAmount: 400
+    });
+    toast.dismiss();
+
+    if (res.success) {
+      toast.success(res.message || `Onboarding verified: +₹400 credited!`);
+      fetchTrials();
+      fetchUsersAndWallets();
+    } else {
+      toast.error(res.error || 'Failed to release Stage 2.');
+    }
+  };
+
+  const handleFastTrackFull = async (claim: TrialClaimRecord) => {
+    if (!sessionUser) return;
+    const ok = window.confirm(`Fast-track full ₹500 trial for ${claim.businessName}?\n\nThis will immediately grant the full ₹500 promotional credits with 14-day validity.`);
+    if (!ok) return;
+
+    toast.loading(`Fast-tracking full ₹500 trial for ${claim.businessName}...`);
+    const res = await submitAdminDecision({
+      adminEmail: sessionUser.email,
+      claimId: claim.id,
+      action: 'fast_track_full',
+      customAmount: 500
+    });
+    toast.dismiss();
+
+    if (res.success) {
+      toast.success(res.message || `Fast-track approved: Full ₹500 credited!`);
+      fetchTrials();
+      fetchUsersAndWallets();
+    } else {
+      toast.error(res.error || 'Failed to fast-track trial.');
+    }
+  };
+
+  const handleOpenClarificationModal = (claim: TrialClaimRecord) => {
+    setActingClaim(claim);
+    setClarificationText(claim.clarificationMessage || 'Please verify your mobile number or provide basic business proof.');
+    setClarificationModalOpen(true);
+  };
+
+  const handleSubmitClarification = async () => {
+    if (!sessionUser || !actingClaim) return;
+    toast.loading('Sending clarification request...');
+    const res = await submitAdminDecision({
+      adminEmail: sessionUser.email,
+      claimId: actingClaim.id,
+      action: 'request_clarification',
+      note: clarificationText
+    });
+    toast.dismiss();
+    if (res.success) {
+      toast.success('Clarification request recorded.');
+      setClarificationModalOpen(false);
+      setActingClaim(null);
+      fetchTrials();
+    } else {
+      toast.error(res.error || 'Failed to request clarification.');
+    }
+  };
+
+  const handleRejectClaim = async (claim: TrialClaimRecord) => {
+    if (!sessionUser) return;
+    const reason = window.prompt(`Enter rejection reason for ${claim.businessName}:`, 'Ineligible for trial offer (e.g. duplicate account or unverified business).');
+    if (!reason) return;
+
+    toast.loading(`Rejecting claim for ${claim.businessName}...`);
+    const res = await submitAdminDecision({
+      adminEmail: sessionUser.email,
+      claimId: claim.id,
+      action: 'reject',
+      note: reason
+    });
+    toast.dismiss();
+
+    if (res.success) {
+      toast.success(`Claim rejected.`);
+      fetchTrials();
+    } else {
+      toast.error(res.error || 'Failed to reject claim.');
+    }
+  };
 
   // Handle Admin Login
   const handleAdminLogin = async (e: React.FormEvent) => {
@@ -715,7 +884,23 @@ export default function DesignDashboard() {
 
         {/* ── TABS NAVIGATION BAR ── */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-4 mb-6">
-          <div className="flex bg-[#0F1422] p-1 rounded-xl border border-white/10 gap-1">
+          <div className="flex flex-wrap bg-[#0F1422] p-1 rounded-xl border border-white/10 gap-1">
+            <button
+              onClick={() => setActiveTab('trials')}
+              className={`px-4 py-2 rounded-lg text-xs font-extrabold transition-all flex items-center gap-2 ${
+                activeTab === 'trials' 
+                  ? 'bg-gradient-to-r from-[#E4572E] to-[#EA580C] text-white shadow-md' 
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Sparkles size={15} />
+              <span>Trial Approvals (₹500 Offer)</span>
+              {trialStats.pending > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-black text-[10px] font-black">
+                  {trialStats.pending}
+                </span>
+              )}
+            </button>
             <button
               onClick={() => setActiveTab('payments')}
               className={`px-4 py-2 rounded-lg text-xs font-extrabold transition-all flex items-center gap-2 ${
@@ -768,11 +953,12 @@ export default function DesignDashboard() {
                 fetchLivePayments();
                 fetchUsersAndWallets();
                 fetchTransactions();
+                fetchTrials();
                 toast.info("Refreshed live transaction and account data");
               }}
               className="px-3.5 py-2 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <RefreshCw size={14} className={loadingPayments || loadingUsers ? 'animate-spin' : ''} />
+              <RefreshCw size={14} className={loadingPayments || loadingUsers || loadingTrials ? 'animate-spin' : ''} />
               <span>Refresh</span>
             </button>
           </div>
@@ -870,6 +1056,340 @@ export default function DesignDashboard() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB: TRIAL APPROVALS (₹500 FREE OFFER) ── */}
+        {activeTab === 'trials' && (
+          <div className="space-y-6">
+            {/* Top Metric Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="bg-[#0F1422] border border-amber-500/25 p-4 rounded-2xl relative overflow-hidden">
+                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block mb-1">
+                  ⏳ Pending Review
+                </span>
+                <span className="text-3xl font-black text-white">{trialStats.pending}</span>
+                <span className="text-[11px] text-gray-400 block mt-1">Awaiting mobile/business check</span>
+              </div>
+              <div className="bg-[#0F1422] border border-orange-500/25 p-4 rounded-2xl relative overflow-hidden">
+                <span className="text-xs font-bold text-orange-400 uppercase tracking-wider block mb-1">
+                  🎯 Stage 1 Active (₹100)
+                </span>
+                <span className="text-3xl font-black text-white">{trialStats.stage1Approved}</span>
+                <span className="text-[11px] text-gray-400 block mt-1">Ready for Stage 2 onboarding</span>
+              </div>
+              <div className="bg-[#0F1422] border border-emerald-500/25 p-4 rounded-2xl relative overflow-hidden">
+                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block mb-1">
+                  🌟 Full Trial (₹500)
+                </span>
+                <span className="text-3xl font-black text-white">{trialStats.fullTrialActive}</span>
+                <span className="text-[11px] text-gray-400 block mt-1">Fully onboarded businesses</span>
+              </div>
+              <div className="bg-[#0F1422] border border-red-500/25 p-4 rounded-2xl relative overflow-hidden">
+                <span className="text-xs font-bold text-red-400 uppercase tracking-wider block mb-1">
+                  ⚠️ Flagged Duplicates
+                </span>
+                <span className="text-3xl font-black text-white">{trialStats.flaggedDuplicates}</span>
+                <span className="text-[11px] text-gray-400 block mt-1">Same phone / business / IP</span>
+              </div>
+            </div>
+
+            {/* Trial Table Card */}
+            <div className="bg-[#0F1422] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+              <div className="p-5 border-b border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-black text-white flex items-center gap-2">
+                    <Sparkles size={20} className="text-[#E4572E]" />
+                    Business Trial Approvals (₹500 Offer)
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Release ₹100 on business approval (14-day validity) + ₹400 after onboarding call
+                  </p>
+                </div>
+
+                {/* Search bar */}
+                <div className="relative w-full sm:w-72">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search business, phone, email..."
+                    value={trialSearch}
+                    onChange={(e) => setTrialSearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-[#E4572E]"
+                  />
+                </div>
+              </div>
+
+              {/* Filter pills */}
+              <div className="px-5 py-3 bg-black/20 border-b border-white/5 flex flex-wrap gap-2 text-xs">
+                {(['all', 'pending', 'stage1', 'full', 'clarification', 'rejected'] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setTrialFilter(f)}
+                    className={`px-3 py-1.5 rounded-lg font-bold capitalize transition-all cursor-pointer ${
+                      trialFilter === f
+                        ? 'bg-[#E4572E] text-white shadow-sm'
+                        : 'bg-white/5 text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {f === 'stage1' ? `Stage 1 (₹100) (${trialStats.stage1Approved})` : f === 'full' ? `Full Trial (₹500) (${trialStats.fullTrialActive})` : f === 'pending' ? `Pending (${trialStats.pending})` : f}
+                  </button>
+                ))}
+              </div>
+
+              {/* Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-black/30 border-b border-white/10 text-gray-400 font-bold uppercase tracking-wider text-[11px]">
+                    <tr>
+                      <th className="py-3 px-4">Business & Owner</th>
+                      <th className="py-3 px-4">Verified Mobile</th>
+                      <th className="py-3 px-4">Location / GST</th>
+                      <th className="py-3 px-4">Risk & Duplicate Check</th>
+                      <th className="py-3 px-4 text-center">Status & Balance</th>
+                      <th className="py-3 px-4 text-center">Validity</th>
+                      <th className="py-3 px-4 text-right">Admin Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 font-medium">
+                    {loadingTrials ? (
+                      <tr>
+                        <td colSpan={7} className="text-center py-12 text-gray-400">
+                          <RefreshCw size={24} className="animate-spin mx-auto mb-2 text-[#E4572E]" />
+                          Loading trial claims...
+                        </td>
+                      </tr>
+                    ) : trialClaims.filter((c) => {
+                      if (trialFilter === 'pending' && c.stage !== 'pending_review') return false;
+                      if (trialFilter === 'stage1' && c.stage !== 'approved_stage1') return false;
+                      if (trialFilter === 'full' && c.stage !== 'active_full_trial') return false;
+                      if (trialFilter === 'clarification' && c.stage !== 'clarification_requested') return false;
+                      if (trialFilter === 'rejected' && c.stage !== 'rejected') return false;
+                      if (trialSearch.trim()) {
+                        const q = trialSearch.toLowerCase().trim();
+                        const matchBiz = (c.businessName || '').toLowerCase().includes(q);
+                        const matchOwner = (c.ownerName || '').toLowerCase().includes(q);
+                        const matchPhone = (c.mobile || '').includes(q);
+                        const matchEmail = (c.userEmail || '').toLowerCase().includes(q);
+                        return matchBiz || matchOwner || matchPhone || matchEmail;
+                      }
+                      return true;
+                    }).length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="text-center py-12 text-gray-400">
+                          No trial claims found in this view.
+                        </td>
+                      </tr>
+                    ) : (
+                      trialClaims.filter((c) => {
+                        if (trialFilter === 'pending' && c.stage !== 'pending_review') return false;
+                        if (trialFilter === 'stage1' && c.stage !== 'approved_stage1') return false;
+                        if (trialFilter === 'full' && c.stage !== 'active_full_trial') return false;
+                        if (trialFilter === 'clarification' && c.stage !== 'clarification_requested') return false;
+                        if (trialFilter === 'rejected' && c.stage !== 'rejected') return false;
+                        if (trialSearch.trim()) {
+                          const q = trialSearch.toLowerCase().trim();
+                          const matchBiz = (c.businessName || '').toLowerCase().includes(q);
+                          const matchOwner = (c.ownerName || '').toLowerCase().includes(q);
+                          const matchPhone = (c.mobile || '').includes(q);
+                          const matchEmail = (c.userEmail || '').toLowerCase().includes(q);
+                          return matchBiz || matchOwner || matchPhone || matchEmail;
+                        }
+                        return true;
+                      }).map((c) => {
+                        const cleanDigits = (c.mobile || '').replace(/\D/g, '');
+                        const waNumber = cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
+                        
+                        let daysRemaining = 0;
+                        if (c.expiresAt) {
+                          const diff = new Date(c.expiresAt).getTime() - Date.now();
+                          daysRemaining = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+                        }
+
+                        return (
+                          <tr key={c.id} className="hover:bg-white/[0.02] transition-colors">
+                            {/* Business & Owner */}
+                            <td className="py-3.5 px-4">
+                              <div className="text-white font-bold text-sm flex items-center gap-1.5">
+                                <Building2 size={14} className="text-[#E4572E]" />
+                                <span>{c.businessName}</span>
+                              </div>
+                              <div className="text-gray-300 text-[11px] mt-0.5">Contact: {c.ownerName}</div>
+                              <div className="text-gray-500 font-mono text-[10px]">{c.userEmail}</div>
+                            </td>
+
+                            {/* Mobile with WhatsApp */}
+                            <td className="py-3.5 px-4">
+                              <div className="font-mono text-gray-200 font-bold">{c.mobile}</div>
+                              <a
+                                href={`https://wa.me/${waNumber}?text=${encodeURIComponent(`Hi ${c.ownerName}, thank you for registering ${c.businessName} on FiveNest! I am following up on your ₹500 production credit trial.`)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold mt-1"
+                              >
+                                <MessageSquare size={12} />
+                                <span>WhatsApp Call/Chat</span>
+                              </a>
+                            </td>
+
+                            {/* Location & GST */}
+                            <td className="py-3.5 px-4 text-gray-300">
+                              <div>{c.city || 'N/A'}{c.state ? `, ${c.state}` : ''}</div>
+                              {c.gstin && (
+                                <div className="text-[10px] font-mono text-gray-500 mt-0.5">GST: {c.gstin}</div>
+                              )}
+                            </td>
+
+                            {/* Duplicate & Risk Check */}
+                            <td className="py-3.5 px-4">
+                              <div className="space-y-1">
+                                {c.flags?.phoneMatch && (
+                                  <span className="inline-block px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold">
+                                    ⚠️ Duplicate Phone
+                                  </span>
+                                )}
+                                {c.flags?.businessMatch && (
+                                  <span className="inline-block px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-bold">
+                                    ⚠️ Business Match
+                                  </span>
+                                )}
+                                {c.flags?.ipMatch && (
+                                  <span className="inline-block px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold">
+                                    ⚠️ IP Match
+                                  </span>
+                                )}
+                                {!c.flags?.phoneMatch && !c.flags?.businessMatch && !c.flags?.ipMatch && (
+                                  <span className="inline-block px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
+                                    ✓ Verified Clean
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Status & Balance */}
+                            <td className="py-3.5 px-4 text-center">
+                              <div className="mb-1">
+                                {c.stage === 'pending_review' && (
+                                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[10px] font-black uppercase">
+                                    Pending Review
+                                  </span>
+                                )}
+                                {c.stage === 'approved_stage1' && (
+                                  <span className="px-2.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/30 text-[10px] font-black uppercase">
+                                    Stage 1 (₹100)
+                                  </span>
+                                )}
+                                {c.stage === 'active_full_trial' && (
+                                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-black uppercase">
+                                    Full Trial (₹500)
+                                  </span>
+                                )}
+                                {c.stage === 'clarification_requested' && (
+                                  <span className="px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30 text-[10px] font-black uppercase">
+                                    Clarification
+                                  </span>
+                                )}
+                                {c.stage === 'rejected' && (
+                                  <span className="px-2.5 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30 text-[10px] font-black uppercase">
+                                    Rejected
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] font-mono text-gray-300">
+                                Bal: <strong className="text-white">₹{(c.promoBalance || 0).toFixed(2)}</strong> / ₹{c.creditGranted || 0}
+                              </div>
+                            </td>
+
+                            {/* Validity */}
+                            <td className="py-3.5 px-4 text-center text-xs">
+                              {c.expiresAt ? (
+                                <div>
+                                  <span className="font-bold text-white">{daysRemaining} days left</span>
+                                  <div className="text-[10px] text-gray-500">
+                                    Exp: {new Date(c.expiresAt).toLocaleDateString()}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-gray-500 text-[11px]">14d on approval</span>
+                              )}
+                            </td>
+
+                            {/* Actions */}
+                            <td className="py-3.5 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                {/* Actions for pending review or clarification */}
+                                {(c.stage === 'pending_review' || c.stage === 'clarification_requested') && (
+                                  <>
+                                    <button
+                                      onClick={() => handleApproveStage1(c)}
+                                      className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[11px] font-bold shadow-sm transition-colors cursor-pointer"
+                                      title="Approve business details and release ₹100 trial credit"
+                                    >
+                                      ✓ Approve ₹100
+                                    </button>
+                                    <button
+                                      onClick={() => handleFastTrackFull(c)}
+                                      className="px-2 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                                      title="Grant full ₹500 immediately without 2-stage split"
+                                    >
+                                      ⚡ Full ₹500
+                                    </button>
+                                    <button
+                                      onClick={() => handleOpenClarificationModal(c)}
+                                      className="px-2 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-[11px] font-bold cursor-pointer"
+                                      title="Request more business details from user"
+                                    >
+                                      💬 Details
+                                    </button>
+                                    <button
+                                      onClick={() => handleRejectClaim(c)}
+                                      className="px-2 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/40 rounded-lg text-[11px] font-bold cursor-pointer"
+                                      title="Reject claim as duplicate or ineligible"
+                                    >
+                                      ✕
+                                    </button>
+                                  </>
+                                )}
+
+                                {/* Actions for Stage 1: Release Stage 2 Onboarding */}
+                                {c.stage === 'approved_stage1' && (
+                                  <>
+                                    <button
+                                      onClick={() => handleApproveStage2(c)}
+                                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-bold shadow-sm transition-colors cursor-pointer"
+                                      title="Confirm onboarding and release remaining ₹400 bonus"
+                                    >
+                                      🚀 Release ₹400
+                                    </button>
+                                    <a
+                                      href={`https://wa.me/${waNumber}?text=${encodeURIComponent(`Hi ${c.ownerName}, I noticed you've been using your Stage 1 credits on FiveNest! Let's do a quick 3-minute onboarding call so I can release your final ₹400 credit.`)}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="px-2 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-[11px] font-bold"
+                                    >
+                                      WhatsApp
+                                    </a>
+                                  </>
+                                )}
+
+                                {/* View History button */}
+                                <button
+                                  onClick={() => setHistoryModalClaim(c)}
+                                  className="px-2 py-1.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg text-[11px] font-semibold"
+                                  title="View audit trail and decision history"
+                                >
+                                  History
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -1177,6 +1697,142 @@ export default function DesignDashboard() {
                   <span>Save Balance</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clarification Request Modal */}
+      {clarificationModalOpen && actingClaim && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#121829] border border-amber-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl relative">
+            <button
+              onClick={() => {
+                setClarificationModalOpen(false);
+                setActingClaim(null);
+              }}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white p-1"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                <MessageSquare size={20} />
+              </div>
+              <div>
+                <h3 className="text-white font-bold text-base">Request Clarification</h3>
+                <p className="text-gray-400 text-xs">For {actingClaim.businessName} ({actingClaim.mobile})</p>
+              </div>
+            </div>
+
+            <p className="text-gray-300 text-xs mb-3">
+              This message will appear in the user&apos;s trial status dialog requesting them to update their details or contact support.
+            </p>
+
+            <textarea
+              rows={4}
+              value={clarificationText}
+              onChange={(e) => setClarificationText(e.target.value)}
+              placeholder="e.g. Please send a photo of your business card or GST certificate via WhatsApp to verify your account."
+              className="w-full px-3.5 py-2.5 bg-black/40 border border-white/15 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all mb-4"
+            />
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setClarificationModalOpen(false);
+                  setActingClaim(null);
+                }}
+                className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 text-gray-300 font-bold rounded-xl text-xs transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitClarification}
+                className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-extrabold rounded-xl text-xs shadow-lg shadow-amber-500/20 transition-all"
+              >
+                Send Request
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Decision History Audit Drawer Modal */}
+      {historyModalClaim && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#121829] border border-white/15 rounded-2xl p-6 max-w-lg w-full shadow-2xl relative max-h-[85vh] flex flex-col">
+            <button
+              onClick={() => setHistoryModalClaim(null)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white p-1"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                <Clock size={20} />
+              </div>
+              <div>
+                <h3 className="text-white font-bold text-base">Audit History & Logs</h3>
+                <p className="text-gray-400 text-xs">{historyModalClaim.businessName} • {historyModalClaim.userEmail}</p>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 text-xs">
+              <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                <span className="text-gray-400 block text-[10px] uppercase font-bold">Account Info</span>
+                <div className="text-gray-200 mt-1 grid grid-cols-2 gap-2">
+                  <div><strong>Mobile:</strong> {historyModalClaim.mobile}</div>
+                  <div><strong>City:</strong> {historyModalClaim.city || 'N/A'}, {historyModalClaim.state || ''}</div>
+                  <div><strong>GSTIN:</strong> {historyModalClaim.gstin || 'Unregistered'}</div>
+                  <div><strong>Registered IP:</strong> {historyModalClaim.signupIp || 'Unknown'}</div>
+                  <div><strong>Current Stage:</strong> <span className="font-bold text-emerald-400">{historyModalClaim.stage}</span></div>
+                  <div><strong>Credits Granted:</strong> ₹{historyModalClaim.creditGranted}</div>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-gray-400 block text-[10px] uppercase font-bold mb-2">Decision Trail</span>
+                {(!historyModalClaim.decisionHistory || historyModalClaim.decisionHistory.length === 0) ? (
+                  <p className="text-gray-500 italic">No admin actions recorded yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {historyModalClaim.decisionHistory.map((h, i) => (
+                      <div key={i} className="p-2.5 bg-black/40 border border-white/10 rounded-lg">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-bold text-white capitalize">{h.action.replace(/_/g, ' ')}</span>
+                          <span className="text-[10px] text-gray-400">
+                            {new Date(h.timestamp).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                          </span>
+                        </div>
+                        <div className="text-gray-400 text-[11px]">
+                          By: <strong className="text-gray-300">{h.adminEmail}</strong>
+                          {h.amount ? ` • Amount: ₹${h.amount}` : ''}
+                        </div>
+                        {h.note && (
+                          <div className="mt-1 text-gray-300 bg-white/5 p-1.5 rounded text-[11px] italic">
+                            &ldquo;{h.note}&rdquo;
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-white/10 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setHistoryModalClaim(null)}
+                className="px-4 py-2 bg-white/10 hover:bg-white/15 text-white font-bold rounded-xl text-xs transition-colors"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

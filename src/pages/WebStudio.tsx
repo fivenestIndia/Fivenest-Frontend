@@ -17,6 +17,8 @@ import { BillingSystem } from '../components/studio/billingSystem';
 import { LoginModal } from '../components/studio/loginModal';
 import { SubscriptionModal } from '../components/studio/SubscriptionModal';
 import { canAccessOrderPortal, getSavedSubscription, type UserSubscriptionState } from '../lib/subscriptionPlans';
+import TrialOfferModal from '../components/studio/TrialOfferModal';
+import { getSavedTrialClaim, type TrialClaimRecord } from '../lib/trialManager';
 
 
 export default function WebStudio() {
@@ -113,6 +115,8 @@ export default function WebStudio() {
   const [loginModalOpen, setLoginModalOpen] = useState<boolean>(false);
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState<boolean>(false);
   const [subscription, setSubscription] = useState<UserSubscriptionState | null>(() => getSavedSubscription());
+  const [trialModalOpen, setTrialModalOpen] = useState<boolean>(false);
+  const [trialClaim, setTrialClaim] = useState<TrialClaimRecord | null>(() => getSavedTrialClaim());
 
   useEffect(() => {
     const handleSubUpdate = (e: any) => {
@@ -121,6 +125,16 @@ export default function WebStudio() {
     window.addEventListener('fivenest_subscription_updated', handleSubUpdate);
     return () => {
       window.removeEventListener('fivenest_subscription_updated', handleSubUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleTrialUpdate = (e: any) => {
+      setTrialClaim(e.detail);
+    };
+    window.addEventListener('fivenest_trial_updated', handleTrialUpdate);
+    return () => {
+      window.removeEventListener('fivenest_trial_updated', handleTrialUpdate);
     };
   }, []);
 
@@ -655,6 +669,29 @@ export default function WebStudio() {
                   </a>
                 )}
 
+                {/* Free ₹500 Trial Claim Button */}
+                <button
+                  type="button"
+                  onClick={() => setTrialModalOpen(true)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    background: 'linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(5,150,105,0.18) 100%)',
+                    border: '1px solid rgba(16,185,129,0.35)',
+                    color: '#059669',
+                    padding: '5px 10px',
+                    borderRadius: '7px',
+                    fontSize: '11px',
+                    fontWeight: '800',
+                    cursor: 'pointer'
+                  }}
+                  title="Claim up to ₹500 in Free Production Credits"
+                >
+                  <Sparkles size={13} />
+                  <span>🎁 ₹500 Free Trial</span>
+                </button>
+
                 {/* Subscription & Recharge Plans Button */}
                 <button
                   type="button"
@@ -689,13 +726,36 @@ export default function WebStudio() {
                 </div>
               </div>
             ) : (
-              <button 
-                className="btn btn-primary" 
-                onClick={() => setLoginModalOpen(true)}
-                style={{ padding: '5px 14px', borderRadius: '7px', fontSize: '12px', fontWeight: '700', background: '#E4572E', color: '#FFFFFF', border: '1px solid #E4572E', cursor: 'pointer' }}
-              >
-                Sign In
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setTrialModalOpen(true)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    background: 'linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(5,150,105,0.18) 100%)',
+                    border: '1px solid rgba(16,185,129,0.35)',
+                    color: '#059669',
+                    padding: '5px 10px',
+                    borderRadius: '7px',
+                    fontSize: '11px',
+                    fontWeight: '800',
+                    cursor: 'pointer'
+                  }}
+                  title="Claim up to ₹500 in Free Production Credits"
+                >
+                  <Sparkles size={13} />
+                  <span>🎁 Free ₹500 Trial</span>
+                </button>
+                <button 
+                  className="btn btn-primary" 
+                  onClick={() => setLoginModalOpen(true)}
+                  style={{ padding: '5px 14px', borderRadius: '7px', fontSize: '12px', fontWeight: '700', background: '#E4572E', color: '#FFFFFF', border: '1px solid #E4572E', cursor: 'pointer' }}
+                >
+                  Sign In
+                </button>
+              </div>
             )}
           </div>
         </header>
@@ -800,6 +860,26 @@ export default function WebStudio() {
         currentUser={currentUser}
         onUserUpdate={setCurrentUser}
         onOpenLogin={() => setLoginModalOpen(true)}
+      />
+
+      {/* 🎁 ₹500 Free Trial Offer Modal */}
+      <TrialOfferModal
+        isOpen={trialModalOpen}
+        onClose={() => setTrialModalOpen(false)}
+        currentUser={currentUser}
+        onOpenLogin={() => {
+          setTrialModalOpen(false);
+          setLoginModalOpen(true);
+        }}
+        onClaimSuccess={() => {
+          if (currentUser?.email) {
+            fetchUserWallet(currentUser.email).then((w) => {
+              if (w) {
+                setCurrentUser((prev: any) => prev ? { ...prev, balance: w.balance } : null);
+              }
+            });
+          }
+        }}
       />
     </div>
   );

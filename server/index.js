@@ -8,6 +8,7 @@ import agentRoutes from "./routes/agent.js";
 import ordersRoutes from "./routes/orders.js";
 import sizesRoutes from "./routes/sizes.js";
 import adminRoutes from "./routes/admin.js";
+import trialRoutes from "./routes/trial.js";
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 
@@ -107,6 +108,7 @@ app.get("/health", (req, res) => {
 // Register API Routes
 app.use("/api/payment", paymentRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/trial", trialRoutes);
 app.use("/api/license", licenseRoutes);
 app.use("/api/agent", agentRoutes);
 app.use("/api/orders", ordersRoutes);

@@ -18,6 +18,7 @@ import {
   DEFAULT_SPOT_RATE_WITH_TAG, 
   DEFAULT_SPOT_RATE_WITHOUT_TAG 
 } from '../../lib/subscriptionPlans';
+import { deductPromoBalance } from '../../lib/trialManager';
 
 // ---- Export format utilities ----
 type ExportFormat = 'jpg' | 'png' | 'tiff';
@@ -664,6 +665,11 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           } catch (rpcErr) {
             console.warn("Supabase RPC error:", rpcErr);
           }
+        }
+
+        // Also record promotional trial balance deduction if active
+        if (currentUser?.email) {
+          deductPromoBalance(currentUser.email, paymentCost, `Exported ${records.reduce((acc, r) => acc + r.qty, 0)} items`).catch(() => {});
         }
       } catch (syncErr) {
         console.warn("Supabase wallet sync warning:", syncErr);

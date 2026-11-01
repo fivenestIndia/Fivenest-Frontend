@@ -859,6 +859,28 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
         {/* ── SIGN UP TAB ── */}
         {activeTab === 'register' && !currentUser && (
           <div>
+            {/* ₹500 Free Trial Offer Banner */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(228,87,46,0.18), rgba(255,160,0,0.12))',
+              border: '1px solid rgba(228,87,46,0.4)',
+              borderRadius: '12px',
+              padding: '12px 14px',
+              marginBottom: '16px',
+              textAlign: 'left'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ff7a50', fontSize: '12px', fontWeight: '800', marginBottom: '4px' }}>
+                <span>🎁</span> Get up to ₹500 in free production credits
+              </div>
+              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.75)', margin: 0, lineHeight: '1.5' }}>
+                Available to eligible new businesses after verification and approval. Valid for 14 days from activation. One offer per business. No automatic charges.
+              </p>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px', fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace' }}>
+                <span style={{ color: '#00e676' }}>Stage 2: ₹100 on approval</span>
+                <span>•</span>
+                <span style={{ color: '#4285f4' }}>Stage 3: ₹400 onboarding</span>
+              </div>
+            </div>
+
             {/* One-click Google Sign Up */}
             <button
               type="button"
