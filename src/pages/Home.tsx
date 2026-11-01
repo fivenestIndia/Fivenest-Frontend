@@ -4,7 +4,7 @@ import {
   ArrowRight, Zap, Package, Settings, Users, Clock, CheckCircle, 
   Star, ChevronDown, ChevronRight, Play, BarChart3, FileText, Wallet, 
   Shield, Sparkles, Layers, Sliders, Scissors, Printer, Download,
-  TrendingUp, Award, HelpCircle, Check, ArrowUpRight, Flame, Laptop
+  TrendingUp, Award, HelpCircle, Check, ArrowUpRight, Flame, Laptop, Folder
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
@@ -54,7 +54,7 @@ export default function Home() {
   const [prodStep, setProdStep] = useState<1 | 2 | 3>(1);
   const [selectedSport, setSelectedSport] = useState<'cricket' | 'football' | 'kabaddi' | 'esports'>('cricket');
   const [selectedSize, setSelectedSize] = useState<'S' | 'M' | 'L' | 'XL' | 'XXL'>('L');
-  const [rollWidth, setRollWidth] = useState<'44"' | '60"' | '72"'>('60"');
+  const [exportFormat, setExportFormat] = useState<'TIFF' | 'PDF' | 'PNG'>('TIFF');
 
   // Savings Calculator State
   const [monthlyJerseys, setMonthlyJerseys] = useState<number>(600);
@@ -72,7 +72,6 @@ export default function Home() {
   const designerCost = Math.round(monthlyJerseys * 35); // ₹35 per jersey manual labor cost
   const fivenestCost = Math.round(monthlyJerseys * 2.75); // FiveNest automated cost
   const moneySaved = Math.max(0, designerCost - fivenestCost);
-  const fabricSavedMeters = Math.round((monthlyJerseys * 1.3) * 0.12); // ~12% fabric waste reduction
 
   const sportsConfigs = {
     cricket: { name: 'Cricket Pro Kit', pattern: 'Diagonal Sublimation Hex', number: '18', player: 'V. KOHLI', accent: '#E4572E' },
@@ -131,7 +130,7 @@ export default function Home() {
             className="text-lg sm:text-xl text-[#52525B] max-w-3xl mx-auto leading-relaxed mb-10 font-normal"
           >
             Eliminate endless hours in Photoshop, manual squad grading mistakes, and disorganised WhatsApp orders. 
-            From <strong className="text-[#171717] font-semibold">vector multi-size grading</strong> to <strong className="text-[#171717] font-semibold">high-yield roll nesting</strong> and <strong className="text-[#171717] font-semibold">automated factory order ledgers</strong>.
+            From <strong className="text-[#171717] font-semibold">vector multi-size grading</strong> to <strong className="text-[#171717] font-semibold">1-click individual panel exports (300 DPI)</strong> and <strong className="text-[#171717] font-semibold">automated factory order ledgers</strong>.
           </motion.p>
 
           {/* Action CTAs */}
@@ -182,10 +181,10 @@ export default function Home() {
 
             <div className="p-4 rounded-2xl bg-white/70 backdrop-blur-sm border border-[#E8E4DE] text-left">
               <p className="text-3xl lg:text-4xl font-black text-[#171717] mb-1">
-                <AnimatedCounter target={94} suffix=".8%" />
+                300 DPI
               </p>
               <p className="text-xs font-bold uppercase tracking-wider text-[#71717A]">
-                Fabric Roll Nesting Yield
+                Lossless Individual Panels
               </p>
             </div>
 
@@ -269,7 +268,7 @@ export default function Home() {
                   {[
                     { step: 1, title: 'Step 1: Master Artwork & Panels', desc: 'Vector multi-panel mapping & 3D preview' },
                     { step: 2, title: 'Step 2: Auto-Grading & Roster', desc: 'Instant XS to 5XL sizing & vector squad names' },
-                    { step: 3, title: 'Step 3: Roll Nesting & 300 DPI Export', desc: 'Fabric width optimization & RIP-ready TIFF/PDF' },
+                    { step: 3, title: 'Step 3: Individual 300 DPI Export', desc: 'Separate front, back, sleeves & collar ready for RIP' },
                   ].map((s) => (
                     <button
                       key={s.step}
@@ -468,74 +467,91 @@ export default function Home() {
                           onClick={() => setProdStep(3)}
                           className="text-orange-400 hover:text-orange-300 font-bold flex items-center gap-1 cursor-pointer"
                         >
-                          Next: High-Yield Roll Nesting <ArrowRight size={14} />
+                          Next: Individual 300 DPI Export <ArrowRight size={14} />
                         </button>
                       </div>
                     </div>
                   )}
 
-                  {/* STEP 3: ROLL NESTING & EXPORT */}
+                  {/* STEP 3: INDIVIDUAL PANEL EXPORT (INDIVIDUAL FILES READY FOR RIP) */}
                   {prodStep === 3 && (
                     <div>
                       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
                         <div>
                           <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-                            STEP 03: HIGH-YIELD ROLL NESTING
+                            STEP 03: 1-CLICK INDIVIDUAL PANEL EXPORT
                           </span>
                           <h4 className="text-lg font-bold text-white mt-1">
-                            Save Up to 15% Fabric with Intelligent Roll Nesting & 300 DPI RIP Output
+                            Organized Individual Panels (Front, Back, Sleeves & Collar) Ready for RIP Software
                           </h4>
                         </div>
-                        {/* Roll width toggle */}
+                        {/* Format selector */}
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-neutral-400 font-medium mr-1">Roll Width:</span>
-                          {(['44"', '60"', '72"'] as const).map((w) => (
+                          <span className="text-xs text-neutral-400 font-medium mr-1">Format:</span>
+                          {(['TIFF', 'PDF', 'PNG'] as const).map((fmt) => (
                             <button
-                              key={w}
-                              onClick={() => setRollWidth(w)}
+                              key={fmt}
+                              onClick={() => setExportFormat(fmt)}
                               className={cn(
                                 'px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
-                                rollWidth === w
+                                exportFormat === fmt
                                   ? 'bg-emerald-600 text-white shadow-sm'
                                   : 'bg-white/10 text-neutral-400 hover:bg-white/20 hover:text-white'
                               )}
                             >
-                              {w} Paper Roll
+                              {fmt} {fmt === 'TIFF' ? '(300 DPI)' : ''}
                             </button>
                           ))}
                         </div>
                       </div>
 
-                      {/* Visual Roll Layout Representation */}
-                      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 mb-6">
-                        <div className="flex justify-between items-center text-xs font-mono text-neutral-400 mb-2">
-                          <span>DYE-SUBLIMATION PAPER ROLL ({rollWidth} WIDE)</span>
-                          <span className="text-emerald-400 font-bold">FABRIC UTILIZATION: 94.8%</span>
+                      {/* Visual File Explorer Card */}
+                      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 mb-6">
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-neutral-400 mb-4 pb-3 border-b border-neutral-800">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                            <span className="text-white font-bold">EXPORT_ARCHIVE_300DPI.ZIP</span>
+                            <span className="text-[10px] text-neutral-500">/ Size_L /</span>
+                          </div>
+                          <span className="text-emerald-400 font-bold">5 INDIVIDUAL PRINT PANELS GENERATED</span>
                         </div>
 
-                        {/* Simulated Nesting Grid */}
-                        <div className="h-28 rounded-xl bg-neutral-950 border border-dashed border-neutral-700 p-2 flex gap-2 overflow-x-auto items-center">
+                        {/* File Tree / Panel Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                           {[
-                            { name: 'Back L', w: 'w-20', h: 'h-24', color: 'bg-orange-500/20 border-orange-500/40 text-orange-300' },
-                            { name: 'Front L', w: 'w-20', h: 'h-24', color: 'bg-orange-600/20 border-orange-600/40 text-orange-300' },
-                            { name: 'Sleeve 1', w: 'w-14', h: 'h-20', color: 'bg-blue-500/20 border-blue-500/40 text-blue-300' },
-                            { name: 'Sleeve 2', w: 'w-14', h: 'h-20', color: 'bg-blue-500/20 border-blue-500/40 text-blue-300' },
-                            { name: 'Collar', w: 'w-10', h: 'h-16', color: 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300' },
-                            { name: 'Back XL', w: 'w-24', h: 'h-24', color: 'bg-orange-500/20 border-orange-500/40 text-orange-300' },
-                            { name: 'Front XL', w: 'w-24', h: 'h-24', color: 'bg-orange-600/20 border-orange-600/40 text-orange-300' },
-                            { name: 'Sleeves', w: 'w-16', h: 'h-22', color: 'bg-blue-500/20 border-blue-500/40 text-blue-300' },
-                          ].map((block, i) => (
-                            <div
-                              key={i}
-                              className={cn(
-                                'flex-shrink-0 rounded-lg border flex flex-col items-center justify-center text-[10px] font-mono p-1',
-                                block.w, block.h, block.color
-                              )}
-                            >
-                              <span className="font-bold">{block.name}</span>
-                              <span className="text-[9px] opacity-70">300 DPI</span>
+                            { name: `18_${sportsConfigs[selectedSport].player}_Back.${exportFormat.toLowerCase()}`, type: 'Back Panel (Custom Name & No)', badge: 'Billed ₹3.50', badgeColor: 'bg-orange-500/20 text-orange-400 border-orange-500/30', dim: '60cm x 75cm' },
+                            { name: `Front_Chest_Panel.${exportFormat.toLowerCase()}`, type: 'Front Panel (Sublimation Artwork)', badge: 'Free Panel', badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', dim: '58cm x 72cm' },
+                            { name: `Sleeve_Left_Raglan.${exportFormat.toLowerCase()}`, type: 'Left Sleeve Panel', badge: 'Free Panel', badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', dim: '24cm x 42cm' },
+                            { name: `Sleeve_Right_Raglan.${exportFormat.toLowerCase()}`, type: 'Right Sleeve Panel', badge: 'Free Panel', badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', dim: '24cm x 42cm' },
+                            { name: `Collar_Rib_Cut.${exportFormat.toLowerCase()}`, type: 'Collar & Neck Ribbing', badge: 'Free Panel', badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', dim: '48cm x 6cm' },
+                            { name: `Squad_Job_Summary.pdf`, type: 'Production Spec Sheet', badge: 'Auto Spec', badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30', dim: 'A4 Specs' },
+                          ].map((file, i) => (
+                            <div key={i} className="p-3 rounded-xl bg-neutral-950 border border-neutral-800 flex flex-col justify-between hover:border-neutral-700 transition-colors">
+                              <div>
+                                <div className="flex justify-between items-start gap-1 mb-1.5">
+                                  <span className="text-[11px] font-mono font-bold text-white truncate max-w-[170px]" title={file.name}>
+                                    📄 {file.name}
+                                  </span>
+                                  <span className={cn('text-[9px] px-1.5 py-0.5 rounded border font-mono font-bold', file.badgeColor)}>
+                                    {file.badge}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-neutral-400">{file.type}</p>
+                              </div>
+                              <div className="flex justify-between items-center text-[10px] text-neutral-500 font-mono mt-2 pt-2 border-t border-neutral-900">
+                                <span>300 DPI CMYK</span>
+                                <span className="text-neutral-400">{file.dim}</span>
+                              </div>
                             </div>
                           ))}
+                        </div>
+
+                        {/* Optional Roll Nesting note */}
+                        <div className="mt-4 pt-3 border-t border-neutral-800 flex flex-wrap items-center justify-between text-[11px] text-neutral-400 gap-2">
+                          <span className="flex items-center gap-1.5 text-neutral-300">
+                            <span className="text-orange-400">💡</span> Need roll layouts? <strong>Roll Nesting</strong> is also available in Studio as an optional add-on.
+                          </span>
+                          <span className="text-emerald-400 font-mono">10mm Seam Bleed Pre-Applied</span>
                         </div>
                       </div>
 
@@ -550,7 +566,7 @@ export default function Home() {
                           className="px-4 py-2 rounded-xl bg-[#E4572E] text-white font-bold hover:bg-[#D4431B] transition-colors flex items-center gap-1.5"
                         >
                           <Download size={14} />
-                          <span>Test Live Nesting in Studio</span>
+                          <span>Test Individual Export in Studio</span>
                         </Link>
                       </div>
                     </div>
@@ -808,22 +824,26 @@ export default function Home() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center bg-white p-8 sm:p-10 rounded-3xl border border-[#E8E4DE] shadow-soft">
               <div>
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-[#E4572E]/10 text-[#E4572E] text-xs font-black uppercase mb-4">
-                  <span>Step 03</span> • <span>Nesting & RIP Export</span>
+                  <span>Step 03</span> • <span>Individual Export</span>
                 </div>
                 <h3 className="text-2xl sm:text-3xl font-black text-[#171717] mb-4">
-                  High-Yield Roll Nesting & 300 DPI CMYK Print Exports
+                  1-Click Individual Panel & High-Res RIP Exports
                 </h3>
                 <p className="text-[#52525B] text-sm leading-relaxed mb-6">
-                  Fabric and sublimation transfer paper are major factory expenses. Our high-density polygon nesting algorithms pack your graded panels with optimal rotation, reducing roll paper consumption by up to 15%.
+                  Most sublimation factories and print operators prefer individual panel files per jersey. FiveNest outputs clean, high-resolution individual panels for Front, Back (with custom player name & number), Left/Right Sleeves, and Collar — structured neatly into size-wise folders ready for immediate drag-and-drop into your RIP queue.
                 </p>
                 <ul className="space-y-3 mb-6 text-sm text-[#52525B]">
                   <li className="flex items-center gap-2">
                     <CheckCircle size={18} className="text-[#E4572E] flex-shrink-0" />
-                    <span>Configurable roll widths (44", 60", 64", 72" dye-sub paper rolls)</span>
+                    <span>Individual High-Res Panels: Separate Front, Back, Sleeves, Collar & Ribbing</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle size={18} className="text-[#E4572E] flex-shrink-0" />
-                    <span>Automatic rotary cutter marks, roll meters counter & size labels</span>
+                    <span>Automatic Seam Allowances: Exact 10mm bleed margins and cut lines ready for heat pressing</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle size={18} className="text-[#E4572E] flex-shrink-0" />
+                    <span>Organized Folder Hierarchy: Output files sorted cleanly as /Size_S/, /Size_M/, /Size_L/, etc.</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle size={18} className="text-[#E4572E] flex-shrink-0" />
@@ -831,31 +851,35 @@ export default function Home() {
                   </li>
                 </ul>
                 <div className="p-3.5 rounded-xl bg-[#F5F3EF] border border-[#E8E4DE] text-xs text-[#52525B]">
-                  <strong className="text-[#171717]">Instant Download:</strong> Graded ZIP archives with organised TIFF/PDF files ready for printing immediately.
+                  <strong className="text-[#171717]">Optional Roll Nesting:</strong> Prefer continuous roll printing? Toggle automated Roll Nesting anytime inside the studio.
                 </div>
               </div>
 
               <div className="bg-[#171717] text-white p-6 rounded-2xl border border-neutral-800">
                 <div className="flex justify-between items-center pb-4 mb-4 border-b border-neutral-800 text-xs font-mono text-neutral-400">
-                  <span>ROLL METRICS & EFFICIENCY</span>
-                  <span className="text-emerald-400">94.8% UTILIZATION</span>
+                  <span>INDIVIDUAL EXPORT SPECS</span>
+                  <span className="text-emerald-400">300 DPI LOSSLESS</span>
                 </div>
                 <div className="space-y-3 text-xs font-mono">
                   <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 flex justify-between">
-                    <span className="text-neutral-400">Sublimation Paper Saved:</span>
-                    <span className="text-emerald-400 font-bold">~14.2 Meters / 100 Jerseys</span>
+                    <span className="text-neutral-400">Output Formats:</span>
+                    <span className="text-white font-bold">300 DPI CMYK TIFF / Print PDF</span>
                   </div>
                   <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 flex justify-between">
-                    <span className="text-neutral-400">Output Resolution:</span>
-                    <span className="text-white font-bold">300 DPI CMYK (Lossless TIFF)</span>
+                    <span className="text-neutral-400">Panel Separation:</span>
+                    <span className="text-white font-bold">Front, Back, Sleeves, Collar & Rib</span>
                   </div>
                   <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 flex justify-between">
-                    <span className="text-neutral-400">Cut Lines & Bleed:</span>
-                    <span className="text-white font-bold">Auto 10mm Seam Bleed</span>
+                    <span className="text-neutral-400">Seam Allowance:</span>
+                    <span className="text-emerald-400 font-bold">10mm Auto Seam Bleed Pre-Applied</span>
                   </div>
                   <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 flex justify-between">
-                    <span className="text-neutral-400">Export Packaging:</span>
-                    <span className="text-orange-400 font-bold">Direct Folder ZIP by Size</span>
+                    <span className="text-neutral-400">Folder Packaging:</span>
+                    <span className="text-orange-400 font-bold">Auto-Sorted by Jersey Size & Player</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 flex justify-between">
+                    <span className="text-neutral-400">Roll Nesting Feature:</span>
+                    <span className="text-neutral-300 font-bold">Optional Studio Add-on Available</span>
                   </div>
                 </div>
               </div>
@@ -1017,13 +1041,13 @@ export default function Home() {
 
               <div className="p-5 rounded-2xl bg-[#FAF9F6] border border-[#E8E4DE]">
                 <p className="text-xs font-bold text-[#71717A] uppercase tracking-wider mb-1">
-                  Fabric & Paper Saved
+                  Individual Panels Exported
                 </p>
                 <p className="text-3xl sm:text-4xl font-black text-emerald-600 mb-1">
-                  ~{fabricSavedMeters} Meters
+                  {(monthlyJerseys * 4).toLocaleString()} Panels
                 </p>
                 <p className="text-xs text-[#52525B]">
-                  Via automated polygon nesting with 94.8% roll width yield efficiency.
+                  100% vector accuracy with zero typos, pre-applied seam bleeds, and 300 DPI RIP readiness.
                 </p>
               </div>
 
@@ -1268,7 +1292,7 @@ export default function Home() {
               { cap: 'Squad Grading Speed', old: '3 to 5 hours / 50 jerseys', fn: '15 seconds automatic' },
               { cap: 'Name & Number Placement', old: 'Manual typing & aligning each', fn: 'Auto-mapped vector fonts' },
               { cap: 'Typo & Misprint Risk', old: 'High (human fatigue mistakes)', fn: '0% (Excel/CSV exact match)' },
-              { cap: 'Fabric Roll Nesting', old: 'Manual dragging in Corel/RIP', fn: '94.8% automated packing' },
+              { cap: 'Individual Panel Export', old: 'Manual saving layer by layer (hours)', fn: '1-Click 300 DPI Batch ZIP' },
               { cap: 'Order & Invoice Tracking', old: 'Scattered WhatsApp & Paper', fn: 'Integrated Factory Portal' },
               { cap: 'Cost Per Jersey', old: '₹25 - ₹40 designer salary', fn: '₹2.00 - ₹3.50 export fee' },
             ].map((row, i) => (
@@ -1314,7 +1338,7 @@ export default function Home() {
                 volume: '15,000+ Jerseys / Month',
               },
               {
-                quote: 'The high-yield roll nesting alone pays for the entire software. We saved 180 meters of sublimation transfer paper in our first month alone.',
+                quote: 'Individual panel exports save our team so much confusion. Every jersey panel is labeled cleanly with player name and size — we drop them straight into Wasatch RIP and print.',
                 author: 'Pravin Patel',
                 factory: 'Surat Sublimation Mills, Gujarat',
                 volume: '30,000+ Meters / Month',
@@ -1366,7 +1390,7 @@ export default function Home() {
               Frequently Asked Questions
             </h2>
             <p className="text-sm text-[#52525B]">
-              Everything you need to know about formats, subscriptions, nesting, and RIP software compatibility.
+              Everything you need to know about formats, subscriptions, individual exports, and RIP software compatibility.
             </p>
           </div>
 
@@ -1374,7 +1398,7 @@ export default function Home() {
             {[
               {
                 q: 'What file formats can I upload and export?',
-                a: 'You can upload master jersey artwork in AI, EPS, SVG vector formats, or 300 DPI transparent PNG. Exports are generated as lossless 300 DPI CMYK TIFF or high-resolution PDF organized in folders by size and player name, ready for immediate printing.',
+                a: 'You can upload master jersey artwork in AI, EPS, SVG vector formats, or 300 DPI transparent PNG. Exports are generated primarily as individual high-resolution panels (Front, Back, Sleeves, Collar) in 300 DPI CMYK TIFF or high-resolution PDF organized in folders by size and player name, ready for immediate printing. (Roll Nesting is also available as an optional studio feature whenever needed).',
               },
               {
                 q: 'Which RIP software is supported?',
