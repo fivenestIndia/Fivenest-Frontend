@@ -16,9 +16,9 @@ import { HelpCenter } from '../components/studio/helpCenter';
 import { BillingSystem } from '../components/studio/billingSystem';
 import { LoginModal } from '../components/studio/loginModal';
 import { SubscriptionModal } from '../components/studio/SubscriptionModal';
-import { canAccessOrderPortal, getSavedSubscription, type UserSubscriptionState } from '../lib/subscriptionPlans';
+import { canAccessOrderPortal, getSavedSubscription, isSubscriptionActive, type UserSubscriptionState } from '../lib/subscriptionPlans';
 import TrialOfferModal from '../components/studio/TrialOfferModal';
-import { getSavedTrialClaim, type TrialClaimRecord } from '../lib/trialManager';
+import { getSavedTrialClaim, getTrialStatus, type TrialClaimRecord } from '../lib/trialManager';
 
 
 export default function WebStudio() {
@@ -116,7 +116,20 @@ export default function WebStudio() {
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState<boolean>(false);
   const [subscription, setSubscription] = useState<UserSubscriptionState | null>(() => getSavedSubscription());
   const [trialModalOpen, setTrialModalOpen] = useState<boolean>(false);
-  const [trialClaim, setTrialClaim] = useState<TrialClaimRecord | null>(() => getSavedTrialClaim());
+  const [trialClaim, setTrialClaim] = useState<TrialClaimRecord | null>(() => getSavedTrialClaim(currentUser?.email));
+
+  // Sync trial claim status whenever user changes or logs in
+  useEffect(() => {
+    if (currentUser?.email) {
+      getTrialStatus(currentUser.email, currentUser.id).then((res) => {
+        if (res.claim) {
+          setTrialClaim(res.claim);
+        }
+      }).catch(() => {});
+    } else {
+      setTrialClaim(getSavedTrialClaim());
+    }
+  }, [currentUser?.email, currentUser?.id]);
 
   useEffect(() => {
     const handleSubUpdate = (e: any) => {
@@ -137,6 +150,18 @@ export default function WebStudio() {
       window.removeEventListener('fivenest_trial_updated', handleTrialUpdate);
     };
   }, []);
+
+  // Determine if user has already availed/applied for the ₹500 free trial offer
+  const hasAvailedTrial = Boolean(
+    (trialClaim && trialClaim.stage && trialClaim.stage !== 'not_applied') ||
+    (currentUser && (currentUser as any).trial_claimed)
+  );
+
+  // Determine if user has recharged wallet with any plan / has active subscription / wallet balance
+  const hasRechargedPlan = Boolean(
+    (subscription && isSubscriptionActive(subscription)) ||
+    (currentUser && ((currentUser as any).planId || (currentUser as any).is_subscribed || (currentUser.balance && currentUser.balance > 0)))
+  );
 
   useEffect(() => {
     const saved = localStorage.getItem('teedex_size_database');
@@ -669,51 +694,78 @@ export default function WebStudio() {
                   </a>
                 )}
 
-                {/* Free ₹500 Trial Claim Button */}
-                <button
-                  type="button"
-                  onClick={() => setTrialModalOpen(true)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    background: 'linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(5,150,105,0.18) 100%)',
-                    border: '1px solid rgba(16,185,129,0.35)',
-                    color: '#059669',
-                    padding: '5px 10px',
-                    borderRadius: '7px',
-                    fontSize: '11px',
-                    fontWeight: '800',
-                    cursor: 'pointer'
-                  }}
-                  title="Claim up to ₹500 in Free Production Credits"
-                >
-                  <Sparkles size={13} />
-                  <span>🎁 ₹500 Free Trial</span>
-                </button>
+                {/* Free ₹500 Trial Claim Button - hidden once user has availed/applied for offer */}
+                {!hasAvailedTrial && (
+                  <button
+                    type="button"
+                    onClick={() => setTrialModalOpen(true)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      background: 'linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(5,150,105,0.18) 100%)',
+                      border: '1px solid rgba(16,185,129,0.35)',
+                      color: '#059669',
+                      padding: '5px 10px',
+                      borderRadius: '7px',
+                      fontSize: '11px',
+                      fontWeight: '800',
+                      cursor: 'pointer'
+                    }}
+                    title="Claim up to ₹500 in Free Production Credits"
+                  >
+                    <Sparkles size={13} />
+                    <span>🎁 ₹500 Free Trial</span>
+                  </button>
+                )}
 
-                {/* Subscription & Recharge Plans Button */}
-                <button
-                  type="button"
-                  onClick={() => setSubscriptionModalOpen(true)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    background: 'linear-gradient(135deg, rgba(228,87,46,0.1) 0%, rgba(245,158,11,0.1) 100%)',
-                    border: '1px solid rgba(228,87,46,0.3)',
-                    color: '#E4572E',
-                    padding: '5px 10px',
-                    borderRadius: '7px',
-                    fontSize: '11px',
-                    fontWeight: '800',
-                    cursor: 'pointer'
-                  }}
-                  title="View Subscription & Recharge Plans"
-                >
-                  <Award size={13} />
-                  <span>Plans / Recharge</span>
-                </button>
+                {/* Subscription & Recharge Plans Button - full button or compact icon once wallet recharged / plan active */}
+                {hasRechargedPlan ? (
+                  <button
+                    type="button"
+                    onClick={() => setSubscriptionModalOpen(true)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '32px',
+                      height: '32px',
+                      background: 'linear-gradient(135deg, rgba(228,87,46,0.12) 0%, rgba(245,158,11,0.15) 100%)',
+                      border: '1px solid rgba(228,87,46,0.35)',
+                      color: '#E4572E',
+                      borderRadius: '7px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                      padding: 0
+                    }}
+                    title={`Subscription Plans & Wallet Recharge (${subscription?.planName || `Balance: ₹${currentUser.balance.toFixed(2)}`})`}
+                  >
+                    <Award size={16} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setSubscriptionModalOpen(true)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      background: 'linear-gradient(135deg, rgba(228,87,46,0.1) 0%, rgba(245,158,11,0.1) 100%)',
+                      border: '1px solid rgba(228,87,46,0.3)',
+                      color: '#E4572E',
+                      padding: '5px 10px',
+                      borderRadius: '7px',
+                      fontSize: '11px',
+                      fontWeight: '800',
+                      cursor: 'pointer'
+                    }}
+                    title="View Subscription & Recharge Plans"
+                  >
+                    <Award size={13} />
+                    <span>Plans / Recharge</span>
+                  </button>
+                )}
 
                 <div 
                   className="user-wallet-pill"
@@ -727,27 +779,29 @@ export default function WebStudio() {
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  type="button"
-                  onClick={() => setTrialModalOpen(true)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    background: 'linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(5,150,105,0.18) 100%)',
-                    border: '1px solid rgba(16,185,129,0.35)',
-                    color: '#059669',
-                    padding: '5px 10px',
-                    borderRadius: '7px',
-                    fontSize: '11px',
-                    fontWeight: '800',
-                    cursor: 'pointer'
-                  }}
-                  title="Claim up to ₹500 in Free Production Credits"
-                >
-                  <Sparkles size={13} />
-                  <span>🎁 Free ₹500 Trial</span>
-                </button>
+                {!hasAvailedTrial && (
+                  <button
+                    type="button"
+                    onClick={() => setTrialModalOpen(true)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      background: 'linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(5,150,105,0.18) 100%)',
+                      border: '1px solid rgba(16,185,129,0.35)',
+                      color: '#059669',
+                      padding: '5px 10px',
+                      borderRadius: '7px',
+                      fontSize: '11px',
+                      fontWeight: '800',
+                      cursor: 'pointer'
+                    }}
+                    title="Claim up to ₹500 in Free Production Credits"
+                  >
+                    <Sparkles size={13} />
+                    <span>🎁 Free ₹500 Trial</span>
+                  </button>
+                )}
                 <button 
                   className="btn btn-primary" 
                   onClick={() => setLoginModalOpen(true)}
@@ -873,6 +927,11 @@ export default function WebStudio() {
         }}
         onClaimSuccess={() => {
           if (currentUser?.email) {
+            getTrialStatus(currentUser.email, currentUser.id).then((res) => {
+              if (res.claim) {
+                setTrialClaim(res.claim);
+              }
+            }).catch(() => {});
             fetchUserWallet(currentUser.email).then((w) => {
               if (w) {
                 setCurrentUser((prev: any) => prev ? { ...prev, balance: w.balance } : null);

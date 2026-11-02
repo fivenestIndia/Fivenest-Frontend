@@ -67,10 +67,17 @@ const LOCAL_CLAIMS_LIST_KEY = 'fivenest_all_trial_claims';
 /**
  * Retrieve saved trial claim from local cache
  */
-export function getSavedTrialClaim(): TrialClaimRecord | null {
+export function getSavedTrialClaim(userEmail?: string): TrialClaimRecord | null {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const parsed: TrialClaimRecord = JSON.parse(raw);
+    if (userEmail && parsed.userEmail) {
+      if (parsed.userEmail.toLowerCase().trim() !== userEmail.toLowerCase().trim()) {
+        return null;
+      }
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -118,6 +125,9 @@ export async function getTrialStatus(userEmail?: string, userId?: string): Promi
       const data = await res.json();
       if (data.claim) {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data.claim));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('fivenest_trial_updated', { detail: data.claim }));
+        }
         return {
           hasApplied: data.hasApplied,
           stage: data.claim.stage,
@@ -202,6 +212,9 @@ export async function applyForTrial(params: {
       const data = await res.json();
       if (data.claim) {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data.claim));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('fivenest_trial_updated', { detail: data.claim }));
+        }
         return { success: true, claim: data.claim, message: data.message };
       }
     } else {
@@ -251,6 +264,9 @@ export async function applyForTrial(params: {
   };
 
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(fallbackClaim));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('fivenest_trial_updated', { detail: fallbackClaim }));
+  }
 
   // Also save to all local claims list for admin inspection
   try {

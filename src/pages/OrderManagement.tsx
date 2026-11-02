@@ -28,7 +28,7 @@ import MonthlyAllLedgerView from '../components/orders/MonthlyAllLedgerView';
 import AnimatedFinancialDashboard from '../components/orders/AnimatedFinancialDashboard';
 import { ManufacturerOrder, DesignerBill, FactoryExpense } from '../hooks/useOrderStore';
 import { supabase } from '../lib/supabaseClient';
-import { canAccessOrderPortal, getSavedSubscription, type UserSubscriptionState } from '../lib/subscriptionPlans';
+import { canAccessOrderPortal, getSavedSubscription, isSubscriptionActive, type UserSubscriptionState } from '../lib/subscriptionPlans';
 import { SubscriptionModal } from '../components/studio/SubscriptionModal';
 
 const cn = (...c: (string|undefined|boolean)[]) => c.filter(Boolean).join(' ');
@@ -724,14 +724,24 @@ export default function OrderManagement() {
           </div>
 
           <div className="flex items-center gap-2 ml-auto">
-            <button
-              onClick={() => setShowSubscriptionModal(true)}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#E4572E] border border-orange-200 text-xs font-bold transition-all cursor-pointer"
-              title="View Subscription & Recharge Plans"
-            >
-              <Zap size={13} />
-              <span>Plans / Recharge</span>
-            </button>
+            {((subscription && isSubscriptionActive(subscription)) || (currentUser && currentUser.balance > 0)) ? (
+              <button
+                onClick={() => setShowSubscriptionModal(true)}
+                className="hidden sm:flex items-center justify-center w-8 h-8 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#E4572E] border border-orange-200 transition-all cursor-pointer shadow-sm"
+                title={`Subscription Plans & Wallet Recharge (${subscription?.planName || `Balance: ₹${currentUser?.balance?.toFixed(2)}`})`}
+              >
+                <Zap size={15} />
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowSubscriptionModal(true)}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#E4572E] border border-orange-200 text-xs font-bold transition-all cursor-pointer"
+                title="View Subscription & Recharge Plans"
+              >
+                <Zap size={13} />
+                <span>Plans / Recharge</span>
+              </button>
+            )}
             <QuickNewMenu
               onMfgOrder={() => openMfgOrder()}
               onDesignerBill={() => openDesignerBill()}
