@@ -19,7 +19,7 @@ import type { NestingViewHandle } from './nestingView';
 import { classifyZipPanelFile } from './zipHelper';
 import { initiateRazorpayRecharge } from '../../lib/razorpayService';
 import { queueCloudSizesSave } from '../../lib/sizesSyncService';
-import { getLocalPresets, savePresetToIndexedDB, deletePresetFromIndexedDB } from '../../lib/presetsSyncService';
+import { getLocalPresets, savePresetToIndexedDB, deletePresetFromIndexedDB, MAX_CLOUD_PRESETS, isPresetValid, formatTimeRemaining } from '../../lib/presetsSyncService';
 
 const FONT_OPTIONS = [
   { id: 'OldSport02AthleticNcv-E0gj', label: 'Old Sport Athletic' },
@@ -1054,28 +1054,33 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
     confetti({ particleCount: 40, spread: 50 });
   };
 
-  // Save custom preset
+  // Save custom preset (Max 3, 3 days validity)
   const handleSaveCustomPreset = async () => {
     if (!newPresetName.trim()) {
       alert("Please enter a name for your preset.");
       return;
     }
     const name = newPresetName.trim();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
     const newPreset = {
       id: `preset_${Date.now()}`,
       name,
       category: 'custom' as const,
       config: JSON.parse(JSON.stringify(designConfig)),
-      updatedAt: new Date().toISOString()
+      createdAt: now.toISOString(),
+      expiresAt,
+      updatedAt: now.toISOString()
     };
-    const updated = [...customPresets.filter(p => p.name !== name), { name, config: newPreset.config }];
+    const validExisting = customPresets.filter(p => p.name !== name);
+    const updated = [...validExisting.slice(-(MAX_CLOUD_PRESETS - 1)), { name, config: newPreset.config }];
     setCustomPresets(updated);
     await savePresetToIndexedDB(newPreset);
     try {
       localStorage.setItem('fivenest_presets', JSON.stringify(updated));
     } catch (e) {}
     setNewPresetName('');
-    alert(`Saved preset "${name}"!`);
+    alert(`Saved preset "${name}"! (Active for 3 days)`);
   };
 
   // Load custom preset

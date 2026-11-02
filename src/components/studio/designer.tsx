@@ -23,6 +23,9 @@ import {
 import {
   type DesignPresetItem,
   FACTORY_PRESETS,
+  MAX_CLOUD_PRESETS,
+  formatTimeRemaining,
+  isPresetValid,
   getLocalPresets,
   savePresetToIndexedDB,
   deletePresetFromIndexedDB,
@@ -1218,17 +1221,33 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
     setIsSavingPreset(true);
     try {
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
       const clonedConfig: ArtDesignConfig = JSON.parse(JSON.stringify(designConfig));
       const newPreset: DesignPresetItem = {
         id: `preset_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         name,
         category: 'custom',
-        description: `Saved ${new Date().toLocaleDateString('en-IN')}`,
+        description: `Active for 3 days`,
         config: clonedConfig,
-        updatedAt: new Date().toISOString()
+        createdAt: now.toISOString(),
+        expiresAt,
+        updatedAt: now.toISOString()
       };
 
-      const updated = [...customPresets.filter(p => p.name !== name), newPreset];
+      // Filter out duplicate names and expired presets
+      const validExisting = customPresets.filter(p => p.name !== name && isPresetValid(p));
+      let replacedOldest = false;
+      let updated: DesignPresetItem[];
+
+      // Enforce max 3 cloud presets: auto-replace oldest if at limit
+      if (validExisting.length >= MAX_CLOUD_PRESETS) {
+        replacedOldest = true;
+        updated = [...validExisting.slice(-(MAX_CLOUD_PRESETS - 1)), newPreset];
+      } else {
+        updated = [...validExisting, newPreset];
+      }
+
       setCustomPresets(updated);
 
       // Save to IndexedDB (unlimited quota, handles all high-res textures)
@@ -1240,9 +1259,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       }
 
       setNewPresetName("");
-      setPresetStatus(`Saved "${name}" to your account!`);
-      toast.success(`Preset "${name}" saved successfully!`);
-      setTimeout(() => setPresetStatus(null), 4000);
+      const successMsg = replacedOldest 
+        ? `Saved "${name}"! (Replaced oldest preset to stay within max 3 cloud limit)`
+        : `Saved "${name}" to cloud! (Active for 3 days)`;
+      setPresetStatus(successMsg);
+      toast.success(successMsg);
+      setTimeout(() => setPresetStatus(null), 5000);
     } catch (err: any) {
       console.error("Save preset error:", err);
       toast.error("Failed to save preset: " + (err.message || "Storage error"));
@@ -9116,18 +9138,23 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               <span style={{ fontSize: '16px' }}>💾</span> <span style={{ fontSize: '13px', fontWeight: '700' }}>Design Presets Manager</span>
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {currentUser?.name && (
-                <span style={{ fontSize: '10px', background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '12px', fontWeight: '600' }}>
-                  ☁️ {currentUser.name.split(' ')[0]}
-                </span>
-              )}
+              <span style={{ 
+                fontSize: '10px', 
+                background: customPresets.length >= MAX_CLOUD_PRESETS ? '#FEF2F2' : '#EFF6FF', 
+                color: customPresets.length >= MAX_CLOUD_PRESETS ? '#B91C1C' : '#1D4ED8', 
+                padding: '2px 8px', 
+                borderRadius: '12px', 
+                fontWeight: '700' 
+              }}>
+                ☁️ {customPresets.length}/{MAX_CLOUD_PRESETS} Used (3 Days TTL)
+              </span>
               {collapsed.presets ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
             </div>
           </h3>
           {!collapsed.presets && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
               <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', lineHeight: '1.4' }}>
-                Save your design configuration (background uploads, colors, fonts, strokes & text layouts) as a reusable cloud preset that syncs across all your devices.
+                Store up to <strong>3 custom presets</strong> on the cloud. Presets sync across all devices, remain active for <strong>3 days</strong>, and automatically vanish once expired.
               </p>
 
               {/* Save Input & Button */}
@@ -9150,6 +9177,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   {isSavingPreset ? 'Saving...' : 'Save'}
                 </button>
               </div>
+
+              {customPresets.length >= MAX_CLOUD_PRESETS && (
+                <div style={{ fontSize: '10px', color: '#B45309', background: '#FEF3C7', border: '1px solid #FDE68A', padding: '5px 8px', borderRadius: '6px' }}>
+                  ⚠️ Cloud capacity full ({MAX_CLOUD_PRESETS}/{MAX_CLOUD_PRESETS}). Saving a new preset will auto-replace your oldest preset.
+                </div>
+              )}
 
               {presetStatus && (
                 <div style={{ padding: '6px 10px', borderRadius: '6px', background: '#ECFDF5', border: '1px solid #A7F3D0', color: '#047857', fontSize: '11px', fontWeight: '600' }}>
@@ -9175,7 +9208,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                     cursor: 'pointer'
                   }}
                 >
-                  My Saved Presets ({customPresets.length})
+                  My Cloud Presets ({customPresets.length}/{MAX_CLOUD_PRESETS})
                 </button>
                 <button
                   type="button"
@@ -9203,7 +9236,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                   {customPresets.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '16px 12px', background: '#FAF8F5', borderRadius: '8px', border: '1px dashed #CBD5E1', fontSize: '11px', color: '#64748B' }}>
                       <p style={{ fontWeight: '600', color: '#334155', marginBottom: '4px' }}>No saved presets yet</p>
-                      <p>Type a name above and click <strong>Save</strong> to store your current jersey configuration, or explore the <strong>Factory Templates</strong> tab.</p>
+                      <p>Type a name above and click <strong>Save</strong> to store your current jersey configuration (max 3, active for 3 days), or explore the <strong>Factory Templates</strong> tab.</p>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
@@ -9217,9 +9250,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                             >
                               {preset.name}
                             </span>
-                            {preset.description && (
-                              <span style={{ fontSize: '9px', color: '#94A3B8' }}>{preset.description}</span>
-                            )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                              <span style={{ fontSize: '9px', fontWeight: '700', color: '#C2410C', background: '#FFF7ED', border: '1px solid #FFEDD5', borderRadius: '4px', padding: '1px 5px' }}>
+                                ⏳ {formatTimeRemaining(preset.expiresAt, preset.createdAt)}
+                              </span>
+                              {preset.description && (
+                                <span style={{ fontSize: '9px', color: '#94A3B8' }}>{preset.description}</span>
+                              )}
+                            </div>
                           </div>
                           <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                             <button 

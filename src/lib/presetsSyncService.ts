@@ -19,6 +19,57 @@ export interface DesignPresetItem {
   config: ArtDesignConfig;
   createdAt?: string;
   updatedAt?: string;
+  expiresAt?: string; // Auto-vanish after 3 days
+}
+
+export const MAX_CLOUD_PRESETS = 3;
+export const PRESET_VALIDITY_DAYS = 3;
+export const PRESET_VALIDITY_MS = PRESET_VALIDITY_DAYS * 24 * 60 * 60 * 1000; // 3 days (72 hours)
+
+/**
+ * Check if a preset is still valid (not expired beyond 3 days)
+ */
+export function isPresetValid(preset: DesignPresetItem): boolean {
+  if (preset.category === 'factory') return true;
+  const now = Date.now();
+  if (preset.expiresAt) {
+    return new Date(preset.expiresAt).getTime() > now;
+  }
+  if (preset.createdAt) {
+    return now - new Date(preset.createdAt).getTime() < PRESET_VALIDITY_MS;
+  }
+  return true;
+}
+
+/**
+ * Helper to display human-readable time remaining before 3-day expiration
+ */
+export function formatTimeRemaining(expiresAt?: string, createdAt?: string): string {
+  const now = Date.now();
+  let expireTime: number;
+  if (expiresAt) {
+    expireTime = new Date(expiresAt).getTime();
+  } else if (createdAt) {
+    expireTime = new Date(createdAt).getTime() + PRESET_VALIDITY_MS;
+  } else {
+    return '3 days left';
+  }
+
+  const diffMs = expireTime - now;
+  if (diffMs <= 0) return 'Expired';
+
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffHours / 24);
+  const remHours = diffHours % 24;
+
+  if (diffDays > 0) {
+    return `${diffDays}d ${remHours}h left`;
+  }
+  if (diffHours > 0) {
+    return `${diffHours}h left`;
+  }
+  const diffMins = Math.max(1, Math.floor(diffMs / (1000 * 60)));
+  return `${diffMins}m left`;
 }
 
 const BACKEND_BASE = 'https://fivenest-backend.onrender.com';
@@ -259,9 +310,18 @@ export async function getLocalPresets(userEmail?: string | null): Promise<Design
       getAllReq.onerror = () => reject(getAllReq.error);
     });
 
-    // If IndexedDB has items, return them (filtered by user if scoped, or all custom)
+    // If IndexedDB has items, purge expired (> 3 days) and enforce max 3
     if (items.length > 0) {
-      return items;
+      const valid = items.filter(p => isPresetValid(p));
+      const expired = items.filter(p => !isPresetValid(p));
+      if (expired.length > 0) {
+        try {
+          const delTx = db.transaction(IDB_STORE, 'readwrite');
+          const delStore = delTx.objectStore(IDB_STORE);
+          expired.forEach(exp => delStore.delete(exp.id));
+        } catch (e) {}
+      }
+      return valid.slice(-MAX_CLOUD_PRESETS);
     }
   } catch (err) {
     console.warn('IndexedDB read warning:', err);
@@ -273,13 +333,16 @@ export async function getLocalPresets(userEmail?: string | null): Promise<Design
     if (legacyStr) {
       const parsed = JSON.parse(legacyStr);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        const now = Date.now();
         const migrated: DesignPresetItem[] = parsed.map((p, idx) => ({
-          id: `custom_${Date.now()}_${idx}`,
+          id: `custom_${now}_${idx}`,
           name: p.name || `Preset ${idx + 1}`,
           category: 'custom',
           config: p.config,
-          updatedAt: new Date().toISOString()
-        }));
+          createdAt: new Date(now).toISOString(),
+          expiresAt: new Date(now + PRESET_VALIDITY_MS).toISOString(),
+          updatedAt: new Date(now).toISOString()
+        })).slice(-MAX_CLOUD_PRESETS);
 
         // Asynchronously persist into IndexedDB
         saveMultipleToIndexedDB(migrated).catch(() => {});
@@ -292,10 +355,15 @@ export async function getLocalPresets(userEmail?: string | null): Promise<Design
 }
 
 /**
- * Save a single preset item to IndexedDB
+ * Save a single preset item to IndexedDB (with 3-day validity)
  */
 export async function savePresetToIndexedDB(preset: DesignPresetItem): Promise<boolean> {
   try {
+    const now = new Date();
+    if (!preset.createdAt) preset.createdAt = now.toISOString();
+    if (!preset.expiresAt) {
+      preset.expiresAt = new Date(now.getTime() + PRESET_VALIDITY_MS).toISOString();
+    }
     const db = await openIndexedDB();
     const transaction = db.transaction(IDB_STORE, 'readwrite');
     const store = transaction.objectStore(IDB_STORE);
@@ -405,9 +473,10 @@ export async function fetchCloudPresets(userEmail?: string | null, userId?: stri
       if (!error && data && data.length > 0 && data[0]?.details) {
         const raw = data[0].details;
         const cloudPresets: DesignPresetItem[] = Array.isArray(raw) ? raw : (raw.presets || []);
-        if (cloudPresets.length > 0) {
-          saveMultipleToIndexedDB(cloudPresets).catch(() => {});
-          return cloudPresets;
+        const validPresets = cloudPresets.filter(p => isPresetValid(p)).slice(-MAX_CLOUD_PRESETS);
+        if (validPresets.length > 0) {
+          saveMultipleToIndexedDB(validPresets).catch(() => {});
+          return validPresets;
         }
       }
     } catch (err) {
@@ -430,9 +499,12 @@ export async function fetchCloudPresets(userEmail?: string | null, userId?: stri
 
     if (res.ok) {
       const json = await res.json();
-      if (json.success && Array.isArray(json.presets) && json.presets.length > 0) {
-        saveMultipleToIndexedDB(json.presets).catch(() => {});
-        return json.presets;
+      if (json.success && Array.isArray(json.presets)) {
+        const validPresets = json.presets.filter((p: DesignPresetItem) => isPresetValid(p)).slice(-MAX_CLOUD_PRESETS);
+        if (validPresets.length > 0) {
+          saveMultipleToIndexedDB(validPresets).catch(() => {});
+          return validPresets;
+        }
       }
     }
   } catch (err) {
@@ -444,6 +516,7 @@ export async function fetchCloudPresets(userEmail?: string | null, userId?: stri
 
 /**
  * Save custom presets to cloud (Supabase + backend)
+ * Enforces maximum 3 presets, auto-expires after 3 days.
  */
 export async function savePresetsToCloud(
   presets: DesignPresetItem[], 
@@ -460,8 +533,18 @@ export async function savePresetsToCloud(
 
   let saved = false;
 
-  // Filter only custom presets for cloud storage (factory presets are already built-in)
-  const customOnly = presets.filter(p => p.category === 'custom');
+  // Filter only custom valid presets, ensure expiration date (3 days), and cap at MAX 3
+  const now = Date.now();
+  const customOnly = presets
+    .filter(p => p.category === 'custom' && isPresetValid(p))
+    .slice(-MAX_CLOUD_PRESETS);
+
+  customOnly.forEach(p => {
+    if (!p.createdAt) p.createdAt = new Date(now).toISOString();
+    if (!p.expiresAt) {
+      p.expiresAt = new Date(new Date(p.createdAt).getTime() + PRESET_VALIDITY_MS).toISOString();
+    }
+  });
 
   // Strategy 1: Direct Supabase insert
   if (effectiveUserId) {
@@ -470,7 +553,7 @@ export async function savePresetsToCloud(
         user_id: effectiveUserId,
         plugin_type: 'design_presets',
         action: 'save_design_presets',
-        details: { presets: customOnly, updatedAt: new Date().toISOString() }
+        details: { presets: customOnly, updatedAt: new Date().toISOString(), maxLimit: MAX_CLOUD_PRESETS, validityDays: PRESET_VALIDITY_DAYS }
       });
       if (!error) saved = true;
     } catch (err) {
