@@ -1031,6 +1031,23 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         }
       });
 
+      // Ensure any fonts configured in the preset are loaded into document.fonts
+      const fontFamilies: string[] = [];
+      panelKeys.forEach(k => {
+        const p: any = clonedConfig[k];
+        if (!p) return;
+        if (p.nameConfig?.fontFamily) fontFamilies.push(p.nameConfig.fontFamily);
+        if (p.numberConfig?.fontFamily) fontFamilies.push(p.numberConfig.fontFamily);
+        if (p.sizeTagConfig?.fontFamily) fontFamilies.push(p.sizeTagConfig.fontFamily);
+      });
+      if (typeof document !== 'undefined' && document.fonts) {
+        fontFamilies.forEach(ff => {
+          document.fonts.load(`bold 32px "${ff}"`).then(() => {
+            setPrefTrigger(prev => prev + 1);
+          }).catch(() => {});
+        });
+      }
+
       onDesignConfigChange(clonedConfig);
       setPrefTrigger(prev => prev + 1);
       toast.success(`Loaded "${preset.name}" preset.`);

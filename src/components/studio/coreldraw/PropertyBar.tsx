@@ -411,8 +411,18 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
           >
             <span style={{ fontSize: '10px', color: '#92908A', fontWeight: '600' }}>Font:</span>
             <select
-              value={activeTextConfig.fontFamily || 'OldSport02AthleticNcv-E0gj'}
-              onChange={(e) => updateActiveText({ fontFamily: e.target.value })}
+              value={
+                activeTextConfig.fontFamily === 'barcelona_2013_by_hd' || activeTextConfig.fontFamily === 'Barcelona 2013 HD'
+                  ? 'Barcelona_2013_HD'
+                  : (activeTextConfig.fontFamily || 'OldSport02AthleticNcv-E0gj')
+              }
+              onChange={(e) => {
+                const newFont = e.target.value;
+                if (typeof document !== 'undefined' && document.fonts) {
+                  document.fonts.load(`bold 32px "${newFont}"`).catch(() => {});
+                }
+                updateActiveText({ fontFamily: newFont });
+              }}
               style={{
                 width: 'clamp(95px, 11vw, 140px)',
                 maxWidth: '145px',

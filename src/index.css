@@ -33,7 +33,42 @@
 
 @font-face {
   font-family: 'Barcelona_2013_HD';
-  src: local('Barcelona_2013_HD'), local('FC Barcelona Font 2013 by HD'), local('Barcelona 2013 HD'), local('Barcelona_2013'), url('/fonts/Jersey M54.ttf') format('truetype');
+  src: url('/fonts/barcelona_2013_by_hd.ttf') format('truetype'),
+       local('Barcelona 2012 by Danilo SL'),
+       local('barcelona_2013_by_hd'),
+       local('FC Barcelona Font 2013 by HD'),
+       local('Barcelona 2013 HD'),
+       local('Barcelona_2013');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'barcelona_2013_by_hd';
+  src: url('/fonts/barcelona_2013_by_hd.ttf') format('truetype'),
+       local('Barcelona 2012 by Danilo SL'),
+       local('barcelona_2013_by_hd'),
+       local('Barcelona_2013_HD');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Barcelona 2013 HD';
+  src: url('/fonts/barcelona_2013_by_hd.ttf') format('truetype'),
+       local('Barcelona 2012 by Danilo SL'),
+       local('barcelona_2013_by_hd'),
+       local('Barcelona_2013_HD');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Barcelona 2012 by Danilo SL';
+  src: url('/fonts/barcelona_2013_by_hd.ttf') format('truetype');
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
