@@ -8,8 +8,8 @@
 
 import { supabase } from './supabaseClient';
 import { getActiveUserContext } from './orderSyncService';
-import type { ArtDesignConfig } from '../components/studio/designer';
-import { defaultDesignConfig } from '../components/studio/designer';
+import type { ArtDesignConfig } from '../components/studio/defaultDesignConfig';
+import { defaultDesignConfig } from '../components/studio/defaultDesignConfig';
 
 export interface DesignPresetItem {
   id: string;
