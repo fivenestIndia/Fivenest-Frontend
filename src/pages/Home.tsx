@@ -658,7 +658,7 @@ export default function Home() {
                   <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-[#52525B] pt-2">
                     <span className="flex items-center gap-1.5">
                       <Shield size={14} className="text-[#E4572E]" />
-                      Included automatically for all Monthly/Quarterly Plans of ₹2,500 and above
+                      Included automatically for all Plans or Wallet Balances of ₹5,000 and above
                     </span>
                     <Link
                       to="/order-management"
@@ -949,10 +949,10 @@ export default function Home() {
                 <Flame size={14} /> Full Access Included
               </div>
               <h3 className="text-2xl font-black text-white">
-                Unlocked for all Growth, Pro & Factory Plans (≥ ₹2,500)
+                Unlocked for all Pro & Factory Plans or Wallet Balances (≥ ₹5,000)
               </h3>
               <p className="text-neutral-400 text-sm max-w-xl mt-1">
-                Say goodbye to WhatsApp chaos and lost orders. Subscribe to any plan above ₹2,500 to run your entire factory pipeline on autopilot.
+                Say goodbye to WhatsApp chaos and lost orders. Subscribe to any plan above ₹5,000 or recharge your wallet balance above ₹5,000 to run your entire factory pipeline on autopilot.
               </p>
             </div>
             <Link
@@ -1483,7 +1483,7 @@ export default function Home() {
               },
               {
                 q: 'Who gets access to the Order Management Portal?',
-                a: 'The full Order Management Portal (client accounts, job sheets, factory ledgers, GST invoicing, payment links) is included at no extra charge for any monthly or quarterly subscription of ₹2,500 and above.',
+                a: 'The full Order Management Portal (client accounts, job sheets, factory ledgers, GST invoicing, payment links) is included automatically for any plan or wallet balance of ₹5,000 and above.',
               },
               {
                 q: 'How do subscription wallet credits work?',

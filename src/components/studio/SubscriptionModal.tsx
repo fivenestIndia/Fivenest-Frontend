@@ -226,7 +226,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               </span>
             </div>
             <p style={{ fontSize: '13px', color: '#94A3B8', margin: 0 }}>
-              Lock in lower sublimation rendering rates (as low as <strong>₹2.00/pc</strong>) and unlock <strong>Order Portal Access</strong> on plans ₹2,500+.
+              Lock in lower sublimation rendering rates (as low as <strong>₹2.00/pc</strong>) and unlock <strong>Order Portal Access</strong> on plans ₹5,000+ (or wallet balance ₹5,000+).
             </p>
           </div>
 
@@ -588,7 +588,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                         </>
                       ) : (
                         <span style={{ color: '#64748B' }}>
-                          Order Portal not included (Requires ₹2,500+ plan)
+                          Order Portal not included (Requires ₹5,000+ plan)
                         </span>
                       )}
                     </div>

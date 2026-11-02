@@ -22,7 +22,7 @@ export interface SubscriptionPlan {
 
 export const DEFAULT_SPOT_RATE_WITH_TAG = 3.50;
 export const DEFAULT_SPOT_RATE_WITHOUT_TAG = 5.50;
-export const ORDER_PORTAL_MIN_PLAN_AMOUNT = 2500;
+export const ORDER_PORTAL_MIN_PLAN_AMOUNT = 5000;
 
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   // ── ON-THE-SPOT (Pay As You Go) ─────────────────────────────────────────
@@ -59,7 +59,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     jerseysWithTag: 333,
     rateWithoutTag: 5.00,
     jerseysWithoutTag: 200,
-    hasOrderPortalAccess: false, // Below ₹2,500
+    hasOrderPortalAccess: false,
     tagline: 'Ideal for emerging jersey shops and boutique custom print jobs',
     features: [
       '₹1,000 added to wallet balance',
@@ -80,17 +80,16 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     jerseysWithTag: 909,
     rateWithoutTag: 4.50,
     jerseysWithoutTag: 555,
-    hasOrderPortalAccess: true, // ₹2,500+ -> Includes Order Portal
-    isPopular: true,
-    tagline: 'Most Popular: Serious savings + Full Order Portal Access',
+    hasOrderPortalAccess: false, // Below ₹5,000
+    isPopular: false,
+    tagline: 'High-speed production with 21% savings on per-piece exports',
     features: [
       '₹2,500 added to wallet balance',
       '30 days validity',
       '₹2.75/pc with tag (~909 jerseys)',
       '₹4.50/pc without tag (~555 jerseys)',
-      '🔥 FULL ORDER MANAGEMENT PORTAL ACCESS',
-      'Factory Ledgers, Job Sheets & Order Tracking',
-      '21% savings on standard rate'
+      '21% savings on standard rate',
+      'Front & sleeve panels included free'
     ]
   },
   {
@@ -104,14 +103,16 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     jerseysWithTag: 2000,
     rateWithoutTag: 4.00,
     jerseysWithoutTag: 1250,
-    hasOrderPortalAccess: true,
-    tagline: 'High volume production with industry-leading per-piece margins',
+    hasOrderPortalAccess: true, // ₹5,000+ -> Includes Order Portal
+    isPopular: true, // Recommended Plan!
+    tagline: 'RECOMMENDED: High Volume Production + Full Order Portal Access',
     features: [
       '₹5,000 added to wallet balance',
       '30 days validity',
       '₹2.50/pc with tag (~2,000 jerseys)',
       '₹4.00/pc without tag (~1,250 jerseys)',
       '🔥 FULL ORDER MANAGEMENT PORTAL ACCESS',
+      'Factory Ledgers, Job Sheets & Order Tracking',
       'Priority rendering queue',
       '28% savings on standard rate'
     ]
@@ -152,14 +153,13 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     jerseysWithTag: 877,
     rateWithoutTag: 4.60,
     jerseysWithoutTag: 543,
-    hasOrderPortalAccess: true, // ₹2,500+ -> Includes Order Portal
+    hasOrderPortalAccess: false,
     tagline: '3 months long validity with complete peace of mind',
     features: [
       '₹2,500 added to wallet balance',
       '90 days extended validity',
       '₹2.85/pc with tag (~877 jerseys)',
       '₹4.60/pc without tag (~543 jerseys)',
-      '🔥 FULL ORDER MANAGEMENT PORTAL ACCESS',
       'Ideal for consistent quarterly production'
     ]
   },
@@ -254,11 +254,12 @@ export function getUserJerseyRate(
  * Determine if a user has access to the Order Portal
  * Requirements:
  * 1. Admin/owner accounts always have full access
- * 2. Subscription plans >= ₹2,500 have access while active
- * 3. Plans below ₹2,500 (or on-the-spot) do NOT have access
+ * 2. Any client whose wallet balance crosses ₹5,000 automatically unlocks Order Portal
+ * 3. Subscription plans >= ₹5,000 have access while active
+ * 4. Plans below ₹5,000 (or wallet balance < ₹5,000) do NOT have access
  */
 export function canAccessOrderPortal(
-  user: { email?: string } | null | undefined,
+  user: { email?: string; balance?: number } | null | undefined,
   sub: UserSubscriptionState | null | undefined
 ): boolean {
   if (!user || !user.email) return false;
@@ -274,6 +275,24 @@ export function canAccessOrderPortal(
     return true;
   }
 
+  // 1. Check wallet balance: if >= ₹5,000, automatically unlock Order Portal!
+  let balance = typeof user.balance === 'number' ? user.balance : undefined;
+  if (balance === undefined && typeof window !== 'undefined') {
+    try {
+      const activeStr = localStorage.getItem('fivenest_active_user');
+      if (activeStr) {
+        const parsed = JSON.parse(activeStr);
+        if (parsed.email?.toLowerCase().trim() === email && typeof parsed.balance === 'number') {
+          balance = parsed.balance;
+        }
+      }
+    } catch {}
+  }
+  if (typeof balance === 'number' && balance >= ORDER_PORTAL_MIN_PLAN_AMOUNT) {
+    return true;
+  }
+
+  // 2. Active subscription plan >= ₹5,000 unlocks Order Portal
   if (sub && isSubscriptionActive(sub)) {
     return (sub.planAmount || 0) >= ORDER_PORTAL_MIN_PLAN_AMOUNT;
   }

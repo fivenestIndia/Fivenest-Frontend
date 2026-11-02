@@ -39,26 +39,42 @@ function addDays(dStr: string, days: number): string {
 }
 
 /**
- * Retrieve all billing records from Production (active user, guest, and any custom user storage keys)
+ * Retrieve all billing records from Production scoped strictly to the current user.
+ * Ensures a new client starts 100% clean and fresh without seeing other users' records.
  */
-export function getAllProductionBillingRecords(): BillingRecord[] {
+export function getAllProductionBillingRecords(userEmail?: string): BillingRecord[] {
   const recordsMap = new Map<string, BillingRecord>();
 
-  // 1. Try active user key
-  try {
-    const activeKey = getBillingStorageKey();
-    const str = localStorage.getItem(activeKey);
-    if (str) {
-      const arr = JSON.parse(str);
-      if (Array.isArray(arr)) {
-        arr.filter(r => r && r.id && !r.id.startsWith('rec-')).forEach(r => recordsMap.set(r.id, r));
+  // Resolve user email
+  let email = (userEmail || '').trim().toLowerCase();
+  if (!email && typeof window !== 'undefined') {
+    try {
+      const activeStr = localStorage.getItem('fivenest_active_user');
+      if (activeStr) {
+        const active = JSON.parse(activeStr);
+        if (active?.email) email = active.email.trim().toLowerCase();
       }
-    }
-  } catch (e) {
-    console.error('Error loading active user billing records:', e);
+    } catch {}
   }
 
-  // 2. Try guest key
+  // 1. If user is logged in, strictly load ONLY their own billing records
+  if (email) {
+    try {
+      const activeKey = getBillingStorageKey(email);
+      const str = localStorage.getItem(activeKey);
+      if (str) {
+        const arr = JSON.parse(str);
+        if (Array.isArray(arr)) {
+          arr.filter(r => r && r.id && !r.id.startsWith('rec-')).forEach(r => recordsMap.set(r.id, r));
+        }
+      }
+    } catch (e) {
+      console.error('Error loading user billing records:', e);
+    }
+    return Array.from(recordsMap.values());
+  }
+
+  // 2. Fallback only for unauthenticated guest
   try {
     const guestKey = 'fivenest_invoice_bill_records_guest';
     const str = localStorage.getItem(guestKey);
@@ -72,24 +88,6 @@ export function getAllProductionBillingRecords(): BillingRecord[] {
     }
   } catch (e) {}
 
-  // 3. Scan all keys in localStorage starting with fivenest_invoice_bill_records_
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('fivenest_invoice_bill_records_')) {
-        const str = localStorage.getItem(key);
-        if (str) {
-          const arr = JSON.parse(str);
-          if (Array.isArray(arr)) {
-            arr.filter(r => r && r.id && !r.id.startsWith('rec-')).forEach(r => {
-              if (!recordsMap.has(r.id)) recordsMap.set(r.id, r);
-            });
-          }
-        }
-      }
-    }
-  } catch (e) {}
-
   return Array.from(recordsMap.values());
 }
 
@@ -99,8 +97,8 @@ export function getAllProductionBillingRecords(): BillingRecord[] {
  * - Maps BillingRecords to DesignerBills.
  * - Reflects existing payment allocations.
  */
-export function syncProductionBillingToStore(state: OrderStore): OrderStore {
-  const prodRecords = getAllProductionBillingRecords();
+export function syncProductionBillingToStore(state: OrderStore, userEmail?: string): OrderStore {
+  const prodRecords = getAllProductionBillingRecords(userEmail);
   if (!prodRecords || prodRecords.length === 0) {
     // If no production records exist, designerBills should be clean/empty
     return {

@@ -739,7 +739,7 @@ function reducer(state: OrderStore, action: Action): OrderStore {
   }
 
   // Persist after every action
-  try { localStorage.setItem('fn_orders_v1', JSON.stringify(next)); } catch { /* quota error ignored */ }
+  try { localStorage.setItem(getOrderStorageKey(), JSON.stringify(next)); } catch { /* quota error ignored */ }
   // Persist order definitions into Supabase database (cloud sync)
   if (action.type !== 'LOAD_STATE') {
     queueCloudOrderSave(next);
@@ -1074,12 +1074,28 @@ export function getMonthlyFinancialSummary(state: OrderStore, selectedMonth?: st
 
 // ─────────────── HOOK ─────────────────────────────────────────────────────────
 
-const STORAGE_KEY = 'fn_orders_v1';
+export const getOrderStorageKey = (userEmail?: string | null): string => {
+  const email = (userEmail || '').trim().toLowerCase();
+  if (email) {
+    return `fn_orders_${email}`;
+  }
+  try {
+    const activeStr = localStorage.getItem('fivenest_active_user');
+    if (activeStr) {
+      const active = JSON.parse(activeStr);
+      if (active?.email) {
+        return `fn_orders_${active.email.trim().toLowerCase()}`;
+      }
+    }
+  } catch (e) {}
+  return 'fn_orders_guest';
+};
 
-export function useOrderStore() {
+export function useOrderStore(userEmail?: string | null) {
+  const storageKey = getOrderStorageKey(userEmail);
   const [state, dispatch] = useReducer(reducer, null, () => {
     try {
-      const savedStr = localStorage.getItem(STORAGE_KEY);
+      const savedStr = localStorage.getItem(storageKey);
       if (savedStr) {
         const saved = JSON.parse(savedStr) as OrderStore;
         // Purge any sample mock records from all 3 tabs
@@ -1106,18 +1122,18 @@ export function useOrderStore() {
           saved.counters.exp = saved.factoryExpenses.length;
         }
 
-        // Synchronize real bills and customers from Production Studio
-        const synced = syncProductionBillingToStore(saved);
+        // Synchronize real bills and customers for this specific user
+        const synced = syncProductionBillingToStore(saved, userEmail || undefined);
         const allocated = applyAllocations(synced);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(allocated));
+        localStorage.setItem(storageKey, JSON.stringify(allocated));
         return allocated;
       }
     } catch { /* ignore */ }
 
-    // Bootstrap with clean seed + synchronized production data
-    const cleanSynced = syncProductionBillingToStore(SEED);
+    // First time client sees the portal: start 100% clean and fresh!
+    const cleanSynced = syncProductionBillingToStore(SEED, userEmail || undefined);
     const allocated = applyAllocations(cleanSynced);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(allocated));
+    localStorage.setItem(storageKey, JSON.stringify(allocated));
     return allocated;
   });
 
@@ -1145,9 +1161,9 @@ export function useOrderStore() {
         const cloudStore = await fetchCloudOrderStore();
         if (cloudStore && isMounted) {
           const merged = mergeOrderStores(state, cloudStore);
-          const synced = syncProductionBillingToStore(merged);
+          const synced = syncProductionBillingToStore(merged, userEmail || undefined);
           const allocated = applyAllocations(synced);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(allocated));
+          localStorage.setItem(storageKey, JSON.stringify(allocated));
           dispatch({ type: 'LOAD_STATE', payload: allocated });
         }
       } catch (err) {

@@ -27,7 +27,7 @@ import ExpenseModal from '../components/orders/ExpenseModal';
 import MonthlyAllLedgerView from '../components/orders/MonthlyAllLedgerView';
 import AnimatedFinancialDashboard from '../components/orders/AnimatedFinancialDashboard';
 import { ManufacturerOrder, DesignerBill, FactoryExpense } from '../hooks/useOrderStore';
-import { supabase } from '../lib/supabaseClient';
+import { supabase, fetchUserWallet } from '../lib/supabaseClient';
 import { canAccessOrderPortal, getSavedSubscription, isSubscriptionActive, type UserSubscriptionState } from '../lib/subscriptionPlans';
 import { SubscriptionModal } from '../components/studio/SubscriptionModal';
 
@@ -518,7 +518,17 @@ function DesignerBillsView({ store, onReceivePayment, onView, onViewLedger, onNe
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 export default function OrderManagement() {
-  const store = useOrderStore();
+  // User & Subscription access gate
+  const [currentUser, setCurrentUser] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem('fivenest_active_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const store = useOrderStore(currentUser?.email);
   const [businessMode, setBusinessMode] = useState<BusinessMode>('all');
   const [subView, setSubView] = useState<SubView>('overview');
   const [globalSearch, setGlobalSearch] = useState('');
@@ -539,16 +549,6 @@ export default function OrderManagement() {
   const [toast, setToast] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>('synced');
 
-  // User & Subscription access gate
-  const [currentUser, setCurrentUser] = useState<any>(() => {
-    try {
-      const saved = localStorage.getItem('fivenest_active_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
-
   const [subscription, setSubscription] = useState<UserSubscriptionState | null>(() => getSavedSubscription());
   const [showSubscriptionModal, setShowSubscriptionModal] = useState<boolean>(false);
   const [checkingAuth, setCheckingAuth] = useState<boolean>(true);
@@ -558,11 +558,13 @@ export default function OrderManagement() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
+          const wallet = await fetchUserWallet(session.user.id);
           setCurrentUser((prev: any) => ({
             ...(prev || {}),
             id: session.user.id,
             email: session.user.email || prev?.email || '',
-            name: session.user.user_metadata?.full_name || prev?.name || 'User'
+            name: session.user.user_metadata?.full_name || prev?.name || 'User',
+            balance: typeof wallet?.balance === 'number' ? wallet.balance : (prev?.balance ?? 0)
           }));
         }
       } catch (e) {}
@@ -629,7 +631,7 @@ export default function OrderManagement() {
     setSubView('orders');
   };
 
-  // Access control gate: Only plans >= ₹2,500 or admins can access Order Portal
+  // Access control gate: Only plans >= ₹5,000, wallet balance >= ₹5,000, or admins can access Order Portal
   if (!checkingAuth && !hasAccess) {
     return (
       <div className="min-h-screen bg-[#090D16] text-[#F8FAFC] flex items-center justify-center p-6 font-sans">
@@ -643,16 +645,16 @@ export default function OrderManagement() {
           </h2>
           
           <p className="text-sm text-[#94A3B8] leading-relaxed mb-6">
-            Manufacturing orders, job sheets, client billing, and factory ledgers are exclusively available on plans <strong>₹2,500 and above</strong> (Monthly Growth, Pro, Factory & Quarterly plans).
+            Manufacturing orders, job sheets, client billing, and factory ledgers are exclusively available on plans <strong>₹5,000 and above</strong> (Monthly Pro, Factory &amp; Quarterly Growth/Pro) or whenever your wallet balance crosses <strong>₹5,000</strong>.
           </p>
 
           <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-6 text-left text-xs text-[#CBD5E1] flex flex-col gap-2">
             <div className="flex items-center gap-2 text-emerald-400 font-bold">
-              <CheckCircle size={15} /> Included in Plans ₹2,500 & Above:
+              <CheckCircle size={15} /> Included with ₹5,000+ Plans or Balance:
             </div>
             <div>• Complete Manufacturing Order creation with sizing breakdown</div>
-            <div>• Sublimation & DTF Job Sheets with PDF print downloads</div>
-            <div>• Factory Expenses, Profit & Loss reports & Party Ledgers</div>
+            <div>• Sublimation &amp; DTF Job Sheets with PDF print downloads</div>
+            <div>• Factory Expenses, Profit &amp; Loss reports &amp; Party Ledgers</div>
             <div>• 100% of upfront plan amount is credited directly to your export wallet!</div>
           </div>
 
@@ -662,7 +664,7 @@ export default function OrderManagement() {
               className="w-full py-3.5 px-4 rounded-xl border-none bg-gradient-to-r from-[#E4572E] to-[#EA580C] text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-orange-500/30 hover:brightness-110 transition-all cursor-pointer"
             >
               <Zap size={16} />
-              <span>Unlock Order Portal — Choose Plan (₹2,500+)</span>
+              <span>Unlock Order Portal — Choose Plan (₹5,000+)</span>
             </button>
 
             <Link to="/studio" className="no-underline">
