@@ -68,6 +68,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
   const [rechargeAmount, setRechargeAmount] = useState<number>(50);
   const [customInputVal, setCustomInputVal] = useState<string>('50');
   const [isPaying, setIsPaying] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [marketingConsent, setMarketingConsent] = useState(false);
 
   // Switch to wallet tab if already logged in
   useEffect(() => {
@@ -200,10 +202,17 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
       setErrorMessage('Password must be at least 6 characters long.');
       return;
     }
+    if (!termsAccepted) {
+      setErrorMessage('Please accept the Terms of Service and Privacy Policy to create your account.');
+      return;
+    }
 
     setLoading(true);
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = name.trim();
+    try {
+      localStorage.setItem('fivenest_marketing_consent', String(marketingConsent));
+    } catch {}
 
     try {
       // 1. Attempt Supabase Sign Up
@@ -211,7 +220,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
         email: cleanEmail,
         password,
         options: {
-          data: { name: cleanName }
+          data: { 
+            name: cleanName,
+            terms_accepted_at: new Date().toISOString(),
+            terms_version: '2026.11',
+            marketing_consent: marketingConsent
+          }
         }
       });
 
@@ -963,12 +977,43 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginStateCha
                 </div>
               </div>
 
-              <button type="submit" disabled={loading}
+              {/* Legal Checkboxes: Terms, Privacy, 18+ Age & Marketing Consent */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginTop: '4px', textAlign: 'left' }}>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', fontSize: '11px', color: 'rgba(255,255,255,0.75)', lineHeight: '1.45' }}>
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    style={{ marginTop: '2px', accentColor: '#E4572E', cursor: 'pointer' }}
+                    required
+                  />
+                  <span>
+                    I confirm I am 18+ and agree to the{' '}
+                    <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: '#ff7a50', textDecoration: 'underline' }}>Terms of Service</a>,{' '}
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: '#ff7a50', textDecoration: 'underline' }}>Privacy Policy</a>, and{' '}
+                    <a href="/refund" target="_blank" rel="noopener noreferrer" style={{ color: '#ff7a50', textDecoration: 'underline' }}>Refund Policy</a>.
+                  </span>
+                </label>
+
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', fontSize: '11px', color: 'rgba(255,255,255,0.6)', lineHeight: '1.45' }}>
+                  <input
+                    type="checkbox"
+                    checked={marketingConsent}
+                    onChange={(e) => setMarketingConsent(e.target.checked)}
+                    style={{ marginTop: '2px', accentColor: '#E4572E', cursor: 'pointer' }}
+                  />
+                  <span>
+                    Send me product updates and printing tips (optional). You can opt out anytime.
+                  </span>
+                </label>
+              </div>
+
+              <button type="submit" disabled={loading || !termsAccepted}
                 style={{
                   width: '100%', padding: '12px', borderRadius: '9px', border: 'none',
-                  background: loading ? 'rgba(228,87,46,0.4)' : '#E4572E',
+                  background: (loading || !termsAccepted) ? 'rgba(228,87,46,0.35)' : '#E4572E',
                   color: 'white', fontWeight: '700', fontSize: '13px',
-                  cursor: loading ? 'not-allowed' : 'pointer',
+                  cursor: (loading || !termsAccepted) ? 'not-allowed' : 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                   transition: 'all 0.2s', boxShadow: '0 4px 20px rgba(228,87,46,0.3)'
                 }}>

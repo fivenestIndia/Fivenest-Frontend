@@ -1438,6 +1438,13 @@ export default function Home() {
             ))}
           </div>
 
+          {/* Honest Consumer Protection & Endorsement Disclosure */}
+          <div className="mt-8 text-center max-w-2xl mx-auto">
+            <p className="text-[11px] text-[#71717A] leading-relaxed italic">
+              * Representative case studies and quotes compiled from regional sublimation pilot users and factory operator interviews across Tirupur, Surat, and Mumbai. Production throughput times vary based on printer RIP setup, roll paper speed, and fabric handling.
+            </p>
+          </div>
+
         </div>
       </section>
 

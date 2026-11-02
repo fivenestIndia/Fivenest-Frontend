@@ -5,6 +5,11 @@ import OrderManagement from './pages/OrderManagement';
 import WebStudio from './pages/WebStudio';
 import Contact from './pages/Contact';
 import DesignDashboard from './pages/DesignDashboard';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
+import RefundPolicy from './pages/RefundPolicy';
+import DataRequest from './pages/DataRequest';
+import CookieConsentBanner from './components/layout/CookieConsentBanner';
 
 // Helper to detect if accessed from an admin / design dashboard subdomain
 function isSubdomainAdmin(): boolean {
@@ -123,10 +128,19 @@ export default function App() {
           {/* Contact */}
           <Route path="/contact" element={<Contact />} />
 
+          {/* Legal & Compliance Routes */}
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/refund" element={<RefundPolicy />} />
+          <Route path="/cancellation-refund" element={<RefundPolicy />} />
+          <Route path="/data-request" element={<DataRequest />} />
+          <Route path="/privacy-request" element={<DataRequest />} />
+
           {/* Home */}
           <Route path="/" element={<Home />} />
           <Route path="*" element={<Home />} />
         </Routes>
+        <CookieConsentBanner />
       </Router>
     </ErrorBoundary>
   );

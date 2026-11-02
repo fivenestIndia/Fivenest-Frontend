@@ -10,10 +10,11 @@ const productLinks = [
 ];
 
 const companyLinks = [
-  { label: 'About Us', to: '/contact' },
-  { label: 'Privacy Policy', to: '/contact' },
-  { label: 'Terms of Service', to: '/contact' },
-  { label: 'Refund Policy', to: '/contact' },
+  { label: 'About FiveNest', to: '/contact' },
+  { label: 'Privacy Policy', to: '/privacy' },
+  { label: 'Terms of Service', to: '/terms' },
+  { label: 'Cancellation & Refund', to: '/refund' },
+  { label: 'Data Access & Deletion', to: '/data-request' },
 ];
 
 export default function Footer() {
@@ -73,6 +74,20 @@ export default function Footer() {
                   </Link>
                 </li>
               ))}
+              <li>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof window !== 'undefined') {
+                      window.dispatchEvent(new CustomEvent('fivenest_open_cookie_preferences'));
+                    }
+                  }}
+                  className="text-[#686661] text-sm font-medium hover:text-[#E4572E] transition-colors flex items-center gap-1.5 group cursor-pointer text-left"
+                >
+                  <ArrowRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity -ml-3 group-hover:ml-0 transition-all text-[#E4572E]" />
+                  Cookie Preferences
+                </button>
+              </li>
             </ul>
           </div>
 
