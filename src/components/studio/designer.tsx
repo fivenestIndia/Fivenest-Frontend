@@ -3654,8 +3654,53 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           setActiveTool('eyedrop');
           return;
         }
-        if (e.key === 'Delete') {
-          updateActivePanel({ uploadedFileUrl: null });
+        if (e.key === 'Escape') {
+          if (activeTextLayer) {
+            setActiveTextLayer(null);
+            setPrefTrigger(prev => prev + 1);
+            return;
+          }
+        }
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          e.preventDefault();
+          e.stopPropagation();
+
+          // Case 1: Name or Number (or SizeTag) is selected -> HIDE that layer, do NOT delete background
+          if (activeTextLayer === 'name') {
+            updateTextConfig('name', { enabled: false });
+            setActiveTextLayer(null);
+            setPrefTrigger(prev => prev + 1);
+            toast.info('Player Name hidden (use Show: Name or Layer checkbox to restore)');
+            return;
+          }
+          if (activeTextLayer === 'number') {
+            updateTextConfig('number', { enabled: false });
+            setActiveTextLayer(null);
+            setPrefTrigger(prev => prev + 1);
+            toast.info('Player Number hidden (use Show: Number or Layer checkbox to restore)');
+            return;
+          }
+          if (activeTextLayer === 'sizeTag') {
+            updateTextConfig('sizeTag', { enabled: false });
+            setActiveTextLayer(null);
+            setPrefTrigger(prev => prev + 1);
+            toast.info('Size Tag hidden');
+            return;
+          }
+
+          // Case 2: Panel is selected, but Name & Number is NOT selected -> Delete background
+          const targetTab = activeTab === 'threeD' ? 'front' : activeTab === 'dual' ? dualActivePanel : activeTab;
+          if (targetTab.startsWith('sleeve')) {
+            updateActivePanel({
+              uploadedFileUrl: null,
+              uploadedFileHalfUrl: null,
+              uploadedFileFullUrl: null
+            });
+          } else {
+            updateActivePanel({ uploadedFileUrl: null });
+          }
+          setPrefTrigger(prev => prev + 1);
+          toast.info('Panel background removed');
           return;
         }
       }
@@ -4705,6 +4750,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
     // If clicked on canvas outside text, deselect text layer
     setActiveTextLayer(null);
+    setPrefTrigger(prev => prev + 1);
   };
 
   const handleCanvasMouseUp = () => {
@@ -5091,7 +5137,41 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         }}
         onOpenImport={() => fileInputRef.current?.click()}
         onOpenBulkImport={() => zipInputRef.current?.click()}
-        onClearPanel={() => updateActivePanel({ uploadedFileUrl: null })}
+        onClearPanel={() => {
+          if (activeTextLayer === 'name') {
+            updateTextConfig('name', { enabled: false });
+            setActiveTextLayer(null);
+            setPrefTrigger(prev => prev + 1);
+            toast.info('Player Name hidden');
+            return;
+          }
+          if (activeTextLayer === 'number') {
+            updateTextConfig('number', { enabled: false });
+            setActiveTextLayer(null);
+            setPrefTrigger(prev => prev + 1);
+            toast.info('Player Number hidden');
+            return;
+          }
+          if (activeTextLayer === 'sizeTag') {
+            updateTextConfig('sizeTag', { enabled: false });
+            setActiveTextLayer(null);
+            setPrefTrigger(prev => prev + 1);
+            toast.info('Size Tag hidden');
+            return;
+          }
+          const targetTab = activeTab === 'threeD' ? 'front' : activeTab === 'dual' ? dualActivePanel : activeTab;
+          if (targetTab.startsWith('sleeve')) {
+            updateActivePanel({
+              uploadedFileUrl: null,
+              uploadedFileHalfUrl: null,
+              uploadedFileFullUrl: null
+            });
+          } else {
+            updateActivePanel({ uploadedFileUrl: null });
+          }
+          setPrefTrigger(prev => prev + 1);
+          toast.info('Panel background removed');
+        }}
         onOpenShortcutsModal={() => setShowShortcutsModal(true)}
       />
 
