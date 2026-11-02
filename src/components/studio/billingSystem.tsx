@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import type { PlayerRecord, OrderMetadata } from './orderEntry';
 import type { OrderItem } from './factoryOrders';
+import { getCompanyProfile, type CompanyProfile } from '../../lib/companyProfile';
 
 export interface BillingRecord {
   id: string;
@@ -159,15 +160,32 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({
   const [selectedInvoice, setSelectedInvoice] = useState<BillingRecord | null>(null);
   const [editingRecord, setEditingRecord] = useState<BillingRecord | null>(null);
 
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile>(getCompanyProfile);
+
   // Editable Studio UPI ID
   const [upiId, setUpiId] = useState<string>(() => {
-    return localStorage.getItem('fivenest_upi_id') || 'vilesh332-1@okhdfcbank';
+    return localStorage.getItem('fivenest_upi_id') || companyProfile.upiId || 'vilesh332-1@okhdfcbank';
   });
 
   const handleUpiChange = (newVal: string) => {
     setUpiId(newVal);
     localStorage.setItem('fivenest_upi_id', newVal);
   };
+
+  // Sync factory billing profile changes automatically
+  useEffect(() => {
+    const handleProfileSync = () => {
+      setCompanyProfile(getCompanyProfile());
+    };
+    window.addEventListener('fivenest_company_profile_updated', handleProfileSync);
+    window.addEventListener('fn_company_profile_changed', handleProfileSync);
+    window.addEventListener('storage', handleProfileSync);
+    return () => {
+      window.removeEventListener('fivenest_company_profile_updated', handleProfileSync);
+      window.removeEventListener('fn_company_profile_changed', handleProfileSync);
+      window.removeEventListener('storage', handleProfileSync);
+    };
+  }, []);
 
   // Reload billing data for the specific active user
   const refreshBillingData = useCallback(() => {
@@ -330,7 +348,8 @@ export const BillingSystem: React.FC<BillingSystemProps> = ({
     const finalTotal = calculateFinalTotal(rec);
     const currentUpi = upiId || 'vilesh332-1@okhdfcbank';
 
-    const upiUrlRaw = `upi://pay?pa=${currentUpi}&pn=FiveNest&am=${finalTotal}&cu=INR`;
+    const compName = companyProfile.companyName || 'FiveNest';
+    const upiUrlRaw = `upi://pay?pa=${currentUpi}&pn=${encodeURIComponent(compName)}&am=${finalTotal}&cu=INR`;
     const qrUrl = `https://quickchart.io/qr?size=500&text=${encodeURIComponent(upiUrlRaw)}`;
 
     const messageText = 
@@ -357,7 +376,7 @@ ${upiUrlRaw}
 ${qrUrl}
 
 ◆ Thank You For Your Order
-— FiveNest`;
+— ${compName}`;
 
     const cleanPhone = (rec.whatsapp || '').replace(/\D/g, '');
     const url = cleanPhone 
@@ -1128,13 +1147,13 @@ ${qrUrl}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #E4572E', paddingBottom: '16px', marginBottom: '20px' }}>
                 <div>
                   <h1 style={{ fontSize: '22px', fontWeight: '900', color: '#E4572E', margin: 0, textTransform: 'uppercase' }}>
-                    FiveNest Web Studio
+                    {companyProfile.companyName || 'FiveNest Web Studio'}
                   </h1>
                   <p style={{ fontSize: '11px', color: '#6B7280', margin: '4px 0 0' }}>
-                    Precision Sublimation & Sportswear Printing Solutions
+                    {companyProfile.tagline || (companyProfile.accountHolder ? `Proprietor / Owner: ${companyProfile.accountHolder}` : 'Precision Sublimation & Sportswear Printing Solutions')}
                   </p>
                   <p style={{ fontSize: '11px', color: '#6B7280', margin: '2px 0 0' }}>
-                    GSTIN / Tax ID: 27ABCDE1234F1Z5 | Support: support@fivenest.in
+                    {companyProfile.gstin ? `GSTIN: ${companyProfile.gstin} | ` : ''}Phone: +91 {companyProfile.phone || '96640 90039'}{companyProfile.cityStatePin ? ` | ${companyProfile.cityStatePin}` : (companyProfile.address ? ` | ${companyProfile.address}` : '')}
                   </p>
                 </div>
 
@@ -1293,7 +1312,7 @@ ${qrUrl}
 
               {/* Footer */}
               <div style={{ marginTop: '24px', textAlign: 'center', borderTop: '1px solid #E5E7EB', paddingTop: '14px', fontSize: '11px', color: '#9CA3AF' }}>
-                Thank you for your business with FiveNest Web Studio! ⚡
+                Thank you for your business with {companyProfile.companyName || 'FiveNest Web Studio'}! ⚡
               </div>
 
             </div>
