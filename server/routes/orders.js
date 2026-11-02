@@ -45,14 +45,20 @@ router.get("/store", requireAuth, async (req, res) => {
       }
     }
 
-    // 2. Try MongoDB backup
-    const query = [];
-    if (userId) query.push({ userId });
-    if (email) query.push({ email: email.toLowerCase() });
+    // 2. Try MongoDB backup (only if connected)
+    if (mongoose.connection.readyState === 1) {
+      try {
+        const query = [];
+        if (userId) query.push({ userId });
+        if (email) query.push({ email: email.toLowerCase() });
 
-    const doc = await MongoOrderStore.findOne({ $or: query }).sort({ updatedAt: -1 });
-    if (doc && doc.orderStore) {
-      return res.status(200).json({ success: true, source: "mongodb", orderStore: doc.orderStore });
+        const doc = await MongoOrderStore.findOne({ $or: query }).sort({ updatedAt: -1 });
+        if (doc && doc.orderStore) {
+          return res.status(200).json({ success: true, source: "mongodb", orderStore: doc.orderStore });
+        }
+      } catch (mErr) {
+        console.warn("MongoDB order fetch skipped:", mErr.message);
+      }
     }
 
     return res.status(200).json({ success: true, orderStore: null });
@@ -91,22 +97,26 @@ router.post("/store", requireAuth, async (req, res) => {
       }
     }
 
-    // 2. Save / Upsert to MongoDB
-    if (userId || email) {
-      const filter = [];
-      if (userId) filter.push({ userId });
-      if (email) filter.push({ email: email.toLowerCase() });
+    // 2. Save / Upsert to MongoDB (only if connected)
+    if (mongoose.connection.readyState === 1 && (userId || email)) {
+      try {
+        const filter = [];
+        if (userId) filter.push({ userId });
+        if (email) filter.push({ email: email.toLowerCase() });
 
-      await MongoOrderStore.findOneAndUpdate(
-        { $or: filter },
-        {
-          userId: userId || undefined,
-          email: email ? email.toLowerCase() : undefined,
-          orderStore,
-          updatedAt: new Date(),
-        },
-        { upsert: true, new: true }
-      );
+        await MongoOrderStore.findOneAndUpdate(
+          { $or: filter },
+          {
+            userId: userId || undefined,
+            email: email ? email.toLowerCase() : undefined,
+            orderStore,
+            updatedAt: new Date(),
+          },
+          { upsert: true, new: true }
+        );
+      } catch (mErr) {
+        console.warn("MongoDB order save skipped:", mErr.message);
+      }
     }
 
     return res.status(200).json({

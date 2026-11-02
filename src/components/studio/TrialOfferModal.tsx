@@ -6,6 +6,7 @@ import {
 import { 
   getTrialStatus, applyForTrial, TrialClaimRecord, TrialStage 
 } from '../../lib/trialManager';
+import { getCompanyProfile, saveCompanyProfile, type CompanyProfile } from '../../lib/companyProfile';
 
 interface TrialOfferModalProps {
   isOpen: boolean;
@@ -59,6 +60,16 @@ export default function TrialOfferModal({
         setCity(res.claim.city || '');
         setState(res.claim.state || '');
         setGstin(res.claim.gstin || '');
+      } else {
+        // Pre-fill from existing factory profile if available
+        const cp = getCompanyProfile();
+        if (cp && cp.companyName && cp.companyName !== 'FiveNest Apparels') {
+          setBusinessName(cp.companyName);
+          if (cp.accountHolder) setOwnerName(cp.accountHolder);
+          if (cp.phone) setMobile(cp.phone);
+          if (cp.gstin) setGstin(cp.gstin);
+          if (cp.state) setState(cp.state);
+        }
       }
       setFetchLoading(false);
     });
@@ -87,6 +98,41 @@ export default function TrialOfferModal({
       return;
     }
 
+    // ── AUTOMATICALLY SYNC TO FACTORY BILLING PROFILE ──
+    // Every invoice, job sheet, and ledger entry will now generate with this factory identity!
+    try {
+      const currentCp = getCompanyProfile();
+      const rawGst = gstin.trim();
+      const cleanGst = rawGst && rawGst.toLowerCase() !== 'gstin (optional)' ? rawGst.toUpperCase() : '';
+      const updatedCp: CompanyProfile = {
+        ...currentCp,
+        companyName: businessName.trim(),
+        accountHolder: ownerName.trim(),
+        phone: mobile.trim(),
+        email: currentUser.email || currentCp.email || '',
+        cityStatePin: [city.trim(), state.trim()].filter(Boolean).join(', ') || currentCp.cityStatePin || 'Mumbai, Maharashtra',
+        address: city.trim() ? `${city.trim()} Textile & Apparel Hub` : (currentCp.address || 'Textile Industrial Hub'),
+        gstin: cleanGst || currentCp.gstin || '',
+        state: state.trim() || currentCp.state || 'Maharashtra',
+        stateCode: currentCp.stateCode || '27'
+      };
+      saveCompanyProfile(updatedCp);
+
+      // Save scoped keys for studio billing and order management
+      localStorage.setItem('fivenest_company_name', businessName.trim());
+      localStorage.setItem('fivenest_factory_owner', ownerName.trim());
+      localStorage.setItem('fivenest_factory_phone', mobile.trim());
+      if (cleanGst) localStorage.setItem('fivenest_gstin', cleanGst);
+
+      // Dispatch global events so OrderManagement, Billing, and Invoice drawers update immediately
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('fivenest_company_profile_updated', { detail: updatedCp }));
+        window.dispatchEvent(new CustomEvent('fn_company_profile_changed', { detail: updatedCp }));
+      }
+    } catch (profileErr) {
+      console.warn("Factory billing profile sync warning:", profileErr);
+    }
+
     setLoading(true);
     try {
       const res = await applyForTrial({
@@ -103,7 +149,7 @@ export default function TrialOfferModal({
       if (res.success && res.claim) {
         setClaim(res.claim);
         setStage(res.claim.stage);
-        setSuccessMsg(res.message || 'Application submitted successfully!');
+        setSuccessMsg(res.message || 'Application submitted successfully! Your factory billing profile has been saved.');
         if (onClaimSuccess) onClaimSuccess();
       } else {
         setErrorMsg(res.error || 'Failed to submit application. Please try again.');

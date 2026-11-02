@@ -1,9 +1,100 @@
 import express from "express";
+import mongoose from "mongoose";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import TrialClaim from "../models/TrialClaim.js";
 import { isAuthorizedAdmin } from "./admin.js";
 import { supabaseAdmin } from "../config/supabase.js";
 
 const router = express.Router();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DATA_FILE = path.join(__dirname, "../data/trial_claims.json");
+
+// In-memory cache of claims for zero-latency lookups
+const claimsCache = new Map();
+
+// Helper to normalize phone
+function cleanPhone(phone) {
+  if (!phone) return "";
+  const cleaned = phone.replace(/\D/g, "");
+  if (cleaned.length === 12 && cleaned.startsWith("91")) return cleaned.slice(2);
+  if (cleaned.length === 11 && cleaned.startsWith("0")) return cleaned.slice(1);
+  return cleaned;
+}
+
+// Load claims from local disk on startup
+function loadLocalClaims() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const raw = fs.readFileSync(DATA_FILE, "utf-8");
+      const list = JSON.parse(raw);
+      for (const item of list) {
+        if (item.id) claimsCache.set(String(item.id), item);
+        if (item.userEmail) claimsCache.set(item.userEmail.toLowerCase().trim(), item);
+      }
+    }
+  } catch (e) {
+    console.warn("Could not read local trial claims file:", e.message);
+  }
+}
+loadLocalClaims();
+
+// Persist claims to local disk
+function persistLocalClaims() {
+  try {
+    const list = Array.from(new Set(claimsCache.values()));
+    fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2), "utf-8");
+  } catch (e) {
+    console.warn("Could not save local trial claims file:", e.message);
+  }
+}
+
+// Sync claim to Supabase plugin_usage_logs
+async function syncClaimToSupabase(claim) {
+  if (!supabaseAdmin) return;
+  try {
+    await supabaseAdmin.from("plugin_usage_logs").insert({
+      user_id: claim.userId || null,
+      plugin_type: "trial_claim",
+      action: claim.stage || "pending_review",
+      details: claim,
+    });
+  } catch (e) {
+    console.warn("Supabase trial log sync warning:", e.message);
+  }
+}
+
+// Sync factory business details to user profile in Supabase
+async function syncUserProfileInSupabase(userId, email, details) {
+  if (!supabaseAdmin) return;
+  try {
+    let resolvedId = userId;
+    if (!resolvedId && email) {
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("id")
+        .eq("email", email.toLowerCase().trim())
+        .maybeSingle();
+      if (profile?.id) resolvedId = profile.id;
+    }
+    if (resolvedId) {
+      await supabaseAdmin.from("profiles").update({
+        company_name: details.businessName,
+        full_name: details.ownerName,
+        phone: details.mobile,
+        city: details.city,
+        state: details.state,
+        gstin: details.gstin,
+        updated_at: new Date().toISOString()
+      }).eq("id", resolvedId);
+    }
+  } catch (e) {
+    console.warn("User profile factory sync warning:", e.message);
+  }
+}
 
 /**
  * Helper to update user's wallet in Supabase with trial credits
@@ -65,6 +156,95 @@ async function creditUserWalletInSupabase(userId, email, amount, description) {
 }
 
 /**
+ * Unified finder: checks in-memory cache, then Supabase, then MongoDB (if connected)
+ */
+async function findClaimByEmail(email) {
+  if (!email) return null;
+  const cleanEmail = email.toLowerCase().trim();
+
+  // 1. Check in-memory cache first (instant)
+  if (claimsCache.has(cleanEmail)) {
+    return claimsCache.get(cleanEmail);
+  }
+
+  // 2. Try MongoDB only if connected
+  if (mongoose.connection.readyState === 1) {
+    try {
+      const doc = await TrialClaim.findOne({ userEmail: cleanEmail });
+      if (doc) {
+        const obj = doc.toObject();
+        obj.id = String(doc._id);
+        claimsCache.set(cleanEmail, obj);
+        claimsCache.set(obj.id, obj);
+        return obj;
+      }
+    } catch (e) {
+      console.warn("MongoDB claim lookup skipped:", e.message);
+    }
+  }
+
+  // 3. Try Supabase plugin_usage_logs
+  if (supabaseAdmin) {
+    try {
+      const { data } = await supabaseAdmin
+        .from("plugin_usage_logs")
+        .select("details")
+        .eq("plugin_type", "trial_claim")
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      if (data && data.length > 0) {
+        for (const row of data) {
+          if (row?.details?.userEmail?.toLowerCase().trim() === cleanEmail) {
+            const c = row.details;
+            claimsCache.set(cleanEmail, c);
+            if (c.id) claimsCache.set(String(c.id), c);
+            return c;
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  return null;
+}
+
+/**
+ * Unified save helper
+ */
+async function saveClaimToStore(claim) {
+  const cleanEmail = claim.userEmail.toLowerCase().trim();
+  const idStr = String(claim.id || claim._id || `trial_${Date.now()}`);
+  claim.id = idStr;
+  claim.updatedAt = new Date().toISOString();
+
+  // Update in-memory
+  claimsCache.set(cleanEmail, claim);
+  claimsCache.set(idStr, claim);
+
+  // Write to disk
+  persistLocalClaims();
+
+  // Sync to Supabase non-blocking
+  syncClaimToSupabase(claim).catch(() => {});
+
+  // Sync to MongoDB only if connected
+  if (mongoose.connection.readyState === 1) {
+    try {
+      await TrialClaim.findOneAndUpdate(
+        { userEmail: cleanEmail },
+        claim,
+        { upsert: true, new: true }
+      );
+    } catch (e) {
+      console.warn("MongoDB claim save skipped:", e.message);
+    }
+  }
+
+  return claim;
+}
+
+/**
  * @route POST /api/trial/apply
  * @desc Submit business details for ₹500 Free Trial Offer
  */
@@ -88,11 +268,21 @@ router.post("/apply", async (req, res) => {
 
     const cleanEmail = userEmail.toLowerCase().trim();
     const cleanMobile = mobile.trim();
-    const normalizedPhone = TrialClaim.normalizePhone(cleanMobile);
+    const normalizedPhone = cleanPhone(cleanMobile);
     const clientIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "";
 
+    // Sync factory profile to Supabase profile in background
+    syncUserProfileInSupabase(userId, cleanEmail, {
+      businessName: businessName.trim(),
+      ownerName: ownerName.trim(),
+      mobile: cleanMobile,
+      city: city?.trim() || "",
+      state: state?.trim() || "",
+      gstin: gstin?.trim() || ""
+    }).catch(() => {});
+
     // Check if an application already exists for this user email
-    let existingClaim = await TrialClaim.findOne({ userEmail: cleanEmail });
+    let existingClaim = await findClaimByEmail(cleanEmail);
 
     // Deduplication checks across past claims
     const duplicateMatches = [];
@@ -100,13 +290,14 @@ router.post("/apply", async (req, res) => {
     let businessMatch = false;
     let ipMatch = false;
 
+    const allClaims = Array.from(new Set(claimsCache.values())).filter(
+      c => c.userEmail && c.userEmail.toLowerCase().trim() !== cleanEmail
+    );
+
     // 1. Phone match check
     if (normalizedPhone) {
-      const phoneMatches = await TrialClaim.find({
-        userEmail: { $ne: cleanEmail }
-      });
-      for (const c of phoneMatches) {
-        if (TrialClaim.normalizePhone(c.mobile) === normalizedPhone) {
+      for (const c of allClaims) {
+        if (cleanPhone(c.mobile) === normalizedPhone) {
           phoneMatch = true;
           duplicateMatches.push(`Mobile matches existing claim: ${c.businessName} (${c.userEmail})`);
           break;
@@ -117,7 +308,6 @@ router.post("/apply", async (req, res) => {
     // 2. Business name match check
     const normalizedBizName = businessName.toLowerCase().replace(/[^a-z0-9]/g, "");
     if (normalizedBizName.length > 3) {
-      const allClaims = await TrialClaim.find({ userEmail: { $ne: cleanEmail } });
       for (const c of allClaims) {
         const otherBiz = (c.businessName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
         if (otherBiz && otherBiz === normalizedBizName) {
@@ -128,27 +318,24 @@ router.post("/apply", async (req, res) => {
       }
     }
 
-    // 3. IP address check (flags for review rather than rejecting)
+    // 3. IP address check
     if (clientIp && clientIp !== "127.0.0.1" && clientIp !== "::1") {
-      const ipClaims = await TrialClaim.find({
-        userEmail: { $ne: cleanEmail },
-        ipAddress: clientIp
-      });
-      if (ipClaims.length > 0) {
+      const matchIpCount = allClaims.filter(c => c.ipAddress === clientIp).length;
+      if (matchIpCount > 0) {
         ipMatch = true;
-        duplicateMatches.push(`IP address matches ${ipClaims.length} other claim(s)`);
+        duplicateMatches.push(`IP address matches ${matchIpCount} other claim(s)`);
       }
     }
 
     if (existingClaim) {
-      // If user is re-submitting or updating details while pending or clarification requested
+      // If user is updating details while pending or clarification requested
       if (existingClaim.stage === "pending_review" || existingClaim.stage === "clarification_requested") {
         existingClaim.businessName = businessName.trim();
         existingClaim.ownerName = ownerName.trim();
         existingClaim.mobile = cleanMobile;
-        existingClaim.city = city?.trim() || existingClaim.city;
-        existingClaim.state = state?.trim() || existingClaim.state;
-        existingClaim.gstin = gstin?.trim() || existingClaim.gstin;
+        existingClaim.city = city?.trim() || existingClaim.city || "";
+        existingClaim.state = state?.trim() || existingClaim.state || "";
+        existingClaim.gstin = gstin?.trim() || existingClaim.gstin || "";
         existingClaim.stage = "pending_review";
         existingClaim.clarificationMessage = "";
         existingClaim.flags = {
@@ -157,7 +344,7 @@ router.post("/apply", async (req, res) => {
           ipMatch,
           matchedRecords: duplicateMatches
         };
-        await existingClaim.save();
+        await saveClaimToStore(existingClaim);
         return res.status(200).json({ success: true, claim: existingClaim, message: "Application updated and submitted for admin review." });
       }
 
@@ -166,7 +353,8 @@ router.post("/apply", async (req, res) => {
     }
 
     // Create new claim
-    const newClaim = new TrialClaim({
+    const newClaim = {
+      id: `trial_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       userId: userId || "",
       userEmail: cleanEmail,
       businessName: businessName.trim(),
@@ -194,12 +382,14 @@ router.post("/apply", async (req, res) => {
           adminEmail: "System",
           action: "application_submitted",
           amount: 0,
-          note: `Application submitted for business "${businessName.trim()}". ${duplicateMatches.length > 0 ? "⚠️ Flagged duplicate match." : "Clean profile."}`
+          note: `Application submitted for business "${businessName.trim()}". ${duplicateMatches.length > 0 ? "⚠️ Flagged duplicate match." : "Clean profile."}`,
+          timestamp: new Date().toISOString()
         }
-      ]
-    });
+      ],
+      createdAt: new Date().toISOString()
+    };
 
-    await newClaim.save();
+    await saveClaimToStore(newClaim);
 
     return res.status(201).json({
       success: true,
@@ -223,11 +413,8 @@ router.get("/status", async (req, res) => {
       return res.status(400).json({ error: "userEmail or userId is required" });
     }
 
-    const query = {};
-    if (userEmail) query.userEmail = userEmail.toLowerCase().trim();
-    else if (userId) query.userId = userId;
-
-    let claim = await TrialClaim.findOne(query);
+    const cleanEmail = (userEmail || "").toLowerCase().trim();
+    let claim = await findClaimByEmail(cleanEmail);
 
     if (!claim) {
       return res.status(200).json({
@@ -250,7 +437,7 @@ router.get("/status", async (req, res) => {
       if (now > expires) {
         claim.stage = "expired";
         claim.promoBalance = 0;
-        await claim.save();
+        await saveClaimToStore(claim);
       }
     }
 
@@ -283,7 +470,7 @@ router.post("/deduct", async (req, res) => {
       return res.status(400).json({ error: "userEmail and amount are required" });
     }
 
-    const claim = await TrialClaim.findOne({ userEmail: userEmail.toLowerCase().trim() });
+    const claim = await findClaimByEmail(userEmail.toLowerCase().trim());
     if (!claim || (claim.stage !== "approved_stage1" && claim.stage !== "active_full_trial")) {
       return res.status(400).json({ error: "No active promotional balance found for this user." });
     }
@@ -292,7 +479,7 @@ router.post("/deduct", async (req, res) => {
     if (claim.expiresAt && new Date() > new Date(claim.expiresAt)) {
       claim.stage = "expired";
       claim.promoBalance = 0;
-      await claim.save();
+      await saveClaimToStore(claim);
       return res.status(400).json({ error: "Promotional credit has expired (14-day validity ended)." });
     }
 
@@ -300,14 +487,16 @@ router.post("/deduct", async (req, res) => {
     claim.promoBalance = Number((claim.promoBalance - deductAmount).toFixed(2));
     claim.creditUsed = Number((claim.creditUsed + deductAmount).toFixed(2));
 
+    claim.decisionHistory = claim.decisionHistory || [];
     claim.decisionHistory.push({
       adminEmail: "System",
       action: "promo_export_deduction",
       amount: deductAmount,
-      note: description || `Export deduction: ₹${deductAmount.toFixed(2)}`
+      note: description || `Export deduction: ₹${deductAmount.toFixed(2)}`,
+      timestamp: new Date().toISOString()
     });
 
-    await claim.save();
+    await saveClaimToStore(claim);
 
     return res.status(200).json({
       success: true,
@@ -337,7 +526,9 @@ router.get("/admin/all", async (req, res) => {
   }
 
   try {
-    const claims = await TrialClaim.find().sort({ createdAt: -1 });
+    const claims = Array.from(new Set(claimsCache.values())).sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
 
     const stats = {
       total: claims.length,
@@ -378,35 +569,45 @@ router.post("/admin/decision", async (req, res) => {
   }
 
   try {
-    const claim = await TrialClaim.findById(claimId);
+    const cleanId = String(claimId);
+    let claim = claimsCache.get(cleanId);
+    if (!claim) {
+      for (const item of claimsCache.values()) {
+        if (item.id === cleanId || item._id === cleanId) {
+          claim = item;
+          break;
+        }
+      }
+    }
+
     if (!claim) {
       return res.status(404).json({ error: "Trial claim not found." });
     }
 
     const now = new Date();
     const fourteenDaysLater = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+    claim.decisionHistory = claim.decisionHistory || [];
 
     let message = "";
 
     switch (action) {
-      // Stage 2: Admin approves business details -> Releases initial ₹100 credit + starts 14-day validity
       case "approve_stage1": {
         const creditAmount = typeof customAmount === "number" ? customAmount : 100;
         claim.stage = "approved_stage1";
         claim.creditGranted = creditAmount;
         claim.promoBalance = creditAmount;
-        claim.activatedAt = now;
-        claim.expiresAt = fourteenDaysLater;
+        claim.activatedAt = now.toISOString();
+        claim.expiresAt = fourteenDaysLater.toISOString();
         claim.clarificationMessage = "";
 
         claim.decisionHistory.push({
           adminEmail: adminEmail.toLowerCase().trim(),
           action: "approve_stage1",
           amount: creditAmount,
-          note: note || `Approved Stage 1: Released ₹${creditAmount} credit. 14-day validity started.`
+          note: note || `Approved Stage 1: Released ₹${creditAmount} credit. 14-day validity started.`,
+          timestamp: now.toISOString()
         });
 
-        // Credit wallet in Supabase
         await creditUserWalletInSupabase(
           claim.userId,
           claim.userEmail,
@@ -418,7 +619,6 @@ router.post("/admin/decision", async (req, res) => {
         break;
       }
 
-      // Stage 3: Brief onboarding call / verification confirmed -> Releases additional ₹400 credit (total ₹500)
       case "approve_stage2_onboarding": {
         const extraCredit = typeof customAmount === "number" ? customAmount : 400;
         claim.stage = "active_full_trial";
@@ -430,10 +630,10 @@ router.post("/admin/decision", async (req, res) => {
           adminEmail: adminEmail.toLowerCase().trim(),
           action: "approve_stage2_onboarding",
           amount: extraCredit,
-          note: note || `Onboarding confirmed: Released ₹${extraCredit} extra credit (Total ₹${claim.creditGranted}).`
+          note: note || `Onboarding confirmed: Released ₹${extraCredit} extra credit (Total ₹${claim.creditGranted}).`,
+          timestamp: now.toISOString()
         });
 
-        // Credit wallet in Supabase
         await creditUserWalletInSupabase(
           claim.userId,
           claim.userEmail,
@@ -445,64 +645,61 @@ router.post("/admin/decision", async (req, res) => {
         break;
       }
 
-      // Fast-Track: Grant full ₹500 immediately with 14-day validity
       case "fast_track_full": {
         const totalAmount = typeof customAmount === "number" ? customAmount : 500;
         claim.stage = "active_full_trial";
         claim.creditGranted = totalAmount;
         claim.promoBalance = totalAmount;
-        claim.activatedAt = now;
-        claim.expiresAt = fourteenDaysLater;
+        claim.activatedAt = now.toISOString();
+        claim.expiresAt = fourteenDaysLater.toISOString();
         claim.clarificationMessage = "";
 
         claim.decisionHistory.push({
           adminEmail: adminEmail.toLowerCase().trim(),
           action: "fast_track_full",
           amount: totalAmount,
-          note: note || `Fast-track full approval: Released full ₹${totalAmount} trial credits.`
+          note: note || "Fast-track approval: Full ₹500 granted immediately by admin.",
+          timestamp: now.toISOString()
         });
 
-        // Credit wallet in Supabase
         await creditUserWalletInSupabase(
           claim.userId,
           claim.userEmail,
           totalAmount,
-          `FiveNest Free Trial (Full Fast-Track): ₹${totalAmount.toFixed(2)} credited (Valid for 14 days)`
+          `FiveNest Free Trial (Fast-Track Full): ₹${totalAmount.toFixed(2)} credited (Valid for 14 days)`
         );
 
-        message = `Fast-track approved! Full ₹${totalAmount} trial credits released to ${claim.businessName}.`;
+        message = `Fast-track approved! Full ₹${totalAmount} trial credits released to ${claim.businessName}. Valid for 14 days.`;
         break;
       }
 
-      // Request Clarification / Details
       case "request_clarification": {
         claim.stage = "clarification_requested";
-        claim.clarificationMessage = note || "Please provide additional business details or verify your mobile number.";
+        claim.clarificationMessage = note || "Please verify your mobile number or provide basic business details.";
 
         claim.decisionHistory.push({
           adminEmail: adminEmail.toLowerCase().trim(),
           action: "request_clarification",
-          amount: 0,
-          note: claim.clarificationMessage
+          note: claim.clarificationMessage,
+          timestamp: now.toISOString()
         });
 
-        message = `Clarification requested from ${claim.businessName}.`;
+        message = `Clarification request recorded for ${claim.businessName}. The user will be prompted to update details.`;
         break;
       }
 
-      // Reject Claim
       case "reject": {
         claim.stage = "rejected";
-        claim.rejectionReason = note || "Ineligible for free trial offer (e.g. duplicate account or unverified business).";
+        claim.rejectionReason = note || "Ineligible for trial offer.";
 
         claim.decisionHistory.push({
           adminEmail: adminEmail.toLowerCase().trim(),
           action: "reject",
-          amount: 0,
-          note: claim.rejectionReason
+          note: claim.rejectionReason,
+          timestamp: now.toISOString()
         });
 
-        message = `Trial claim for ${claim.businessName} rejected.`;
+        message = `Claim for ${claim.businessName} marked as rejected.`;
         break;
       }
 
@@ -510,7 +707,7 @@ router.post("/admin/decision", async (req, res) => {
         return res.status(400).json({ error: `Unknown action: ${action}` });
     }
 
-    await claim.save();
+    await saveClaimToStore(claim);
 
     return res.status(200).json({
       success: true,
@@ -518,8 +715,8 @@ router.post("/admin/decision", async (req, res) => {
       claim
     });
   } catch (error) {
-    console.error("Admin trial decision error:", error);
-    return res.status(500).json({ error: error.message || "Failed to process admin trial decision." });
+    console.error("Error executing admin trial decision:", error);
+    return res.status(500).json({ error: error.message || "Failed to process admin decision." });
   }
 });
 

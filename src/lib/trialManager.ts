@@ -110,7 +110,10 @@ export async function getTrialStatus(userEmail?: string, userId?: string): Promi
   // 1. Try Backend API first
   try {
     const url = `${API_BASE_URL}/api/trial/status?${cleanEmail ? `userEmail=${encodeURIComponent(cleanEmail)}` : `userId=${encodeURIComponent(userId || '')}`}`;
-    const res = await fetch(url);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
     if (res.ok) {
       const data = await res.json();
       if (data.claim) {
@@ -185,11 +188,16 @@ export async function applyForTrial(params: {
 
   // Try backend first
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
     const res = await fetch(`${API_BASE_URL}/api/trial/apply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params)
+      body: JSON.stringify(params),
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
+
     if (res.ok) {
       const data = await res.json();
       if (data.claim) {
@@ -198,7 +206,12 @@ export async function applyForTrial(params: {
       }
     } else {
       const errData = await res.json().catch(() => ({}));
-      if (errData.error) return { success: false, error: errData.error };
+      const rawError = String(errData?.error || '');
+      // Only return client-blocking error if it's a validation error (400)
+      if (res.status === 400 && rawError && !rawError.includes('buffering timed out')) {
+        return { success: false, error: rawError };
+      }
+      console.warn("Backend trial apply returned non-critical status:", res.status, rawError);
     }
   } catch (backendErr) {
     console.warn("Backend trial apply failed, saving locally:", backendErr);
