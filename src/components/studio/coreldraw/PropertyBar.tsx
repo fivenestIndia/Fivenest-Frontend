@@ -219,10 +219,10 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
         display: 'flex',
         flexWrap: 'wrap',
         alignItems: 'center',
-        gap: '4px 6px',
-        minHeight: '38px',
+        gap: '6px clamp(6px, 0.8vw, 12px)',
+        minHeight: '40px',
         height: 'auto',
-        padding: '3px 8px',
+        padding: '4px 12px',
         boxSizing: 'border-box',
         zIndex: 35,
         width: '100%',
@@ -236,13 +236,15 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
           background: '#FBE7E1',
           border: '1px solid #F5C4B2',
           borderRadius: '6px',
-          padding: '2px 8px',
-          height: '28px',
+          padding: '3px 10px',
+          height: '32px',
+          display: 'flex',
+          alignItems: 'center',
           flexShrink: 0
         }}
       >
-        <span style={{ fontWeight: '700', color: '#E4572E', textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#E4572E' }} />
+        <span style={{ fontWeight: '800', color: '#E4572E', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#E4572E' }} />
           [{activeTool}]
         </span>
       </div>
@@ -363,13 +365,15 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               background: '#FFFFFF',
               border: '1px solid #D8D5CF',
               borderRadius: '6px',
-              padding: '2px 5px',
-              gap: '3px',
-              height: '28px',
+              padding: '3px 8px',
+              gap: '4px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
               flexShrink: 0
             }}
           >
-            <span style={{ fontSize: '9.5px', fontWeight: '700', color: '#92908A', textTransform: 'uppercase' }}>Layer:</span>
+            <span style={{ fontSize: '10.5px', fontWeight: '700', color: '#92908A', textTransform: 'uppercase' }}>Layer:</span>
             {(['name', 'number', 'sizeTag'] as const).map(l => {
               const isSelected = activeTextLayer === l || (!activeTextLayer && resolvedLayer === l);
               return (
@@ -378,9 +382,9 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
                   type="button"
                   onClick={() => onSelectTextLayer(l)}
                   style={{
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    fontSize: '10px',
+                    padding: '3px 8px',
+                    borderRadius: '5px',
+                    fontSize: '11px',
                     fontWeight: '700',
                     background: isSelected ? '#E4572E' : '#FFFFFF',
                     color: isSelected ? '#FFFFFF' : '#686661',
@@ -403,13 +407,15 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               background: '#FFFFFF',
               border: '1px solid #D8D5CF',
               borderRadius: '6px',
-              padding: '2px 5px',
-              gap: '4px',
-              height: '28px',
+              padding: '3px 8px',
+              gap: '6px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
               flexShrink: 0
             }}
           >
-            <span style={{ fontSize: '10px', color: '#92908A', fontWeight: '600' }}>Font:</span>
+            <span style={{ fontSize: '10.5px', color: '#92908A', fontWeight: '700' }}>Font:</span>
             <select
               value={
                 activeTextConfig.fontFamily === 'barcelona_2013_by_hd' || activeTextConfig.fontFamily === 'Barcelona 2013 HD'
@@ -424,13 +430,12 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
                 updateActiveText({ fontFamily: newFont });
               }}
               style={{
-                width: 'clamp(95px, 11vw, 140px)',
-                maxWidth: '145px',
+                width: 'clamp(135px, 15vw, 220px)',
                 border: '1px solid #D8D5CF',
                 borderRadius: '5px',
-                fontSize: '10.5px',
+                fontSize: '11.5px',
                 fontWeight: '600',
-                padding: '2px 4px',
+                padding: '3px 6px',
                 outline: 'none',
                 background: '#FFFFFF',
                 color: '#1A1917',
@@ -493,19 +498,19 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               }
             </select>
 
-            <span style={{ fontSize: '10px', color: '#92908A', fontWeight: '600', marginLeft: '2px' }}>Size:</span>
+            <span style={{ fontSize: '10.5px', color: '#92908A', fontWeight: '700', marginLeft: '2px' }}>Size:</span>
             <input
               type="number"
               step="0.1"
               value={activeTextConfig.fontSize}
               onChange={(e) => updateActiveText({ fontSize: parseFloat(e.target.value) || 1 })}
               style={{
-                width: '36px',
+                width: 'clamp(46px, 4vw, 58px)',
                 border: '1px solid #D8D5CF',
                 borderRadius: '5px',
-                fontSize: '10.5px',
-                fontWeight: '600',
-                padding: '2px 3px',
+                fontSize: '11.5px',
+                fontWeight: '700',
+                padding: '3px 5px',
                 textAlign: 'center',
                 outline: 'none'
               }}
@@ -519,14 +524,16 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               background: '#FFFFFF',
               border: '1px solid #D8D5CF',
               borderRadius: '6px',
-              padding: '2px 5px',
-              gap: '3px',
-              height: '28px',
+              padding: '3px 8px',
+              gap: '4px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
               flexShrink: 0
             }}
           >
-            <span style={{ fontSize: '10px', color: '#92908A', fontWeight: '600' }}>Align:</span>
-            <div style={{ display: 'flex', gap: '2px' }}>
+            <span style={{ fontSize: '10.5px', color: '#92908A', fontWeight: '700' }}>Align:</span>
+            <div style={{ display: 'flex', gap: '3px' }}>
               {(['left', 'center', 'right'] as const).map(a => {
                 const isSelected = (activeTextConfig.align || 'center') === a;
                 return (
@@ -535,8 +542,8 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
                     type="button"
                     onClick={() => updateActiveText({ align: a })}
                     style={{
-                      padding: '3px 5px',
-                      borderRadius: '4px',
+                      padding: '4px 7px',
+                      borderRadius: '5px',
                       background: isSelected ? '#E4572E' : '#FFFFFF',
                       color: isSelected ? '#FFFFFF' : '#686661',
                       border: isSelected ? '1px solid #E4572E' : '1px solid #D8D5CF',
@@ -544,7 +551,7 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    {a === 'left' ? <AlignLeft size={11} /> : a === 'center' ? <AlignCenter size={11} /> : <AlignRight size={11} />}
+                    {a === 'left' ? <AlignLeft size={13} /> : a === 'center' ? <AlignCenter size={13} /> : <AlignRight size={13} />}
                   </button>
                 );
               })}
@@ -558,25 +565,25 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               background: '#FFFFFF',
               border: '1px solid #D8D5CF',
               borderRadius: '6px',
-              padding: '2px 5px',
-              gap: '4px',
+              padding: '3px 8px',
+              gap: '6px',
               display: 'flex',
               alignItems: 'center',
-              height: '28px',
+              height: '32px',
               flexShrink: 0
             }}
           >
-            <span style={{ fontSize: '10px', color: '#92908A', fontWeight: '600' }}>Fill:</span>
+            <span style={{ fontSize: '10.5px', color: '#92908A', fontWeight: '700' }}>Fill:</span>
 
             {/* Segmented Solid vs Gradient Switcher */}
-            <div style={{ display: 'inline-flex', background: '#F4F2EE', padding: '1px', borderRadius: '4px', gap: '2px' }}>
+            <div style={{ display: 'inline-flex', background: '#F4F2EE', padding: '2px', borderRadius: '5px', gap: '3px' }}>
               <button
                 type="button"
                 onClick={() => updateActiveText({ fillType: 'solid' })}
                 style={{
-                  padding: '2px 6px',
-                  borderRadius: '3px',
-                  fontSize: '9.5px',
+                  padding: '3px 8px',
+                  borderRadius: '4px',
+                  fontSize: '10.5px',
                   fontWeight: '700',
                   border: 'none',
                   background: !isFillGradient ? '#E4572E' : 'transparent',
@@ -598,9 +605,9 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
                   }
                 }}
                 style={{
-                  padding: '2px 6px',
-                  borderRadius: '3px',
-                  fontSize: '9.5px',
+                  padding: '3px 8px',
+                  borderRadius: '4px',
+                  fontSize: '10.5px',
                   fontWeight: '700',
                   border: 'none',
                   background: isFillGradient ? 'linear-gradient(135deg, #E4572E 0%, #FF8A00 100%)' : 'transparent',
@@ -608,12 +615,12 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
                   cursor: 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '2px',
+                  gap: '3px',
                   transition: 'all 0.15s ease'
                 }}
                 title={isFillGradient ? "Click to open Gradient Editor" : "Switch Fill to Gradient Color"}
               >
-                <Sparkles size={9} />
+                <Sparkles size={11} />
                 Gradient
               </button>
             </div>
@@ -623,9 +630,9 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
                 type="button"
                 onClick={() => onOpenGradientModal && onOpenGradientModal(resolvedLayer)}
                 style={{
-                  width: '22px',
-                  height: '20px',
-                  borderRadius: '4px',
+                  width: '26px',
+                  height: '24px',
+                  borderRadius: '5px',
                   border: '1px solid #D8D5CF',
                   background: `linear-gradient(90deg, ${fillGradientStops.join(', ')})`,
                   cursor: 'pointer',
@@ -638,7 +645,7 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
                 type="color"
                 value={activeTextConfig.color?.startsWith('#') ? activeTextConfig.color : '#FFFFFF'}
                 onChange={(e) => updateActiveText({ color: e.target.value, fillType: 'solid' })}
-                style={{ width: '22px', height: '20px', border: '1px solid #D8D5CF', borderRadius: '4px', background: 'none', cursor: 'pointer', padding: 0 }}
+                style={{ width: '26px', height: '24px', border: '1px solid #D8D5CF', borderRadius: '5px', background: 'none', cursor: 'pointer', padding: 0 }}
                 title="Solid Fill Color"
               />
             )}
@@ -651,15 +658,15 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               background: '#FFFFFF',
               border: '1px solid #D8D5CF',
               borderRadius: '6px',
-              padding: '2px 5px',
-              gap: '4px',
+              padding: '3px 8px',
+              gap: '6px',
               display: 'flex',
               alignItems: 'center',
-              height: '28px',
+              height: '32px',
               flexShrink: 0
             }}
           >
-            <span style={{ fontSize: '10px', color: '#92908A', fontWeight: '600' }}>Stroke:</span>
+            <span style={{ fontSize: '10.5px', color: '#92908A', fontWeight: '700' }}>Stroke:</span>
 
             {/* Multiple Stroke selector pills if >1 strokes */}
             {strokes.length > 1 && (
@@ -707,14 +714,14 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
             )}
 
             {/* Segmented Solid vs Gradient Switcher */}
-            <div style={{ display: 'inline-flex', background: '#F4F2EE', padding: '1px', borderRadius: '4px', gap: '2px' }}>
+            <div style={{ display: 'inline-flex', background: '#F4F2EE', padding: '2px', borderRadius: '5px', gap: '3px' }}>
               <button
                 type="button"
                 onClick={() => handleUpdateCurrentStroke({ type: 'solid' })}
                 style={{
-                  padding: '2px 6px',
-                  borderRadius: '3px',
-                  fontSize: '9.5px',
+                  padding: '3px 8px',
+                  borderRadius: '4px',
+                  fontSize: '10.5px',
                   fontWeight: '700',
                   border: 'none',
                   background: !isStrokeGradient ? '#E4572E' : 'transparent',
@@ -736,9 +743,9 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
                   }
                 }}
                 style={{
-                  padding: '2px 6px',
-                  borderRadius: '3px',
-                  fontSize: '9.5px',
+                  padding: '3px 8px',
+                  borderRadius: '4px',
+                  fontSize: '10.5px',
                   fontWeight: '700',
                   border: 'none',
                   background: isStrokeGradient ? 'linear-gradient(135deg, #00C6FF 0%, #0072FF 100%)' : 'transparent',
@@ -746,12 +753,12 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
                   cursor: 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '2px',
+                  gap: '3px',
                   transition: 'all 0.15s ease'
                 }}
                 title={isStrokeGradient ? "Click to open Stroke Gradient Editor" : "Switch Stroke to Gradient Color"}
               >
-                <Sparkles size={9} />
+                <Sparkles size={11} />
                 Gradient
               </button>
             </div>
@@ -762,9 +769,9 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
                 type="button"
                 onClick={() => onOpenGradientModal && onOpenGradientModal(`${resolvedLayer}-stroke-${safeStrokeIdx}`)}
                 style={{
-                  width: '22px',
-                  height: '20px',
-                  borderRadius: '4px',
+                  width: '26px',
+                  height: '24px',
+                  borderRadius: '5px',
                   border: '1px solid #D8D5CF',
                   background: `linear-gradient(90deg, ${strokeGradientStops.join(', ')})`,
                   cursor: 'pointer',
@@ -777,13 +784,13 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
                 type="color"
                 value={currentStroke?.color?.startsWith('#') ? currentStroke.color : '#000000'}
                 onChange={(e) => handleUpdateCurrentStroke({ color: e.target.value, type: 'solid' })}
-                style={{ width: '22px', height: '20px', border: '1px solid #D8D5CF', borderRadius: '4px', background: 'none', cursor: 'pointer', padding: 0 }}
+                style={{ width: '26px', height: '24px', border: '1px solid #D8D5CF', borderRadius: '5px', background: 'none', cursor: 'pointer', padding: 0 }}
                 title="Stroke Color"
               />
             )}
 
             {/* Stroke Width Input */}
-            <span style={{ fontSize: '10px', color: '#92908A', fontWeight: '600' }}>W:</span>
+            <span style={{ fontSize: '10.5px', color: '#92908A', fontWeight: '700' }}>W:</span>
             <input
               type="number"
               step="0.1"
@@ -795,12 +802,12 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
                 handleUpdateCurrentStroke({ width: isNaN(val) ? 0 : Math.max(0, Math.round(val * 10) / 10) });
               }}
               style={{
-                width: '36px',
+                width: 'clamp(44px, 3.8vw, 54px)',
                 border: '1px solid #D8D5CF',
                 borderRadius: '5px',
-                fontSize: '10.5px',
-                fontWeight: '600',
-                padding: '2px 3px',
+                fontSize: '11.5px',
+                fontWeight: '700',
+                padding: '3px 5px',
                 textAlign: 'center',
                 outline: 'none'
               }}
@@ -814,10 +821,10 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '2px',
-                padding: '2px 6px',
-                borderRadius: '4px',
-                fontSize: '9.5px',
+                gap: '3px',
+                padding: '3px 8px',
+                borderRadius: '5px',
+                fontSize: '10.5px',
                 fontWeight: '700',
                 background: '#FBE7E1',
                 color: '#E4572E',
@@ -827,12 +834,12 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
               }}
               title="Add another outer stroke layer (Multi-Stroke)"
             >
-              <Plus size={10} />
+              <Plus size={11} />
               Stroke
             </button>
 
             {/* Stroke Alignment Position (Outside, Inside, Center) */}
-            <div style={{ display: 'flex', gap: '2px', background: '#F4F2EE', padding: '1px', borderRadius: '4px', marginLeft: '1px' }}>
+            <div style={{ display: 'flex', gap: '2px', background: '#F4F2EE', padding: '2px', borderRadius: '5px', marginLeft: '2px' }}>
               {(['outside', 'inside', 'center'] as const).map((pos) => {
                 const isSelected = (activeTextConfig.strokePosition || 'outside') === pos;
                 return (
@@ -841,10 +848,10 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
                     type="button"
                     onClick={() => updateActiveText({ strokePosition: pos })}
                     style={{
-                      padding: '2px 4px',
-                      fontSize: '9px',
+                      padding: '3px 7px',
+                      fontSize: '10px',
                       fontWeight: '700',
-                      borderRadius: '3px',
+                      borderRadius: '4px',
                       border: 'none',
                       background: isSelected ? '#E4572E' : 'transparent',
                       color: isSelected ? '#FFFFFF' : '#686661',
