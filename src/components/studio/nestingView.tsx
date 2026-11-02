@@ -2602,6 +2602,9 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           const backOverlaysChecked = (designConfig.back.nameConfig.enabled || designConfig.back.numberConfig.enabled) && !metadata.blankKit;
           const a4OverlaysChecked = (designConfig.a4Print.nameConfig.enabled || designConfig.a4Print.numberConfig.enabled) && !metadata.blankKit;
 
+          const shouldIndividualExportFront = !!metadata?.individualExportFB || (metadata.manualMode ? false : frontOverlaysChecked);
+          const shouldIndividualExportBack = !!metadata?.individualExportFB || (metadata.manualMode ? false : backOverlaysChecked);
+
           interface TestPdfPage {
             item: PlacedItem;
             label: string;
@@ -2616,7 +2619,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             frontSizeMap[it.size].push(it);
           });
 
-          if (frontOverlaysChecked) {
+          if (shouldIndividualExportFront) {
             Object.keys(frontSizeMap).sort().forEach(size => {
               frontSizeMap[size].forEach((it, idx) => {
                 const labelSuffix = it.withoutLogoFront ? ' NL (No Logo)' : ' F';
@@ -2674,7 +2677,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             backSizeMap[it.size].push(it);
           });
 
-          if (backOverlaysChecked) {
+          if (shouldIndividualExportBack) {
             Object.keys(backSizeMap).sort().forEach(size => {
               backSizeMap[size].forEach((it, idx) => {
                 testPdfPages.push({
@@ -2898,6 +2901,9 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           const backOverlaysChecked = (designConfig.back.nameConfig.enabled || designConfig.back.numberConfig.enabled) && !metadata.blankKit;
           const a4OverlaysChecked = (designConfig.a4Print.nameConfig.enabled || designConfig.a4Print.numberConfig.enabled) && !metadata.blankKit;
 
+          const shouldIndividualExportFront = !!metadata?.individualExportFB || (metadata.manualMode ? false : frontOverlaysChecked);
+          const shouldIndividualExportBack = !!metadata?.individualExportFB || (metadata.manualMode ? false : backOverlaysChecked);
+
           // Build list of render actions based on grouping rules
           interface RenderAction {
             representativeItem: PlacedItem;
@@ -2954,7 +2960,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           });
 
           // Group/Format Fronts
-          if (frontOverlaysChecked) {
+          if (shouldIndividualExportFront) {
             // Sort front items by size alphabetically to make sequential numbers clean
             const allFrontItems: PlacedItem[] = [];
             Object.keys(frontSizeMap).sort().forEach(size => {
@@ -3012,7 +3018,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           }
 
           // Group/Format Backs
-          if (backOverlaysChecked) {
+          if (shouldIndividualExportBack) {
             // Sort back items by size alphabetically to make sequential numbers clean
             const allBackItems: PlacedItem[] = [];
             Object.keys(backSizeMap).sort().forEach(size => {

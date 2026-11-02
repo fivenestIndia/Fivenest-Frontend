@@ -38,6 +38,7 @@ export interface OrderMetadata {
   a4BackPrint: boolean;
   raglanStyle: boolean;
   halfSleeveMerge: boolean;
+  individualExportFB?: boolean;
   manualMode: boolean;
   whatsapp?: string;
   fileName?: string;
@@ -998,6 +999,31 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
               style={{ accentColor: '#E4572E', cursor: 'pointer' }}
             />
             <span>Raglan Style</span>
+          </label>
+
+          <label style={{ 
+            display: 'inline-flex', 
+            alignItems: 'center', 
+            gap: '6px', 
+            cursor: 'pointer', 
+            fontSize: '12px', 
+            fontWeight: '700', 
+            padding: '4px 10px',
+            borderRadius: '6px',
+            border: metadata.individualExportFB ? '1px solid #E4572E' : '1px solid #E2DED7',
+            background: metadata.individualExportFB ? '#FFF0EB' : '#FFFFFF',
+            color: metadata.individualExportFB ? '#E4572E' : '#4B5563',
+            transition: 'all 0.15s ease'
+          }}
+          title="Export single pcs of every front & back individually instead of grouping by quantity"
+          >
+            <input 
+              type="checkbox" 
+              checked={!!metadata.individualExportFB} 
+              onChange={() => updateMetadata({ individualExportFB: !metadata.individualExportFB })} 
+              style={{ accentColor: '#E4572E', cursor: 'pointer' }}
+            />
+            <span>Individual Export F&B</span>
           </label>
         </div>
 

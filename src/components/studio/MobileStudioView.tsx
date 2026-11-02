@@ -2438,6 +2438,15 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
                     style={{ accentColor: '#E4572E', width: '16px', height: '16px' }}
                   />
                 </label>
+                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', color: '#CBD5E1', cursor: 'pointer' }}>
+                  <span>Individual Export F&B</span>
+                  <input
+                    type="checkbox"
+                    checked={!!metadata.individualExportFB}
+                    onChange={(e) => onMetadataChange({ ...metadata, individualExportFB: e.target.checked })}
+                    style={{ accentColor: '#E4572E', width: '16px', height: '16px' }}
+                  />
+                </label>
               </div>
             </div>
 

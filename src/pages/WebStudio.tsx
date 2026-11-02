@@ -47,6 +47,7 @@ export default function WebStudio() {
     a4BackPrint: false,
     raglanStyle: false,
     halfSleeveMerge: true,
+    individualExportFB: false,
     manualMode: false,
     whatsapp: "",
     fileName: "",
