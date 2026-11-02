@@ -810,18 +810,26 @@ body {
 
 /* ── CorelDRAW Property Bar ── */
 .cd-propertybar {
-  height: 40px;
-  min-height: 40px;
+  min-height: 38px;
+  height: auto;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   background-color: #FAF8F5;
   border-bottom: 1px solid #E8E4DE;
-  padding: 0 12px;
-  gap: 0;
+  padding: 3px 8px;
+  gap: 4px;
   flex-shrink: 0;
+  box-sizing: border-box;
   overflow-x: auto;
   overflow-y: hidden;
-  white-space: nowrap;
+}
+
+@media (max-width: 1280px) {
+  .cd-propertybar {
+    padding: 3px 6px;
+    gap: 3px 5px;
+  }
 }
 
 .cd-property-group {
