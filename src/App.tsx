@@ -10,6 +10,7 @@ import TermsOfService from './pages/TermsOfService';
 import RefundPolicy from './pages/RefundPolicy';
 import DataRequest from './pages/DataRequest';
 import CookieConsentBanner from './components/layout/CookieConsentBanner';
+import GlassTooltip from './components/common/GlassTooltip';
 
 // Helper to detect if accessed from an admin / design dashboard subdomain
 function isSubdomainAdmin(): boolean {
@@ -141,6 +142,7 @@ export default function App() {
           <Route path="*" element={<Home />} />
         </Routes>
         <CookieConsentBanner />
+        <GlassTooltip />
       </Router>
     </ErrorBoundary>
   );

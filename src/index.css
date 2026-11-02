@@ -1396,27 +1396,16 @@ input[type="checkbox"]:checked {
   color: #E4572E !important;
 }
 
-/* Tooltip for studio buttons */
-[title]:not([title=""]):hover::after {
-  content: attr(title);
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(23, 23, 23, 0.9);
-  color: #FFFFFF;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 4px 8px;
-  border-radius: 6px;
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 9999;
-  backdrop-filter: blur(4px);
-  max-width: 200px;
+/* Prevent any pseudo-element text from cutting inside toolbar buttons */
+.cd-toolbox .cd-tool-btn::after,
+.cd-toolbox .cd-tool-btn::before,
+.cd-tool-btn::after,
+.cd-tool-btn::before {
+  display: none !important;
+  content: none !important;
 }
 
-/* cd-tool-btn tooltip override */
+/* cd-tool-btn relative positioning */
 .cd-toolbox .cd-tool-btn {
   position: relative;
 }
