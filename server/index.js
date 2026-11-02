@@ -7,6 +7,7 @@ import licenseRoutes from "./routes/license.js";
 import agentRoutes from "./routes/agent.js";
 import ordersRoutes from "./routes/orders.js";
 import sizesRoutes from "./routes/sizes.js";
+import presetsRoutes from "./routes/presets.js";
 import adminRoutes from "./routes/admin.js";
 import trialRoutes from "./routes/trial.js";
 import helmet from 'helmet';
@@ -113,6 +114,7 @@ app.use("/api/license", licenseRoutes);
 app.use("/api/agent", agentRoutes);
 app.use("/api/orders", ordersRoutes);
 app.use("/api/sizes", sizesRoutes);
+app.use("/api/presets", presetsRoutes);
 
 // Custom Error Handler Middleware
 app.use((err, req, res, next) => {

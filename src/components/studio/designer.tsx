@@ -20,6 +20,17 @@ import {
   loadFontBinaryIntoBrowser, 
   dataUrlToArrayBuffer 
 } from '../../lib/fontLoader';
+import {
+  type DesignPresetItem,
+  FACTORY_PRESETS,
+  getLocalPresets,
+  savePresetToIndexedDB,
+  deletePresetFromIndexedDB,
+  fetchCloudPresets,
+  savePresetsToCloud,
+  downloadPresetsFile,
+  parsePresetsJSON
+} from '../../lib/presetsSyncService';
 
 export interface StrokeConfig {
   id?: string;
@@ -263,6 +274,7 @@ interface DesignerProps {
   designConfig: ArtDesignConfig;
   onDesignConfigChange: (config: ArtDesignConfig) => void;
   metadata?: OrderMetadata;
+  currentUser?: { email: string; name: string; balance: number; id?: string } | null;
 }
 
 export const defaultDesignConfig: ArtDesignConfig = {
@@ -822,7 +834,7 @@ const StrokeControlsManager: React.FC<StrokeControlsManagerProps> = ({
   );
 };
 
-export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfigChange, metadata }) => {
+export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfigChange, metadata, currentUser }) => {
   const [activeTab, setActiveTab] = useState<'front' | 'back' | 'dual' | 'collar' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD'>('dual');
   const [dualActivePanel, setDualActivePanel] = useState<'front' | 'back' | 'collar' | 'sleeveLeft' | 'sleeveRight'>('front');
   const [previewName, setPreviewName] = useState<string>("FIVENEST");
@@ -836,8 +848,12 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [newGuideType, setNewGuideType] = useState<'vertical' | 'horizontal'>('vertical');
   const [newGuideValue, setNewGuideValue] = useState<string>("");
 
-  const [presets, setPresets] = useState<{name: string, config: ArtDesignConfig}[]>([]);
+  const [customPresets, setCustomPresets] = useState<DesignPresetItem[]>([]);
+  const [presetTab, setPresetTab] = useState<'my' | 'factory'>('my');
   const [newPresetName, setNewPresetName] = useState<string>("");
+  const [isSavingPreset, setIsSavingPreset] = useState<boolean>(false);
+  const [presetStatus, setPresetStatus] = useState<string | null>(null);
+  const jsonFileInputRef = useRef<HTMLInputElement>(null);
   const [zoom, setZoom] = useState<number>(1);
   const [zKeyPressed, setZKeyPressed] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number; zoom: number } | null>(null);
@@ -1162,40 +1178,168 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     });
   }, [designConfig, previewSleeveType]);
 
+  // Load presets from IndexedDB on mount, then sync with cloud
   useEffect(() => {
-    const saved = localStorage.getItem('fivenest_presets');
-    if (saved) {
-      try { setPresets(JSON.parse(saved)); } catch (e) {}
-    }
-  }, []);
+    let isMounted = true;
+    const loadPresets = async () => {
+      try {
+        // 1. Instant load from local IndexedDB
+        const local = await getLocalPresets(currentUser?.email);
+        if (isMounted && local.length > 0) {
+          setCustomPresets(local);
+        }
 
+        // 2. Cloud sync if user is logged in
+        if (currentUser?.email || currentUser?.id) {
+          const cloud = await fetchCloudPresets(currentUser.email, currentUser.id);
+          if (isMounted && cloud && cloud.length > 0) {
+            const map = new Map<string, DesignPresetItem>();
+            local.forEach(p => map.set(p.name, p));
+            cloud.forEach(p => map.set(p.name, p));
+            const merged = Array.from(map.values());
+            setCustomPresets(merged);
+          }
+        }
+      } catch (err) {
+        console.warn('Preset sync error:', err);
+      }
+    };
 
+    loadPresets();
+    return () => { isMounted = false; };
+  }, [currentUser?.email, currentUser?.id]);
 
-  const handleSavePreset = () => {
-    if (!newPresetName.trim()) {
-      alert("Please enter a preset name.");
+  const handleSavePreset = async () => {
+    const name = newPresetName.trim();
+    if (!name) {
+      toast.error("Please enter a preset name.");
       return;
     }
-    const name = newPresetName.trim();
-    const updated = [...presets.filter(p => p.name !== name), { name, config: designConfig }];
-    setPresets(updated);
-    localStorage.setItem('fivenest_presets', JSON.stringify(updated));
-    setNewPresetName("");
-    alert(`Preset "${name}" saved successfully!`);
-  };
 
-  const handleLoadPreset = (name: string) => {
-    const preset = presets.find(p => p.name === name);
-    if (preset) {
-      onDesignConfigChange(preset.config);
-      alert(`Loaded preset "${name}".`);
+    setIsSavingPreset(true);
+    try {
+      const clonedConfig: ArtDesignConfig = JSON.parse(JSON.stringify(designConfig));
+      const newPreset: DesignPresetItem = {
+        id: `preset_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        name,
+        category: 'custom',
+        description: `Saved ${new Date().toLocaleDateString('en-IN')}`,
+        config: clonedConfig,
+        updatedAt: new Date().toISOString()
+      };
+
+      const updated = [...customPresets.filter(p => p.name !== name), newPreset];
+      setCustomPresets(updated);
+
+      // Save to IndexedDB (unlimited quota, handles all high-res textures)
+      await savePresetToIndexedDB(newPreset);
+
+      // Save to Cloud (Supabase & MongoDB)
+      if (currentUser?.email || currentUser?.id) {
+        savePresetsToCloud(updated, currentUser.email, currentUser.id).catch(() => {});
+      }
+
+      setNewPresetName("");
+      setPresetStatus(`Saved "${name}" to your account!`);
+      toast.success(`Preset "${name}" saved successfully!`);
+      setTimeout(() => setPresetStatus(null), 4000);
+    } catch (err: any) {
+      console.error("Save preset error:", err);
+      toast.error("Failed to save preset: " + (err.message || "Storage error"));
+    } finally {
+      setIsSavingPreset(false);
     }
   };
 
-  const handleDeletePreset = (name: string) => {
-    const updated = presets.filter(p => p.name !== name);
-    setPresets(updated);
-    localStorage.setItem('fivenest_presets', JSON.stringify(updated));
+  const handleLoadPreset = (preset: DesignPresetItem) => {
+    try {
+      const clonedConfig: ArtDesignConfig = JSON.parse(JSON.stringify(preset.config));
+
+      // Pre-cache all image URLs in the loaded preset so canvas immediately paints
+      const urls: string[] = [];
+      const panelKeys: (keyof ArtDesignConfig)[] = ['front', 'back', 'sleeveLeft', 'sleeveRight', 'a4Print', 'collar'];
+      panelKeys.forEach(k => {
+        const p: any = clonedConfig[k];
+        if (!p) return;
+        if (p.uploadedFileUrl) urls.push(p.uploadedFileUrl);
+        if (p.uploadedFileHalfUrl) urls.push(p.uploadedFileHalfUrl);
+        if (p.uploadedFileFullUrl) urls.push(p.uploadedFileFullUrl);
+        if (p.leftChestLogo?.uploadedUrl) urls.push(p.leftChestLogo.uploadedUrl);
+        if (p.rightChestLogo?.uploadedUrl) urls.push(p.rightChestLogo.uploadedUrl);
+        if (p.torsoLogo?.uploadedUrl) urls.push(p.torsoLogo.uploadedUrl);
+        if (p.bottomLeftLogo?.uploadedUrl) urls.push(p.bottomLeftLogo.uploadedUrl);
+      });
+
+      urls.forEach(url => {
+        if (!logoImagesRef.current[url]) {
+          const img = new Image();
+          img.onload = () => {
+            logoImagesRef.current[url] = img;
+            setPrefTrigger(prev => prev + 1);
+          };
+          img.src = url;
+        }
+      });
+
+      onDesignConfigChange(clonedConfig);
+      setPrefTrigger(prev => prev + 1);
+      toast.success(`Loaded "${preset.name}" preset.`);
+    } catch (err: any) {
+      console.error("Load preset error:", err);
+      toast.error("Could not load preset: " + err.message);
+    }
+  };
+
+  const handleDeletePreset = async (preset: DesignPresetItem) => {
+    if (!confirm(`Delete preset "${preset.name}"?`)) return;
+    try {
+      const updated = customPresets.filter(p => p.id !== preset.id && p.name !== preset.name);
+      setCustomPresets(updated);
+      await deletePresetFromIndexedDB(preset.id || preset.name);
+      if (currentUser?.email || currentUser?.id) {
+        savePresetsToCloud(updated, currentUser.email, currentUser.id).catch(() => {});
+      }
+      toast.info(`Deleted preset "${preset.name}".`);
+    } catch (err: any) {
+      console.error("Delete preset error:", err);
+    }
+  };
+
+  const handleExportJSON = () => {
+    if (customPresets.length === 0) {
+      toast.error("No custom presets to export.");
+      return;
+    }
+    downloadPresetsFile(customPresets, `fivenest-presets-${currentUser?.email?.split('@')[0] || 'custom'}.json`);
+    toast.success("Downloaded presets JSON file.");
+  };
+
+  const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const text = ev.target?.result as string;
+      const parsed = parsePresetsJSON(text);
+      if (parsed && parsed.length > 0) {
+        const merged = [...customPresets];
+        for (const item of parsed) {
+          if (!merged.some(m => m.name === item.name)) {
+            merged.push(item);
+            await savePresetToIndexedDB(item);
+          }
+        }
+        setCustomPresets(merged);
+        if (currentUser?.email || currentUser?.id) {
+          savePresetsToCloud(merged, currentUser.email, currentUser.id).catch(() => {});
+        }
+        toast.success(`Imported ${parsed.length} presets successfully!`);
+      } else {
+        toast.error("Invalid preset JSON format.");
+      }
+    };
+    reader.readAsText(file);
+    if (e.target) e.target.value = '';
   };
 
   // Sync preference updates
@@ -8971,64 +9115,188 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '16px' }}>💾</span> <span style={{ fontSize: '13px', fontWeight: '700' }}>Design Presets Manager</span>
             </span>
-            {collapsed.presets ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {currentUser?.name && (
+                <span style={{ fontSize: '10px', background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '12px', fontWeight: '600' }}>
+                  ☁️ {currentUser.name.split(' ')[0]}
+                </span>
+              )}
+              {collapsed.presets ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+            </div>
           </h3>
           {!collapsed.presets && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
-              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                Save the current design configuration (background uploads, colors, fonts, strokes, and text formats) as a reusable template preset.
+              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', lineHeight: '1.4' }}>
+                Save your design configuration (background uploads, colors, fonts, strokes & text layouts) as a reusable cloud preset that syncs across all your devices.
               </p>
+
+              {/* Save Input & Button */}
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input 
                   type="text" 
                   className="form-input" 
-                  placeholder="Preset Name" 
+                  placeholder="Preset Name (e.g. Shirke Gold Kit)" 
                   value={newPresetName}
                   onChange={(e) => setNewPresetName(e.target.value)}
-                  style={{ padding: '8px', fontSize: '12px' }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSavePreset(); }}
+                  style={{ padding: '8px 10px', fontSize: '12px', flex: 1, borderRadius: '6px', border: '1px solid #CBD5E1' }}
                 />
                 <button 
                   className="btn btn-primary" 
                   onClick={handleSavePreset}
-                  style={{ padding: '8px 16px', fontSize: '12px', whiteSpace: 'nowrap' }}
+                  disabled={isSavingPreset}
+                  style={{ padding: '8px 16px', fontSize: '12px', whiteSpace: 'nowrap', background: '#E4572E', color: '#FFFFFF', fontWeight: '700', borderRadius: '6px' }}
                 >
-                  Save
+                  {isSavingPreset ? 'Saving...' : 'Save'}
                 </button>
               </div>
 
-              {presets.length > 0 && (
-                <div>
-                  <p style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '6px' }}>Select Preset to Load:</p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
-                    {presets.map((preset, idx) => (
-                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: '#FAF8F5', borderRadius: '6px', border: '1px solid #E8E4DE', fontSize: '11px' }}>
-                        <span 
-                          style={{ fontWeight: 'bold', cursor: 'pointer', color: '#171717' }}
-                          onClick={() => handleLoadPreset(preset.name)}
-                        >
-                          {preset.name}
-                        </span>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button 
-                            className="btn btn-secondary" 
-                            style={{ padding: '3px 8px', fontSize: '9px' }}
-                            onClick={() => handleLoadPreset(preset.name)}
-                          >
-                            Load
-                          </button>
-                          <button 
-                            className="btn" 
-                            style={{ padding: '3px 8px', fontSize: '9px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#DC2626' }}
-                            onClick={() => handleDeletePreset(preset.name)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+              {presetStatus && (
+                <div style={{ padding: '6px 10px', borderRadius: '6px', background: '#ECFDF5', border: '1px solid #A7F3D0', color: '#047857', fontSize: '11px', fontWeight: '600' }}>
+                  ✓ {presetStatus}
                 </div>
               )}
+
+              {/* Presets Tabs: My Saved Presets vs Factory Templates */}
+              <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0', marginTop: '4px', gap: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => setPresetTab('my')}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '11px',
+                    fontWeight: presetTab === 'my' ? '700' : '500',
+                    color: presetTab === 'my' ? '#E4572E' : '#64748B',
+                    borderBottom: presetTab === 'my' ? '2px solid #E4572E' : '2px solid transparent',
+                    background: 'none',
+                    borderTop: 'none',
+                    borderLeft: 'none',
+                    borderRight: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  My Saved Presets ({customPresets.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPresetTab('factory')}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '11px',
+                    fontWeight: presetTab === 'factory' ? '700' : '500',
+                    color: presetTab === 'factory' ? '#E4572E' : '#64748B',
+                    borderBottom: presetTab === 'factory' ? '2px solid #E4572E' : '2px solid transparent',
+                    background: 'none',
+                    borderTop: 'none',
+                    borderLeft: 'none',
+                    borderRight: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Factory Templates ({FACTORY_PRESETS.length})
+                </button>
+              </div>
+
+              {/* Tab 1: My Custom Presets */}
+              {presetTab === 'my' && (
+                <div>
+                  {customPresets.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '16px 12px', background: '#FAF8F5', borderRadius: '8px', border: '1px dashed #CBD5E1', fontSize: '11px', color: '#64748B' }}>
+                      <p style={{ fontWeight: '600', color: '#334155', marginBottom: '4px' }}>No saved presets yet</p>
+                      <p>Type a name above and click <strong>Save</strong> to store your current jersey configuration, or explore the <strong>Factory Templates</strong> tab.</p>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
+                      {customPresets.map((preset) => (
+                        <div key={preset.id || preset.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#FAF8F5', borderRadius: '6px', border: '1px solid #E8E4DE', fontSize: '11px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', marginRight: '8px' }}>
+                            <span 
+                              style={{ fontWeight: '700', cursor: 'pointer', color: '#171717', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}
+                              onClick={() => handleLoadPreset(preset)}
+                              title="Click to load"
+                            >
+                              {preset.name}
+                            </span>
+                            {preset.description && (
+                              <span style={{ fontSize: '9px', color: '#94A3B8' }}>{preset.description}</span>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                            <button 
+                              className="btn btn-secondary" 
+                              style={{ padding: '4px 10px', fontSize: '10px', fontWeight: '700', background: '#FFFFFF', border: '1px solid #CBD5E1' }}
+                              onClick={() => handleLoadPreset(preset)}
+                            >
+                              Load
+                            </button>
+                            <button 
+                              className="btn" 
+                              style={{ padding: '4px 8px', fontSize: '10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#DC2626' }}
+                              onClick={() => handleDeletePreset(preset)}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Tab 2: Factory Templates */}
+              {presetTab === 'factory' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '200px', overflowY: 'auto' }}>
+                  {FACTORY_PRESETS.map((preset) => (
+                    <div key={preset.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '11px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', marginRight: '8px' }}>
+                        <span style={{ fontWeight: '700', color: '#0F172A' }}>{preset.name}</span>
+                        {preset.description && (
+                          <span style={{ fontSize: '9px', color: '#64748B', lineHeight: '1.2', marginTop: '2px' }}>{preset.description}</span>
+                        )}
+                      </div>
+                      <button 
+                        className="btn btn-secondary" 
+                        style={{ padding: '4px 10px', fontSize: '10px', fontWeight: '700', flexShrink: 0, background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#E4572E' }}
+                        onClick={() => handleLoadPreset(preset)}
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Utility Actions: Export / Import JSON */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid #F1F5F9', fontSize: '10px', color: '#64748B' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  ☁️ IndexedDB + Cloud Sync
+                </span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={handleExportJSON}
+                    style={{ background: 'none', border: 'none', color: '#2563EB', cursor: 'pointer', fontSize: '10px', fontWeight: '600', padding: 0 }}
+                  >
+                    Export JSON
+                  </button>
+                  <span>•</span>
+                  <button
+                    type="button"
+                    onClick={() => jsonFileInputRef.current?.click()}
+                    style={{ background: 'none', border: 'none', color: '#2563EB', cursor: 'pointer', fontSize: '10px', fontWeight: '600', padding: 0 }}
+                  >
+                    Import JSON
+                  </button>
+                  <input 
+                    type="file" 
+                    ref={jsonFileInputRef} 
+                    accept=".json" 
+                    style={{ display: 'none' }} 
+                    onChange={handleImportJSON} 
+                  />
+                </div>
+              </div>
             </div>
           )}
         </div>

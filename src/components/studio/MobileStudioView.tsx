@@ -19,6 +19,7 @@ import type { NestingViewHandle } from './nestingView';
 import { classifyZipPanelFile } from './zipHelper';
 import { initiateRazorpayRecharge } from '../../lib/razorpayService';
 import { queueCloudSizesSave } from '../../lib/sizesSyncService';
+import { getLocalPresets, savePresetToIndexedDB, deletePresetFromIndexedDB } from '../../lib/presetsSyncService';
 
 const FONT_OPTIONS = [
   { id: 'OldSport02AthleticNcv-E0gj', label: 'Old Sport Athletic' },
@@ -284,7 +285,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
   const [sheetImportMessage, setSheetImportMessage] = useState<string | null>(null);
   const sheetFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Presets state (synced with localStorage)
+  // Presets state (synced with IndexedDB and localStorage)
   const [customPresets, setCustomPresets] = useState<{ name: string; config: ArtDesignConfig }[]>(() => {
     try {
       const saved = localStorage.getItem('fivenest_presets');
@@ -293,6 +294,15 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
       return [];
     }
   });
+
+  useEffect(() => {
+    getLocalPresets(currentUser?.email).then((local) => {
+      if (local && local.length > 0) {
+        setCustomPresets(local.map(l => ({ name: l.name, config: l.config })));
+      }
+    });
+  }, [currentUser?.email]);
+
   const [newPresetName, setNewPresetName] = useState<string>('');
 
   // Payment states
@@ -1045,16 +1055,27 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
   };
 
   // Save custom preset
-  const handleSaveCustomPreset = () => {
+  const handleSaveCustomPreset = async () => {
     if (!newPresetName.trim()) {
       alert("Please enter a name for your preset.");
       return;
     }
-    const updated = [...customPresets.filter(p => p.name !== newPresetName.trim()), { name: newPresetName.trim(), config: designConfig }];
+    const name = newPresetName.trim();
+    const newPreset = {
+      id: `preset_${Date.now()}`,
+      name,
+      category: 'custom' as const,
+      config: JSON.parse(JSON.stringify(designConfig)),
+      updatedAt: new Date().toISOString()
+    };
+    const updated = [...customPresets.filter(p => p.name !== name), { name, config: newPreset.config }];
     setCustomPresets(updated);
-    localStorage.setItem('fivenest_presets', JSON.stringify(updated));
+    await savePresetToIndexedDB(newPreset);
+    try {
+      localStorage.setItem('fivenest_presets', JSON.stringify(updated));
+    } catch (e) {}
     setNewPresetName('');
-    alert(`Saved preset "${newPresetName.trim()}"!`);
+    alert(`Saved preset "${name}"!`);
   };
 
   // Load custom preset

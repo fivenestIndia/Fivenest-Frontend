@@ -820,6 +820,7 @@ export default function WebStudio() {
               designConfig={designConfig} 
               onDesignConfigChange={setDesignConfig} 
               metadata={metadata}
+              currentUser={currentUser}
             />
           )}
 
