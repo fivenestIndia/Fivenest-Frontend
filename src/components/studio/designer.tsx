@@ -7446,6 +7446,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                             <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
                             <option value="OldSport01CollegeNcv-aeGm">Old Sport College</option>
                             <option value="Jersey M54">Jersey M54</option>
+                            <option value="Barcelona_2013_HD">Barcelona 2013 HD</option>
                             <option value="Pop Warner">Pop Warner</option>
                             <option value="Calligraphy">Calligraphy Script</option>
                             <option value="Eaglore 2">Eaglore 2</option>
@@ -7455,7 +7456,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           </optgroup>
                           <optgroup label="System Fonts">
                             <option value="Impact">Impact (Bold Athletic)</option>
-                            <option value="Arial">Arial Black</option>
+                            <option value="Arial">Arial Bold</option>
                             <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
                             <option value="Times New Roman">Times (Classic Serif)</option>
                           </optgroup>
@@ -7937,6 +7938,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                             <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
                             <option value="OldSport01CollegeNcv-aeGm">Old Sport College</option>
                             <option value="Jersey M54">Jersey M54</option>
+                            <option value="Barcelona_2013_HD">Barcelona 2013 HD</option>
                             <option value="Pop Warner">Pop Warner</option>
                             <option value="Calligraphy">Calligraphy Script</option>
                             <option value="Eaglore 2">Eaglore 2</option>
@@ -7946,7 +7948,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           </optgroup>
                           <optgroup label="System Fonts">
                             <option value="Impact">Impact (Bold Athletic)</option>
-                            <option value="Arial">Arial Black</option>
+                            <option value="Arial">Arial Bold</option>
                             <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
                             <option value="Times New Roman">Times (Classic Serif)</option>
                           </optgroup>
@@ -8782,6 +8784,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                               <option value="OldSport02AthleticNcv-E0gj">Old Sport Athletic (Default)</option>
                               <option value="OldSport01CollegeNcv-aeGm">Old Sport College</option>
                               <option value="Jersey M54">Jersey M54</option>
+                              <option value="Barcelona_2013_HD">Barcelona 2013 HD</option>
                               <option value="Pop Warner">Pop Warner</option>
                               <option value="Calligraphy">Calligraphy Script</option>
                               <option value="Eaglore 2">Eaglore 2</option>
@@ -8791,7 +8794,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                             </optgroup>
                             <optgroup label="System Fonts">
                               <option value="Impact">Impact (Bold Athletic)</option>
-                              <option value="Arial">Arial Black</option>
+                              <option value="Arial">Arial Bold</option>
                               <option value="Trebuchet MS">Trebuchet (Modern Sans)</option>
                               <option value="Times New Roman">Times (Classic Serif)</option>
                             </optgroup>
@@ -8866,16 +8869,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
               <span style={{ fontSize: '16px' }}>💾</span> <span style={{ fontSize: '13px', fontWeight: '700' }}>Design Presets Manager</span>
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ 
-                fontSize: '10px', 
-                background: customPresets.length >= MAX_CLOUD_PRESETS ? '#FEF2F2' : '#EFF6FF', 
-                color: customPresets.length >= MAX_CLOUD_PRESETS ? '#B91C1C' : '#1D4ED8', 
-                padding: '2px 8px', 
-                borderRadius: '12px', 
-                fontWeight: '700' 
-              }}>
-                ☁️ {customPresets.length}/{MAX_CLOUD_PRESETS} Used (3 Days TTL)
-              </span>
               {collapsed.presets ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
             </div>
           </h3>

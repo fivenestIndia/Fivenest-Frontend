@@ -88,6 +88,7 @@ export const DEFAULT_STUDIO_FONTS: DefaultFontOption[] = [
   { value: 'OldSport02AthleticNcv-E0gj', label: 'Old Sport Athletic (Default)', category: 'Athletic' },
   { value: 'OldSport01CollegeNcv-aeGm', label: 'Old Sport College', category: 'Athletic' },
   { value: 'Jersey M54', label: 'Jersey M54', category: 'Athletic' },
+  { value: 'Barcelona_2013_HD', label: 'Barcelona 2013 HD', category: 'Athletic' },
   { value: 'Pop Warner', label: 'Pop Warner', category: 'Athletic' },
   { value: 'Calligraphy', label: 'Calligraphy Script', category: 'Script' },
   { value: 'Eaglore 2', label: 'Eaglore 2', category: 'Display' },
@@ -95,7 +96,7 @@ export const DEFAULT_STUDIO_FONTS: DefaultFontOption[] = [
   { value: 'Khand-SemiBold', label: 'Khand SemiBold', category: 'Display' },
   { value: 'fhf', label: 'FHF Sport', category: 'Athletic' },
   { value: 'Impact', label: 'Impact (Bold)', category: 'System' },
-  { value: 'Arial', label: 'Arial Black', category: 'System' },
+  { value: 'Arial', label: 'Arial Bold', category: 'System' },
   { value: 'Trebuchet MS', label: 'Trebuchet (Modern Sans)', category: 'System' },
   { value: 'Times New Roman', label: 'Times (Classic Serif)', category: 'System' }
 ];

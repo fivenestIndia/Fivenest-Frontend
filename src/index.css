@@ -32,6 +32,14 @@
 }
 
 @font-face {
+  font-family: 'Barcelona_2013_HD';
+  src: local('Barcelona_2013_HD'), local('FC Barcelona Font 2013 by HD'), local('Barcelona 2013 HD'), local('Barcelona_2013'), url('/fonts/Jersey M54.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
   font-family: 'Pop Warner';
   src: url('/fonts/Pop Warner.ttf') format('truetype');
   font-weight: 100 900;

@@ -78,197 +78,266 @@ const IDB_STORE = 'design_presets';
 const IDB_VERSION = 1;
 
 // ─── 1. BUILT-IN FACTORY STARTER PRESETS ─────────────────────────────────────
-export const FACTORY_PRESETS: DesignPresetItem[] = [
-  {
-    id: 'factory_navy_gold',
-    name: 'Pro Sublimation (Navy & Gold)',
+interface UniformPresetSpec {
+  id: string;
+  name: string;
+  category?: 'factory';
+  description: string;
+  fillType: 'solid' | 'gradient';
+  gradientStyle?: 'gradient-linear-tb' | 'gradient-linear-lr' | 'gradient-linear-diag' | 'gradient-radial';
+  color1: string;
+  color2: string;
+  fontFamily: string;
+  fontWeight?: 'normal' | 'bold';
+  nameColor: string;
+  nameStrokeColor: string;
+  nameStrokeWidth?: number;
+  numberColor: string;
+  numberStrokeColor: string;
+  numberStrokeWidth?: number;
+  frontNumberEnabled?: boolean;
+  collarBgColor?: string;
+  collarStripeColor?: string;
+  placketColor?: string;
+  sleeveStripeColor?: string;
+}
+
+function buildUniformJerseyPreset(spec: UniformPresetSpec): DesignPresetItem {
+  const genStyle = spec.fillType === 'solid' ? 'solid' : (spec.gradientStyle || 'gradient-linear-tb');
+  const fw = spec.fontWeight || 'normal';
+
+  const makeUniformPanel = (base: any, isFront: boolean, isBack: boolean) => ({
+    ...base,
+    backgroundType: 'generate' as const,
+    generatedStyle: genStyle,
+    generatedColor1: spec.color1,
+    generatedColor2: spec.color2,
+    uploadedFileUrl: null,
+    uploadedFileHalfUrl: null,
+    uploadedFileFullUrl: null,
+    uploadedFileNoLogoUrl: null,
+    nameConfig: {
+      ...base.nameConfig,
+      fontFamily: spec.fontFamily,
+      fontWeight: fw,
+      color: spec.nameColor,
+      strokeColor: spec.nameStrokeColor,
+      strokeWidth: spec.nameStrokeWidth ?? 1.5,
+      enabled: isBack,
+    },
+    numberConfig: {
+      ...base.numberConfig,
+      fontFamily: spec.fontFamily,
+      fontWeight: fw,
+      color: spec.numberColor,
+      strokeColor: spec.numberStrokeColor,
+      strokeWidth: spec.numberStrokeWidth ?? 0.8,
+      enabled: isBack ? true : (isFront ? (spec.frontNumberEnabled ?? true) : false),
+      fontSize: isBack ? 9.0 : 3.5,
+    }
+  });
+
+  return {
+    id: spec.id,
+    name: spec.name,
     category: 'factory',
-    description: 'Deep navy jersey with gold athletic lettering, dual sleeve ribbing, and contrast collar.',
+    description: spec.description,
     config: {
       ...defaultDesignConfig,
-      front: {
-        ...defaultDesignConfig.front,
-        backgroundType: 'generate',
-        generatedStyle: 'solid',
-        generatedColor1: '#0B192C',
-        generatedColor2: '#0B192C',
-        nameConfig: {
-          ...defaultDesignConfig.front.nameConfig,
-          enabled: false
-        },
-        numberConfig: {
-          ...defaultDesignConfig.front.numberConfig,
-          enabled: true,
-          fontSize: 3.5,
-          color: '#FFD700',
-          strokeColor: '#000000',
-          strokeWidth: 0.8
-        }
-      },
-      back: {
-        ...defaultDesignConfig.back,
-        backgroundType: 'generate',
-        generatedStyle: 'solid',
-        generatedColor1: '#0B192C',
-        generatedColor2: '#0B192C',
-        nameConfig: {
-          ...defaultDesignConfig.back.nameConfig,
-          enabled: true,
-          color: '#FFFFFF',
-          strokeColor: '#000000',
-          strokeWidth: 1.5
-        },
-        numberConfig: {
-          ...defaultDesignConfig.back.numberConfig,
-          enabled: true,
-          fontSize: 9.0,
-          color: '#FFD700',
-          strokeColor: '#FFFFFF',
-          strokeWidth: 0.8
-        }
-      },
+      front: makeUniformPanel(defaultDesignConfig.front, true, false),
+      back: makeUniformPanel(defaultDesignConfig.back, false, true),
+      sleeveLeft: makeUniformPanel(defaultDesignConfig.sleeveLeft, false, false),
+      sleeveRight: makeUniformPanel(defaultDesignConfig.sleeveRight, false, false),
+      a4Print: makeUniformPanel(defaultDesignConfig.a4Print, false, false),
       collar: {
-        ...defaultDesignConfig.collar!,
+        ...(defaultDesignConfig.collar || {}),
         backgroundType: 'generate',
         generatedStyle: 'solid',
-        generatedColor1: '#FFD700',
+        generatedColor1: spec.collarBgColor || spec.color1,
+        generatedColor2: spec.collarBgColor || spec.color1,
+        uploadedFileUrl: null,
         stripes: [
-          { color: '#0B192C', height: 0.25, yPos: 0.5 },
-          { color: '#FFFFFF', height: 0.15, yPos: 1.0 }
+          { id: 'cs-1', color: spec.collarStripeColor || spec.color2, height: 0.25, yOffset: 0.5, fillType: 'solid' },
+          { id: 'cs-2', color: '#FFFFFF', height: 0.15, yOffset: 1.0, fillType: 'solid' }
         ]
-      }
-    }
-  },
-  {
-    id: 'factory_cricket_royal',
-    name: 'Cricket Pro (Royal & Amber)',
-    category: 'factory',
-    description: 'Tournament jersey in royal blue with vibrant amber accents and high-visibility back numbers.',
-    config: {
-      ...defaultDesignConfig,
-      front: {
-        ...defaultDesignConfig.front,
-        backgroundType: 'generate',
-        generatedStyle: 'gradient-linear-tb',
-        generatedColor1: '#0F52BA',
-        generatedColor2: '#051E54',
-        nameConfig: {
-          ...defaultDesignConfig.front.nameConfig,
-          enabled: false
-        },
-        numberConfig: {
-          ...defaultDesignConfig.front.numberConfig,
-          enabled: false
-        }
       },
-      back: {
-        ...defaultDesignConfig.back,
-        backgroundType: 'generate',
-        generatedStyle: 'gradient-linear-tb',
-        generatedColor1: '#0F52BA',
-        generatedColor2: '#051E54',
-        nameConfig: {
-          ...defaultDesignConfig.back.nameConfig,
-          enabled: true,
-          color: '#FFBF00',
-          strokeColor: '#051E54',
-          strokeWidth: 1.8
+      trim: {
+        collar: { enabled: true, color: spec.collarBgColor || spec.color1, uploadedUrl: null },
+        placket: { enabled: true, color: spec.placketColor || spec.collarBgColor || spec.color1, uploadedUrl: null },
+        sleeveStripe: { 
+          enabled: true, 
+          color: spec.sleeveStripeColor || spec.color2, 
+          uploadedUrl: null, 
+          height: 2.0, 
+          fillType: spec.fillType === 'gradient' ? 'gradient' : 'solid' 
         },
-        numberConfig: {
-          ...defaultDesignConfig.back.numberConfig,
-          enabled: true,
-          fontSize: 9.0,
-          color: '#FFFFFF',
-          strokeColor: '#FFBF00',
-          strokeWidth: 0.9
-        }
+        buttonColor: '#FFFFFF'
       }
     }
-  },
-  {
-    id: 'factory_striker_red',
-    name: 'Football Striker (Crimson Stripes)',
-    category: 'factory',
-    description: 'Athletic vertical striped front with solid crimson back panel for crisp number legibility.',
-    config: {
-      ...defaultDesignConfig,
-      front: {
-        ...defaultDesignConfig.front,
-        backgroundType: 'generate',
-        generatedStyle: 'classic-stripes',
-        generatedColor1: '#B91C1C',
-        generatedColor2: '#FFFFFF'
-      },
-      back: {
-        ...defaultDesignConfig.back,
-        backgroundType: 'generate',
-        generatedStyle: 'solid',
-        generatedColor1: '#B91C1C',
-        generatedColor2: '#B91C1C',
-        nameConfig: {
-          ...defaultDesignConfig.back.nameConfig,
-          enabled: true,
-          color: '#FFFFFF',
-          strokeColor: '#000000',
-          strokeWidth: 1.5
-        },
-        numberConfig: {
-          ...defaultDesignConfig.back.numberConfig,
-          enabled: true,
-          color: '#FFFFFF',
-          strokeColor: '#000000',
-          strokeWidth: 1.0
-        }
-      }
-    }
-  },
-  {
-    id: 'factory_esports_stealth',
-    name: 'Esports Stealth (Obsidian & Cyan)',
-    category: 'factory',
-    description: 'Modern esports gamer style with electric cyan glow typography on dark obsidian panels.',
-    config: {
-      ...defaultDesignConfig,
-      front: {
-        ...defaultDesignConfig.front,
-        backgroundType: 'generate',
-        generatedStyle: 'solid',
-        generatedColor1: '#111827',
-        generatedColor2: '#1F2937',
-        numberConfig: {
-          ...defaultDesignConfig.front.numberConfig,
-          enabled: true,
-          color: '#06B6D4',
-          strokeColor: '#FFFFFF',
-          strokeWidth: 0.6
-        }
-      },
-      back: {
-        ...defaultDesignConfig.back,
-        backgroundType: 'generate',
-        generatedStyle: 'solid',
-        generatedColor1: '#111827',
-        generatedColor2: '#1F2937',
-        nameConfig: {
-          ...defaultDesignConfig.back.nameConfig,
-          enabled: true,
-          color: '#06B6D4',
-          strokeColor: '#000000',
-          strokeWidth: 1.5
-        },
-        numberConfig: {
-          ...defaultDesignConfig.back.numberConfig,
-          enabled: true,
-          color: '#FFFFFF',
-          strokeColor: '#06B6D4',
-          strokeWidth: 1.2
-        }
-      }
-    }
-  },
+  };
+}
+
+export const FACTORY_PRESETS: DesignPresetItem[] = [
+  buildUniformJerseyPreset({
+    id: 'factory_jersey_m54_navy',
+    name: 'Jersey M54 · Navy & Gold (Solid)',
+    description: 'Uniform deep navy solid kit across all panels with authentic Jersey M54 athletic numbers & gold accents.',
+    fillType: 'solid',
+    color1: '#0B192C',
+    color2: '#0B192C',
+    fontFamily: 'Jersey M54',
+    nameColor: '#FFFFFF',
+    nameStrokeColor: '#000000',
+    nameStrokeWidth: 1.5,
+    numberColor: '#FFD700',
+    numberStrokeColor: '#000000',
+    numberStrokeWidth: 0.8,
+    collarBgColor: '#0B192C',
+    collarStripeColor: '#FFD700',
+    placketColor: '#FFD700',
+    sleeveStripeColor: '#FFD700'
+  }),
+  buildUniformJerseyPreset({
+    id: 'factory_barcelona_blaugrana',
+    name: 'Barcelona 2013 HD · Blaugrana (Gradient)',
+    description: 'Iconic Barcelona 2013 HD typography over rich Garnet-to-Blue vertical gradient filled across all panels.',
+    fillType: 'gradient',
+    gradientStyle: 'gradient-linear-tb',
+    color1: '#8A002E',
+    color2: '#003366',
+    fontFamily: 'Barcelona_2013_HD',
+    nameColor: '#FFED02',
+    nameStrokeColor: '#003366',
+    nameStrokeWidth: 1.8,
+    numberColor: '#FFED02',
+    numberStrokeColor: '#8A002E',
+    numberStrokeWidth: 1.0,
+    collarBgColor: '#003366',
+    collarStripeColor: '#FFED02',
+    placketColor: '#FFED02',
+    sleeveStripeColor: '#FFED02'
+  }),
+  buildUniformJerseyPreset({
+    id: 'factory_impact_crimson',
+    name: 'Impact · Crimson Striker (Solid)',
+    description: 'All panels filled with vibrant solid crimson red with heavy Impact bold athletic lettering.',
+    fillType: 'solid',
+    color1: '#B91C1C',
+    color2: '#B91C1C',
+    fontFamily: 'Impact',
+    nameColor: '#FFFFFF',
+    nameStrokeColor: '#000000',
+    nameStrokeWidth: 1.5,
+    numberColor: '#FFFFFF',
+    numberStrokeColor: '#000000',
+    numberStrokeWidth: 1.0,
+    collarBgColor: '#FFFFFF',
+    collarStripeColor: '#B91C1C',
+    placketColor: '#FFFFFF',
+    sleeveStripeColor: '#FFFFFF'
+  }),
+  buildUniformJerseyPreset({
+    id: 'factory_arial_stealth_volt',
+    name: 'Arial Bold · Stealth Volt (Solid)',
+    description: 'Pitch dark charcoal solid jersey across all panels with modern Arial Bold font & electric volt numbers.',
+    fillType: 'solid',
+    color1: '#111827',
+    color2: '#111827',
+    fontFamily: 'Arial',
+    fontWeight: 'bold',
+    nameColor: '#FFFFFF',
+    nameStrokeColor: '#000000',
+    nameStrokeWidth: 1.5,
+    numberColor: '#CCFF00',
+    numberStrokeColor: '#000000',
+    numberStrokeWidth: 0.8,
+    collarBgColor: '#111827',
+    collarStripeColor: '#CCFF00',
+    placketColor: '#CCFF00',
+    sleeveStripeColor: '#CCFF00'
+  }),
+  buildUniformJerseyPreset({
+    id: 'factory_eaglore_ocean_cyan',
+    name: 'Eaglore 2 · Ocean Cyan (Gradient)',
+    description: 'Midnight-to-cyan gradient filled on all panels with authentic Eaglore 2 display lettering.',
+    fillType: 'gradient',
+    gradientStyle: 'gradient-linear-tb',
+    color1: '#0F172A',
+    color2: '#0284C7',
+    fontFamily: 'Eaglore 2',
+    nameColor: '#FFFFFF',
+    nameStrokeColor: '#0F172A',
+    nameStrokeWidth: 1.5,
+    numberColor: '#38BDF8',
+    numberStrokeColor: '#FFFFFF',
+    numberStrokeWidth: 1.0,
+    collarBgColor: '#0F172A',
+    collarStripeColor: '#38BDF8',
+    placketColor: '#38BDF8',
+    sleeveStripeColor: '#38BDF8'
+  }),
+  buildUniformJerseyPreset({
+    id: 'factory_jersey_m54_bleed_blue',
+    name: 'Jersey M54 · Bleed Blue (Gradient)',
+    description: 'Cobalt blue gradient filled across all panels with Jersey M54 sports typography & saffron trim.',
+    fillType: 'gradient',
+    gradientStyle: 'gradient-linear-tb',
+    color1: '#0A192F',
+    color2: '#1D4ED8',
+    fontFamily: 'Jersey M54',
+    nameColor: '#FF9933',
+    nameStrokeColor: '#0A192F',
+    nameStrokeWidth: 1.8,
+    numberColor: '#FFFFFF',
+    numberStrokeColor: '#FF9933',
+    numberStrokeWidth: 1.0,
+    collarBgColor: '#0A192F',
+    collarStripeColor: '#FF9933',
+    placketColor: '#FF9933',
+    sleeveStripeColor: '#FF9933'
+  }),
+  buildUniformJerseyPreset({
+    id: 'factory_impact_emerald_gold',
+    name: 'Impact · Emerald & Gold (Solid)',
+    description: 'Solid deep emerald championship kit across all panels with bold Impact font & amber gold numbers.',
+    fillType: 'solid',
+    color1: '#064E3B',
+    color2: '#064E3B',
+    fontFamily: 'Impact',
+    nameColor: '#FFFFFF',
+    nameStrokeColor: '#064E3B',
+    nameStrokeWidth: 1.5,
+    numberColor: '#F59E0B',
+    numberStrokeColor: '#FFFFFF',
+    numberStrokeWidth: 0.9,
+    collarBgColor: '#064E3B',
+    collarStripeColor: '#F59E0B',
+    placketColor: '#F59E0B',
+    sleeveStripeColor: '#F59E0B'
+  }),
+  buildUniformJerseyPreset({
+    id: 'factory_barcelona_sunset_fire',
+    name: 'Barcelona 2013 HD · Sunset Fire (Gradient)',
+    description: 'Vibrant orange-to-mahogany gradient across all panels featuring Barcelona 2013 HD numbers.',
+    fillType: 'gradient',
+    gradientStyle: 'gradient-linear-tb',
+    color1: '#EA580C',
+    color2: '#7C2D12',
+    fontFamily: 'Barcelona_2013_HD',
+    nameColor: '#FFFFFF',
+    nameStrokeColor: '#7C2D12',
+    nameStrokeWidth: 1.8,
+    numberColor: '#FEF08A',
+    numberStrokeColor: '#1C1917',
+    numberStrokeWidth: 1.0,
+    collarBgColor: '#1C1917',
+    collarStripeColor: '#EA580C',
+    placketColor: '#EA580C',
+    sleeveStripeColor: '#FEF08A'
+  }),
   {
     id: 'factory_minimalist_blank',
-    name: 'Standard Sublimation Artboard',
+    name: 'Standard Sublimation Artboard (Clean White)',
     category: 'factory',
     description: 'Clean default sublimation layout with calibrated industrial factory guidelines and size tags.',
     config: defaultDesignConfig
