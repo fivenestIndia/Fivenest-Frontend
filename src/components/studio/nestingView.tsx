@@ -4412,7 +4412,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                       </span>
                     ) : (
                       <span>
-                        On-the-spot rendering is billed at <strong>₹3.50/pc</strong> for Back panels with FiveNest label tag (or <strong>₹5.50/pc</strong> standard). Front and sleeve panels are free.
+                        Instant payment rendering is billed at <strong>₹3.50/pc</strong> for Back panels with FiveNest label tag (or <strong>₹5.50/pc</strong> standard). Front and sleeve panels are free.
                       </span>
                     )}
                   </p>

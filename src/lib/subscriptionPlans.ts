@@ -25,10 +25,10 @@ export const DEFAULT_SPOT_RATE_WITHOUT_TAG = 5.50;
 export const ORDER_PORTAL_MIN_PLAN_AMOUNT = 5000;
 
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
-  // ── ON-THE-SPOT (Pay As You Go) ─────────────────────────────────────────
+  // ── INSTANT PAYMENT (Pay As You Go) ─────────────────────────────────────────
   {
     id: 'on_the_spot',
-    name: 'On-the-spot',
+    name: 'Instant Payment',
     type: 'spot',
     upfront: 0,
     validityDays: 0,
@@ -246,7 +246,7 @@ export function getUserJerseyRate(
     return includeWatermarkLogo ? userSub.rateWithTag : userSub.rateWithoutTag;
   }
 
-  // Default On-the-spot rate
+  // Default Instant payment rate
   return includeWatermarkLogo ? DEFAULT_SPOT_RATE_WITH_TAG : DEFAULT_SPOT_RATE_WITHOUT_TAG;
 }
 

@@ -58,8 +58,8 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     }
 
     if (plan.upfront === 0) {
-      // On-the-spot mode
-      setSuccessMessage(`Switched to On-the-spot plan (₹${plan.rateWithTag}/pc tag, ₹${plan.rateWithoutTag}/pc standard). Pay per export.`);
+      // Instant Payment mode
+      setSuccessMessage(`Switched to Instant Payment plan (₹${plan.rateWithTag}/pc tag, ₹${plan.rateWithoutTag}/pc standard). Pay per export.`);
       setTimeout(() => setSuccessMessage(null), 4000);
       return;
     }
@@ -426,7 +426,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 transition: 'all 0.15s'
               }}
             >
-              <Zap size={14} /> On-the-spot (Per Job)
+              <Zap size={14} /> Instant Payment (Per Job)
             </button>
           </div>
 
@@ -639,7 +639,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                       </>
                     ) : plan.upfront === 0 ? (
                       <>
-                        <span>Use On-the-spot</span>
+                        <span>Use Instant Payment</span>
                         <ChevronRight size={14} />
                       </>
                     ) : (
@@ -672,7 +672,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 💳 Or Enter Any Custom Wallet Top-up
               </div>
               <div style={{ fontSize: '11px', color: '#94A3B8' }}>
-                Add credits directly to your wallet for on-the-spot exports (Default rate ₹3.50/pc tag, ₹5.50 standard).
+                Add credits directly to your wallet for instant payment exports (Default rate ₹3.50/pc tag, ₹5.50 standard).
               </div>
             </div>
 

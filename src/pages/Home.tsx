@@ -1070,13 +1070,13 @@ export default function Home() {
               Transparent Factory Pricing
             </span>
             <h2 className="text-3xl sm:text-5xl font-black text-[#171717] tracking-tight mb-4">
-              Subscription & On-The-Spot Plans
+              Subscription & Instant Payment Plans
             </h2>
             <p className="text-base sm:text-lg text-[#52525B] leading-relaxed">
               Every single rupee of subscription is 100% credited into your export wallet. Use tokens to generate print-ready files at industrial wholesale rates.
             </p>
 
-            {/* Matrix Tabs: Monthly | Quarterly | On-The-Spot */}
+            {/* Matrix Tabs: Monthly | Quarterly | Instant Payment */}
             <div className="inline-flex p-1.5 rounded-2xl bg-[#F5F3EF] border border-[#E8E4DE] mt-8">
               <button
                 onClick={() => setPricingTab('monthly')}
@@ -1109,19 +1109,19 @@ export default function Home() {
                     : 'text-[#52525B] hover:text-[#171717]'
                 )}
               >
-                On-The-Spot (Per Job QR)
+                Instant Payment (Per Job QR)
               </button>
             </div>
           </div>
 
-          {/* ON-THE-SPOT TAB */}
+          {/* INSTANT PAYMENT TAB */}
           {pricingTab === 'spot' && (
             <div className="max-w-2xl mx-auto">
               <div className="bg-[#FAF9F6] rounded-3xl p-8 border-2 border-[#E4572E] shadow-soft-lg text-center relative overflow-hidden">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E4572E] text-white text-xs font-bold uppercase tracking-wider mb-4">
                   <Zap size={14} /> Pay Only When You Export
                 </div>
-                <h3 className="text-3xl font-black text-[#171717] mb-2">On-The-Spot Instant QR</h3>
+                <h3 className="text-3xl font-black text-[#171717] mb-2">Instant Payment QR</h3>
                 <p className="text-sm text-[#52525B] max-w-md mx-auto mb-6">
                   Zero monthly commitment. Process and grade your jerseys, preview in 3D, and scan an instant Razorpay UPI QR code only when downloading print files.
                 </p>
@@ -1479,7 +1479,7 @@ export default function Home() {
               },
               {
                 q: 'How does the FiveNest tag discount work?',
-                a: 'When you keep the discreet FiveNest branding tag on the jersey hem or neck label, you unlock our lowest rate of ₹3.50/pc (on-the-spot) or down to ₹2.00/pc on the Factory subscription plan. If you prefer completely white-label jerseys with zero branding, the standard rate is ₹5.50/pc.',
+                a: 'When you keep the discreet FiveNest branding tag on the jersey hem or neck label, you unlock our lowest rate of ₹3.50/pc (instant payment) or down to ₹2.00/pc on the Factory subscription plan. If you prefer completely white-label jerseys with zero branding, the standard rate is ₹5.50/pc.',
               },
               {
                 q: 'Who gets access to the Order Management Portal?',
