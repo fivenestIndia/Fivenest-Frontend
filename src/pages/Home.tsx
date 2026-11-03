@@ -1490,6 +1490,10 @@ export default function Home() {
                 q: 'How do subscription wallet credits work?',
                 a: 'When you purchase a subscription (e.g. ₹2,500 or ₹5,000), 100% of that upfront amount is added to your FiveNest export wallet. Each time you generate and download a print-ready jersey file, tokens are deducted at your discounted plan rate.',
               },
+              {
+                q: 'What if I accidentally export a duplicate job?',
+                a: 'We offer a 100% refund guarantee for duplicate jobs! If you accidentally submit or export the exact same order roster twice, simply raise a query within 72 hours via WhatsApp or email. Upon verification, 100% of the duplicate amount will generate and credit directly back into your FiveNest Wallet balance (not as real cash) for your next jersey export.',
+              },
             ].map((faq, i) => (
               <div
                 key={i}
