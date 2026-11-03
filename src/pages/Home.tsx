@@ -9,6 +9,7 @@ import {
 import { Link } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
+import LiveExportCounter from '../components/home/LiveExportCounter';
 import { SUBSCRIPTION_PLANS, DEFAULT_SPOT_RATE_WITH_TAG, DEFAULT_SPOT_RATE_WITHOUT_TAG } from '../lib/subscriptionPlans';
 
 // ─── Utility ───────────────────────────────────────────────────────────────
@@ -1555,6 +1556,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* ─── LIVE COUNTING AT BOTTOM: TOTAL EXPORT FROM FIVENEST (STARTED TODAY) ─── */}
+      <LiveExportCounter />
 
       {/* Global Footer */}
       <Footer />

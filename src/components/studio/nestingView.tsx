@@ -8,6 +8,7 @@ import { supabase, fetchUserWallet } from '../../lib/supabaseClient';
 import { fivenestLabelTagDataUrl } from '../../assets/labelTagBase64';
 import { ExportProcessingModal } from './ExportProcessingModal';
 import { recordBillingExport } from './billingSystem';
+import { recordExportEvent } from '../../lib/exportTrackerService';
 import { initiateRazorpayRecharge } from '../../lib/razorpayService';
 import { loadFontBinaryIntoBrowser, dataUrlToArrayBuffer } from '../../lib/fontLoader';
 import { SubscriptionModal } from './SubscriptionModal';
@@ -2499,6 +2500,22 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
         designCharges: metadata?.designCharges !== undefined ? metadata.designCharges : 0,
         status: "Pending"
       }, currentUser?.email);
+
+      // Record export event for live counter on main page & admin dashboard
+      try {
+        const items = getItemsToExport();
+        const actualFileCount = items.length > 0 ? items.length : Math.max(1, backPanelCount * 4);
+        recordExportEvent({
+          fileCount: actualFileCount,
+          jerseyCount: backPanelCount > 0 ? backPanelCount : 1,
+          customerName: cleanCust,
+          orderNum: metadata?.orderNum || '01',
+          exportType: exportFormat || 'jpg',
+          userEmail: currentUser?.email || 'guest'
+        }).catch(err => console.warn("Live export tracker warning:", err));
+      } catch (trackerErr) {
+        console.warn("Could not record live export count:", trackerErr);
+      }
 
       console.log(`[FiveNest] Logged billing entry: ${entry.orderCode} (${entry.customerName}) for user: ${currentUser?.email || 'guest'}`);
     } catch (err) {

@@ -34,6 +34,11 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
+  calculateAdminExportCounts, 
+  getCachedExportStats, 
+  type ExportTrackerStats 
+} from '../lib/exportTrackerService';
+import { 
   fetchAllTrialClaimsAdmin, 
   submitAdminDecision, 
   TrialClaimRecord 
@@ -157,9 +162,25 @@ export default function DesignDashboard() {
   const [editNote, setEditNote] = useState<string>('');
   const [isSavingWallet, setIsSavingWallet] = useState(false);
 
-  // Transactions state
+  // Transactions & Export Stats state
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [exportStats, setExportStats] = useState<ExportTrackerStats>(() => getCachedExportStats());
+
+  // Keep Export Stats synchronized with transactions & live events
+  useEffect(() => {
+    calculateAdminExportCounts(transactions).then(stats => {
+      setExportStats(stats);
+    });
+  }, [transactions]);
+
+  useEffect(() => {
+    const handleUpdate = (e: any) => {
+      if (e?.detail) setExportStats(e.detail);
+    };
+    window.addEventListener('fivenest_export_count_updated', handleUpdate);
+    return () => window.removeEventListener('fivenest_export_count_updated', handleUpdate);
+  }, []);
 
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fivenest-backend.onrender.com';
 
@@ -868,16 +889,25 @@ export default function DesignDashboard() {
           {/* Card 4: Exports & Ledger Jobs */}
           <div className="bg-[#0F1422] border border-white/10 rounded-2xl p-5 relative overflow-hidden shadow-xl">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Ledger Activity</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Total Export Files</span>
               <div className="w-8 h-8 rounded-lg bg-[#E4572E]/10 text-[#E4572E] flex items-center justify-center">
-                <Receipt size={18} />
+                <Download size={18} />
               </div>
             </div>
-            <div className="text-3xl font-black text-white tracking-tight">
-              {transactions.length}
+            <div className="text-3xl font-black text-white tracking-tight flex items-baseline gap-2">
+              <span>{exportStats.totalExportFiles.toLocaleString()}</span>
+              {exportStats.todayExportFiles > 0 && (
+                <span className="text-[11px] font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/25">
+                  +{exportStats.todayExportFiles} today
+                </span>
+              )}
             </div>
-            <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
-              <span>Topups & export deductions</span>
+            <div className="flex items-center justify-between mt-2 text-xs text-gray-400">
+              <span>{transactions.length} total ledger jobs</span>
+              <span className="text-orange-400 font-semibold text-[11px] flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Live on fivenest.in
+              </span>
             </div>
           </div>
         </div>
@@ -1516,6 +1546,32 @@ export default function DesignDashboard() {
                 <p className="text-xs text-gray-400 mt-0.5">
                   Complete audit history of wallet charges, topups, and sublimation print jobs
                 </p>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Live Counting Active
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Export Metrics Banner */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-black/40 border-b border-white/10 text-xs">
+              <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                <span className="text-gray-400 block text-[10px] font-bold uppercase tracking-wider">Total Export Files</span>
+                <span className="text-lg font-black text-white">{exportStats.totalExportFiles.toLocaleString()}</span>
+              </div>
+              <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                <span className="text-gray-400 block text-[10px] font-bold uppercase tracking-wider">Exported Today</span>
+                <span className="text-lg font-black text-emerald-400">+{exportStats.todayExportFiles.toLocaleString()}</span>
+              </div>
+              <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                <span className="text-gray-400 block text-[10px] font-bold uppercase tracking-wider">Today's Jobs</span>
+                <span className="text-lg font-black text-amber-400">{exportStats.todayExportJobs}</span>
+              </div>
+              <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                <span className="text-gray-400 block text-[10px] font-bold uppercase tracking-wider">Total Ledger Activity</span>
+                <span className="text-lg font-black text-purple-400">{transactions.length}</span>
               </div>
             </div>
 

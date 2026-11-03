@@ -145,6 +145,10 @@ export default function Footer() {
           <p className="text-[#8C8984] text-xs font-medium">
             © {new Date().getFullYear()} Fivenest. All rights reserved.
           </p>
+          <div className="flex items-center gap-2 text-xs font-bold text-[#E4572E] bg-white px-3 py-1 rounded-full border border-[#E2DED7] shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Live Production Exports Active</span>
+          </div>
           <p className="text-[#8C8984] text-xs font-medium flex items-center gap-1.5">
             Crafted for jersey printers in Mumbai, India
           </p>
