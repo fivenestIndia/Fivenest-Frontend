@@ -1005,6 +1005,65 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     try {
       const clonedConfig: ArtDesignConfig = JSON.parse(JSON.stringify(preset.config));
 
+      // FACTORY FONT VARIATION PRESETS: Preserve existing background artwork, uploads, colors, collars & trims completely!
+      if (preset.isFontVariationOnly || preset.category === 'factory') {
+        const mergedConfig: ArtDesignConfig = {
+          ...designConfig,
+          front: {
+            ...designConfig.front,
+            nameConfig: clonedConfig.front?.nameConfig ? { ...designConfig.front.nameConfig, ...clonedConfig.front.nameConfig } : designConfig.front.nameConfig,
+            numberConfig: clonedConfig.front?.numberConfig ? { ...designConfig.front.numberConfig, ...clonedConfig.front.numberConfig } : designConfig.front.numberConfig,
+          },
+          back: {
+            ...designConfig.back,
+            nameConfig: clonedConfig.back?.nameConfig ? { ...designConfig.back.nameConfig, ...clonedConfig.back.nameConfig } : designConfig.back.nameConfig,
+            numberConfig: clonedConfig.back?.numberConfig ? { ...designConfig.back.numberConfig, ...clonedConfig.back.numberConfig } : designConfig.back.numberConfig,
+          },
+          sleeveLeft: {
+            ...designConfig.sleeveLeft,
+            nameConfig: clonedConfig.sleeveLeft?.nameConfig ? { ...designConfig.sleeveLeft.nameConfig, ...clonedConfig.sleeveLeft.nameConfig } : designConfig.sleeveLeft.nameConfig,
+            numberConfig: clonedConfig.sleeveLeft?.numberConfig ? { ...designConfig.sleeveLeft.numberConfig, ...clonedConfig.sleeveLeft.numberConfig } : designConfig.sleeveLeft.numberConfig,
+          },
+          sleeveRight: {
+            ...designConfig.sleeveRight,
+            nameConfig: clonedConfig.sleeveRight?.nameConfig ? { ...designConfig.sleeveRight.nameConfig, ...clonedConfig.sleeveRight.nameConfig } : designConfig.sleeveRight.nameConfig,
+            numberConfig: clonedConfig.sleeveRight?.numberConfig ? { ...designConfig.sleeveRight.numberConfig, ...clonedConfig.sleeveRight.numberConfig } : designConfig.sleeveRight.numberConfig,
+          },
+          a4Print: {
+            ...designConfig.a4Print,
+            nameConfig: clonedConfig.a4Print?.nameConfig ? { ...designConfig.a4Print.nameConfig, ...clonedConfig.a4Print.nameConfig } : designConfig.a4Print.nameConfig,
+            numberConfig: clonedConfig.a4Print?.numberConfig ? { ...designConfig.a4Print.numberConfig, ...clonedConfig.a4Print.numberConfig } : designConfig.a4Print.numberConfig,
+          }
+        };
+
+        const fontFamilies: string[] = [
+          clonedConfig.back?.nameConfig?.fontFamily,
+          clonedConfig.back?.numberConfig?.fontFamily
+        ].filter(Boolean) as string[];
+
+        if (typeof document !== 'undefined' && document.fonts) {
+          fontFamilies.forEach(ff => {
+            document.fonts.load(`bold 32px "${ff}"`).then(() => {
+              setPrefTrigger(prev => prev + 1);
+            }).catch(() => {});
+            document.fonts.load(`32px "${ff}"`).then(() => {
+              setPrefTrigger(prev => prev + 1);
+            }).catch(() => {});
+            if (ff.toLowerCase().includes('barcelona')) {
+              document.fonts.load(`bold 32px "Barcelona_2013_HD"`).catch(() => {});
+              document.fonts.load(`bold 32px "barcelona_2013_by_hd"`).catch(() => {});
+              document.fonts.load(`bold 32px "Barcelona 2013 HD"`).catch(() => {});
+              document.fonts.load(`32px "Barcelona_2013_HD"`).catch(() => {});
+            }
+          });
+        }
+
+        onDesignConfigChange(mergedConfig);
+        setPrefTrigger(prev => prev + 1);
+        toast.success(`Applied "${preset.name}" font styling.`);
+        return;
+      }
+
       // Pre-cache all image URLs in the loaded preset so canvas immediately paints
       const urls: string[] = [];
       const panelKeys: (keyof ArtDesignConfig)[] = ['front', 'back', 'sleeveLeft', 'sleeveRight', 'a4Print', 'collar'];
@@ -2181,7 +2240,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         ctx.save();
         const fontSizePx = Math.round((conf.fontSize / 30) * height);
         const weightStr = conf.fontWeight === 'bold' ? 'bold ' : '';
-        ctx.font = `${weightStr}${fontSizePx}px "${conf.fontFamily}", sans-serif`;
+        const isBarcelona = (conf.fontFamily || '').toLowerCase().includes('barcelona');
+        const fontFallbacks = isBarcelona 
+          ? '"Barcelona_2013_HD", "barcelona_2013_by_hd", "Barcelona 2013 HD", sans-serif' 
+          : 'sans-serif';
+        ctx.font = `${weightStr}${fontSizePx}px "${conf.fontFamily}", ${fontFallbacks}`;
         
         const align = conf.align || 'center';
         ctx.textAlign = align;
@@ -7535,7 +7598,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         <label className="form-label" style={{ fontSize: '11px' }}>Font Style:</label>
                         <select 
                           className="form-select" 
-                          value={activePanel.nameConfig.fontFamily}
+                          value={
+                            (activePanel.nameConfig.fontFamily === 'barcelona_2013_by_hd' || activePanel.nameConfig.fontFamily === 'Barcelona 2013 HD')
+                              ? 'Barcelona_2013_HD'
+                              : (activePanel.nameConfig.fontFamily || 'OldSport02AthleticNcv-E0gj')
+                          }
                           onChange={(e) => updateTextConfig('name', { fontFamily: e.target.value })}
                           style={{ padding: '6px' }}
                         >
@@ -8027,7 +8094,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         <label className="form-label" style={{ fontSize: '11px' }}>Font Style:</label>
                         <select 
                           className="form-select" 
-                          value={activePanel.numberConfig.fontFamily}
+                          value={
+                            (activePanel.numberConfig.fontFamily === 'barcelona_2013_by_hd' || activePanel.numberConfig.fontFamily === 'Barcelona 2013 HD')
+                              ? 'Barcelona_2013_HD'
+                              : (activePanel.numberConfig.fontFamily || 'OldSport02AthleticNcv-E0gj')
+                          }
                           onChange={(e) => updateTextConfig('number', { fontFamily: e.target.value })}
                           style={{ padding: '6px' }}
                         >

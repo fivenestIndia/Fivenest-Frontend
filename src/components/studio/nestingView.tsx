@@ -1791,6 +1791,29 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               ctx.fillText(typeStr, widthPx - offset, offset);
             }
           }
+
+          // Top-right watermark label for Sleeves (LEFT SLEEVE / RIGHT SLEEVE)
+          if (item.panelType === 'sleeve-left' || item.panelType === 'sleeve-right') {
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'top';
+            const isLeft = item.panelType === 'sleeve-left';
+            const isRaglan = item.isRaglan || false;
+            const isFull = item.sleeveType === 'full';
+            const prefix = isRaglan ? 'RAGLAN ' : '';
+            const typeStr = isFull ? 'FULL ' : '';
+            const sleeveLabel = `${prefix}${typeStr}${isLeft ? 'LEFT SLEEVE' : 'RIGHT SLEEVE'}`;
+
+            // White outside stroke
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = strokePx * 2.5;
+            ctx.strokeText(sleeveLabel, widthPx - offset, offset);
+
+            // High-visibility Fill: Blue for Left, Red for Right
+            ctx.fillStyle = isLeft ? '#2563EB' : '#DC2626';
+            ctx.fillText(sleeveLabel, widthPx - offset, offset);
+          }
           ctx.restore();
         }
       };
@@ -1799,7 +1822,11 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
         ctx.save();
         const fontSizePx = Math.round((textConf.fontSize / 30) * heightPx);
         const weightStr = textConf.fontWeight === 'bold' ? 'bold ' : '';
-        ctx.font = `${weightStr}${fontSizePx}px "${textConf.fontFamily}", sans-serif`;
+        const isBarcelona = (textConf.fontFamily || '').toLowerCase().includes('barcelona');
+        const fontFallbacks = isBarcelona 
+          ? '"Barcelona_2013_HD", "barcelona_2013_by_hd", "Barcelona 2013 HD", sans-serif' 
+          : 'sans-serif';
+        ctx.font = `${weightStr}${fontSizePx}px "${textConf.fontFamily}", ${fontFallbacks}`;
         
         const align = textConf.align || 'center';
         ctx.textAlign = align;
@@ -2125,10 +2152,16 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
           const qtyVal = (typeof item.qty === 'number' && item.qty > 0) ? item.qty : (sizeQty > 0 ? sizeQty : 1);
 
-          // Requirement: Format size watermark without spaces as "40=2", or "40=2 NL" for Without Logo front
+          // Requirement: Format size watermark without spaces as "40=2", or "40=2 NL" for Without Logo front, and explicit Left/Right for sleeves
           let sizeQtyText = `${item.size}=${qtyVal}`;
           if (item.panelType === 'front' && item.withoutLogoFront) {
             sizeQtyText = `${item.size}=${qtyVal} NL`;
+          } else if (item.panelType === 'sleeve-left') {
+            sizeQtyText = `${item.size}=${qtyVal} Left`;
+          } else if (item.panelType === 'sleeve-right') {
+            sizeQtyText = `${item.size}=${qtyVal} Right`;
+          } else if (item.panelType === 'sleeve-merged') {
+            sizeQtyText = `${item.size}=${qtyVal} Left & Right`;
           }
           const templateText = sizeTagConf.text || '{size}';
           const displayText = templateText.includes('{size}')
@@ -2729,17 +2762,17 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             const list = sleeveSizeMap[key];
             const rep = list[0];
             const qty = list.length;
-            let sleeveCode = 'HSL';
+            let sleeveCode = 'Left Sleeve';
             if (rep.panelType === 'sleeve-left') {
-              sleeveCode = rep.sleeveType === 'full' ? 'FSL L' : 'HSL L';
+              sleeveCode = rep.sleeveType === 'full' ? 'Full Sleeve Left' : 'Left Sleeve';
             } else if (rep.panelType === 'sleeve-right') {
-              sleeveCode = rep.sleeveType === 'full' ? 'FSL R' : 'HSL R';
+              sleeveCode = rep.sleeveType === 'full' ? 'Full Sleeve Right' : 'Right Sleeve';
             } else {
-              sleeveCode = rep.sleeveType === 'full' ? 'FSL' : 'HSL';
+              sleeveCode = rep.sleeveType === 'full' ? 'Full Sleeve Merged' : 'Left & Right Sleeve';
             }
 
             testPdfPages.push({
-              item: rep,
+              item: { ...rep, qty },
               label: `[Sleeve] ${rep.size}=${qty} ${sleeveCode}`
             });
           });
@@ -3082,24 +3115,22 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               const rep = list[0];
               const qty = list.length;
               
-              let sleeveCode = 'LHS';
+              let sleeveCode = 'Left Sleeve';
               if (rep.panelType === 'sleeve-left') {
-                sleeveCode = rep.sleeveType === 'full' ? 'FLS' : 'LHS';
+                sleeveCode = rep.sleeveType === 'full' ? 'Full Sleeve Left' : 'Left Sleeve';
               } else if (rep.panelType === 'sleeve-right') {
-                sleeveCode = rep.sleeveType === 'full' ? 'RLS' : 'RHS';
+                sleeveCode = rep.sleeveType === 'full' ? 'Full Sleeve Right' : 'Right Sleeve';
               } else {
-                sleeveCode = 'MS';
+                sleeveCode = rep.sleeveType === 'full' ? 'Full Sleeve Merged' : 'Left & Right Sleeve';
               }
 
-              let fileName = '';
-              if (rep.sleeveType === 'full') {
-                fileName = `${rep.size} = ${qty} ${sleeveCode}.jpg`;
-              } else {
-                fileName = `${rep.size}=${qty} ${sleeveCode}.jpg`;
-              }
+              const fileName = `${rep.size} = ${qty} ${sleeveCode}.jpg`;
 
               renderActions.push({
-                representativeItem: rep,
+                representativeItem: {
+                  ...rep,
+                  qty
+                },
                 fileName,
                 folder: 'Sleeve'
               });

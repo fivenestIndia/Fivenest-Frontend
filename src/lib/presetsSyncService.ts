@@ -17,6 +17,7 @@ export interface DesignPresetItem {
   category: 'factory' | 'custom';
   description?: string;
   config: ArtDesignConfig;
+  isFontVariationOnly?: boolean;
   createdAt?: string;
   updatedAt?: string;
   expiresAt?: string; // Auto-vanish after 3 days
@@ -78,15 +79,11 @@ const IDB_STORE = 'design_presets';
 const IDB_VERSION = 1;
 
 // ─── 1. BUILT-IN FACTORY STARTER PRESETS ─────────────────────────────────────
-interface UniformPresetSpec {
+interface FontVariationPresetSpec {
   id: string;
   name: string;
   category?: 'factory';
   description: string;
-  fillType: 'solid' | 'gradient';
-  gradientStyle?: 'gradient-linear-tb' | 'gradient-linear-lr' | 'gradient-linear-diag' | 'gradient-radial';
-  color1: string;
-  color2: string;
   fontFamily: string;
   fontWeight?: 'normal' | 'bold';
   nameColor: string;
@@ -96,26 +93,17 @@ interface UniformPresetSpec {
   numberStrokeColor: string;
   numberStrokeWidth?: number;
   frontNumberEnabled?: boolean;
-  collarBgColor?: string;
-  collarStripeColor?: string;
-  placketColor?: string;
-  sleeveStripeColor?: string;
 }
 
-function buildUniformJerseyPreset(spec: UniformPresetSpec): DesignPresetItem {
-  const genStyle = spec.fillType === 'solid' ? 'solid' : (spec.gradientStyle || 'gradient-linear-tb');
+/**
+ * Builds a pure Name & Number Font Variation preset.
+ * Does NOT overwrite or touch uploaded artwork or backgrounds.
+ */
+function buildFontVariationPreset(spec: FontVariationPresetSpec): DesignPresetItem {
   const fw = spec.fontWeight || 'normal';
 
-  const makeUniformPanel = (base: any, isFront: boolean, isBack: boolean) => ({
+  const makePanelTextConfig = (base: any, isFront: boolean, isBack: boolean) => ({
     ...base,
-    backgroundType: 'generate' as const,
-    generatedStyle: genStyle,
-    generatedColor1: spec.color1,
-    generatedColor2: spec.color2,
-    uploadedFileUrl: null,
-    uploadedFileHalfUrl: null,
-    uploadedFileFullUrl: null,
-    uploadedFileNoLogoUrl: null,
     nameConfig: {
       ...base.nameConfig,
       fontFamily: spec.fontFamily,
@@ -142,49 +130,23 @@ function buildUniformJerseyPreset(spec: UniformPresetSpec): DesignPresetItem {
     name: spec.name,
     category: 'factory',
     description: spec.description,
+    isFontVariationOnly: true,
     config: {
       ...defaultDesignConfig,
-      front: makeUniformPanel(defaultDesignConfig.front, true, false),
-      back: makeUniformPanel(defaultDesignConfig.back, false, true),
-      sleeveLeft: makeUniformPanel(defaultDesignConfig.sleeveLeft, false, false),
-      sleeveRight: makeUniformPanel(defaultDesignConfig.sleeveRight, false, false),
-      a4Print: makeUniformPanel(defaultDesignConfig.a4Print, false, false),
-      collar: {
-        ...(defaultDesignConfig.collar || {}),
-        backgroundType: 'generate',
-        generatedStyle: 'solid',
-        generatedColor1: spec.collarBgColor || spec.color1,
-        generatedColor2: spec.collarBgColor || spec.color1,
-        uploadedFileUrl: null,
-        stripes: [
-          { id: 'cs-1', color: spec.collarStripeColor || spec.color2, height: 0.25, yOffset: 0.5, fillType: 'solid' },
-          { id: 'cs-2', color: '#FFFFFF', height: 0.15, yOffset: 1.0, fillType: 'solid' }
-        ]
-      },
-      trim: {
-        collar: { enabled: true, color: spec.collarBgColor || spec.color1, uploadedUrl: null },
-        placket: { enabled: true, color: spec.placketColor || spec.collarBgColor || spec.color1, uploadedUrl: null },
-        sleeveStripe: { 
-          enabled: true, 
-          color: spec.sleeveStripeColor || spec.color2, 
-          uploadedUrl: null, 
-          height: 2.0, 
-          fillType: spec.fillType === 'gradient' ? 'gradient' : 'solid' 
-        },
-        buttonColor: '#FFFFFF'
-      }
+      front: makePanelTextConfig(defaultDesignConfig.front, true, false),
+      back: makePanelTextConfig(defaultDesignConfig.back, false, true),
+      sleeveLeft: makePanelTextConfig(defaultDesignConfig.sleeveLeft, false, false),
+      sleeveRight: makePanelTextConfig(defaultDesignConfig.sleeveRight, false, false),
+      a4Print: makePanelTextConfig(defaultDesignConfig.a4Print, false, false),
     }
   };
 }
 
 export const FACTORY_PRESETS: DesignPresetItem[] = [
-  buildUniformJerseyPreset({
-    id: 'factory_jersey_m54_navy',
-    name: 'Jersey M54 · Navy & Gold (Solid)',
-    description: 'Uniform deep navy solid kit across all panels with authentic Jersey M54 athletic numbers & gold accents.',
-    fillType: 'solid',
-    color1: '#0B192C',
-    color2: '#0B192C',
+  buildFontVariationPreset({
+    id: 'factory_jersey_m54',
+    name: 'Jersey M54 · Athletic Font Variation',
+    description: 'Authentic Jersey M54 sports typography with crisp white player name & athletic gold number with dark outline.',
     fontFamily: 'Jersey M54',
     nameColor: '#FFFFFF',
     nameStrokeColor: '#000000',
@@ -192,19 +154,11 @@ export const FACTORY_PRESETS: DesignPresetItem[] = [
     numberColor: '#FFD700',
     numberStrokeColor: '#000000',
     numberStrokeWidth: 0.8,
-    collarBgColor: '#0B192C',
-    collarStripeColor: '#FFD700',
-    placketColor: '#FFD700',
-    sleeveStripeColor: '#FFD700'
   }),
-  buildUniformJerseyPreset({
-    id: 'factory_barcelona_blaugrana',
-    name: 'Barcelona 2013 HD · Blaugrana (Gradient)',
-    description: 'Iconic Barcelona 2013 HD typography over rich Garnet-to-Blue vertical gradient filled across all panels.',
-    fillType: 'gradient',
-    gradientStyle: 'gradient-linear-tb',
-    color1: '#8A002E',
-    color2: '#003366',
+  buildFontVariationPreset({
+    id: 'factory_barcelona_2013_hd',
+    name: 'Barcelona 2013 HD · Club Font Variation',
+    description: 'Iconic authentic Barcelona 2013 HD lettering with vibrant gold characters and club outline.',
     fontFamily: 'Barcelona_2013_HD',
     nameColor: '#FFED02',
     nameStrokeColor: '#003366',
@@ -212,18 +166,11 @@ export const FACTORY_PRESETS: DesignPresetItem[] = [
     numberColor: '#FFED02',
     numberStrokeColor: '#8A002E',
     numberStrokeWidth: 1.0,
-    collarBgColor: '#003366',
-    collarStripeColor: '#FFED02',
-    placketColor: '#FFED02',
-    sleeveStripeColor: '#FFED02'
   }),
-  buildUniformJerseyPreset({
-    id: 'factory_impact_crimson',
-    name: 'Impact · Crimson Striker (Solid)',
-    description: 'All panels filled with vibrant solid crimson red with heavy Impact bold athletic lettering.',
-    fillType: 'solid',
-    color1: '#B91C1C',
-    color2: '#B91C1C',
+  buildFontVariationPreset({
+    id: 'factory_impact',
+    name: 'Impact · Heavy Athletic Font Variation',
+    description: 'Heavy bold athletic condensed typography with high-contrast white lettering and solid black stroke.',
     fontFamily: 'Impact',
     nameColor: '#FFFFFF',
     nameStrokeColor: '#000000',
@@ -231,18 +178,11 @@ export const FACTORY_PRESETS: DesignPresetItem[] = [
     numberColor: '#FFFFFF',
     numberStrokeColor: '#000000',
     numberStrokeWidth: 1.0,
-    collarBgColor: '#FFFFFF',
-    collarStripeColor: '#B91C1C',
-    placketColor: '#FFFFFF',
-    sleeveStripeColor: '#FFFFFF'
   }),
-  buildUniformJerseyPreset({
-    id: 'factory_arial_stealth_volt',
-    name: 'Arial Bold · Stealth Volt (Solid)',
-    description: 'Pitch dark charcoal solid jersey across all panels with modern Arial Bold font & electric volt numbers.',
-    fillType: 'solid',
-    color1: '#111827',
-    color2: '#111827',
+  buildFontVariationPreset({
+    id: 'factory_arial_bold',
+    name: 'Arial Bold · Modern Pro Font Variation',
+    description: 'Clean modern sans-serif typography featuring high-visibility electric volt numbers & white name.',
     fontFamily: 'Arial',
     fontWeight: 'bold',
     nameColor: '#FFFFFF',
@@ -251,19 +191,11 @@ export const FACTORY_PRESETS: DesignPresetItem[] = [
     numberColor: '#CCFF00',
     numberStrokeColor: '#000000',
     numberStrokeWidth: 0.8,
-    collarBgColor: '#111827',
-    collarStripeColor: '#CCFF00',
-    placketColor: '#CCFF00',
-    sleeveStripeColor: '#CCFF00'
   }),
-  buildUniformJerseyPreset({
-    id: 'factory_eaglore_ocean_cyan',
-    name: 'Eaglore 2 · Ocean Cyan (Gradient)',
-    description: 'Midnight-to-cyan gradient filled on all panels with authentic Eaglore 2 display lettering.',
-    fillType: 'gradient',
-    gradientStyle: 'gradient-linear-tb',
-    color1: '#0F172A',
-    color2: '#0284C7',
+  buildFontVariationPreset({
+    id: 'factory_eaglore_2',
+    name: 'Eaglore 2 · Dynamic Display Font Variation',
+    description: 'Distinctive athletic curved display font with vibrant cyan numbers & clean dual outline.',
     fontFamily: 'Eaglore 2',
     nameColor: '#FFFFFF',
     nameStrokeColor: '#0F172A',
@@ -271,77 +203,7 @@ export const FACTORY_PRESETS: DesignPresetItem[] = [
     numberColor: '#38BDF8',
     numberStrokeColor: '#FFFFFF',
     numberStrokeWidth: 1.0,
-    collarBgColor: '#0F172A',
-    collarStripeColor: '#38BDF8',
-    placketColor: '#38BDF8',
-    sleeveStripeColor: '#38BDF8'
-  }),
-  buildUniformJerseyPreset({
-    id: 'factory_jersey_m54_bleed_blue',
-    name: 'Jersey M54 · Bleed Blue (Gradient)',
-    description: 'Cobalt blue gradient filled across all panels with Jersey M54 sports typography & saffron trim.',
-    fillType: 'gradient',
-    gradientStyle: 'gradient-linear-tb',
-    color1: '#0A192F',
-    color2: '#1D4ED8',
-    fontFamily: 'Jersey M54',
-    nameColor: '#FF9933',
-    nameStrokeColor: '#0A192F',
-    nameStrokeWidth: 1.8,
-    numberColor: '#FFFFFF',
-    numberStrokeColor: '#FF9933',
-    numberStrokeWidth: 1.0,
-    collarBgColor: '#0A192F',
-    collarStripeColor: '#FF9933',
-    placketColor: '#FF9933',
-    sleeveStripeColor: '#FF9933'
-  }),
-  buildUniformJerseyPreset({
-    id: 'factory_impact_emerald_gold',
-    name: 'Impact · Emerald & Gold (Solid)',
-    description: 'Solid deep emerald championship kit across all panels with bold Impact font & amber gold numbers.',
-    fillType: 'solid',
-    color1: '#064E3B',
-    color2: '#064E3B',
-    fontFamily: 'Impact',
-    nameColor: '#FFFFFF',
-    nameStrokeColor: '#064E3B',
-    nameStrokeWidth: 1.5,
-    numberColor: '#F59E0B',
-    numberStrokeColor: '#FFFFFF',
-    numberStrokeWidth: 0.9,
-    collarBgColor: '#064E3B',
-    collarStripeColor: '#F59E0B',
-    placketColor: '#F59E0B',
-    sleeveStripeColor: '#F59E0B'
-  }),
-  buildUniformJerseyPreset({
-    id: 'factory_barcelona_sunset_fire',
-    name: 'Barcelona 2013 HD · Sunset Fire (Gradient)',
-    description: 'Vibrant orange-to-mahogany gradient across all panels featuring Barcelona 2013 HD numbers.',
-    fillType: 'gradient',
-    gradientStyle: 'gradient-linear-tb',
-    color1: '#EA580C',
-    color2: '#7C2D12',
-    fontFamily: 'Barcelona_2013_HD',
-    nameColor: '#FFFFFF',
-    nameStrokeColor: '#7C2D12',
-    nameStrokeWidth: 1.8,
-    numberColor: '#FEF08A',
-    numberStrokeColor: '#1C1917',
-    numberStrokeWidth: 1.0,
-    collarBgColor: '#1C1917',
-    collarStripeColor: '#EA580C',
-    placketColor: '#EA580C',
-    sleeveStripeColor: '#FEF08A'
-  }),
-  {
-    id: 'factory_minimalist_blank',
-    name: 'Standard Sublimation Artboard (Clean White)',
-    category: 'factory',
-    description: 'Clean default sublimation layout with calibrated industrial factory guidelines and size tags.',
-    config: defaultDesignConfig
-  }
+  })
 ];
 
 // ─── 2. INDEXEDDB ENGINE ─────────────────────────────────────────────────────
