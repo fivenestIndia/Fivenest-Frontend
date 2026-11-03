@@ -889,16 +889,16 @@ export default function DesignDashboard() {
           {/* Card 4: Exports & Ledger Jobs */}
           <div className="bg-[#0F1422] border border-white/10 rounded-2xl p-5 relative overflow-hidden shadow-xl">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Total Export Files</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Total Export Jerseys</span>
               <div className="w-8 h-8 rounded-lg bg-[#E4572E]/10 text-[#E4572E] flex items-center justify-center">
                 <Download size={18} />
               </div>
             </div>
             <div className="text-3xl font-black text-white tracking-tight flex items-baseline gap-2">
-              <span>{exportStats.totalExportFiles.toLocaleString()}</span>
-              {exportStats.todayExportFiles > 0 && (
+              <span>{(exportStats.totalExportJerseys ?? exportStats.totalExportFiles).toLocaleString()}</span>
+              {(exportStats.todayExportJerseys ?? exportStats.todayExportFiles) > 0 && (
                 <span className="text-[11px] font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/25">
-                  +{exportStats.todayExportFiles} today
+                  +{(exportStats.todayExportJerseys ?? exportStats.todayExportFiles)} today
                 </span>
               )}
             </div>
@@ -1558,15 +1558,15 @@ export default function DesignDashboard() {
             {/* Quick Export Metrics Banner */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-black/40 border-b border-white/10 text-xs">
               <div className="bg-white/5 p-3 rounded-xl border border-white/5">
-                <span className="text-gray-400 block text-[10px] font-bold uppercase tracking-wider">Total Export Files</span>
-                <span className="text-lg font-black text-white">{exportStats.totalExportFiles.toLocaleString()}</span>
+                <span className="text-gray-400 block text-[10px] font-bold uppercase tracking-wider">Total Jerseys Exported</span>
+                <span className="text-lg font-black text-white">{(exportStats.totalExportJerseys ?? exportStats.totalExportFiles).toLocaleString()}</span>
               </div>
               <div className="bg-white/5 p-3 rounded-xl border border-white/5">
-                <span className="text-gray-400 block text-[10px] font-bold uppercase tracking-wider">Exported Today</span>
-                <span className="text-lg font-black text-emerald-400">+{exportStats.todayExportFiles.toLocaleString()}</span>
+                <span className="text-gray-400 block text-[10px] font-bold uppercase tracking-wider">Jerseys Exported Today</span>
+                <span className="text-lg font-black text-emerald-400">+{(exportStats.todayExportJerseys ?? exportStats.todayExportFiles).toLocaleString()}</span>
               </div>
               <div className="bg-white/5 p-3 rounded-xl border border-white/5">
-                <span className="text-gray-400 block text-[10px] font-bold uppercase tracking-wider">Today's Jobs</span>
+                <span className="text-gray-400 block text-[10px] font-bold uppercase tracking-wider">Today's Batches</span>
                 <span className="text-lg font-black text-amber-400">{exportStats.todayExportJobs}</span>
               </div>
               <div className="bg-white/5 p-3 rounded-xl border border-white/5">

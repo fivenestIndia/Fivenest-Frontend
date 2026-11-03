@@ -13,16 +13,20 @@ export interface ExportRecordEvent {
 }
 
 export interface ExportTrackerStats {
-  totalExportFiles: number;
-  todayExportFiles: number;
+  totalExportJerseys: number; // Count of jerseys exported (FiveNest billing unit)
+  todayExportJerseys: number; // Count of jerseys exported today
   todayExportJobs: number;
   allTimeJobs: number;
   lastExportedAt?: string;
   startDate: string;
+  // Aliases for compatibility
+  totalExportFiles: number;
+  todayExportFiles: number;
 }
 
-const STORAGE_KEY = 'fivenest_export_tracker_stats';
-const EVENTS_STORAGE_KEY = 'fivenest_local_export_events';
+// V2 storage key (ensures clean migration from panel count to jersey count)
+const STORAGE_KEY = 'fivenest_export_tracker_jerseys_v2';
+const EVENTS_STORAGE_KEY = 'fivenest_local_export_events_v2';
 
 // Start tracking date (Today: 2026-11-04)
 export const TRACKER_START_DATE = '2026-11-04';
@@ -37,40 +41,37 @@ export const getTodayDateString = (): string => {
 };
 
 /**
- * Parse export items / file count from transaction description
- * e.g. "Exported 25 items (25 back, 0 A4)" -> 25 items (or 100-125 sublimation panel files)
+ * Parse jersey count from transaction description.
+ * Charges in FiveNest are based strictly on 1 Jersey (not individual panels).
+ * e.g. "Exported 25 items (25 back, 0 A4)" -> 25 jerseys.
  */
-export const parseFilesFromTransaction = (desc: string): { items: number; estimatedFiles: number } => {
-  if (!desc) return { items: 0, estimatedFiles: 0 };
+export const parseJerseysFromTransaction = (desc: string): number => {
+  if (!desc) return 0;
   
-  // Look for "Exported X items"
+  // Look for "Exported X items" -> X jerseys
   const m1 = desc.match(/Exported\s+(\d+)\s+items?/i);
   if (m1 && m1[1]) {
-    const items = parseInt(m1[1], 10) || 0;
-    // Each jersey set typically has 4-5 panel files (Front, Back, Sleeves, Collar)
-    return { items, estimatedFiles: items * 4 };
+    return parseInt(m1[1], 10) || 0;
   }
 
   // Look for "(X Jerseys)" or "X jersey data"
   const m2 = desc.match(/(\d+)\s+jerseys?/i);
   if (m2 && m2[1]) {
-    const items = parseInt(m2[1], 10) || 0;
-    return { items, estimatedFiles: items * 4 };
+    return parseInt(m2[1], 10) || 0;
   }
 
   // Look for "X pcs"
   const m3 = desc.match(/(\d+)\s+pcs/i);
   if (m3 && m3[1]) {
-    const items = parseInt(m3[1], 10) || 0;
-    return { items, estimatedFiles: items * 4 };
+    return parseInt(m3[1], 10) || 0;
   }
 
-  // Look for "Export deduction"
+  // Generic export transaction
   if (/export/i.test(desc)) {
-    return { items: 1, estimatedFiles: 4 };
+    return 1;
   }
 
-  return { items: 0, estimatedFiles: 0 };
+  return 0;
 };
 
 /**
@@ -82,19 +83,34 @@ export const getCachedExportStats = (): ExportTrackerStats => {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed.totalExportFiles === 'number') {
-        // Reset todayExportFiles if cached date was before today
+      if (parsed && (typeof parsed.totalExportJerseys === 'number' || typeof parsed.totalExportFiles === 'number')) {
+        const total = typeof parsed.totalExportJerseys === 'number' ? parsed.totalExportJerseys : parsed.totalExportFiles;
+        const today = typeof parsed.todayExportJerseys === 'number' ? parsed.todayExportJerseys : (parsed.todayExportFiles || 0);
+
+        // Reset today stats if cached date was before today
         if (parsed.startDate !== todayStr && parsed.lastExportDate !== todayStr) {
           return {
-            totalExportFiles: Math.max(parsed.totalExportFiles, 0),
-            todayExportFiles: 0,
+            totalExportJerseys: Math.max(total, 0),
+            todayExportJerseys: 0,
             todayExportJobs: 0,
             allTimeJobs: parsed.allTimeJobs || 0,
             lastExportedAt: parsed.lastExportedAt,
-            startDate: todayStr
+            startDate: todayStr,
+            totalExportFiles: Math.max(total, 0),
+            todayExportFiles: 0
           };
         }
-        return parsed;
+
+        return {
+          totalExportJerseys: total,
+          todayExportJerseys: today,
+          todayExportJobs: parsed.todayExportJobs || 0,
+          allTimeJobs: parsed.allTimeJobs || 0,
+          lastExportedAt: parsed.lastExportedAt,
+          startDate: todayStr,
+          totalExportFiles: total,
+          todayExportFiles: today
+        };
       }
     }
   } catch (e) {
@@ -102,11 +118,13 @@ export const getCachedExportStats = (): ExportTrackerStats => {
   }
 
   return {
-    totalExportFiles: 0,
-    todayExportFiles: 0,
+    totalExportJerseys: 0,
+    todayExportJerseys: 0,
     todayExportJobs: 0,
     allTimeJobs: 0,
-    startDate: todayStr
+    startDate: todayStr,
+    totalExportFiles: 0,
+    todayExportFiles: 0
   };
 };
 
@@ -126,15 +144,16 @@ export const saveAndBroadcastStats = (stats: ExportTrackerStats) => {
 };
 
 /**
- * Calculate export statistics by combining:
+ * Calculate export statistics based on JERSEYS (not panels).
+ * Combines:
  * 1. Admin credit_transactions ledger entries
- * 2. plugin_usage_logs with plugin_type = 'export_tracker'
+ * 2. Supabase plugin_usage_logs (export_tracker)
  * 3. Local storage export events
  */
 export async function calculateAdminExportCounts(transactions?: any[]): Promise<ExportTrackerStats> {
   const todayStr = getTodayDateString();
-  let totalFiles = 0;
-  let todayFiles = 0;
+  let totalJerseys = 0;
+  let todayJerseys = 0;
   let todayJobs = 0;
   let allTimeJobs = 0;
   let latestTimestamp: number | null = null;
@@ -164,15 +183,15 @@ export async function calculateAdminExportCounts(transactions?: any[]): Promise<
       
       if (isExportTx) {
         allTimeJobs++;
-        const parsed = parseFilesFromTransaction(desc);
-        const count = parsed.estimatedFiles > 0 ? parsed.estimatedFiles : (parsed.items > 0 ? parsed.items : 4);
-        totalFiles += count;
+        // Extract count of jerseys (1 jersey per kit, not panels)
+        const count = parseJerseysFromTransaction(desc) || 1;
+        totalJerseys += count;
 
         const txDate = t.created_at ? new Date(t.created_at) : null;
         if (txDate) {
           const txDateStr = txDate.toISOString().split('T')[0];
           if (txDateStr >= todayStr) {
-            todayFiles += count;
+            todayJerseys += count;
             todayJobs++;
           }
           if (!latestTimestamp || txDate.getTime() > latestTimestamp) {
@@ -195,16 +214,18 @@ export async function calculateAdminExportCounts(transactions?: any[]): Promise<
     if (!error && Array.isArray(logs)) {
       logs.forEach(l => {
         const details = l.details || {};
-        const count = typeof details.fileCount === 'number' ? details.fileCount : 
-                     (typeof details.jerseyCount === 'number' ? details.jerseyCount * 4 : 4);
+        // Use jerseyCount strictly
+        const count = typeof details.jerseyCount === 'number' 
+          ? details.jerseyCount 
+          : (typeof details.fileCount === 'number' ? Math.max(1, Math.round(details.fileCount / 4)) : 1);
         
         allTimeJobs++;
-        totalFiles += count;
+        totalJerseys += count;
 
         const logDate = l.created_at ? new Date(l.created_at) : null;
         const logDateStr = details.date || (logDate ? logDate.toISOString().split('T')[0] : '');
         if (logDateStr >= todayStr) {
-          todayFiles += count;
+          todayJerseys += count;
           todayJobs++;
         }
 
@@ -225,11 +246,11 @@ export async function calculateAdminExportCounts(transactions?: any[]): Promise<
       if (Array.isArray(localEvents)) {
         localEvents.forEach(ev => {
           if (ev.date >= todayStr) {
-            // Already counted if synced to supabase, but ensure we don't undercount
             if (todayJobs === 0) {
-              todayFiles += ev.fileCount;
+              const count = ev.jerseyCount || 1;
+              todayJerseys += count;
               todayJobs++;
-              totalFiles += ev.fileCount;
+              totalJerseys += count;
               allTimeJobs++;
             }
           }
@@ -238,14 +259,15 @@ export async function calculateAdminExportCounts(transactions?: any[]): Promise<
     }
   } catch (e) {}
 
-  // If initial count is 0 (brand new start today), ensure accurate starting count
   const stats: ExportTrackerStats = {
-    totalExportFiles: Math.max(totalFiles, todayFiles),
-    todayExportFiles: todayFiles,
+    totalExportJerseys: Math.max(totalJerseys, todayJerseys),
+    todayExportJerseys: todayJerseys,
     todayExportJobs: todayJobs,
     allTimeJobs: Math.max(allTimeJobs, todayJobs),
     lastExportedAt: latestTimestamp ? new Date(latestTimestamp).toISOString() : new Date().toISOString(),
-    startDate: todayStr
+    startDate: todayStr,
+    totalExportFiles: Math.max(totalJerseys, todayJerseys),
+    todayExportFiles: todayJerseys
   };
 
   saveAndBroadcastStats(stats);
@@ -254,7 +276,7 @@ export async function calculateAdminExportCounts(transactions?: any[]): Promise<
 
 /**
  * Record a live export event when user generates print-ready files.
- * Synchronizes with Supabase, localStorage, and notifies all live counters.
+ * Counts by JERSEYS (not panels).
  */
 export async function recordExportEvent(params: {
   fileCount: number;
@@ -266,8 +288,9 @@ export async function recordExportEvent(params: {
 }): Promise<ExportTrackerStats> {
   const todayStr = getTodayDateString();
   const now = Date.now();
-  const fileCount = Math.max(1, params.fileCount || (params.jerseyCount ? params.jerseyCount * 4 : 4));
-  const jerseyCount = Math.max(1, params.jerseyCount || Math.ceil(fileCount / 4));
+  // 1 Jersey = 1 unit
+  const jerseyCount = Math.max(1, params.jerseyCount || Math.ceil((params.fileCount || 4) / 4));
+  const fileCount = params.fileCount || (jerseyCount * 4);
 
   const newEvent: ExportRecordEvent = {
     id: `FN-EXP-${now}-${Math.random().toString(36).substring(2, 7)}`,
@@ -286,7 +309,6 @@ export async function recordExportEvent(params: {
     const raw = localStorage.getItem(EVENTS_STORAGE_KEY);
     const list: ExportRecordEvent[] = raw ? JSON.parse(raw) : [];
     list.unshift(newEvent);
-    // Keep max 100 recent events
     localStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(list.slice(0, 100)));
   } catch (e) {
     console.warn("Failed to store local export event:", e);
@@ -295,12 +317,14 @@ export async function recordExportEvent(params: {
   // 2. Update cached stats immediately
   const current = getCachedExportStats();
   const updated: ExportTrackerStats = {
-    totalExportFiles: current.totalExportFiles + fileCount,
-    todayExportFiles: current.todayExportFiles + fileCount,
+    totalExportJerseys: current.totalExportJerseys + jerseyCount,
+    todayExportJerseys: current.todayExportJerseys + jerseyCount,
     todayExportJobs: current.todayExportJobs + 1,
     allTimeJobs: current.allTimeJobs + 1,
     lastExportedAt: new Date(now).toISOString(),
-    startDate: todayStr
+    startDate: todayStr,
+    totalExportFiles: current.totalExportJerseys + jerseyCount,
+    todayExportFiles: current.todayExportJerseys + jerseyCount
   };
   saveAndBroadcastStats(updated);
 
