@@ -114,7 +114,7 @@ export default function Contact() {
     },
     {
       q: 'What file formats are supported for output?',
-      a: 'We accept PSD, AI, PNG, TIFF, and PDF. Production files are exported as print-ready 300 DPI CMYK TIFF or PDF files organized neatly by player name and garment size.',
+      a: 'We accept PSD, AI, PNG, TIFF, and PDF. Production files are exported as print-ready 300 DPI RGB TIFF or PDF files organized neatly by player name and garment size.',
     },
   ];
 

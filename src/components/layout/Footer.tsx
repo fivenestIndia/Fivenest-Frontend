@@ -163,7 +163,7 @@ export default function Footer() {
           </div>
           <p className="flex items-center gap-1">
             <ShieldCheck size={14} className="text-emerald-600" />
-            <span>Industrial 300 DPI CMYK Quality Standards</span>
+            <span>Industrial 300 DPI RGB Quality Standards</span>
           </p>
         </div>
 

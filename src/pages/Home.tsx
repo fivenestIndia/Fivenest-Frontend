@@ -1,4 +1,4 @@
-import React, { useState, useId } from 'react';
+import React, { useState, useEffect, useId } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowRight, Zap, Package, Settings, Users, Clock, CheckCircle, 
@@ -10,7 +10,8 @@ import {
 import { Link } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
-import LiveExportCounter from '../components/home/LiveExportCounter';
+import { GOOGLE_CALENDAR_DEMO_URL, DEMO_PREFERENCES } from '../lib/demoCalendar';
+import { calculateAdminExportCounts, getCachedExportStats } from '../lib/exportTrackerService';
 import { 
   SUBSCRIPTION_PLANS, 
   DEFAULT_SPOT_RATE_WITH_TAG, 
@@ -62,6 +63,48 @@ export default function Home() {
   const [formSubmitting, setFormSubmitting] = useState<boolean>(false);
   const [formSubmitted, setFormSubmitted] = useState<boolean>(false);
   const [formError, setFormError] = useState<string>('');
+
+  // ─── Live Count of Jerseys Exported (Hero Section) ─────────────────────────
+  const [liveExportCount, setLiveExportCount] = useState<number>(() => {
+    const cached = getCachedExportStats();
+    return Math.max(2457, cached.totalExportJerseys || cached.totalExportFiles || 2457);
+  });
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchCount = async () => {
+      try {
+        const stats = await calculateAdminExportCounts();
+        if (mounted && stats) {
+          const count = stats.totalExportJerseys || stats.totalExportFiles;
+          if (count > 0) {
+            setLiveExportCount(Math.max(2457, count));
+          }
+        }
+      } catch (e) {
+        // Fallback gracefully
+      }
+    };
+
+    fetchCount();
+    const interval = setInterval(fetchCount, 15000);
+
+    const handleLocal = (e: any) => {
+      if (mounted && e?.detail) {
+        const count = e.detail.totalExportJerseys || e.detail.totalExportFiles;
+        if (count > 0) {
+          setLiveExportCount(Math.max(2457, count));
+        }
+      }
+    };
+    window.addEventListener('fivenest_export_count_updated', handleLocal);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+      window.removeEventListener('fivenest_export_count_updated', handleLocal);
+    };
+  }, []);
 
   // ─── Calculator Logic ───────────────────────────────────────────────────────
   // Replaces manual design labor with instant automated grading
@@ -193,63 +236,81 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            className="flex flex-col sm:flex-row gap-3.5 justify-center items-center mb-12"
+            className="flex flex-col items-center mb-12"
           >
-            <a
-              href="#demo"
-              className="btn-primary w-full sm:w-auto px-8 py-4 text-sm sm:text-base font-bold shadow-brand flex items-center justify-center gap-2 group cursor-pointer"
-            >
-              <Calendar size={18} />
-              <span>Book a Live Demo</span>
-              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-            </a>
+            <div className="flex flex-col sm:flex-row gap-3.5 justify-center items-center w-full">
+              <a
+                href={GOOGLE_CALENDAR_DEMO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Schedule 1-on-1 walkthrough on Google Calendar (Weekdays 11am-1pm or 4pm-6pm IST)"
+                className="btn-primary w-full sm:w-auto px-8 py-4 text-sm sm:text-base font-bold shadow-brand flex items-center justify-center gap-2 group cursor-pointer"
+              >
+                <Calendar size={18} />
+                <span>Book a Live Demo</span>
+                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+              </a>
 
-            <a
-              href="#workflow"
-              className="btn-secondary w-full sm:w-auto px-7 py-4 text-sm sm:text-base font-bold bg-white hover:bg-neutral-50 border border-[#E8E4DE] text-[#171717] flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-            >
-              <Play size={16} className="text-[#E4572E] fill-[#E4572E]" />
-              <span>See How It Works</span>
-            </a>
+              <a
+                href="#workflow"
+                className="btn-secondary w-full sm:w-auto px-7 py-4 text-sm sm:text-base font-bold bg-white hover:bg-neutral-50 border border-[#E8E4DE] text-[#171717] flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+              >
+                <Play size={16} className="text-[#E4572E] fill-[#E4572E]" />
+                <span>See How It Works</span>
+              </a>
 
-            <Link
-              to="/production"
-              className="text-xs sm:text-sm font-bold text-[#52525B] hover:text-[#E4572E] px-4 py-2.5 transition-colors flex items-center gap-1.5"
-            >
-              <span>Explore Production Studio</span>
-              <ArrowUpRight size={15} />
-            </Link>
+              <Link
+                to="/production"
+                className="text-xs sm:text-sm font-bold text-[#52525B] hover:text-[#E4572E] px-4 py-2.5 transition-colors flex items-center gap-1.5"
+              >
+                <span>Explore Production Studio</span>
+                <ArrowUpRight size={15} />
+              </Link>
+            </div>
+
+            {/* Google Calendar preferred timing badge */}
+            <div className="flex items-center justify-center gap-2 text-xs font-semibold text-[#71717A] mt-3.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Google Calendar Walkthrough &bull; Preferred Weekdays 11am&ndash;1pm or 4pm&ndash;6pm IST</span>
+            </div>
           </motion.div>
 
-          {/* Technical Quality Standards (Verified Technical Capabilities) */}
+          {/* Technical Quality Standards & Live Production Metric */}
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
-            className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 max-w-4xl mx-auto pt-6 border-t border-[#E8E4DE]"
+            className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 max-w-3xl mx-auto pt-6 border-t border-[#E8E4DE]"
           >
-            <div className="p-3.5 rounded-2xl bg-white/80 border border-[#E8E4DE] text-left">
-              <p className="text-xl sm:text-2xl font-black text-[#E4572E]">300 DPI CMYK</p>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#71717A] mt-0.5">
+            {/* Card 1: Count of jerseys exported (from 2nd SS) */}
+            <div className="p-4 rounded-2xl bg-white/90 border border-[#E8E4DE] text-left shadow-xs flex flex-col justify-center">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xl sm:text-2xl font-black text-[#E4572E] font-mono tracking-tight">
+                  {liveExportCount.toLocaleString()}+
+                </p>
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  LIVE COUNT
+                </span>
+              </div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#71717A] mt-1">
+                Jerseys Exported
+              </p>
+            </div>
+
+            {/* Card 2: 300 DPI RGB */}
+            <div className="p-4 rounded-2xl bg-white/90 border border-[#E8E4DE] text-left shadow-xs flex flex-col justify-center">
+              <p className="text-xl sm:text-2xl font-black text-[#171717]">300 DPI RGB</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#71717A] mt-1">
                 Lossless Individual Panels
               </p>
             </div>
-            <div className="p-3.5 rounded-2xl bg-white/80 border border-[#E8E4DE] text-left">
-              <p className="text-xl sm:text-2xl font-black text-[#171717]">10mm Bleed</p>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#71717A] mt-0.5">
-                Pre-Applied Cut &amp; Sew Margins
-              </p>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-white/80 border border-[#E8E4DE] text-left">
-              <p className="text-xl sm:text-2xl font-black text-[#E4572E]">XS to 5XL</p>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#71717A] mt-0.5">
+
+            {/* Card 3: 18 to 60 Sizes */}
+            <div className="p-4 rounded-2xl bg-white/90 border border-[#E8E4DE] text-left shadow-xs flex flex-col justify-center">
+              <p className="text-xl sm:text-2xl font-black text-[#E4572E]">18 to 60 Sizes</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#71717A] mt-1">
                 Zero-Typo Vector Auto-Grading
-              </p>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-white/80 border border-[#E8E4DE] text-left">
-              <p className="text-xl sm:text-2xl font-black text-[#171717]">Universal RIP</p>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#71717A] mt-0.5">
-                Wasatch, NeoStampa, Mimaki, Epson
               </p>
             </div>
           </motion.div>
@@ -436,7 +497,7 @@ export default function Home() {
                         DYNAMIC SQUAD ROSTER ENGINE
                       </span>
                       <h4 className="text-lg font-bold text-white mt-1">
-                        1-Click Bulk Team Name &amp; Size Auto-Grading (Junior to 5XL)
+                        1-Click Bulk Team Name &amp; Size Auto-Grading (Sizes 18 to 60)
                       </h4>
                     </div>
                     <span className="text-xs text-neutral-400 font-mono">Excel/CSV Import Ready</span>
@@ -488,7 +549,7 @@ export default function Home() {
                         Individual High-Res Panels Structured Cleanly by Size &amp; Player
                       </h4>
                     </div>
-                    <span className="text-xs text-emerald-400 font-mono font-bold">300 DPI CMYK TIFF / PDF</span>
+                    <span className="text-xs text-emerald-400 font-mono font-bold">300 DPI RGB TIFF / PDF</span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs font-mono">
@@ -695,7 +756,7 @@ export default function Home() {
                     </div>
                     <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
                       <span className="font-semibold">Roster Grading:</span>
-                      <span className="font-bold text-emerald-700">100% Vector (Junior to 5XL)</span>
+                      <span className="font-bold text-emerald-700">100% Vector (Sizes 18 to 60)</span>
                     </div>
                     <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
                       <span className="font-semibold">Wholesale Portal:</span>
@@ -796,7 +857,7 @@ export default function Home() {
                       'Manage per-meter / per-jersey service pricing and ink consumption',
                       'Track live job statuses from file receipt to heat-press dispatch',
                       'Handle GST invoices and Razorpay instant payment links effortlessly',
-                      'Export organized 300 DPI CMYK files directly compatible with any RIP',
+                      'Export organized 300 DPI RGB files directly compatible with any RIP',
                     ].map((item, idx) => (
                       <div key={idx} className="flex items-start gap-2.5 text-sm text-[#171717] font-medium">
                         <CheckCircle size={18} className="text-emerald-600 flex-shrink-0 mt-0.5" />
@@ -818,7 +879,7 @@ export default function Home() {
                 <div className="lg:col-span-5 bg-white rounded-2xl p-6 border border-[#E8E4DE] shadow-xs space-y-4">
                   <div className="flex justify-between items-center pb-3 border-b border-[#E8E4DE]">
                     <span className="text-xs font-bold text-[#171717] uppercase tracking-wider">Print Operator Specs</span>
-                    <span className="text-xs text-emerald-600 font-bold">● 300 DPI CMYK</span>
+                    <span className="text-xs text-emerald-600 font-bold">● 300 DPI RGB</span>
                   </div>
                   <div className="space-y-2.5 text-xs text-[#52525B]">
                     <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
@@ -889,13 +950,13 @@ export default function Home() {
               {
                 step: 3,
                 title: 'Automate Team Rosters',
-                desc: 'Upload Excel/CSV lists to automatically scale player names, squad numbers, and sizes across junior to 5XL.',
+                desc: 'Upload Excel/CSV lists to automatically scale player names, squad numbers, and sizes across sizes 18 to 60.',
                 tag: 'Step 03',
               },
               {
                 step: 4,
                 title: 'Prepare Print-Ready Files',
-                desc: 'Generate 300 DPI CMYK individual panels with 10mm pre-applied bleeds, sorted neatly into size-wise ZIP folders.',
+                desc: 'Generate 300 DPI RGB individual panels with 10mm pre-applied bleeds, sorted neatly into size-wise ZIP folders.',
                 tag: 'Step 04',
               },
               {
@@ -1037,7 +1098,7 @@ export default function Home() {
                 <div className="lg:col-span-6 bg-[#171717] rounded-2xl p-6 text-white border border-neutral-800 space-y-4">
                   <div className="flex justify-between items-center text-xs font-mono text-neutral-400 pb-3 border-b border-neutral-800">
                     <span>PANEL BLUEPRINT SPECIFICATION</span>
-                    <span className="text-orange-400">300 DPI CMYK</span>
+                    <span className="text-orange-400">300 DPI RGB</span>
                   </div>
                   <div className="grid grid-cols-2 gap-3 text-xs font-mono">
                     <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800">
@@ -1073,10 +1134,10 @@ export default function Home() {
                     <Users size={14} /> Team Roster Automation
                   </div>
                   <h3 className="text-2xl sm:text-3xl font-black text-[#171717]">
-                    Zero-Typo Name &amp; Number Auto-Grading (Junior to 5XL)
+                    Zero-Typo Name &amp; Number Auto-Grading (Sizes 18 to 60)
                   </h3>
                   <p className="text-sm sm:text-base text-[#52525B] leading-relaxed">
-                    Paste your tournament roster from Excel or CSV. FiveNest automatically adapts artwork proportions and text curvature across every garment size—so graphics stay perfectly balanced on an 18 junior jersey or a 60 (5XL) kit.
+                    Paste your tournament roster from Excel or CSV. FiveNest automatically adapts artwork proportions and text curvature across every garment size—so graphics stay perfectly balanced on an 18 junior jersey or a 60 kit.
                   </p>
                   
                   <div className="space-y-2.5 pt-2">
@@ -1147,7 +1208,7 @@ export default function Home() {
                   <div className="space-y-2.5 pt-2">
                     <div className="flex items-start gap-2.5 text-sm text-[#171717]">
                       <CheckCircle size={18} className="text-emerald-600 flex-shrink-0 mt-0.5" />
-                      <span>Individual 300 DPI CMYK TIFF / PDF panels ready for RIP drag-and-drop</span>
+                      <span>Individual 300 DPI RGB TIFF / PDF panels ready for RIP drag-and-drop</span>
                     </div>
                     <div className="flex items-start gap-2.5 text-sm text-[#171717]">
                       <CheckCircle size={18} className="text-emerald-600 flex-shrink-0 mt-0.5" />
@@ -1350,11 +1411,11 @@ export default function Home() {
               },
               {
                 before: 'Manual jersey sizing & placement requiring graphic designers to spend hours resizing text per kit size.',
-                after: 'Automated vector proportion auto-grading across all garment sizes from junior 18 up to 5XL.',
+                after: 'Automated vector proportion auto-grading across all garment sizes 18 to 60.',
               },
               {
                 before: 'Multiple disconnected file preparation steps with high human error and expensive fabric reprint waste.',
-                after: 'Organized 300 DPI CMYK individual panels with 10mm pre-applied bleeds, sorted neatly into size folders.',
+                after: 'Organized 300 DPI RGB individual panels with 10mm pre-applied bleeds, sorted neatly into size folders.',
               },
               {
                 before: 'Chaotic order coordination across scattered WhatsApp screenshots, voice notes, and paper job slips.',
@@ -1763,9 +1824,9 @@ export default function Home() {
               <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-[#E4572E] flex items-center justify-center font-bold mb-4">
                 <ShieldCheck size={22} />
               </div>
-              <h4 className="text-lg font-bold text-[#171717] mb-2">300 DPI CMYK Lossless Standards</h4>
+              <h4 className="text-lg font-bold text-[#171717] mb-2">300 DPI RGB Lossless Standards</h4>
               <p className="text-xs sm:text-sm text-[#52525B] leading-relaxed">
-                Rendered using high-resolution 150–300 DPI canvas engines with calibrated CMYK profiles to ensure vibrant, bleed-free dye sublimation transfers.
+                Rendered using high-resolution 150–300 DPI canvas engines with calibrated RGB profiles to ensure vibrant, bleed-free dye sublimation transfers.
               </p>
             </div>
 
@@ -1809,9 +1870,33 @@ export default function Home() {
               <h2 className="text-3xl sm:text-4xl font-black text-[#171717] tracking-tight mb-3">
                 See How FiveNest Fits Your Production Workflow
               </h2>
-              <p className="text-sm sm:text-base text-[#52525B] leading-relaxed">
+              <p className="text-sm sm:text-base text-[#52525B] leading-relaxed mb-6">
                 Book a personalized live demonstration with our team. We can test with your own tournament squad roster and garment artwork so you can inspect the output firsthand.
               </p>
+
+              {/* Direct Google Calendar 1-Click Option */}
+              <div className="p-4 rounded-2xl bg-white border border-[#E8E4DE] shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-[#E4572E] flex items-center justify-center flex-shrink-0">
+                    <Calendar size={20} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-[#171717]">Instant Google Calendar Scheduling</p>
+                    <p className="text-[11px] text-[#71717A]">
+                      Preferred Weekdays (Mon&ndash;Fri) &bull; 11:00 AM &ndash; 1:00 PM or 4:00 PM &ndash; 6:00 PM IST
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href={GOOGLE_CALENDAR_DEMO_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2.5 bg-[#E4572E] hover:bg-[#D4431B] text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 flex-shrink-0"
+                >
+                  <Calendar size={13} />
+                  <span>Open Calendar</span>
+                </a>
+              </div>
             </div>
 
             {/* FORM COMPONENT */}
@@ -1950,15 +2035,24 @@ export default function Home() {
                 <p className="text-sm text-[#52525B]">
                   Thank you, <strong>{demoForm.name}</strong>. Our technical team based in Mumbai will reach out to you at <strong>{demoForm.phone}</strong> via WhatsApp within 1 business hour.
                 </p>
-                <div className="pt-3 flex justify-center gap-3">
+                <div className="pt-3 flex flex-wrap justify-center gap-3">
+                  <a
+                    href={GOOGLE_CALENDAR_DEMO_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-primary px-5 py-3 text-xs sm:text-sm font-bold shadow-brand flex items-center gap-2"
+                  >
+                    <Calendar size={16} />
+                    <span>Add to Google Calendar (Weekdays 11am-1pm / 4pm-6pm)</span>
+                  </a>
                   <a
                     href={getWhatsAppDemoUrl()}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="btn-primary px-6 py-3 text-xs sm:text-sm font-bold shadow-brand flex items-center gap-2"
+                    className="px-5 py-3 rounded-xl bg-emerald-600/10 border border-emerald-600/25 text-emerald-800 text-xs sm:text-sm font-bold hover:bg-emerald-600/20 transition-all flex items-center gap-2"
                   >
                     <MessageSquare size={16} />
-                    <span>Connect Immediately on WhatsApp</span>
+                    <span>WhatsApp Booking (+91 88792 28710)</span>
                   </a>
                 </div>
               </div>
@@ -1992,7 +2086,7 @@ export default function Home() {
             {[
               {
                 q: 'What exactly does FiveNest do?',
-                a: 'FiveNest is a complete web-based sportswear production and order management platform. It automates jersey vector scaling across junior to 5XL sizes, auto-places team names and numbers from Excel rosters, generates high-res print-ready individual panels with 10mm seam bleeds, and manages wholesale customer orders, factory job sheets, and GST invoicing.',
+                a: 'FiveNest is a complete web-based sportswear production and order management platform. It automates jersey vector scaling across sizes 18 to 60, auto-places team names and numbers from Excel rosters, generates high-res print-ready individual panels with 10mm seam bleeds, and manages wholesale customer orders, factory job sheets, and GST invoicing.',
               },
               {
                 q: 'Who is FiveNest built for?',
@@ -2004,7 +2098,7 @@ export default function Home() {
               },
               {
                 q: 'How does team roster name, number, and size automation work?',
-                a: 'You simply paste or upload your tournament player list from Excel or CSV. FiveNest automatically generates vector-sharp names and numbers, applies proper arching and outlines, and proportions artwork precisely across every garment size from junior 18 up to 60 (5XL), eliminating manual Photoshop typing mistakes.',
+                a: 'You simply paste or upload your tournament player list from Excel or CSV. FiveNest automatically generates vector-sharp names and numbers, applies proper arching and outlines, and proportions artwork precisely across every garment size from 18 to 60, eliminating manual Photoshop typing mistakes.',
               },
               {
                 q: 'Can I preview designs in 2D and 3D before printing?',
@@ -2012,7 +2106,7 @@ export default function Home() {
               },
               {
                 q: 'How does production file exporting work, and which RIP software is supported?',
-                a: 'FiveNest exports clean, uncompressed 300 DPI CMYK TIFF or PDF files organized neatly into size-specific folders (e.g. Size_L, Size_XL). Every panel is labeled explicitly with player name, size, and Left/Right sleeve indicators. Output files can be dragged directly into Wasatch SoftRIP, NeoStampa, PhotoPrint / Flexi, Mimaki RasterLink, Epson Edge Print, or Caldera.',
+                a: 'FiveNest exports clean, uncompressed 300 DPI RGB TIFF or PDF files organized neatly into size-specific folders (e.g. Size_L, Size_XL). Every panel is labeled explicitly with player name, size, and Left/Right sleeve indicators. Output files can be dragged directly into Wasatch SoftRIP, NeoStampa, PhotoPrint / Flexi, Mimaki RasterLink, Epson Edge Print, or Caldera.',
               },
               {
                 q: 'Can I manage customer orders, cutting job sheets, and GST billing?',
@@ -2060,12 +2154,6 @@ export default function Home() {
         </div>
       </section>
 
-
-      {/* ─────────────────────────────────────────────────────────────────────────────
-          SECTION 10: REAL-TIME PRODUCTION OUTPUT MONITOR (LIVE ENGINE TRACKER)
-      ───────────────────────────────────────────────────────────────────────────── */}
-      <LiveExportCounter />
-
       {/* Global Clean Footer */}
       <Footer />
 
@@ -2073,10 +2161,12 @@ export default function Home() {
       <div className="sm:hidden fixed bottom-3 left-3 right-3 z-40 bg-white/95 backdrop-blur-md border border-[#E8E4DE] p-2 rounded-2xl shadow-lg flex items-center justify-between gap-2">
         <div className="pl-2">
           <p className="text-xs font-black text-[#171717]">Book Live Walkthrough</p>
-          <p className="text-[10px] text-[#71717A]">Free 1-on-1 team demo</p>
+          <p className="text-[10px] text-[#71717A]">Google Calendar &bull; Weekdays</p>
         </div>
         <a
-          href="#demo"
+          href={GOOGLE_CALENDAR_DEMO_URL}
+          target="_blank"
+          rel="noopener noreferrer"
           className="px-4 py-2 bg-[#E4572E] text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5"
         >
           <Calendar size={13} />

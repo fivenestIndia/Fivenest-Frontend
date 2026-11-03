@@ -178,7 +178,7 @@ export default function CookieConsentBanner() {
                   />
                 </div>
                 <p className="text-[11px] text-neutral-400 leading-normal">
-                  Anonymized render speed metrics to optimize CMYK export performance.
+                  Anonymized render speed metrics to optimize RGB export performance.
                 </p>
               </div>
 

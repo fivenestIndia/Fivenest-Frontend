@@ -1,28 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, ArrowRight, Calendar, Sparkles, MessageSquare } from 'lucide-react';
+import { GOOGLE_CALENDAR_DEMO_URL } from '../../lib/demoCalendar';
 
 const cn = (...classes: (string | undefined | boolean)[]) => classes.filter(Boolean).join(' ');
 
-interface NavItem {
-  label: string;
-  type: 'hash' | 'link';
-  target: string;
-}
-
-const navItems: NavItem[] = [
-  { label: 'Product', type: 'hash', target: 'showcase' },
-  { label: 'How It Works', type: 'hash', target: 'workflow' },
-  { label: 'Solutions', type: 'hash', target: 'solutions' },
-  { label: 'Pricing', type: 'hash', target: 'pricing' },
-  { label: 'FAQ', type: 'hash', target: 'faq' },
-  { label: 'Orders', type: 'link', target: '/orders' },
+const navLinks = [
+  { label: 'Home', to: '/' },
+  { label: 'Order Management', to: '/order-management' },
+  { label: 'Production', to: '/production' },
+  { label: 'Contact', to: '/contact' },
 ];
 
 export default function Navbar() {
   const location = useLocation();
-  const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -47,16 +39,9 @@ export default function Navbar() {
     return () => { document.body.style.overflow = ''; };
   }, [mobileOpen]);
 
-  const scrollToAnchor = (anchorId: string) => {
-    setMobileOpen(false);
-    if (location.pathname === '/') {
-      const el = document.getElementById(anchorId);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth' });
-        return;
-      }
-    }
-    navigate(`/#${anchorId}`);
+  const isActive = (to: string) => {
+    if (to === '/') return location.pathname === '/';
+    return location.pathname.startsWith(to);
   };
 
   return (
@@ -86,26 +71,21 @@ export default function Navbar() {
               <span className="w-2.5 h-2.5 rounded-full bg-[#E4572E] inline-block mb-1 group-hover:scale-125 transition-transform" />
             </Link>
 
-            {/* Desktop Navigation Links */}
-            <nav className="hidden lg:flex items-center gap-1 p-1 rounded-full bg-[#EFECE6]/85 border border-[#E2DED7] shadow-sm backdrop-blur-sm">
-              {navItems.map((item) => (
-                item.type === 'hash' ? (
-                  <button
-                    key={item.label}
-                    onClick={() => scrollToAnchor(item.target)}
-                    className="px-3.5 py-1.5 rounded-full text-xs font-bold text-[#686661] hover:text-[#171717] hover:bg-white/80 transition-all cursor-pointer"
-                  >
-                    {item.label}
-                  </button>
-                ) : (
-                  <Link
-                    key={item.label}
-                    to={item.target}
-                    className="px-3.5 py-1.5 rounded-full text-xs font-bold text-[#686661] hover:text-[#171717] hover:bg-white/80 transition-all"
-                  >
-                    {item.label}
-                  </Link>
-                )
+            {/* Desktop Navigation Links (Previous page links) */}
+            <nav className="hidden md:flex items-center gap-1 p-1.5 rounded-full bg-[#EFECE6]/85 border border-[#E2DED7] shadow-sm backdrop-blur-sm">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className={cn(
+                    'relative px-4 py-1.5 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200',
+                    isActive(link.to)
+                      ? 'text-[#171717] bg-white shadow-xs font-bold'
+                      : 'text-[#686661] hover:text-[#171717] hover:bg-white/50'
+                  )}
+                >
+                  {link.label}
+                </Link>
               ))}
             </nav>
 
@@ -117,23 +97,29 @@ export default function Navbar() {
               >
                 Production Studio
               </Link>
-              <button
-                onClick={() => scrollToAnchor('demo')}
+              <a
+                href={GOOGLE_CALENDAR_DEMO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Book live demo on Google Calendar (Weekdays 11am-1pm or 4pm-6pm IST)"
                 className="flex items-center gap-1.5 px-4 py-2 bg-[#E4572E] hover:bg-[#D4431B] text-white font-bold text-xs rounded-xl shadow-brand hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
               >
                 <Calendar size={13} />
                 <span>Book Live Demo</span>
-              </button>
+              </a>
             </div>
 
-            {/* Mobile Hamburger Toggle */}
+            {/* Mobile Actions & Toggle */}
             <div className="flex items-center gap-2 sm:hidden">
-              <button
-                onClick={() => scrollToAnchor('demo')}
-                className="px-3 py-1.5 bg-[#E4572E] text-white font-bold text-xs rounded-lg shadow-xs"
+              <a
+                href={GOOGLE_CALENDAR_DEMO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 px-3 py-1.5 bg-[#E4572E] text-white font-bold text-xs rounded-lg shadow-xs"
               >
-                Book Demo
-              </button>
+                <Calendar size={12} />
+                <span>Book Demo</span>
+              </a>
               <button
                 onClick={() => setMobileOpen(true)}
                 className="w-9 h-9 rounded-xl border border-[#E2DED7] bg-white flex items-center justify-center text-[#171717] shadow-xs cursor-pointer"
@@ -188,33 +174,27 @@ export default function Navbar() {
 
               {/* Navigation Links */}
               <nav className="flex-1 py-5 space-y-1.5">
-                {navItems.map((item) => (
-                  item.type === 'hash' ? (
-                    <button
-                      key={item.label}
-                      onClick={() => scrollToAnchor(item.target)}
-                      className="w-full text-left px-4 py-3 rounded-xl text-sm font-bold text-[#52525B] hover:text-[#171717] hover:bg-white transition-all cursor-pointer flex items-center justify-between"
-                    >
-                      <span>{item.label}</span>
-                      <ArrowRight size={14} className="text-neutral-400" />
-                    </button>
-                  ) : (
-                    <Link
-                      key={item.label}
-                      to={item.target}
-                      onClick={() => setMobileOpen(false)}
-                      className="w-full text-left px-4 py-3 rounded-xl text-sm font-bold text-[#52525B] hover:text-[#171717] hover:bg-white transition-all flex items-center justify-between"
-                    >
-                      <span>{item.label}</span>
-                      <ArrowRight size={14} className="text-neutral-400" />
-                    </Link>
-                  )
+                {navLinks.map((link) => (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    onClick={() => setMobileOpen(false)}
+                    className={cn(
+                      'w-full text-left px-4 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-between',
+                      isActive(link.to)
+                        ? 'bg-white text-[#E4572E] border border-[#E2DED7] shadow-xs'
+                        : 'text-[#52525B] hover:text-[#171717] hover:bg-white/60'
+                    )}
+                  >
+                    <span>{link.label}</span>
+                    <ArrowRight size={14} className={isActive(link.to) ? 'text-[#E4572E]' : 'text-neutral-400'} />
+                  </Link>
                 ))}
 
                 <Link
                   to="/production"
                   onClick={() => setMobileOpen(false)}
-                  className="w-full text-left px-4 py-3 rounded-xl text-sm font-bold text-[#E4572E] bg-[#E4572E]/10 border border-[#E4572E]/20 transition-all flex items-center justify-between mt-2"
+                  className="w-full text-left px-4 py-3 rounded-xl text-sm font-bold text-[#E4572E] bg-[#E4572E]/10 border border-[#E4572E]/20 transition-all flex items-center justify-between mt-3"
                 >
                   <span>Production Studio</span>
                   <Sparkles size={14} className="text-[#E4572E]" />
@@ -223,13 +203,18 @@ export default function Navbar() {
 
               {/* Action Buttons */}
               <div className="pt-5 border-t border-[#E8E4DE] space-y-2.5">
-                <button
-                  onClick={() => scrollToAnchor('demo')}
+                <a
+                  href={GOOGLE_CALENDAR_DEMO_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="w-full py-3 bg-[#E4572E] text-white font-bold rounded-xl shadow-brand text-sm flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Calendar size={16} />
-                  <span>Book Live Demo</span>
-                </button>
+                  <span>Book Live Demo (Google Calendar)</span>
+                </a>
+                <p className="text-[11px] text-[#71717A] text-center">
+                  Preferred Weekdays: 11:00 AM – 1:00 PM or 4:00 PM – 6:00 PM IST
+                </p>
                 <a
                   href="https://wa.me/918879228710?text=Hi%2C%20I%27d%20like%20to%20book%20a%20live%20demo%20of%20FiveNest%20for%20my%20sportswear%20business."
                   target="_blank"

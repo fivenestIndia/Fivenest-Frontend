@@ -75,9 +75,9 @@ export default function TermsOfService() {
               FiveNest provides a high-throughput sublimation print automation operating system designed for sportswear factories. Capabilities include:
             </p>
             <ul className="list-disc pl-5 space-y-2 mb-3">
-              <li>Smart multi-size pattern grading (XS through 5XL).</li>
+              <li>Smart multi-size pattern grading (Sizes 18 through 60).</li>
               <li>Batch squad roster injection for automated player names, numbers, and sponsor patches.</li>
-              <li>Individual 300 DPI high-resolution CMYK print panel export (ZIP/TIFF/JPG).</li>
+              <li>Individual 300 DPI high-resolution RGB print panel export (ZIP/TIFF/JPG).</li>
               <li>Optional nesting preview and customer order management portal.</li>
             </ul>
             <p>
