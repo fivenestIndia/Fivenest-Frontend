@@ -1,111 +1,167 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useId } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowRight, Zap, Package, Settings, Users, Clock, CheckCircle, 
-  Star, ChevronDown, ChevronRight, Play, BarChart3, FileText, Wallet, 
+  ChevronDown, ChevronRight, Play, BarChart3, FileText, Wallet, 
   Shield, ShieldCheck, Sparkles, Layers, Sliders, Scissors, Printer, Download,
-  TrendingUp, Award, HelpCircle, Check, ArrowUpRight, Flame, Laptop, Folder
+  TrendingUp, Award, HelpCircle, Check, ArrowUpRight, Flame, Laptop, Folder,
+  Calendar, Phone, Mail, MessageSquare, AlertCircle, RefreshCw, Send, CheckSquare
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
 import LiveExportCounter from '../components/home/LiveExportCounter';
-import { SUBSCRIPTION_PLANS, DEFAULT_SPOT_RATE_WITH_TAG, DEFAULT_SPOT_RATE_WITHOUT_TAG } from '../lib/subscriptionPlans';
+import { 
+  SUBSCRIPTION_PLANS, 
+  DEFAULT_SPOT_RATE_WITH_TAG, 
+  DEFAULT_SPOT_RATE_WITHOUT_TAG 
+} from '../lib/subscriptionPlans';
 
-// ─── Utility ───────────────────────────────────────────────────────────────
 const cn = (...classes: (string | undefined | boolean)[]) => classes.filter(Boolean).join(' ');
 
-// ─── Animated Counter ───────────────────────────────────────────────────────
-function AnimatedCounter({ target, suffix = '', prefix = '' }: { target: number; suffix?: string; prefix?: string }) {
-  const [count, setCount] = useState(0);
-  const [hasStarted, setHasStarted] = useState(false);
-  const ref = React.useRef<HTMLSpanElement>(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting && !hasStarted) setHasStarted(true); },
-      { threshold: 0.3 }
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [hasStarted]);
-
-  useEffect(() => {
-    if (!hasStarted) return;
-    let start = 0;
-    const end = target;
-    const duration = 1800;
-    const step = (end / duration) * 16;
-    const timer = setInterval(() => {
-      start += step;
-      if (start >= end) { setCount(end); clearInterval(timer); }
-      else setCount(Math.floor(start));
-    }, 16);
-    return () => clearInterval(timer);
-  }, [hasStarted, target]);
-
-  return <span ref={ref}>{prefix}{count.toLocaleString()}{suffix}</span>;
-}
-
 export default function Home() {
-  // Sandbox preview switcher: 'production' | 'orders'
-  const [activeSandboxTab, setActiveSandboxTab] = useState<'production' | 'orders'>('production');
+  const nameInputId = useId();
+  const phoneInputId = useId();
+  const businessTypeSelectId = useId();
+  const monthlyVolumeSelectId = useId();
+  const notesTextareaId = useId();
 
-  // Interactive 3-step production simulator state
-  const [prodStep, setProdStep] = useState<1 | 2 | 3>(1);
-  const [selectedSport, setSelectedSport] = useState<'cricket' | 'football' | 'kabaddi' | 'esports'>('cricket');
-  const [selectedSize, setSelectedSize] = useState<'S' | 'M' | 'L' | 'XL' | 'XXL'>('L');
-  const [exportFormat, setExportFormat] = useState<'TIFF' | 'PDF' | 'PNG'>('TIFF');
+  // ─── Interactive Hero Showcase Tabs ─────────────────────────────────────────
+  type HeroPreviewTab = 'blueprint' | 'threed' | 'roster' | 'export' | 'orders';
+  const [activeHeroTab, setActiveHeroTab] = useState<HeroPreviewTab>('blueprint');
 
-  // Savings Calculator State
-  const [monthlyJerseys, setMonthlyJerseys] = useState<number>(600);
+  // ─── Business Categories Tab (Section 2: Built For Your Business) ───────────
+  type BusinessCategory = 'manufacturer' | 'designer' | 'printing';
+  const [activeCategory, setActiveCategory] = useState<BusinessCategory>('manufacturer');
 
-  // Pricing Matrix Tab: 'monthly' | 'quarterly' | 'spot'
+  // ─── 5-Step Workflow Interactive Step (Section 3) ───────────────────────────
+  const [activeWorkflowStep, setActiveWorkflowStep] = useState<number>(1);
+
+  // ─── Product Feature Showcase Tabs (Section 4) ──────────────────────────────
+  type ShowcaseTab = 'studio' | 'roster' | 'export' | 'orders' | 'tracking';
+  const [activeShowcaseTab, setActiveShowcaseTab] = useState<ShowcaseTab>('studio');
+
+  // ─── Pricing Matrix Tab: 'monthly' | 'quarterly' | 'spot' ───────────────────
   const [pricingTab, setPricingTab] = useState<'monthly' | 'quarterly' | 'spot'>('monthly');
 
-  // FAQ Accordion State
+  // ─── Interactive Cost & Savings Calculator State ────────────────────────────
+  const [calcMonthlyJerseys, setCalcMonthlyJerseys] = useState<number>(500);
+  const [calcWithTag, setCalcWithTag] = useState<boolean>(true);
+
+  // ─── FAQ Accordion State ────────────────────────────────────────────────────
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
-  // Dynamic calculations for ROI calculator
-  const manualHours = Math.round((monthlyJerseys * 12) / 60);
-  const fivenestHours = Math.round((monthlyJerseys * 0.4) / 60) || 1;
-  const hoursSaved = manualHours - fivenestHours;
-  const designerCost = Math.round(monthlyJerseys * 35); // ₹35 per jersey manual labor cost
-  const fivenestCost = Math.round(monthlyJerseys * 2.75); // FiveNest automated cost
-  const moneySaved = Math.max(0, designerCost - fivenestCost);
+  // ─── Live Demo Booking Form State ───────────────────────────────────────────
+  const [demoForm, setDemoForm] = useState({
+    name: '',
+    phone: '',
+    businessType: 'Manufacturer',
+    monthlyVolume: '200 - 1,000 Jerseys',
+    notes: '',
+  });
+  const [formSubmitting, setFormSubmitting] = useState<boolean>(false);
+  const [formSubmitted, setFormSubmitted] = useState<boolean>(false);
+  const [formError, setFormError] = useState<string>('');
 
-  const sportsConfigs = {
-    cricket: { name: 'Cricket Pro Kit', pattern: 'Diagonal Sublimation Hex', number: '18', player: 'V. KOHLI', accent: '#E4572E' },
-    football: { name: 'Football Aero Fit', pattern: 'Dynamic Motion Stripes', number: '10', player: 'MESSI', accent: '#3B82F6' },
-    kabaddi: { name: 'Kabaddi Warrior', pattern: 'Bold Tribal Combat', number: '07', player: 'PAWAN', accent: '#10B981' },
-    esports: { name: 'Esports Cyber Armor', pattern: 'Geometric Cyber Pulse', number: '99', player: 'PHANTOM', accent: '#8B5CF6' },
+  // ─── Calculator Logic ───────────────────────────────────────────────────────
+  // Replaces manual design labor with instant automated grading
+  const manualHoursPerJersey = 0.20; // ~12 minutes manual Photoshop positioning per jersey
+  const fivenestHoursPerJersey = 0.005; // Seconds per automated batch
+  const estimatedManualHours = Math.round(calcMonthlyJerseys * manualHoursPerJersey);
+  const estimatedFiveNestHours = Math.max(1, Math.round(calcMonthlyJerseys * fivenestHoursPerJersey));
+  const estimatedHoursSaved = Math.max(0, estimatedManualHours - estimatedFiveNestHours);
+
+  // Cost comparison
+  const effectivePerPieceRate = calcWithTag ? DEFAULT_SPOT_RATE_WITH_TAG : DEFAULT_SPOT_RATE_WITHOUT_TAG;
+  const estimatedExportCost = Math.round(calcMonthlyJerseys * effectivePerPieceRate);
+  const estimatedManualDesignerCost = Math.round(calcMonthlyJerseys * 35); // ₹35 manual labor benchmark
+  const estimatedMonthlySavings = Math.max(0, estimatedManualDesignerCost - estimatedExportCost);
+
+  // Recommended plan based on monthly volume
+  const getRecommendedPlan = (qty: number) => {
+    if (qty <= 300) return SUBSCRIPTION_PLANS.find(p => p.id === 'monthly_starter');
+    if (qty <= 900) return SUBSCRIPTION_PLANS.find(p => p.id === 'monthly_growth');
+    if (qty <= 2000) return SUBSCRIPTION_PLANS.find(p => p.id === 'monthly_pro');
+    return SUBSCRIPTION_PLANS.find(p => p.id === 'monthly_factory');
+  };
+  const recommendedPlan = getRecommendedPlan(calcMonthlyJerseys);
+
+  // ─── Demo Booking Form Handler ──────────────────────────────────────────────
+  const handleDemoSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+
+    if (!demoForm.name.trim()) {
+      setFormError('Please enter your full name or company name.');
+      return;
+    }
+    const cleanPhone = demoForm.phone.replace(/[^0-9+]/g, '');
+    if (cleanPhone.length < 10) {
+      setFormError('Please enter a valid 10-digit WhatsApp or mobile number.');
+      return;
+    }
+
+    setFormSubmitting(true);
+    try {
+      // Record lead locally & allow immediate WhatsApp sync
+      const leadData = {
+        name: demoForm.name.trim(),
+        phone: cleanPhone,
+        businessType: demoForm.businessType,
+        monthlyVolume: demoForm.monthlyVolume,
+        notes: demoForm.notes.trim(),
+        timestamp: new Date().toISOString(),
+      };
+
+      try {
+        const stored = localStorage.getItem('fivenest_demo_leads');
+        const list = stored ? JSON.parse(stored) : [];
+        list.push(leadData);
+        localStorage.setItem('fivenest_demo_leads', JSON.stringify(list));
+      } catch (err) {
+        // localStorage fallback
+      }
+
+      // Simulate network request
+      await new Promise((resolve) => setTimeout(resolve, 900));
+      setFormSubmitting(false);
+      setFormSubmitted(true);
+    } catch (err) {
+      setFormSubmitting(false);
+      setFormError('An error occurred. You can also message us directly on WhatsApp below.');
+    }
+  };
+
+  const getWhatsAppDemoUrl = () => {
+    const text = `Hi FiveNest Team, I would like to book a live demo of FiveNest.\n\nName: ${demoForm.name || 'Interested Buyer'}\nBusiness: ${demoForm.businessType}\nPhone: ${demoForm.phone || 'Provided via website'}\nMonthly Volume: ${demoForm.monthlyVolume}\nNote: ${demoForm.notes || 'Please arrange a personalized walkthrough.'}`;
+    return `https://wa.me/918879228710?text=${encodeURIComponent(text)}`;
   };
 
   return (
     <div className="relative min-h-screen bg-[#F5F3EF] text-[#171717] font-sans selection:bg-[#E4572E] selection:text-white overflow-x-clip">
-      {/* Global Navbar */}
+      {/* Sticky Premium Navigation */}
       <Navbar />
 
       {/* ─────────────────────────────────────────────────────────────────────────────
-          1. HERO SECTION: THE SPORTSWEAR AUTOMATION ENGINE
+          SECTION 1: HERO — REPOSITIONED AS CONNECTED PRODUCTION & BUSINESS OS
       ───────────────────────────────────────────────────────────────────────────── */}
-      <section className="relative pt-32 pb-20 md:pt-40 md:pb-28 overflow-hidden">
-        {/* Technical Grid Pattern & Glows */}
+      <section id="hero" className="relative pt-32 pb-20 md:pt-40 md:pb-28 overflow-hidden">
+        {/* Technical Grid Pattern & Subtle Glows */}
         <div className="absolute inset-0 grid-pattern opacity-60 pointer-events-none" />
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[400px] bg-gradient-to-tr from-[#E4572E]/15 via-amber-500/10 to-transparent blur-3xl pointer-events-none rounded-full" />
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[720px] h-[450px] bg-gradient-to-tr from-[#E4572E]/15 via-amber-500/10 to-transparent blur-3xl pointer-events-none rounded-full" />
 
-        <div className="relative z-10 max-w-6xl mx-auto px-6 text-center">
+        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 text-center">
           
           {/* Top Pill Badge */}
           <motion.div
-            initial={{ opacity: 0, y: -15 }}
+            initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.4 }}
             className="inline-flex items-center gap-2 mb-6"
           >
-            <span className="badge-pill px-4 py-1.5 text-xs font-bold uppercase tracking-wider shadow-sm border border-[#E4572E]/25 bg-white/90">
+            <span className="badge-pill px-4 py-1.5 text-xs font-bold uppercase tracking-wider shadow-xs border border-[#E4572E]/25 bg-white/95 text-[#171717]">
               <Sparkles size={14} className="text-[#E4572E] animate-pulse" />
-              <span>World's #1 Sublimation & Sportswear OS</span>
+              <span>Connected Sportswear Production &amp; Order Platform</span>
             </span>
           </motion.div>
 
@@ -113,564 +169,1147 @@ export default function Home() {
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.1 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
             className="text-4xl sm:text-6xl lg:text-7xl font-black text-[#171717] tracking-tight leading-[1.08] mb-6"
           >
-            Automate Your Jersey & <br className="hidden sm:inline" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#E4572E] via-[#F07A54] to-[#C2410C]">
-              Sublimation Production
-            </span> <br />
-            In 3 Simple Steps.
+            From Order to Print-Ready Jersey. <br className="hidden sm:inline" />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#E4572E] via-[#EA580C] to-[#C2410C]">
+              All in One Place.
+            </span>
           </motion.h1>
 
-          {/* Subtitle */}
+          {/* Supporting Description */}
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-            className="text-lg sm:text-xl text-[#52525B] max-w-3xl mx-auto leading-relaxed mb-10 font-normal"
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="text-base sm:text-xl text-[#52525B] max-w-3xl mx-auto leading-relaxed mb-10 font-normal"
           >
-            Eliminate endless hours in Photoshop, manual squad grading mistakes, and disorganised WhatsApp orders. 
-            From <strong className="text-[#171717] font-semibold">vector multi-size grading</strong> to <strong className="text-[#171717] font-semibold">1-click individual panel exports (300 DPI)</strong> and <strong className="text-[#171717] font-semibold">automated factory order ledgers</strong>.
+            Streamline your sportswear business with FiveNest. Manage orders, customize designs in 2D and 3D, automate team names, numbers and sizes, and prepare print-ready files—all from one connected workflow.
           </motion.p>
 
-          {/* Action CTAs */}
+          {/* Primary & Secondary Calls to Action */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.3 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16"
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="flex flex-col sm:flex-row gap-3.5 justify-center items-center mb-12"
           >
+            <a
+              href="#demo"
+              className="btn-primary w-full sm:w-auto px-8 py-4 text-sm sm:text-base font-bold shadow-brand flex items-center justify-center gap-2 group cursor-pointer"
+            >
+              <Calendar size={18} />
+              <span>Book a Live Demo</span>
+              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+            </a>
+
+            <a
+              href="#workflow"
+              className="btn-secondary w-full sm:w-auto px-7 py-4 text-sm sm:text-base font-bold bg-white hover:bg-neutral-50 border border-[#E8E4DE] text-[#171717] flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+            >
+              <Play size={16} className="text-[#E4572E] fill-[#E4572E]" />
+              <span>See How It Works</span>
+            </a>
+
             <Link
               to="/production"
-              className="btn-primary w-full sm:w-auto px-8 py-4 text-base font-bold shadow-brand flex items-center justify-center gap-2 group"
+              className="text-xs sm:text-sm font-bold text-[#52525B] hover:text-[#E4572E] px-4 py-2.5 transition-colors flex items-center gap-1.5"
             >
-              <span>Launch Production Studio</span>
-              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+              <span>Explore Production Studio</span>
+              <ArrowUpRight size={15} />
             </Link>
-            <Link
-              to="/order-management"
-              className="btn-secondary w-full sm:w-auto px-8 py-4 text-base font-bold bg-white hover:bg-neutral-50 border border-[#E8E4DE] text-[#171717] flex items-center justify-center gap-2"
-            >
-              <Package size={18} className="text-[#E4572E]" />
-              <span>Explore Order Portal</span>
-            </Link>
-            <a
-              href="#pricing"
-              className="text-sm font-semibold text-[#52525B] hover:text-[#E4572E] px-4 py-2 transition-colors flex items-center gap-1"
-            >
-              <span>View Pricing Matrix</span>
-              <ChevronDown size={14} />
-            </a>
           </motion.div>
 
-          {/* Live Trust Metrics Grid */}
+          {/* Technical Quality Standards (Verified Technical Capabilities) */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.45 }}
-            className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 max-w-4xl mx-auto pt-8 border-t border-[#E8E4DE]"
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 max-w-4xl mx-auto pt-6 border-t border-[#E8E4DE]"
           >
-            <div className="p-4 rounded-2xl bg-white/70 backdrop-blur-sm border border-[#E8E4DE] text-left">
-              <p className="text-3xl lg:text-4xl font-black text-[#E4572E] mb-1">
-                <AnimatedCounter target={500000} suffix="+" />
-              </p>
-              <p className="text-xs font-bold uppercase tracking-wider text-[#71717A]">
-                Jerseys Processed
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-white/70 backdrop-blur-sm border border-[#E8E4DE] text-left">
-              <p className="text-3xl lg:text-4xl font-black text-[#171717] mb-1">
-                300 DPI
-              </p>
-              <p className="text-xs font-bold uppercase tracking-wider text-[#71717A]">
+            <div className="p-3.5 rounded-2xl bg-white/80 border border-[#E8E4DE] text-left">
+              <p className="text-xl sm:text-2xl font-black text-[#E4572E]">300 DPI CMYK</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#71717A] mt-0.5">
                 Lossless Individual Panels
               </p>
             </div>
-
-            <div className="p-4 rounded-2xl bg-white/70 backdrop-blur-sm border border-[#E8E4DE] text-left">
-              <p className="text-3xl lg:text-4xl font-black text-[#E4572E] mb-1">
-                ₹3.50
-              </p>
-              <p className="text-xs font-bold uppercase tracking-wider text-[#71717A]">
-                Starting Per-Piece Export
+            <div className="p-3.5 rounded-2xl bg-white/80 border border-[#E8E4DE] text-left">
+              <p className="text-xl sm:text-2xl font-black text-[#171717]">10mm Bleed</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#71717A] mt-0.5">
+                Pre-Applied Cut &amp; Sew Margins
               </p>
             </div>
-
-            <div className="p-4 rounded-2xl bg-white/70 backdrop-blur-sm border border-[#E8E4DE] text-left">
-              <p className="text-3xl lg:text-4xl font-black text-[#171717] mb-1">
-                4 Mins
+            <div className="p-3.5 rounded-2xl bg-white/80 border border-[#E8E4DE] text-left">
+              <p className="text-xl sm:text-2xl font-black text-[#E4572E]">XS to 5XL</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#71717A] mt-0.5">
+                Zero-Typo Vector Auto-Grading
               </p>
-              <p className="text-xs font-bold uppercase tracking-wider text-[#71717A]">
-                Squad Batch vs 4 Hours
+            </div>
+            <div className="p-3.5 rounded-2xl bg-white/80 border border-[#E8E4DE] text-left">
+              <p className="text-xl sm:text-2xl font-black text-[#171717]">Universal RIP</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#71717A] mt-0.5">
+                Wasatch, NeoStampa, Mimaki, Epson
               </p>
             </div>
           </motion.div>
 
         </div>
-      </section>
 
-
-      {/* ─────────────────────────────────────────────────────────────────────────────
-          2. INTERACTIVE LIVE PLATFORM DEMO (REPLACING THE CLUNKY 450VH VIDEO)
-      ───────────────────────────────────────────────────────────────────────────── */}
-      <section className="relative pb-24 px-6">
-        <div className="max-w-6xl mx-auto">
-
-          {/* Interactive Sandbox Header with Switcher Tabs */}
-          <div className="bg-white rounded-3xl p-4 sm:p-8 border border-[#E8E4DE] shadow-soft-lg">
+        {/* ── BROWSER-STYLE AUTHENTIC APPLICATION PREVIEW ── */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-14">
+          <div className="bg-white rounded-3xl p-4 sm:p-6 border border-[#E8E4DE] shadow-soft-lg overflow-hidden">
             
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-6 border-b border-[#E8E4DE]">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-[#E4572E] bg-[#E4572E]/10 px-3 py-1 rounded-full border border-[#E4572E]/20">
-                  Interactive Studio Sandbox
-                </span>
-                <h3 className="text-xl sm:text-2xl font-black text-[#171717] mt-2">
-                  Experience The Automation In Real Time
-                </h3>
+            {/* Browser Header Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[#E8E4DE]">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1.5">
+                  <span className="w-3 h-3 rounded-full bg-red-400 inline-block" />
+                  <span className="w-3 h-3 rounded-full bg-amber-400 inline-block" />
+                  <span className="w-3 h-3 rounded-full bg-emerald-400 inline-block" />
+                </div>
+                <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#F5F3EF] border border-[#E8E4DE] text-[11px] font-mono text-[#71717A] ml-2">
+                  <span className="text-emerald-600 font-bold">https://</span>
+                  <span>app.fivenest.in/production</span>
+                </div>
               </div>
 
-              {/* View Switcher Tabs */}
-              <div className="flex p-1.5 rounded-2xl bg-[#F5F3EF] border border-[#E8E4DE]">
-                <button
-                  onClick={() => setActiveSandboxTab('production')}
-                  className={cn(
-                    'px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2',
-                    activeSandboxTab === 'production'
-                      ? 'bg-[#E4572E] text-white shadow-sm'
-                      : 'text-[#52525B] hover:text-[#171717]'
-                  )}
-                >
-                  <Zap size={16} />
-                  <span>3-Step Production Studio</span>
-                </button>
-                <button
-                  onClick={() => setActiveSandboxTab('orders')}
-                  className={cn(
-                    'px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2',
-                    activeSandboxTab === 'orders'
-                      ? 'bg-[#171717] text-white shadow-sm'
-                      : 'text-[#52525B] hover:text-[#171717]'
-                  )}
-                >
-                  <Package size={16} />
-                  <span>Order Management Portal</span>
-                </button>
+              {/* Feature Preview Tabs */}
+              <div className="flex flex-wrap gap-1 p-1 rounded-2xl bg-[#F5F3EF] border border-[#E8E4DE]">
+                {[
+                  { id: 'blueprint', label: '2D Multi-Panel Canvas' },
+                  { id: 'threed', label: '3D Realtime Proof' },
+                  { id: 'roster', label: 'Team Sizing & Roster' },
+                  { id: 'export', label: 'Print-Ready Export' },
+                  { id: 'orders', label: 'Orders & Ledgers' },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setActiveHeroTab(t.id as HeroPreviewTab)}
+                    className={cn(
+                      'px-3 sm:px-4 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer',
+                      activeHeroTab === t.id
+                        ? 'bg-[#E4572E] text-white shadow-xs'
+                        : 'text-[#686661] hover:text-[#171717]'
+                    )}
+                  >
+                    {t.label}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* TAB CONTENT: 3-STEP PRODUCTION STUDIO SIMULATOR */}
-            {activeSandboxTab === 'production' && (
-              <div className="pt-6">
-                
-                {/* 3 Step Stepper Indicators */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-                  {[
-                    { step: 1, title: 'Step 1: Master Artwork & Panels', desc: 'Vector multi-panel mapping & 3D preview' },
-                    { step: 2, title: 'Step 2: Auto-Grading & Roster', desc: 'Instant XS to 5XL sizing & vector squad names' },
-                    { step: 3, title: 'Step 3: Individual 300 DPI Export', desc: 'Separate front, back, sleeves & collar ready for RIP' },
-                  ].map((s) => (
-                    <button
-                      key={s.step}
-                      onClick={() => setProdStep(s.step as 1 | 2 | 3)}
-                      className={cn(
-                        'p-4 rounded-2xl text-left border transition-all relative overflow-hidden',
-                        prodStep === s.step
-                          ? 'bg-[#E4572E]/5 border-[#E4572E] ring-2 ring-[#E4572E]/20 shadow-sm'
-                          : 'bg-[#F9F8F6] border-[#E8E4DE] hover:border-neutral-300'
-                      )}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className={cn(
-                          'text-xs font-black px-2 py-0.5 rounded-md uppercase',
-                          prodStep === s.step ? 'bg-[#E4572E] text-white' : 'bg-neutral-200 text-neutral-700'
-                        )}>
-                          0{s.step}
-                        </span>
-                        {prodStep === s.step && (
-                          <span className="w-2 h-2 rounded-full bg-[#E4572E] animate-ping" />
-                        )}
-                      </div>
-                      <p className="text-sm font-bold text-[#171717]">{s.title}</p>
-                      <p className="text-xs text-[#71717A] mt-0.5">{s.desc}</p>
-                    </button>
-                  ))}
-                </div>
+            {/* TAB PREVIEW CONTENT CONTAINER */}
+            <div className="mt-4 bg-[#171717] rounded-2xl p-5 sm:p-8 text-white relative overflow-hidden min-h-[380px] flex flex-col justify-between border border-neutral-800">
+              <div className="absolute inset-0 dot-pattern opacity-10 pointer-events-none" />
 
-                {/* Simulated Step Canvas Preview */}
-                <div className="bg-[#171717] text-white rounded-2xl p-6 sm:p-8 relative overflow-hidden border border-neutral-800">
-                  <div className="absolute inset-0 dot-pattern opacity-10 pointer-events-none" />
-
-                  {/* STEP 1: ARTWORK & MULTI-PANEL */}
-                  {prodStep === 1 && (
+              {/* 1. 2D Multi-Panel Canvas */}
+              {activeHeroTab === 'blueprint' && (
+                <div className="relative z-10">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
                     <div>
-                      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-                        <div>
-                          <span className="text-xs font-mono text-orange-400 bg-orange-500/10 px-3 py-1 rounded-full border border-orange-500/20">
-                            PANEL CONFIGURATION
-                          </span>
-                          <h4 className="text-lg font-bold text-white mt-1">
-                            Multi-Panel Sublimation Blueprint (Front, Back, Raglan Sleeves & Collar)
-                          </h4>
-                        </div>
-                        {/* Sports selector */}
-                        <div className="flex gap-2">
-                          {(['cricket', 'football', 'kabaddi', 'esports'] as const).map((sport) => (
-                            <button
-                              key={sport}
-                              onClick={() => setSelectedSport(sport)}
-                              className={cn(
-                                'px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-colors',
-                                selectedSport === sport
-                                  ? 'bg-[#E4572E] text-white'
-                                  : 'bg-white/10 text-neutral-400 hover:text-white'
-                              )}
-                            >
-                              {sport}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Panel visual cards */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        {[
-                          { panel: 'Front Chest', dim: '58cm x 72cm', color: 'from-orange-600/40 to-neutral-900', label: 'Team Logo + Sponsor' },
-                          { panel: 'Back Panel', dim: '60cm x 75cm', color: 'from-orange-700/40 to-neutral-900', label: 'Player Name & Number' },
-                          { panel: 'Left Sleeve', dim: '24cm x 42cm', color: 'from-neutral-800 to-neutral-900', label: 'Tournament Patch' },
-                          { panel: 'Right Sleeve', dim: '24cm x 42cm', color: 'from-neutral-800 to-neutral-900', label: 'Brand Tag + Ribbing' },
-                        ].map((p, idx) => (
-                          <div key={idx} className="rounded-xl border border-white/10 bg-gradient-to-b p-4 relative flex flex-col justify-between h-48">
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="font-mono text-neutral-400">{p.panel}</span>
-                              <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-neutral-300">{p.dim}</span>
-                            </div>
-                            <div className="my-auto text-center">
-                              <div className="w-10 h-10 mx-auto rounded-lg bg-white/10 flex items-center justify-center text-orange-400 font-bold text-sm mb-2">
-                                {idx === 1 ? sportsConfigs[selectedSport].number : 'AI'}
-                              </div>
-                              <p className="text-xs font-medium text-neutral-200">{p.label}</p>
-                            </div>
-                            <div className="text-[10px] text-emerald-400 font-mono text-center bg-emerald-500/10 rounded py-0.5 border border-emerald-500/20">
-                              ✓ Bleed & Seam Verified
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="mt-6 flex flex-wrap items-center justify-between text-xs text-neutral-400 pt-4 border-t border-neutral-800">
-                        <span>Format: Vector SVG / High-Res PNG (300 DPI CMYK)</span>
-                        <button
-                          onClick={() => setProdStep(2)}
-                          className="text-orange-400 hover:text-orange-300 font-bold flex items-center gap-1 cursor-pointer"
-                        >
-                          Next: Auto-Grading & Squad Roster <ArrowRight size={14} />
-                        </button>
-                      </div>
+                      <span className="text-[11px] font-mono text-orange-400 bg-orange-500/10 px-3 py-1 rounded-full border border-orange-500/20">
+                        MULTI-PANEL SUBLIMATION BLUEPRINT
+                      </span>
+                      <h4 className="text-lg font-bold text-white mt-1">
+                        Precise Sublimation Panel Geometry (Front, Back, Sleeves, Collar &amp; A4)
+                      </h4>
                     </div>
-                  )}
-
-                  {/* STEP 2: AUTO-GRADING & ROSTER */}
-                  {prodStep === 2 && (
-                    <div>
-                      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-                        <div>
-                          <span className="text-xs font-mono text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">
-                            STEP 02: DYNAMIC SQUAD ROSTER
-                          </span>
-                          <h4 className="text-lg font-bold text-white mt-1">
-                            Instant Vector Size-Grading with Zero Alignment Errors
-                          </h4>
-                        </div>
-                        {/* Size selector buttons */}
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-neutral-400 font-medium mr-1">Preview Size:</span>
-                          {(['S', 'M', 'L', 'XL', 'XXL'] as const).map((sz) => (
-                            <button
-                              key={sz}
-                              onClick={() => setSelectedSize(sz)}
-                              className={cn(
-                                'w-8 h-8 rounded-lg text-xs font-black transition-all',
-                                selectedSize === sz
-                                  ? 'bg-[#E4572E] text-white ring-2 ring-orange-400/50 scale-105'
-                                  : 'bg-white/10 text-neutral-400 hover:bg-white/20 hover:text-white'
-                              )}
-                            >
-                              {sz}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Interactive jersey back simulator */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 text-center relative flex flex-col items-center justify-center min-h-[220px]">
-                          <div className="absolute top-3 left-4 text-xs font-mono text-neutral-400">
-                            SIZE: <span className="text-orange-400 font-bold">{selectedSize}</span> | FONT: OLD SPORT ATHLETIC
-                          </div>
-                          
-                          {/* Player Name and Number that change with preview */}
-                          <div className="mt-4">
-                            <p 
-                              className="font-black tracking-widest text-white uppercase transition-all duration-300"
-                              style={{ 
-                                fontSize: selectedSize === 'S' ? '20px' : selectedSize === 'M' ? '24px' : selectedSize === 'L' ? '28px' : selectedSize === 'XL' ? '32px' : '36px',
-                                textShadow: '0 2px 10px rgba(0,0,0,0.8)'
-                              }}
-                            >
-                              {sportsConfigs[selectedSport].player}
-                            </p>
-                            <p 
-                              className="font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-neutral-400 leading-none transition-all duration-300 my-2"
-                              style={{ 
-                                fontSize: selectedSize === 'S' ? '80px' : selectedSize === 'M' ? '96px' : selectedSize === 'L' ? '110px' : selectedSize === 'XL' ? '124px' : '136px',
-                                fontFamily: "'OldSport02AthleticNcv-E0gj', 'Jersey M54', sans-serif"
-                              }}
-                            >
-                              {sportsConfigs[selectedSport].number}
-                            </p>
-                            <div className="inline-block px-3 py-1 rounded bg-black/60 border border-white/10 text-[10px] text-neutral-300 font-mono">
-                              FiveNest Brand Tag Attached (₹3.50/pc rate)
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Roster Batch Specs */}
-                        <div className="space-y-3">
-                          <div className="p-3 rounded-xl bg-white/5 border border-white/10 flex justify-between items-center text-xs">
-                            <span className="text-neutral-400">Squad Batch Count:</span>
-                            <span className="font-bold text-white">45 Players (CSV Upload)</span>
-                          </div>
-                          <div className="p-3 rounded-xl bg-white/5 border border-white/10 flex justify-between items-center text-xs">
-                            <span className="text-neutral-400">Size Curve Grading:</span>
-                            <span className="font-bold text-emerald-400">Automatic XS to 5XL</span>
-                          </div>
-                          <div className="p-3 rounded-xl bg-white/5 border border-white/10 flex justify-between items-center text-xs">
-                            <span className="text-neutral-400">Font Rendering Engine:</span>
-                            <span className="font-bold text-white">Vector Curves (No Blurriness)</span>
-                          </div>
-                          <div className="p-3 rounded-xl bg-white/5 border border-white/10 flex justify-between items-center text-xs">
-                            <span className="text-neutral-400">Total Generation Time:</span>
-                            <span className="font-bold text-orange-400">12 Seconds for 45 Jerseys</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-6 flex flex-wrap items-center justify-between text-xs text-neutral-400 pt-4 border-t border-neutral-800">
-                        <button
-                          onClick={() => setProdStep(1)}
-                          className="hover:text-white cursor-pointer"
-                        >
-                          ← Back to Step 1
-                        </button>
-                        <button
-                          onClick={() => setProdStep(3)}
-                          className="text-orange-400 hover:text-orange-300 font-bold flex items-center gap-1 cursor-pointer"
-                        >
-                          Next: Individual 300 DPI Export <ArrowRight size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* STEP 3: INDIVIDUAL PANEL EXPORT (INDIVIDUAL FILES READY FOR RIP) */}
-                  {prodStep === 3 && (
-                    <div>
-                      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-                        <div>
-                          <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-                            STEP 03: 1-CLICK INDIVIDUAL PANEL EXPORT
-                          </span>
-                          <h4 className="text-lg font-bold text-white mt-1">
-                            Organized Individual Panels (Front, Back, Sleeves & Collar) Ready for RIP Software
-                          </h4>
-                        </div>
-                        {/* Format selector */}
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-neutral-400 font-medium mr-1">Format:</span>
-                          {(['TIFF', 'PDF', 'PNG'] as const).map((fmt) => (
-                            <button
-                              key={fmt}
-                              onClick={() => setExportFormat(fmt)}
-                              className={cn(
-                                'px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
-                                exportFormat === fmt
-                                  ? 'bg-emerald-600 text-white shadow-sm'
-                                  : 'bg-white/10 text-neutral-400 hover:bg-white/20 hover:text-white'
-                              )}
-                            >
-                              {fmt} {fmt === 'TIFF' ? '(300 DPI)' : ''}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Visual File Explorer Card */}
-                      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 mb-6">
-                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-neutral-400 mb-4 pb-3 border-b border-neutral-800">
-                          <div className="flex items-center gap-2">
-                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                            <span className="text-white font-bold">EXPORT_ARCHIVE_300DPI.ZIP</span>
-                            <span className="text-[10px] text-neutral-500">/ Size_L /</span>
-                          </div>
-                          <span className="text-emerald-400 font-bold">5 INDIVIDUAL PRINT PANELS GENERATED</span>
-                        </div>
-
-                        {/* File Tree / Panel Grid */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {[
-                            { name: `18_${sportsConfigs[selectedSport].player}_Back.${exportFormat.toLowerCase()}`, type: 'Back Panel (Custom Name & No)', badge: 'Billed ₹3.50', badgeColor: 'bg-orange-500/20 text-orange-400 border-orange-500/30', dim: '60cm x 75cm' },
-                            { name: `Front_Chest_Panel.${exportFormat.toLowerCase()}`, type: 'Front Panel (Sublimation Artwork)', badge: 'Free Panel', badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', dim: '58cm x 72cm' },
-                            { name: `Sleeve_Left_Raglan.${exportFormat.toLowerCase()}`, type: 'Left Sleeve Panel', badge: 'Free Panel', badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', dim: '24cm x 42cm' },
-                            { name: `Sleeve_Right_Raglan.${exportFormat.toLowerCase()}`, type: 'Right Sleeve Panel', badge: 'Free Panel', badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', dim: '24cm x 42cm' },
-                            { name: `Collar_Rib_Cut.${exportFormat.toLowerCase()}`, type: 'Collar & Neck Ribbing', badge: 'Free Panel', badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', dim: '48cm x 6cm' },
-                            { name: `Squad_Job_Summary.pdf`, type: 'Production Spec Sheet', badge: 'Auto Spec', badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30', dim: 'A4 Specs' },
-                          ].map((file, i) => (
-                            <div key={i} className="p-3 rounded-xl bg-neutral-950 border border-neutral-800 flex flex-col justify-between hover:border-neutral-700 transition-colors">
-                              <div>
-                                <div className="flex justify-between items-start gap-1 mb-1.5">
-                                  <span className="text-[11px] font-mono font-bold text-white truncate max-w-[170px]" title={file.name}>
-                                    📄 {file.name}
-                                  </span>
-                                  <span className={cn('text-[9px] px-1.5 py-0.5 rounded border font-mono font-bold', file.badgeColor)}>
-                                    {file.badge}
-                                  </span>
-                                </div>
-                                <p className="text-[10px] text-neutral-400">{file.type}</p>
-                              </div>
-                              <div className="flex justify-between items-center text-[10px] text-neutral-500 font-mono mt-2 pt-2 border-t border-neutral-900">
-                                <span>300 DPI CMYK</span>
-                                <span className="text-neutral-400">{file.dim}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Optional Roll Nesting note */}
-                        <div className="mt-4 pt-3 border-t border-neutral-800 flex flex-wrap items-center justify-between text-[11px] text-neutral-400 gap-2">
-                          <span className="flex items-center gap-1.5 text-neutral-300">
-                            <span className="text-orange-400">💡</span> Need roll layouts? <strong>Roll Nesting</strong> is also available in Studio as an optional add-on.
-                          </span>
-                          <span className="text-emerald-400 font-mono">10mm Seam Bleed Pre-Applied</span>
-                        </div>
-                      </div>
-
-                      {/* Export Compatibility Badges */}
-                      <div className="flex flex-wrap items-center justify-between gap-4 text-xs">
-                        <div className="flex items-center gap-2 text-neutral-300">
-                          <CheckCircle size={16} className="text-emerald-400" />
-                          <span>Directly Compatible With: Wasatch, NeoStampa, PhotoPrint, Mimaki RasterLink, Epson Edge</span>
-                        </div>
-                        <Link
-                          to="/production"
-                          className="px-4 py-2 rounded-xl bg-[#E4572E] text-white font-bold hover:bg-[#D4431B] transition-colors flex items-center gap-1.5"
-                        >
-                          <Download size={14} />
-                          <span>Test Individual Export in Studio</span>
-                        </Link>
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-
-                <div className="mt-4 text-center">
-                  <Link
-                    to="/production"
-                    className="inline-flex items-center gap-2 text-sm font-bold text-[#E4572E] hover:underline"
-                  >
-                    Open Full Production Studio Interface <ArrowRight size={15} />
-                  </Link>
-                </div>
-              </div>
-            )}
-
-            {/* TAB CONTENT: ORDER MANAGEMENT PORTAL DEMO */}
-            {activeSandboxTab === 'orders' && (
-              <div className="pt-6">
-                
-                {/* Simulated Order Dashboard */}
-                <div className="bg-[#FAF9F6] rounded-2xl p-6 border border-[#E8E4DE]">
-                  
-                  {/* Dashboard header stats */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                    <div className="p-4 rounded-xl bg-white border border-[#E8E4DE]">
-                      <p className="text-xs font-semibold text-[#71717A]">Active Orders</p>
-                      <p className="text-2xl font-black text-[#171717] mt-1">18 Jobs</p>
-                      <span className="text-[11px] text-emerald-600 font-bold">● 4 In Production</span>
-                    </div>
-                    <div className="p-4 rounded-xl bg-white border border-[#E8E4DE]">
-                      <p className="text-xs font-semibold text-[#71717A]">Jerseys In Queue</p>
-                      <p className="text-2xl font-black text-[#E4572E] mt-1">1,480 Pcs</p>
-                      <span className="text-[11px] text-[#71717A]">Across 6 Tournaments</span>
-                    </div>
-                    <div className="p-4 rounded-xl bg-white border border-[#E8E4DE]">
-                      <p className="text-xs font-semibold text-[#71717A]">Weekly Revenue</p>
-                      <p className="text-2xl font-black text-[#171717] mt-1">₹4.2 Lakh</p>
-                      <span className="text-[11px] text-emerald-600 font-bold">↑ 28% this week</span>
-                    </div>
-                    <div className="p-4 rounded-xl bg-white border border-[#E8E4DE]">
-                      <p className="text-xs font-semibold text-[#71717A]">Factory Wallet Balance</p>
-                      <p className="text-2xl font-black text-[#171717] mt-1">₹6,850</p>
-                      <span className="text-[11px] text-blue-600 font-bold">~2,490 Exports Remaining</span>
-                    </div>
+                    <span className="text-xs text-neutral-400 font-mono">10mm Seam Bleed Pre-Applied</span>
                   </div>
 
-                  {/* Simulated Live Orders Table */}
-                  <div className="bg-white rounded-xl border border-[#E8E4DE] overflow-hidden mb-4">
-                    <div className="px-4 py-3 bg-[#F5F3EF] border-b border-[#E8E4DE] flex justify-between items-center text-xs font-bold text-[#52525B]">
-                      <span>ORDER ID / CLIENT</span>
-                      <span>QTY & SPECS</span>
-                      <span>STATUS</span>
-                      <span>ACTION</span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                    <div className="rounded-xl border border-white/15 bg-gradient-to-b from-neutral-800/80 to-neutral-900 p-4 h-48 flex flex-col justify-between">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-mono text-neutral-300">Front Panel</span>
+                        <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-neutral-300">58x72cm</span>
+                      </div>
+                      <div className="my-auto text-center">
+                        <div className="w-10 h-10 mx-auto rounded-lg bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-orange-400 font-black text-sm mb-1.5">
+                          FN
+                        </div>
+                        <p className="text-xs font-semibold text-neutral-200">Team Crest &amp; Sponsor</p>
+                      </div>
+                      <span className="text-[10px] text-emerald-400 font-mono text-center bg-emerald-500/10 py-0.5 rounded border border-emerald-500/20">
+                        FREE PANEL (₹0.00)
+                      </span>
                     </div>
-                    
+
+                    <div className="rounded-xl border border-orange-500/40 bg-gradient-to-b from-orange-950/40 to-neutral-900 p-4 h-48 flex flex-col justify-between ring-1 ring-orange-500/20">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-mono text-orange-300 font-bold">Back Panel</span>
+                        <span className="text-[10px] bg-orange-500/20 px-1.5 py-0.5 rounded text-orange-200">60x75cm</span>
+                      </div>
+                      <div className="my-auto text-center">
+                        <p className="text-xs font-black tracking-widest text-neutral-300">VIRAT</p>
+                        <p className="text-4xl font-black text-orange-400 leading-none my-1">18</p>
+                        <span className="text-[10px] text-neutral-400 font-mono">Dynamic Scaling</span>
+                      </div>
+                      <span className="text-[10px] text-orange-400 font-mono text-center bg-orange-500/10 py-0.5 rounded border border-orange-500/20 font-bold">
+                        Billed on Export (₹3.50)
+                      </span>
+                    </div>
+
+                    <div className="rounded-xl border border-white/15 bg-gradient-to-b from-neutral-800/80 to-neutral-900 p-4 h-48 flex flex-col justify-between">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-mono text-neutral-300">Left Sleeve</span>
+                        <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-neutral-300">Left Tag</span>
+                      </div>
+                      <div className="my-auto text-center">
+                        <div className="w-8 h-8 mx-auto rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 font-bold text-xs mb-1.5">
+                          LHS
+                        </div>
+                        <p className="text-xs font-semibold text-neutral-200">Tournament Patch</p>
+                      </div>
+                      <span className="text-[10px] text-blue-400 font-mono text-center bg-blue-500/10 py-0.5 rounded border border-blue-500/20">
+                        LEFT SLEEVE STAMP
+                      </span>
+                    </div>
+
+                    <div className="rounded-xl border border-white/15 bg-gradient-to-b from-neutral-800/80 to-neutral-900 p-4 h-48 flex flex-col justify-between">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-mono text-neutral-300">Right Sleeve</span>
+                        <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-neutral-300">Right Tag</span>
+                      </div>
+                      <div className="my-auto text-center">
+                        <div className="w-8 h-8 mx-auto rounded-lg bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-400 font-bold text-xs mb-1.5">
+                          RHS
+                        </div>
+                        <p className="text-xs font-semibold text-neutral-200">Brand Tag &amp; Stripe</p>
+                      </div>
+                      <span className="text-[10px] text-red-400 font-mono text-center bg-red-500/10 py-0.5 rounded border border-red-500/20">
+                        RIGHT SLEEVE STAMP
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 2. 3D Realtime Proof */}
+              {activeHeroTab === 'threed' && (
+                <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                  <div>
+                    <span className="text-[11px] font-mono text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">
+                      INTERACTIVE 3D PROJECTION
+                    </span>
+                    <h4 className="text-xl font-bold text-white mt-2 mb-3">
+                      Digital 3D Sportswear Proofing with 360° Inspection
+                    </h4>
+                    <p className="text-neutral-300 text-sm leading-relaxed mb-4">
+                      Inspect front chest logos, collar folds, raglan sleeve seams, and rear name placement in real time before sending files to the print queue.
+                    </p>
+                    <ul className="space-y-2 text-xs text-neutral-300 mb-4">
+                      <li className="flex items-center gap-2">
+                        <CheckCircle size={15} className="text-emerald-400 flex-shrink-0" />
+                        <span>WebGL 3D garment simulation right in your browser</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle size={15} className="text-emerald-400 flex-shrink-0" />
+                        <span>Shareable client proof approvals to eliminate customer arguments</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle size={15} className="text-emerald-400 flex-shrink-0" />
+                        <span>Zero Photoshop 3D mockups required</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 text-center relative flex flex-col items-center justify-center min-h-[220px]">
+                    <div className="w-24 h-24 rounded-2xl bg-gradient-to-tr from-[#E4572E] to-amber-500 flex items-center justify-center text-white shadow-lg mb-3">
+                      <Shirt size={48} />
+                    </div>
+                    <p className="font-bold text-white text-sm">3D Interactive Jersey Simulation</p>
+                    <p className="text-xs text-neutral-400 mt-1">360° Orbit Rotation • Real-Time Seam Check</p>
+                    <span className="mt-3 px-3 py-1 rounded-full bg-white/10 text-emerald-400 text-[11px] font-mono">
+                      ● Active WebGL Engine
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* 3. Team Sizing & Roster */}
+              {activeHeroTab === 'roster' && (
+                <div className="relative z-10">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+                    <div>
+                      <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                        DYNAMIC SQUAD ROSTER ENGINE
+                      </span>
+                      <h4 className="text-lg font-bold text-white mt-1">
+                        1-Click Bulk Team Name &amp; Size Auto-Grading (Junior to 5XL)
+                      </h4>
+                    </div>
+                    <span className="text-xs text-neutral-400 font-mono">Excel/CSV Import Ready</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-mono">
                     {[
-                      { id: '#FN-9401', client: 'Mumbai Strikers Club', sport: 'Football Sublimation', count: '45 jerseys', status: 'In Production', badge: 'bg-amber-100 text-amber-800 border-amber-200' },
-                      { id: '#FN-9402', client: 'Tirupur Apparel Corp', sport: 'Cricket Poly Spandex', count: '120 jerseys', status: 'Files Dispatched', badge: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
-                      { id: '#FN-9403', client: 'Delhi Hawks Esports', sport: 'DTF + Sublimation Hoodies', count: '30 pieces', status: 'Billing Pending', badge: 'bg-blue-100 text-blue-800 border-blue-200' },
-                      { id: '#FN-9404', client: 'Bangalore Bulls Sports', sport: 'Kabaddi Combat Wear', count: '65 jerseys', status: 'Ready for Cut', badge: 'bg-orange-100 text-[#E4572E] border-orange-200' },
-                    ].map((order, i) => (
-                      <div key={i} className="px-4 py-3.5 border-b border-[#E8E4DE] last:border-0 flex items-center justify-between text-xs hover:bg-[#FDFBF7] transition-colors">
-                        <div>
-                          <p className="font-bold text-[#171717] text-sm">{order.client}</p>
-                          <p className="text-[#71717A] text-[11px] font-mono">{order.id} • {order.sport}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-[#171717]">{order.count}</p>
-                          <p className="text-[11px] text-[#71717A]">Auto Sized</p>
-                        </div>
-                        <div>
-                          <span className={cn('px-2.5 py-1 rounded-full text-[11px] font-bold border', order.badge)}>
-                            {order.status}
+                      { name: 'VIRAT KOHLI', num: '18', size: 'Size 42 (L)', chest: '42"', status: 'Proportioned' },
+                      { name: 'ROHIT SHARMA', num: '45', size: 'Size 44 (XL)', chest: '44"', status: 'Proportioned' },
+                      { name: 'HARDIK PANDYA', num: '33', size: 'Size 40 (M)', chest: '40"', status: 'Proportioned' },
+                    ].map((row, i) => (
+                      <div key={i} className="p-3.5 rounded-xl bg-neutral-900 border border-neutral-800 flex flex-col justify-between">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="w-8 h-8 rounded-lg bg-orange-500/20 text-orange-400 font-bold flex items-center justify-center text-sm">
+                            {row.num}
+                          </span>
+                          <span className="px-2 py-0.5 rounded bg-white/10 text-white font-bold text-[11px]">
+                            {row.size}
                           </span>
                         </div>
                         <div>
-                          <button className="px-3 py-1.5 rounded-lg bg-[#F5F3EF] hover:bg-[#EAE6DE] text-[#171717] font-semibold text-xs border border-[#E8E4DE]">
-                            View Job Sheet
-                          </button>
+                          <p className="text-white font-bold text-sm tracking-wide">{row.name}</p>
+                          <p className="text-[11px] text-neutral-400">Chest: {row.chest}</p>
+                        </div>
+                        <div className="mt-3 pt-2 border-t border-neutral-800 flex justify-between items-center text-[10px]">
+                          <span className="text-emerald-400 font-bold">● {row.status}</span>
+                          <span className="text-neutral-500">Vector Curves</span>
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  {/* Highlights Bar */}
-                  <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-[#52525B] pt-2">
-                    <span className="flex items-center gap-1.5">
-                      <Shield size={14} className="text-[#E4572E]" />
-                      Included automatically for all Plans or Wallet Balances of ₹5,000 and above
-                    </span>
-                    <Link
-                      to="/order-management"
-                      className="font-bold text-[#E4572E] hover:underline flex items-center gap-1"
-                    >
-                      Open Live Order Management Portal <ArrowRight size={14} />
+                  <div className="mt-4 pt-3 border-t border-neutral-800 flex flex-wrap justify-between items-center text-xs text-neutral-400">
+                    <span>Authentic athletic fonts: Jersey M54, Barcelona 2013 HD, Impact, Arial Bold, Eaglore 2</span>
+                    <span className="text-emerald-400 font-bold">Zero Typo Risk Guaranteed</span>
+                  </div>
+                </div>
+              )}
+
+              {/* 4. Print-Ready Export */}
+              {activeHeroTab === 'export' && (
+                <div className="relative z-10">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+                    <div>
+                      <span className="text-[11px] font-mono text-purple-400 bg-purple-500/10 px-3 py-1 rounded-full border border-purple-500/20">
+                        RIP-READY EXPORT PACKAGE
+                      </span>
+                      <h4 className="text-lg font-bold text-white mt-1">
+                        Individual High-Res Panels Structured Cleanly by Size &amp; Player
+                      </h4>
+                    </div>
+                    <span className="text-xs text-emerald-400 font-mono font-bold">300 DPI CMYK TIFF / PDF</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs font-mono">
+                    <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800">
+                      <div className="flex justify-between items-center text-[11px] font-bold text-white mb-1">
+                        <span>40 = 2 F.jpg</span>
+                        <span className="text-emerald-400 text-[10px]">Front</span>
+                      </div>
+                      <p className="text-neutral-400 text-[10px]">Chest Logo &amp; Bleed</p>
+                      <span className="text-emerald-400 text-[10px] mt-2 block">FREE PANEL</span>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-neutral-900 border border-orange-500/30">
+                      <div className="flex justify-between items-center text-[11px] font-bold text-white mb-1">
+                        <span>40_VIRAT_18.jpg</span>
+                        <span className="text-orange-400 text-[10px]">Back</span>
+                      </div>
+                      <p className="text-neutral-400 text-[10px]">Custom Name &amp; Number</p>
+                      <span className="text-orange-400 text-[10px] mt-2 block">Billed: ₹3.50</span>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800">
+                      <div className="flex justify-between items-center text-[11px] font-bold text-white mb-1">
+                        <span>40 = 2 Left Sleeve.jpg</span>
+                        <span className="text-blue-400 text-[10px]">Left</span>
+                      </div>
+                      <p className="text-neutral-400 text-[10px]">Left Sleeve Tagged</p>
+                      <span className="text-emerald-400 text-[10px] mt-2 block">FREE PANEL</span>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800">
+                      <div className="flex justify-between items-center text-[11px] font-bold text-white mb-1">
+                        <span>40 = 2 Right Sleeve.jpg</span>
+                        <span className="text-red-400 text-[10px]">Right</span>
+                      </div>
+                      <p className="text-neutral-400 text-[10px]">Right Sleeve Tagged</p>
+                      <span className="text-emerald-400 text-[10px] mt-2 block">FREE PANEL</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-neutral-800 flex flex-wrap justify-between items-center text-xs text-neutral-400">
+                    <span>Directly compatible with Wasatch, NeoStampa, PhotoPrint, Mimaki, Epson Edge</span>
+                    <span className="text-neutral-300">Roll Nesting also available as optional studio add-on</span>
+                  </div>
+                </div>
+              )}
+
+              {/* 5. Orders & Ledgers */}
+              {activeHeroTab === 'orders' && (
+                <div className="relative z-10">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+                    <div>
+                      <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                        FACTORY OPERATIONS HUB
+                      </span>
+                      <h4 className="text-lg font-bold text-white mt-1">
+                        Real-Time Job Sheets, Factory Ledgers &amp; GST Payment Links
+                      </h4>
+                    </div>
+                    <Link to="/orders" className="text-xs text-orange-400 hover:underline flex items-center gap-1 font-bold">
+                      Open Live Portal <ArrowRight size={13} />
                     </Link>
                   </div>
 
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                    <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800">
+                      <p className="text-[10px] text-neutral-400 uppercase font-mono">Active Orders</p>
+                      <p className="text-xl font-black text-white mt-0.5">18 Jobs</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800">
+                      <p className="text-[10px] text-neutral-400 uppercase font-mono">Queued Jerseys</p>
+                      <p className="text-xl font-black text-orange-400 mt-0.5">1,480 Pcs</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800">
+                      <p className="text-[10px] text-neutral-400 uppercase font-mono">Floor Cutting Sheets</p>
+                      <p className="text-xl font-black text-emerald-400 mt-0.5">Auto-Generated</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800">
+                      <p className="text-[10px] text-neutral-400 uppercase font-mono">GST Billing</p>
+                      <p className="text-xl font-black text-blue-400 mt-0.5">Razorpay Links</p>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-neutral-400">
+                    Included automatically with plans or wallet recharges of ₹5,000 and above.
+                  </p>
+                </div>
+              )}
+
+              {/* Bottom Quick Bar */}
+              <div className="pt-4 border-t border-neutral-800 flex flex-wrap justify-between items-center text-xs text-neutral-400 gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span>Web-based platform • Runs in any modern browser on PC, Mac or tablet</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <a href="#demo" className="text-orange-400 hover:text-orange-300 font-bold flex items-center gap-1 cursor-pointer">
+                    Book Walkthrough Demo <ArrowRight size={13} />
+                  </a>
+                  <Link to="/production" className="text-white hover:underline font-bold flex items-center gap-1">
+                    Try Studio <ArrowRight size={13} />
+                  </Link>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          SECTION 2: IDENTIFY YOUR BUSINESS (SOLUTIONS FOR INDIAN SPORTSWEAR UNITS)
+      ───────────────────────────────────────────────────────────────────────────── */}
+      <section id="solutions" className="py-20 relative bg-white border-t border-[#E8E4DE]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          
+          <div className="text-center max-w-3xl mx-auto mb-14">
+            <span className="badge-pill mb-3 inline-block font-bold">
+              Tailored For Your Workflow
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-black text-[#171717] tracking-tight mb-4">
+              Built for Every Sportswear Business Role
+            </h2>
+            <p className="text-base sm:text-lg text-[#52525B] leading-relaxed">
+              Whether you run a high-volume manufacturing factory, create custom athletic designs, or manage sublimation printers, FiveNest provides the dedicated tools you need.
+            </p>
+
+            {/* Selectable Role Switcher */}
+            <div className="inline-flex p-1.5 rounded-2xl bg-[#F5F3EF] border border-[#E8E4DE] mt-6 flex-wrap justify-center">
+              {[
+                { id: 'manufacturer', label: 'Manufacturer' },
+                { id: 'designer', label: 'Sportswear Designer' },
+                { id: 'printing', label: 'Printing Shop Owner' },
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setActiveCategory(cat.id as BusinessCategory)}
+                  className={cn(
+                    'px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer',
+                    activeCategory === cat.id
+                      ? 'bg-[#E4572E] text-white shadow-xs'
+                      : 'text-[#52525B] hover:text-[#171717]'
+                  )}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 3 Interactive Solution Cards / Tabs */}
+          <div className="bg-[#FAF9F6] rounded-3xl border border-[#E8E4DE] p-6 sm:p-10 shadow-xs">
+            
+            {/* Manufacturer Details */}
+            {activeCategory === 'manufacturer' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                <div className="lg:col-span-7 space-y-4">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 text-[#E4572E] text-xs font-bold uppercase">
+                    <Package size={14} /> For Sportswear Manufacturers
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-black text-[#171717]">
+                    End-to-End Control from Wholesale Orders to Floor Cutting
+                  </h3>
+                  <p className="text-sm sm:text-base text-[#52525B] leading-relaxed">
+                    Stop chasing disorganised WhatsApp lists and dealing with costly misprint reprints. Coordinate multi-tournament orders, manage sizing distributions, and generate accurate floor job sheets in minutes.
+                  </p>
+                  
+                  <div className="space-y-3 pt-2">
+                    {[
+                      'Organize customer & team orders in a unified ledger',
+                      'Manage jersey sizes and player information with zero manual retyping',
+                      'Coordinate production activity & issue floor cutting job sheets',
+                      'Prepare and export 300 DPI print files in bulk (organized size folders)',
+                      'Track associated billing, payments, and customer balances automatically',
+                    ].map((item, idx) => (
+                      <div key={idx} className="flex items-start gap-2.5 text-sm text-[#171717] font-medium">
+                        <CheckCircle size={18} className="text-[#E4572E] flex-shrink-0 mt-0.5" />
+                        <span>{item}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-4 flex flex-wrap gap-3">
+                    <a href="#demo" className="btn-primary px-6 py-3 text-xs sm:text-sm font-bold shadow-brand">
+                      Book Manufacturer Demo
+                    </a>
+                    <Link to="/orders" className="btn-secondary px-6 py-3 text-xs sm:text-sm font-bold bg-white border border-[#E8E4DE]">
+                      Explore Order Management
+                    </Link>
+                  </div>
                 </div>
 
+                <div className="lg:col-span-5 bg-white rounded-2xl p-6 border border-[#E8E4DE] shadow-xs space-y-4">
+                  <div className="flex justify-between items-center pb-3 border-b border-[#E8E4DE]">
+                    <span className="text-xs font-bold text-[#171717] uppercase tracking-wider">Manufacturer Dashboard Specs</span>
+                    <span className="text-xs text-emerald-600 font-bold">● Active Workflow</span>
+                  </div>
+                  <div className="space-y-2.5 text-xs text-[#52525B]">
+                    <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
+                      <span className="font-semibold">Floor Job Sheets:</span>
+                      <span className="font-bold text-[#171717]">Yardage, counts &amp; size split</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
+                      <span className="font-semibold">Roster Grading:</span>
+                      <span className="font-bold text-emerald-700">100% Vector (Junior to 5XL)</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
+                      <span className="font-semibold">Wholesale Portal:</span>
+                      <span className="font-bold text-[#171717]">Client self-service roster input</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
+                      <span className="font-semibold">Seam Allowances:</span>
+                      <span className="font-bold text-[#171717]">10mm bleed pre-applied</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Designer Details */}
+            {activeCategory === 'designer' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                <div className="lg:col-span-7 space-y-4">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 text-blue-700 text-xs font-bold uppercase">
+                    <Sliders size={14} /> For Sportswear Designers
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-black text-[#171717]">
+                    Vector Precision, Instant 2D/3D Mockups &amp; Zero Repetitive Typing
+                  </h3>
+                  <p className="text-sm sm:text-base text-[#52525B] leading-relaxed">
+                    Free yourself from endless hours of copy-pasting numbers and nudging layers in Photoshop. Upload your vector artwork once, let FiveNest grade team rosters automatically, and share photorealistic 3D proofs with clients.
+                  </p>
+                  
+                  <div className="space-y-3 pt-2">
+                    {[
+                      'Work with master sportswear artwork in AI, EPS, SVG or 300 DPI PNG',
+                      'Inspect multi-panel blueprints and live 360° 3D jersey proofs',
+                      'Automate repetitive player name, squad number & size curve scaling',
+                      'Prepare print-ready individual panels with exact 10mm seam bleeds',
+                      'Track client design approvals and design service charges seamlessly',
+                    ].map((item, idx) => (
+                      <div key={idx} className="flex items-start gap-2.5 text-sm text-[#171717] font-medium">
+                        <CheckCircle size={18} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                        <span>{item}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-4 flex flex-wrap gap-3">
+                    <Link to="/production" className="btn-primary px-6 py-3 text-xs sm:text-sm font-bold shadow-brand">
+                      Launch Designer Studio
+                    </Link>
+                    <a href="#demo" className="btn-secondary px-6 py-3 text-xs sm:text-sm font-bold bg-white border border-[#E8E4DE]">
+                      Book Designer Demo
+                    </a>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-5 bg-white rounded-2xl p-6 border border-[#E8E4DE] shadow-xs space-y-4">
+                  <div className="flex justify-between items-center pb-3 border-b border-[#E8E4DE]">
+                    <span className="text-xs font-bold text-[#171717] uppercase tracking-wider">Designer Engine Specs</span>
+                    <span className="text-xs text-blue-600 font-bold">● Vector Curves</span>
+                  </div>
+                  <div className="space-y-2.5 text-xs text-[#52525B]">
+                    <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
+                      <span className="font-semibold">3D WebGL Proof:</span>
+                      <span className="font-bold text-[#171717]">Real-time interactive inspection</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
+                      <span className="font-semibold">Athletic Fonts:</span>
+                      <span className="font-bold text-[#171717]">Jersey M54, Barcelona, Impact</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
+                      <span className="font-semibold">Text Effects:</span>
+                      <span className="font-bold text-[#171717]">Arches, double outlines, drop shadows</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
+                      <span className="font-semibold">No Photoshop Required:</span>
+                      <span className="font-bold text-emerald-700">Runs directly in browser</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Printing Owner Details */}
+            {activeCategory === 'printing' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                <div className="lg:col-span-7 space-y-4">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-800 text-xs font-bold uppercase">
+                    <Printer size={14} /> For Sublimation Print Shop Owners
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-black text-[#171717]">
+                    Drop-in RIP Compatibility, Ink Efficiency &amp; Automated Billing
+                  </h3>
+                  <p className="text-sm sm:text-base text-[#52525B] leading-relaxed">
+                    Keep your wide-format plotters running continuously without file bottlenecks. FiveNest exports clean, high-resolution panel files organized by size and player, ready for immediate drag-and-drop into Wasatch, NeoStampa, or PhotoPrint.
+                  </p>
+                  
+                  <div className="space-y-3 pt-2">
+                    {[
+                      'Organize printing jobs across machines, fabric types & roll widths',
+                      'Manage per-meter / per-jersey service pricing and ink consumption',
+                      'Track live job statuses from file receipt to heat-press dispatch',
+                      'Handle GST invoices and Razorpay instant payment links effortlessly',
+                      'Export organized 300 DPI CMYK files directly compatible with any RIP',
+                    ].map((item, idx) => (
+                      <div key={idx} className="flex items-start gap-2.5 text-sm text-[#171717] font-medium">
+                        <CheckCircle size={18} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+                        <span>{item}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-4 flex flex-wrap gap-3">
+                    <a href="#demo" className="btn-primary px-6 py-3 text-xs sm:text-sm font-bold shadow-brand">
+                      Book Print Shop Demo
+                    </a>
+                    <a href="#pricing" className="btn-secondary px-6 py-3 text-xs sm:text-sm font-bold bg-white border border-[#E8E4DE]">
+                      View Token &amp; Subscription Pricing
+                    </a>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-5 bg-white rounded-2xl p-6 border border-[#E8E4DE] shadow-xs space-y-4">
+                  <div className="flex justify-between items-center pb-3 border-b border-[#E8E4DE]">
+                    <span className="text-xs font-bold text-[#171717] uppercase tracking-wider">Print Operator Specs</span>
+                    <span className="text-xs text-emerald-600 font-bold">● 300 DPI CMYK</span>
+                  </div>
+                  <div className="space-y-2.5 text-xs text-[#52525B]">
+                    <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
+                      <span className="font-semibold">Supported RIPs:</span>
+                      <span className="font-bold text-[#171717]">Wasatch, NeoStampa, Mimaki, Epson</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
+                      <span className="font-semibold">Output Packaging:</span>
+                      <span className="font-bold text-[#171717]">Size-sorted ZIP archives</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
+                      <span className="font-semibold">Roll Nesting:</span>
+                      <span className="font-bold text-[#171717]">Optional automated studio add-on</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
+                      <span className="font-semibold">Payment Links:</span>
+                      <span className="font-bold text-emerald-700">UPI / QR instant collections</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Practical Note: Roles are not mutually exclusive */}
+            <div className="mt-8 pt-6 border-t border-[#E8E4DE] text-center text-xs text-[#71717A]">
+              <span className="font-bold text-[#171717]">Note:</span> Many sportswear businesses in India handle design, printing, and manufacturing under one roof. FiveNest connects all these operations into a single shared database so your entire team stays aligned.
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          SECTION 3: THE COMPLETE FIVENEST WORKFLOW (HORIZONTAL PIPELINE / TIMELINE)
+      ───────────────────────────────────────────────────────────────────────────── */}
+      <section id="workflow" className="py-20 relative bg-[#EFECE6]/50 border-t border-[#E8E4DE]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <span className="badge-pill mb-3 inline-block font-bold">
+              Connected Pipeline
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-black text-[#171717] tracking-tight mb-4">
+              The Complete FiveNest Workflow
+            </h2>
+            <p className="text-base sm:text-lg text-[#52525B] leading-relaxed">
+              From the moment an order arrives to the final cut-and-sew heat press, FiveNest links every step into a connected digital thread.
+            </p>
+          </div>
+
+          {/* 5-Step Connected Pipeline */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 relative">
+            {[
+              {
+                step: 1,
+                title: 'Receive & Manage Orders',
+                desc: 'Capture wholesale customer details, tournament specs, fabric choices, and roster files in a structured order portal.',
+                tag: 'Step 01',
+              },
+              {
+                step: 2,
+                title: 'Design & Preview in 2D/3D',
+                desc: 'Map master vector graphics across front, back, sleeves, collar & ribbing with real-time 360° 3D digital proofing.',
+                tag: 'Step 02',
+              },
+              {
+                step: 3,
+                title: 'Automate Team Rosters',
+                desc: 'Upload Excel/CSV lists to automatically scale player names, squad numbers, and sizes across junior to 5XL.',
+                tag: 'Step 03',
+              },
+              {
+                step: 4,
+                title: 'Prepare Print-Ready Files',
+                desc: 'Generate 300 DPI CMYK individual panels with 10mm pre-applied bleeds, sorted neatly into size-wise ZIP folders.',
+                tag: 'Step 04',
+              },
+              {
+                step: 5,
+                title: 'Track Production & Billing',
+                desc: 'Print floor cutting job sheets, update factory P&L ledgers, issue GST tax invoices, and collect UPI payments.',
+                tag: 'Step 05',
+              },
+            ].map((s) => (
+              <div
+                key={s.step}
+                className={cn(
+                  'p-5 rounded-2xl border transition-all flex flex-col justify-between',
+                  activeWorkflowStep === s.step
+                    ? 'bg-white border-[#E4572E] ring-2 ring-[#E4572E]/15 shadow-sm'
+                    : 'bg-white/70 border-[#E8E4DE] hover:border-neutral-300'
+                )}
+                onClick={() => setActiveWorkflowStep(s.step)}
+              >
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-xs font-black px-2.5 py-0.5 rounded-md bg-[#E4572E]/10 text-[#E4572E] font-mono">
+                      {s.tag}
+                    </span>
+                    <span className="w-2 h-2 rounded-full bg-[#E4572E]" />
+                  </div>
+                  <h4 className="text-base font-extrabold text-[#171717] mb-2">{s.title}</h4>
+                  <p className="text-xs text-[#52525B] leading-relaxed">{s.desc}</p>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-[#E8E4DE]/60 text-[11px] font-bold text-[#E4572E] flex items-center gap-1">
+                  <span>Step details</span>
+                  <ChevronRight size={12} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-12 text-center">
+            <a
+              href="#demo"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white border border-[#E8E4DE] text-sm font-bold text-[#171717] hover:text-[#E4572E] hover:border-[#E4572E] transition-all shadow-xs cursor-pointer"
+            >
+              <Calendar size={16} className="text-[#E4572E]" />
+              <span>Book a Live Demo of the Complete Workflow</span>
+              <ArrowRight size={14} />
+            </a>
+          </div>
+
+        </div>
+      </section>
+
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          SECTION 4: INTERACTIVE PRODUCT FEATURE SHOWCASE
+      ───────────────────────────────────────────────────────────────────────────── */}
+      <section id="showcase" className="py-20 relative bg-white border-t border-[#E8E4DE]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          
+          <div className="text-center max-w-3xl mx-auto mb-14">
+            <span className="badge-pill mb-3 inline-block font-bold">
+              Software Capabilities
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-black text-[#171717] tracking-tight mb-4">
+              Explore FiveNest Production Features
+            </h2>
+            <p className="text-base sm:text-lg text-[#52525B] leading-relaxed">
+              Every tool in FiveNest was built specifically around the real needs of Indian sublimation factories and sportswear print shops.
+            </p>
+
+            {/* 5 Distinct Feature Tabs */}
+            <div className="flex flex-wrap gap-1.5 p-1.5 rounded-2xl bg-[#F5F3EF] border border-[#E8E4DE] mt-8 justify-center">
+              {[
+                { id: 'studio', label: 'Production Studio', icon: Laptop },
+                { id: 'roster', label: 'Automated Sizing & Rosters', icon: Users },
+                { id: 'export', label: 'Smart Nesting & Export', icon: Download },
+                { id: 'orders', label: 'Orders & Billing', icon: Package },
+                { id: 'tracking', label: 'Production Tracking', icon: BarChart3 },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveShowcaseTab(tab.id as ShowcaseTab)}
+                    className={cn(
+                      'px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer',
+                      activeShowcaseTab === tab.id
+                        ? 'bg-[#E4572E] text-white shadow-xs'
+                        : 'text-[#686661] hover:text-[#171717]'
+                    )}
+                  >
+                    <Icon size={14} />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Feature Tab Container */}
+          <div className="bg-[#FAF9F6] rounded-3xl p-6 sm:p-10 border border-[#E8E4DE] shadow-xs">
+            
+            {/* 1. Production Studio */}
+            {activeShowcaseTab === 'studio' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                <div className="lg:col-span-6 space-y-4">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500/10 text-[#E4572E] text-xs font-bold uppercase">
+                    <Laptop size={14} /> Core Studio Engine
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-black text-[#171717]">
+                    Multi-Panel Sublimation Blueprint &amp; 3D Proofing
+                  </h3>
+                  <p className="text-sm sm:text-base text-[#52525B] leading-relaxed">
+                    Upload your master artwork in vector AI, EPS, SVG, or 300 DPI PNG. FiveNest maps panels with millimetre accuracy—chest, back, sleeves, collar, and side panels—while simulating the finished look in 3D WebGL.
+                  </p>
+                  
+                  <div className="space-y-2.5 pt-2">
+                    <div className="flex items-start gap-2.5 text-sm text-[#171717]">
+                      <CheckCircle size={18} className="text-[#E4572E] flex-shrink-0 mt-0.5" />
+                      <span>Real-time 3D jersey rotation and digital proof preview</span>
+                    </div>
+                    <div className="flex items-start gap-2.5 text-sm text-[#171717]">
+                      <CheckCircle size={18} className="text-[#E4572E] flex-shrink-0 mt-0.5" />
+                      <span>Pre-calibrated 10mm sewing seam allowances and heat-press bleed lines</span>
+                    </div>
+                    <div className="flex items-start gap-2.5 text-sm text-[#171717]">
+                      <CheckCircle size={18} className="text-[#E4572E] flex-shrink-0 mt-0.5" />
+                      <span>Support for both set-in and raglan sleeve pattern geometries</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-4">
+                    <Link to="/production" className="btn-primary px-6 py-3 text-xs sm:text-sm font-bold shadow-brand">
+                      Launch Studio Interface
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-6 bg-[#171717] rounded-2xl p-6 text-white border border-neutral-800 space-y-4">
+                  <div className="flex justify-between items-center text-xs font-mono text-neutral-400 pb-3 border-b border-neutral-800">
+                    <span>PANEL BLUEPRINT SPECIFICATION</span>
+                    <span className="text-orange-400">300 DPI CMYK</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-xs font-mono">
+                    <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800">
+                      <span className="text-neutral-400 block mb-1">FRONT PANEL</span>
+                      <span className="text-white font-bold">58 x 72 cm</span>
+                      <span className="text-emerald-400 text-[10px] block mt-1">FREE PANEL</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800">
+                      <span className="text-neutral-400 block mb-1">BACK PANEL</span>
+                      <span className="text-white font-bold">60 x 75 cm</span>
+                      <span className="text-orange-400 text-[10px] block mt-1">Billed: ₹3.50</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800">
+                      <span className="text-neutral-400 block mb-1">SLEEVES (L+R)</span>
+                      <span className="text-white font-bold">24 x 42 cm</span>
+                      <span className="text-emerald-400 text-[10px] block mt-1">FREE PANELS</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800">
+                      <span className="text-neutral-400 block mb-1">COLLAR RIBBING</span>
+                      <span className="text-white font-bold">18 x 4.5 in</span>
+                      <span className="text-emerald-400 text-[10px] block mt-1">FREE PANEL</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 2. Automated Sizing & Rosters */}
+            {activeShowcaseTab === 'roster' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                <div className="lg:col-span-6 space-y-4">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 text-blue-700 text-xs font-bold uppercase">
+                    <Users size={14} /> Team Roster Automation
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-black text-[#171717]">
+                    Zero-Typo Name &amp; Number Auto-Grading (Junior to 5XL)
+                  </h3>
+                  <p className="text-sm sm:text-base text-[#52525B] leading-relaxed">
+                    Paste your tournament roster from Excel or CSV. FiveNest automatically adapts artwork proportions and text curvature across every garment size—so graphics stay perfectly balanced on an 18 junior jersey or a 60 (5XL) kit.
+                  </p>
+                  
+                  <div className="space-y-2.5 pt-2">
+                    <div className="flex items-start gap-2.5 text-sm text-[#171717]">
+                      <CheckCircle size={18} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                      <span>Dynamic vector font arching, dual outline strokes &amp; drop shadows</span>
+                    </div>
+                    <div className="flex items-start gap-2.5 text-sm text-[#171717]">
+                      <CheckCircle size={18} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                      <span>Built-in athletic fonts: Jersey M54, Barcelona 2013 HD, Impact, Arial Bold, Eaglore 2</span>
+                    </div>
+                    <div className="flex items-start gap-2.5 text-sm text-[#171717]">
+                      <CheckCircle size={18} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                      <span>Automatic duplicate number and spelling validation</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-4">
+                    <Link to="/production" className="btn-primary px-6 py-3 text-xs sm:text-sm font-bold shadow-brand">
+                      Test Roster Grading in Studio
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-6 bg-[#171717] rounded-2xl p-6 text-white border border-neutral-800 space-y-3">
+                  <div className="flex justify-between items-center text-xs font-mono text-neutral-400 pb-3 border-b border-neutral-800">
+                    <span>SQUAD BATCH ENGINE</span>
+                    <span className="text-emerald-400">100% TYPO-PROOF</span>
+                  </div>
+                  {[
+                    { num: '45', name: 'ROHIT SHARMA', size: 'Size 44 (XL)', chest: '44"' },
+                    { num: '18', name: 'VIRAT KOHLI', size: 'Size 42 (L)', chest: '42"' },
+                    { num: '33', name: 'HARDIK PANDYA', size: 'Size 40 (M)', chest: '40"' },
+                  ].map((row, i) => (
+                    <div key={i} className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 flex justify-between items-center text-xs font-mono">
+                      <div className="flex items-center gap-3">
+                        <span className="w-7 h-7 rounded bg-orange-500/20 text-orange-400 font-bold flex items-center justify-center">
+                          {row.num}
+                        </span>
+                        <div>
+                          <p className="text-white font-bold">{row.name}</p>
+                          <p className="text-[10px] text-neutral-400">Chest: {row.chest}</p>
+                        </div>
+                      </div>
+                      <span className="px-2.5 py-1 rounded bg-white/10 text-white font-bold text-[11px]">
+                        {row.size}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 3. Smart Nesting & Export */}
+            {activeShowcaseTab === 'export' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                <div className="lg:col-span-6 space-y-4">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-800 text-xs font-bold uppercase">
+                    <Download size={14} /> Industrial File Export
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-black text-[#171717]">
+                    1-Click High-Res RIP Exports (Individual Panels &amp; Roll Nesting)
+                  </h3>
+                  <p className="text-sm sm:text-base text-[#52525B] leading-relaxed">
+                    Indian sublimation factories overwhelmingly prefer clean individual panel files per jersey. FiveNest outputs separate Front, Back (with custom player name &amp; number), Left Sleeve, Right Sleeve, and Collar files organized neatly by size.
+                  </p>
+                  
+                  <div className="space-y-2.5 pt-2">
+                    <div className="flex items-start gap-2.5 text-sm text-[#171717]">
+                      <CheckCircle size={18} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+                      <span>Individual 300 DPI CMYK TIFF / PDF panels ready for RIP drag-and-drop</span>
+                    </div>
+                    <div className="flex items-start gap-2.5 text-sm text-[#171717]">
+                      <CheckCircle size={18} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+                      <span>Explicit Left and Right sleeve watermarks and file names</span>
+                    </div>
+                    <div className="flex items-start gap-2.5 text-sm text-[#171717]">
+                      <CheckCircle size={18} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+                      <span>Optional continuous Roll Nesting add-on available anytime</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-4">
+                    <Link to="/production" className="btn-primary px-6 py-3 text-xs sm:text-sm font-bold shadow-brand">
+                      Test Export in Studio
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-6 bg-[#171717] rounded-2xl p-6 text-white border border-neutral-800 space-y-3 font-mono text-xs">
+                  <div className="flex justify-between items-center text-neutral-400 pb-3 border-b border-neutral-800">
+                    <span>OUTPUT FORMAT SPECIFICATIONS</span>
+                    <span className="text-emerald-400">300 DPI LOSSLESS</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 flex justify-between">
+                    <span className="text-neutral-400">Front Panel:</span>
+                    <span className="text-white font-bold">40 = 2 F.jpg</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 flex justify-between">
+                    <span className="text-neutral-400">Back Panel:</span>
+                    <span className="text-orange-400 font-bold">40_VIRAT_18.jpg</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 flex justify-between">
+                    <span className="text-neutral-400">Left Sleeve:</span>
+                    <span className="text-blue-400 font-bold">40 = 2 Left Sleeve.jpg</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 flex justify-between">
+                    <span className="text-neutral-400">Right Sleeve:</span>
+                    <span className="text-red-400 font-bold">40 = 2 Right Sleeve.jpg</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 flex justify-between">
+                    <span className="text-neutral-400">Seam Bleed:</span>
+                    <span className="text-emerald-400 font-bold">10mm Calibrated Margins</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 4. Orders & Billing */}
+            {activeShowcaseTab === 'orders' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                <div className="lg:col-span-6 space-y-4">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 text-purple-700 text-xs font-bold uppercase">
+                    <Package size={14} /> Commercial Hub
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-black text-[#171717]">
+                    Self-Service Client Portals, GST Invoicing &amp; UPI Payment Links
+                  </h3>
+                  <p className="text-sm sm:text-base text-[#52525B] leading-relaxed">
+                    Say goodbye to messy WhatsApp communications and missing sizes. Give wholesale clients a dedicated portal link to submit player rosters, approve proofs, and make advance payments via Razorpay UPI.
+                  </p>
+                  
+                  <div className="space-y-2.5 pt-2">
+                    <div className="flex items-start gap-2.5 text-sm text-[#171717]">
+                      <CheckCircle size={18} className="text-purple-600 flex-shrink-0 mt-0.5" />
+                      <span>Instant GST-compliant tax invoices with HSN codes</span>
+                    </div>
+                    <div className="flex items-start gap-2.5 text-sm text-[#171717]">
+                      <CheckCircle size={18} className="text-purple-600 flex-shrink-0 mt-0.5" />
+                      <span>Razorpay payment links for GPay, PhonePe, and Paytm UPI collections</span>
+                    </div>
+                    <div className="flex items-start gap-2.5 text-sm text-[#171717]">
+                      <CheckCircle size={18} className="text-purple-600 flex-shrink-0 mt-0.5" />
+                      <span>Real-time customer receivables tracking with party ledgers</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-4">
+                    <Link to="/orders" className="btn-primary px-6 py-3 text-xs sm:text-sm font-bold shadow-brand">
+                      Open Order Portal
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-6 bg-white rounded-2xl p-6 border border-[#E8E4DE] shadow-xs space-y-3 text-xs">
+                  <div className="flex justify-between items-center pb-2 border-b border-[#E8E4DE]">
+                    <span className="font-bold text-[#171717] uppercase">COMMERCIAL SPECS</span>
+                    <span className="text-emerald-700 font-bold">● GST Ready</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
+                    <span className="text-[#52525B]">Customer Portals:</span>
+                    <span className="font-bold text-[#171717]">Self-service roster input &amp; approvals</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
+                    <span className="text-[#52525B]">Tax Invoicing:</span>
+                    <span className="font-bold text-[#171717]">Automated GST bills + HSN</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
+                    <span className="text-[#52525B]">Payment Gateways:</span>
+                    <span className="font-bold text-[#171717]">Razorpay UPI, QR &amp; NetBanking</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
+                    <span className="text-[#52525B]">Included With:</span>
+                    <span className="font-bold text-orange-600">Plans or balances ≥ ₹5,000</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 5. Production Tracking */}
+            {activeShowcaseTab === 'tracking' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                <div className="lg:col-span-6 space-y-4">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-800 text-xs font-bold uppercase">
+                    <BarChart3 size={14} /> Factory Floor Operations
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-black text-[#171717]">
+                    Printable Cutting Sheets, Floor Status &amp; Real-Time P&amp;L
+                  </h3>
+                  <p className="text-sm sm:text-base text-[#52525B] leading-relaxed">
+                    Give your floor operators exact cutting job sheets with fabric yardage, panel counts, size distributions, and heat-press temperature guidelines so nothing gets misplaced in the workshop.
+                  </p>
+                  
+                  <div className="space-y-2.5 pt-2">
+                    <div className="flex items-start gap-2.5 text-sm text-[#171717]">
+                      <CheckCircle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                      <span>Printable factory cutting job sheets with heat-press instructions</span>
+                    </div>
+                    <div className="flex items-start gap-2.5 text-sm text-[#171717]">
+                      <CheckCircle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                      <span>Live status tracking: Order Received → In Production → Dispatched</span>
+                    </div>
+                    <div className="flex items-start gap-2.5 text-sm text-[#171717]">
+                      <CheckCircle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                      <span>Automated factory expenses and monthly P&amp;L ledgers</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-4">
+                    <Link to="/orders" className="btn-primary px-6 py-3 text-xs sm:text-sm font-bold shadow-brand">
+                      View Factory Tracking
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-6 bg-white rounded-2xl p-6 border border-[#E8E4DE] shadow-xs space-y-3 text-xs">
+                  <div className="flex justify-between items-center pb-2 border-b border-[#E8E4DE]">
+                    <span className="font-bold text-[#171717] uppercase">FLOOR SPECIFICATIONS</span>
+                    <span className="text-amber-700 font-bold">● Active Tracking</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
+                    <span className="text-[#52525B]">Job Sheet Specs:</span>
+                    <span className="font-bold text-[#171717]">Fabric meters, collar count &amp; size split</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
+                    <span className="text-[#52525B]">Cutting Accuracy:</span>
+                    <span className="font-bold text-[#171717]">Pre-calibrated seam allowances</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[#F5F3EF] flex justify-between">
+                    <span className="text-[#52525B]">P&amp;L Ledgers:</span>
+                    <span className="font-bold text-[#171717]">Paper, ink &amp; fabric cost tracking</span>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -681,411 +1320,92 @@ export default function Home() {
 
 
       {/* ─────────────────────────────────────────────────────────────────────────────
-          3. DEEP DIVE: THE 3-STEP PRODUCTION REVOLUTION
+          SECTION 5: BEFORE VS AFTER FIVENEST (PRACTICAL COMPARISON FOR WORKSHOPS)
       ───────────────────────────────────────────────────────────────────────────── */}
-      <section className="py-24 relative bg-[#EFECE6]/50 border-t border-[#E8E4DE]">
-        <div className="max-w-6xl mx-auto px-6">
+      <section className="py-20 relative bg-[#F5F3EF] border-t border-[#E8E4DE]">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
           
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="badge-pill mb-4 inline-block font-bold">
-              Engineering Workflow
+          <div className="text-center mb-14">
+            <span className="badge-pill mb-3 inline-block font-bold">
+              Practical Comparison
             </span>
-            <h2 className="text-3xl sm:text-5xl font-black text-[#171717] tracking-tight mb-4">
-              The 3-Step Production Studio
+            <h2 className="text-3xl sm:text-4xl font-black text-[#171717] tracking-tight mb-3">
+              Before FiveNest vs. With FiveNest
             </h2>
-            <p className="text-base sm:text-lg text-[#52525B] leading-relaxed">
-              How FiveNest replaces an entire team of graphic designers nudging Photoshop layers with a 100% automated vector workflow.
+            <p className="text-sm sm:text-base text-[#52525B]">
+              How moving from manual Photoshop nudging to connected automation transforms your daily production.
             </p>
           </div>
 
-          <div className="space-y-12">
-            
-            {/* STEP 1 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center bg-white p-8 sm:p-10 rounded-3xl border border-[#E8E4DE] shadow-soft">
-              <div>
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-[#E4572E]/10 text-[#E4572E] text-xs font-black uppercase mb-4">
-                  <span>Step 01</span> • <span>Master Artwork Setup</span>
-                </div>
-                <h3 className="text-2xl sm:text-3xl font-black text-[#171717] mb-4">
-                  Multi-Panel Garment Assembly & 3D Vector Projection
-                </h3>
-                <p className="text-[#52525B] text-sm leading-relaxed mb-6">
-                  Upload your master vector design once. FiveNest maps individual garment pattern cuts with millimetre precision — front chest, full back, raglan or set-in sleeves, round or V-neck collars, and side mesh inserts.
-                </p>
-                <ul className="space-y-3 mb-6 text-sm text-[#52525B]">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle size={18} className="text-[#E4572E] flex-shrink-0" />
-                    <span>Real-time 3D jersey rotation and digital proof preview</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle size={18} className="text-[#E4572E] flex-shrink-0" />
-                    <span>Automatic sewing seam allowances & heat-press bleed lines</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle size={18} className="text-[#E4572E] flex-shrink-0" />
-                    <span>Support for AI, EPS, SVG vector graphics and 300 DPI PNG files</span>
-                  </li>
-                </ul>
-                <div className="p-3.5 rounded-xl bg-[#F5F3EF] border border-[#E8E4DE] text-xs text-[#52525B]">
-                  <strong className="text-[#171717]">No graphic degradation:</strong> Vector assets retain crisp, razor-sharp edges even when expanded to 5XL sizes.
-                </div>
-              </div>
-
-              <div className="bg-[#171717] text-white p-6 rounded-2xl border border-neutral-800">
-                <div className="flex justify-between items-center pb-4 mb-4 border-b border-neutral-800 text-xs font-mono text-neutral-400">
-                  <span>PANEL GEOMETRY ENGINE</span>
-                  <span className="text-orange-400">300 DPI CMYK</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3 text-center">
-                  <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800">
-                    <p className="text-xs font-mono text-neutral-400 mb-1">FRONT PANEL</p>
-                    <p className="text-sm font-bold text-white">Chest Logo & Sublimation Blend</p>
-                    <span className="text-[10px] text-emerald-400 font-mono mt-1 block">Free Panel (₹0.00)</span>
-                  </div>
-                  <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800">
-                    <p className="text-xs font-mono text-neutral-400 mb-1">SLEEVE CUTS</p>
-                    <p className="text-sm font-bold text-white">Left & Right Raglan Cuts</p>
-                    <span className="text-[10px] text-emerald-400 font-mono mt-1 block">Free Panel (₹0.00)</span>
-                  </div>
-                  <div className="p-4 rounded-xl bg-neutral-900 border border-orange-500/30 col-span-2">
-                    <p className="text-xs font-mono text-orange-400 mb-1">BACK PANEL (VARIABLE ROSTER)</p>
-                    <p className="text-sm font-bold text-white">Automatic Player Name + Squad Number Placement</p>
-                    <span className="text-[10px] text-orange-400 font-mono mt-1 block">Billed only on final export (₹3.50/pc)</span>
-                  </div>
-                </div>
-              </div>
+          <div className="bg-white rounded-3xl border border-[#E8E4DE] shadow-soft overflow-hidden">
+            <div className="grid grid-cols-2 p-4 sm:p-5 bg-[#FAF9F6] border-b border-[#E8E4DE] text-xs font-black uppercase tracking-wider text-[#52525B]">
+              <span className="text-neutral-500">Without FiveNest (Manual Workflow)</span>
+              <span className="text-[#E4572E]">With FiveNest Platform</span>
             </div>
 
-            {/* STEP 2 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center bg-white p-8 sm:p-10 rounded-3xl border border-[#E8E4DE] shadow-soft">
-              <div className="order-2 lg:order-1 bg-[#171717] text-white p-6 rounded-2xl border border-neutral-800">
-                <div className="flex justify-between items-center pb-4 mb-4 border-b border-neutral-800 text-xs font-mono text-neutral-400">
-                  <span>VECTOR ROSTER ENGINE</span>
-                  <span className="text-emerald-400">100% TYPO-PROOF</span>
-                </div>
-                <div className="space-y-2.5">
-                  {[
-                    { player: 'ROHIT SHARMA', no: '45', size: 'XL', chest: '44"', status: 'Graded' },
-                    { player: 'VIRAT KOHLI', no: '18', size: 'L', chest: '42"', status: 'Graded' },
-                    { player: 'HARDIK PANDYA', no: '33', size: 'M', chest: '40"', status: 'Graded' },
-                    { player: 'JASPRIT BUMRAH', no: '93', size: 'XXL', chest: '46"', status: 'Graded' },
-                  ].map((row, i) => (
-                    <div key={i} className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 flex items-center justify-between text-xs font-mono">
-                      <div className="flex items-center gap-3">
-                        <span className="w-7 h-7 rounded bg-orange-500/20 text-orange-400 font-bold flex items-center justify-center">
-                          {row.no}
-                        </span>
-                        <div>
-                          <p className="text-white font-bold">{row.player}</p>
-                          <p className="text-[10px] text-neutral-400">Chest: {row.chest}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className="px-2 py-0.5 rounded bg-white/10 text-white font-bold text-[11px] mr-2">
-                          {row.size}
-                        </span>
-                        <span className="text-emerald-400 text-[10px]">● {row.status}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="order-1 lg:order-2">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-[#E4572E]/10 text-[#E4572E] text-xs font-black uppercase mb-4">
-                  <span>Step 02</span> • <span>Grading & Roster</span>
-                </div>
-                <h3 className="text-2xl sm:text-3xl font-black text-[#171717] mb-4">
-                  Smart Size Grading (XS to 5XL) & Dynamic Squad Names
-                </h3>
-                <p className="text-[#52525B] text-sm leading-relaxed mb-6">
-                  Paste your tournament squad list or upload an Excel sheet. The engine automatically adapts artwork proportions across every jersey size so logos and graphics stay in perfect visual proportion from junior sizes to 5XL.
-                </p>
-                <ul className="space-y-3 mb-6 text-sm text-[#52525B]">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle size={18} className="text-[#E4572E] flex-shrink-0" />
-                    <span>Dynamic text arching, stroke outlines, drop shadows & vector fills</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle size={18} className="text-[#E4572E] flex-shrink-0" />
-                    <span>Built-in authentic jersey fonts (OldSport, College, Jersey M54, Khand)</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle size={18} className="text-[#E4572E] flex-shrink-0" />
-                    <span>Zero duplicate numbers or misspelled names with automated validation</span>
-                  </li>
-                </ul>
-                <div className="p-3.5 rounded-xl bg-[#F5F3EF] border border-[#E8E4DE] text-xs text-[#52525B]">
-                  <strong className="text-[#171717]">Batch Processing Speed:</strong> A complete 100-player roster completes in under 20 seconds.
-                </div>
-              </div>
-            </div>
-
-            {/* STEP 3 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center bg-white p-8 sm:p-10 rounded-3xl border border-[#E8E4DE] shadow-soft">
-              <div>
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-[#E4572E]/10 text-[#E4572E] text-xs font-black uppercase mb-4">
-                  <span>Step 03</span> • <span>Individual Export</span>
-                </div>
-                <h3 className="text-2xl sm:text-3xl font-black text-[#171717] mb-4">
-                  1-Click Individual Panel & High-Res RIP Exports
-                </h3>
-                <p className="text-[#52525B] text-sm leading-relaxed mb-6">
-                  Most sublimation factories and print operators prefer individual panel files per jersey. FiveNest outputs clean, high-resolution individual panels for Front, Back (with custom player name & number), Left/Right Sleeves, and Collar — structured neatly into size-wise folders ready for immediate drag-and-drop into your RIP queue.
-                </p>
-                <ul className="space-y-3 mb-6 text-sm text-[#52525B]">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle size={18} className="text-[#E4572E] flex-shrink-0" />
-                    <span>Individual High-Res Panels: Separate Front, Back, Sleeves, Collar & Ribbing</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle size={18} className="text-[#E4572E] flex-shrink-0" />
-                    <span>Automatic Seam Allowances: Exact 10mm bleed margins and cut lines ready for heat pressing</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle size={18} className="text-[#E4572E] flex-shrink-0" />
-                    <span>Organized Folder Hierarchy: Output files sorted cleanly as /Size_S/, /Size_M/, /Size_L/, etc.</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle size={18} className="text-[#E4572E] flex-shrink-0" />
-                    <span>Direct RIP software import into Wasatch, Ergosoft, PhotoPrint & Mimaki</span>
-                  </li>
-                </ul>
-                <div className="p-3.5 rounded-xl bg-[#F5F3EF] border border-[#E8E4DE] text-xs text-[#52525B]">
-                  <strong className="text-[#171717]">Optional Roll Nesting:</strong> Prefer continuous roll printing? Toggle automated Roll Nesting anytime inside the studio.
-                </div>
-              </div>
-
-              <div className="bg-[#171717] text-white p-6 rounded-2xl border border-neutral-800">
-                <div className="flex justify-between items-center pb-4 mb-4 border-b border-neutral-800 text-xs font-mono text-neutral-400">
-                  <span>INDIVIDUAL EXPORT SPECS</span>
-                  <span className="text-emerald-400">300 DPI LOSSLESS</span>
-                </div>
-                <div className="space-y-3 text-xs font-mono">
-                  <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 flex justify-between">
-                    <span className="text-neutral-400">Output Formats:</span>
-                    <span className="text-white font-bold">300 DPI CMYK TIFF / Print PDF</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 flex justify-between">
-                    <span className="text-neutral-400">Panel Separation:</span>
-                    <span className="text-white font-bold">Front, Back, Sleeves, Collar & Rib</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 flex justify-between">
-                    <span className="text-neutral-400">Seam Allowance:</span>
-                    <span className="text-emerald-400 font-bold">10mm Auto Seam Bleed Pre-Applied</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 flex justify-between">
-                    <span className="text-neutral-400">Folder Packaging:</span>
-                    <span className="text-orange-400 font-bold">Auto-Sorted by Jersey Size & Player</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 flex justify-between">
-                    <span className="text-neutral-400">Roll Nesting Feature:</span>
-                    <span className="text-neutral-300 font-bold">Optional Studio Add-on Available</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-        </div>
-      </section>
-
-
-      {/* ─────────────────────────────────────────────────────────────────────────────
-          4. ORDER MANAGEMENT PORTAL & FACTORY LEDGERS
-      ───────────────────────────────────────────────────────────────────────────── */}
-      <section className="py-24 relative bg-white border-t border-[#E8E4DE]" id="orders">
-        <div className="max-w-6xl mx-auto px-6">
-          
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="badge-pill mb-4 inline-block font-bold">
-              Factory Operations Hub
-            </span>
-            <h2 className="text-3xl sm:text-5xl font-black text-[#171717] tracking-tight mb-4">
-              Complete Order & Production Management
-            </h2>
-            <p className="text-base sm:text-lg text-[#52525B] leading-relaxed">
-              Designed specifically for sportswear printers, uniform makers, and textile manufacturers to track jobs, invoices, and factory ledgers in one unified hub.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
             {[
               {
-                icon: <Users className="text-[#E4572E]" size={24} />,
-                title: 'Client Self-Service Portal',
-                desc: 'Give your wholesale clients a branded portal link. They input squad names, sizes, upload vector logos, and approve digital proofs directly.',
+                before: 'Repetitive manual data entry copy-pasting squad names & numbers one by one into Photoshop layers.',
+                after: '1-Click team roster batch import directly from Excel/CSV with instant vector curve alignment.',
               },
               {
-                icon: <FileText className="text-[#E4572E]" size={24} />,
-                title: 'Factory Cutting Job Sheets',
-                desc: 'Generate printable job sheets with fabric yardage, panel counts, size distributions, and heat-press temperature instructions for floor staff.',
+                before: 'Manual jersey sizing & placement requiring graphic designers to spend hours resizing text per kit size.',
+                after: 'Automated vector proportion auto-grading across all garment sizes from junior 18 up to 5XL.',
               },
               {
-                icon: <BarChart3 className="text-[#E4572E]" size={24} />,
-                title: 'Real-Time P&L & Ledgers',
-                desc: 'Track exact production cost per jersey, ink consumption, paper usage, and customer receivables with automated ledger updates.',
+                before: 'Multiple disconnected file preparation steps with high human error and expensive fabric reprint waste.',
+                after: 'Organized 300 DPI CMYK individual panels with 10mm pre-applied bleeds, sorted neatly into size folders.',
               },
               {
-                icon: <Shield className="text-[#E4572E]" size={24} />,
-                title: 'Instant GST Tax Invoices',
-                desc: 'Issue GST-compliant invoices with HSN codes, integrate Razorpay payment links, and collect advance payments with zero friction.',
+                before: 'Chaotic order coordination across scattered WhatsApp screenshots, voice notes, and paper job slips.',
+                after: 'Connected wholesale customer portal with digital proof approvals and verified squad entries.',
               },
-            ].map((f, i) => (
-              <div key={i} className="p-6 rounded-2xl bg-[#F5F3EF] border border-[#E8E4DE] hover:border-neutral-300 transition-colors">
-                <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center mb-4 shadow-sm border border-[#E8E4DE]">
-                  {f.icon}
+              {
+                before: 'Disconnected production and billing info leading to uncollected payments and disputed quantities.',
+                after: 'Complete factory visibility with printable cutting job sheets, automated GST bills & party ledgers.',
+              },
+            ].map((row, i) => (
+              <div key={i} className="grid grid-cols-2 p-4 sm:p-5 border-b border-[#E8E4DE] last:border-0 text-xs sm:text-sm items-start gap-4">
+                <div className="text-[#71717A] leading-relaxed">
+                  <span className="text-red-500 font-bold mr-1.5">✕</span>
+                  <span>{row.before}</span>
                 </div>
-                <h4 className="text-lg font-bold text-[#171717] mb-2">{f.title}</h4>
-                <p className="text-xs sm:text-sm text-[#52525B] leading-relaxed">{f.desc}</p>
+                <div className="text-[#171717] font-semibold leading-relaxed flex items-start gap-1.5">
+                  <CheckCircle size={16} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+                  <span>{row.after}</span>
+                </div>
               </div>
             ))}
           </div>
 
-          {/* Access Callout Banner */}
-          <div className="p-8 rounded-3xl bg-gradient-to-r from-neutral-900 via-[#171717] to-neutral-900 text-white border border-neutral-800 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 text-xs font-bold border border-orange-500/30 mb-2">
-                <Flame size={14} /> Full Access Included
-              </div>
-              <h3 className="text-2xl font-black text-white">
-                Unlocked for all Pro & Factory Plans or Wallet Balances (≥ ₹5,000)
-              </h3>
-              <p className="text-neutral-400 text-sm max-w-xl mt-1">
-                Say goodbye to WhatsApp chaos and lost orders. Subscribe to any plan above ₹5,000 or recharge your wallet balance above ₹5,000 to run your entire factory pipeline on autopilot.
-              </p>
-            </div>
-            <Link
-              to="/order-management"
-              className="px-6 py-3.5 rounded-xl bg-[#E4572E] text-white font-bold hover:bg-[#D4431B] transition-colors whitespace-nowrap flex items-center gap-2 shadow-brand"
-            >
-              <span>Explore Order Portal</span>
-              <ArrowRight size={16} />
-            </Link>
-          </div>
-
         </div>
       </section>
 
 
       {/* ─────────────────────────────────────────────────────────────────────────────
-          5. INTERACTIVE SAVINGS & ROI CALCULATOR
+          SECTION 6: PRICING & EXPORT CREDITS (RECONCILED MODEL)
       ───────────────────────────────────────────────────────────────────────────── */}
-      <section className="py-24 relative bg-[#F5F3EF] border-t border-[#E8E4DE]">
-        <div className="max-w-5xl mx-auto px-6">
-          
-          <div className="text-center max-w-2xl mx-auto mb-14">
-            <span className="badge-pill mb-4 inline-block font-bold">
-              Factory Profitability Calculator
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-[#171717] tracking-tight mb-4">
-              How Much Will FiveNest Save Your Factory?
-            </h2>
-            <p className="text-sm sm:text-base text-[#52525B]">
-              Slide to your monthly jersey production volume to see your exact time and cost savings.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-3xl p-6 sm:p-10 border border-[#E8E4DE] shadow-soft-lg">
-            
-            {/* Interactive Slider */}
-            <div className="mb-10">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-sm font-bold text-[#171717]">Monthly Jersey Output:</span>
-                <span className="text-2xl font-black text-[#E4572E] font-mono">
-                  {monthlyJerseys.toLocaleString()} Jerseys / month
-                </span>
-              </div>
-              <input
-                type="range"
-                min="50"
-                max="5000"
-                step="50"
-                value={monthlyJerseys}
-                onChange={(e) => setMonthlyJerseys(Number(e.target.value))}
-                className="w-full h-3 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-[#E4572E]"
-              />
-              <div className="flex justify-between text-[11px] text-[#71717A] mt-2 font-mono">
-                <span>50 Jerseys (Small Shop)</span>
-                <span>1,000 Jerseys (Medium Studio)</span>
-                <span>5,000+ Jerseys (Large Factory)</span>
-              </div>
-            </div>
-
-            {/* Live Comparison Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-6 border-t border-[#E8E4DE]">
-              
-              <div className="p-5 rounded-2xl bg-[#FAF9F6] border border-[#E8E4DE]">
-                <p className="text-xs font-bold text-[#71717A] uppercase tracking-wider mb-1">
-                  Design Hours Saved
-                </p>
-                <p className="text-3xl sm:text-4xl font-black text-[#171717] mb-1">
-                  {hoursSaved} hrs
-                </p>
-                <p className="text-xs text-[#52525B]">
-                  From {manualHours} manual Photoshop hours down to {fivenestHours} hrs in FiveNest.
-                </p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-[#E4572E]/10 border border-[#E4572E]/20">
-                <p className="text-xs font-bold text-[#E4572E] uppercase tracking-wider mb-1">
-                  Monthly Cost Saved
-                </p>
-                <p className="text-3xl sm:text-4xl font-black text-[#E4572E] mb-1">
-                  ₹{moneySaved.toLocaleString()}
-                </p>
-                <p className="text-xs text-[#52525B]">
-                  Replaces manual graphic design labor and eliminates expensive misprint reworks.
-                </p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-[#FAF9F6] border border-[#E8E4DE]">
-                <p className="text-xs font-bold text-[#71717A] uppercase tracking-wider mb-1">
-                  Individual Panels Exported
-                </p>
-                <p className="text-3xl sm:text-4xl font-black text-emerald-600 mb-1">
-                  {(monthlyJerseys * 4).toLocaleString()} Panels
-                </p>
-                <p className="text-xs text-[#52525B]">
-                  100% vector accuracy with zero typos, pre-applied seam bleeds, and 300 DPI RIP readiness.
-                </p>
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-      </section>
-
-
-      {/* ─────────────────────────────────────────────────────────────────────────────
-          6. OFFICIAL SUBSCRIPTION & RECHARGE PRICING MATRIX
-      ───────────────────────────────────────────────────────────────────────────── */}
-      <section className="py-24 relative bg-white border-t border-[#E8E4DE]" id="pricing">
-        <div className="max-w-6xl mx-auto px-6">
+      <section id="pricing" className="py-20 relative bg-white border-t border-[#E8E4DE]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
           
           <div className="text-center max-w-3xl mx-auto mb-14">
-            <span className="badge-pill mb-4 inline-block font-bold">
+            <span className="badge-pill mb-3 inline-block font-bold">
               Transparent Factory Pricing
             </span>
             <h2 className="text-3xl sm:text-5xl font-black text-[#171717] tracking-tight mb-4">
-              Subscription & Instant Payment Plans
+              Subscription Plans &amp; Usage-Based Credits
             </h2>
             <p className="text-base sm:text-lg text-[#52525B] leading-relaxed">
-              Every single rupee of subscription is 100% credited into your export wallet. Use tokens to generate print-ready files at industrial wholesale rates.
+              100% of your subscription fee is credited into your export wallet. Use wallet tokens to export print-ready files at industrial wholesale rates.
             </p>
 
-            {/* Matrix Tabs: Monthly | Quarterly | Instant Payment */}
-            <div className="inline-flex p-1.5 rounded-2xl bg-[#F5F3EF] border border-[#E8E4DE] mt-8">
+            {/* Matrix Tabs: Monthly | Quarterly | Instant QR */}
+            <div className="inline-flex p-1.5 rounded-2xl bg-[#F5F3EF] border border-[#E8E4DE] mt-6 flex-wrap justify-center">
               <button
                 onClick={() => setPricingTab('monthly')}
                 className={cn(
-                  'px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all',
-                  pricingTab === 'monthly'
-                    ? 'bg-[#E4572E] text-white shadow-sm'
-                    : 'text-[#52525B] hover:text-[#171717]'
+                  'px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer',
+                  pricingTab === 'monthly' ? 'bg-[#E4572E] text-white shadow-xs' : 'text-[#52525B] hover:text-[#171717]'
                 )}
               >
                 Monthly Plans (30 Days)
@@ -1093,10 +1413,8 @@ export default function Home() {
               <button
                 onClick={() => setPricingTab('quarterly')}
                 className={cn(
-                  'px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all',
-                  pricingTab === 'quarterly'
-                    ? 'bg-[#E4572E] text-white shadow-sm'
-                    : 'text-[#52525B] hover:text-[#171717]'
+                  'px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer',
+                  pricingTab === 'quarterly' ? 'bg-[#E4572E] text-white shadow-xs' : 'text-[#52525B] hover:text-[#171717]'
                 )}
               >
                 Quarterly Plans (90 Days)
@@ -1104,34 +1422,32 @@ export default function Home() {
               <button
                 onClick={() => setPricingTab('spot')}
                 className={cn(
-                  'px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all',
-                  pricingTab === 'spot'
-                    ? 'bg-[#E4572E] text-white shadow-sm'
-                    : 'text-[#52525B] hover:text-[#171717]'
+                  'px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer',
+                  pricingTab === 'spot' ? 'bg-[#E4572E] text-white shadow-xs' : 'text-[#52525B] hover:text-[#171717]'
                 )}
               >
-                Instant Payment (Per Job QR)
+                Instant Payment (Pay Per Job QR)
               </button>
             </div>
           </div>
 
-          {/* INSTANT PAYMENT TAB */}
+          {/* INSTANT PAYMENT (PAY AS YOU GO) TAB */}
           {pricingTab === 'spot' && (
             <div className="max-w-2xl mx-auto">
-              <div className="bg-[#FAF9F6] rounded-3xl p-8 border-2 border-[#E4572E] shadow-soft-lg text-center relative overflow-hidden">
+              <div className="bg-[#FAF9F6] rounded-3xl p-8 border-2 border-[#E4572E] shadow-soft text-center relative overflow-hidden">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E4572E] text-white text-xs font-bold uppercase tracking-wider mb-4">
-                  <Zap size={14} /> Pay Only When You Export
+                  <Zap size={14} /> Zero Monthly Commitment
                 </div>
-                <h3 className="text-3xl font-black text-[#171717] mb-2">Instant Payment QR</h3>
+                <h3 className="text-3xl font-black text-[#171717] mb-2">Instant UPI Payment QR</h3>
                 <p className="text-sm text-[#52525B] max-w-md mx-auto mb-6">
-                  Zero monthly commitment. Process and grade your jerseys, preview in 3D, and scan an instant Razorpay UPI QR code only when downloading print files.
+                  Process, grade and preview your jerseys in 2D and 3D completely free. Scan an instant Razorpay UPI QR code only when downloading your final print files.
                 </p>
 
                 <div className="grid grid-cols-2 gap-4 mb-6 text-left">
                   <div className="p-4 rounded-2xl bg-white border border-[#E8E4DE]">
-                    <p className="text-xs text-[#71717A] font-semibold">With FiveNest Tag</p>
+                    <p className="text-xs text-[#71717A] font-semibold">With FiveNest Hem Tag</p>
                     <p className="text-3xl font-black text-[#E4572E] my-1">₹3.50<span className="text-xs text-[#71717A] font-normal"> /pc</span></p>
-                    <p className="text-xs text-[#52525B]">Includes small FiveNest hem tag</p>
+                    <p className="text-xs text-[#52525B]">Includes small discreet FiveNest hem tag</p>
                   </div>
                   <div className="p-4 rounded-2xl bg-white border border-[#E8E4DE]">
                     <p className="text-xs text-[#71717A] font-semibold">Standard (No Tag)</p>
@@ -1143,7 +1459,7 @@ export default function Home() {
                 <div className="space-y-2.5 text-xs text-[#52525B] text-left max-w-md mx-auto mb-8">
                   <div className="flex items-center gap-2">
                     <CheckCircle size={16} className="text-emerald-600 flex-shrink-0" />
-                    <span>Front & sleeve panels are ALWAYS FREE (only back roster is charged)</span>
+                    <span>Front, sleeve and collar panels are ALWAYS 100% FREE</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle size={16} className="text-emerald-600 flex-shrink-0" />
@@ -1159,7 +1475,7 @@ export default function Home() {
                   to="/production"
                   className="btn-primary w-full py-4 text-center block font-bold text-base shadow-brand"
                 >
-                  Start Exporting Now (Instant QR)
+                  Start Exporting with Instant QR
                 </Link>
               </div>
             </div>
@@ -1172,14 +1488,14 @@ export default function Home() {
                 <div
                   key={plan.id}
                   className={cn(
-                    'relative rounded-3xl p-6 flex flex-col justify-between transition-all duration-300',
+                    'relative rounded-3xl p-6 flex flex-col justify-between transition-all duration-200',
                     plan.isPopular
                       ? 'bg-white border-2 border-[#E4572E] shadow-soft-lg ring-4 ring-[#E4572E]/10'
                       : 'bg-[#FAF9F6] border border-[#E8E4DE] hover:border-neutral-300'
                   )}
                 >
                   {plan.isPopular && (
-                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-1 bg-[#E4572E] rounded-full text-white text-[11px] font-black tracking-wider uppercase shadow-sm">
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-[#E4572E] rounded-full text-white text-[10px] font-black tracking-wider uppercase shadow-xs">
                       MOST POPULAR
                     </div>
                   )}
@@ -1191,7 +1507,7 @@ export default function Home() {
                         {plan.name}
                       </p>
                       <div className="flex items-baseline gap-1">
-                        <span className="text-3xl sm:text-4xl font-black text-[#171717]">
+                        <span className="text-3xl font-black text-[#171717]">
                           ₹{plan.upfront.toLocaleString()}
                         </span>
                         <span className="text-xs font-semibold text-[#71717A]">
@@ -1204,14 +1520,14 @@ export default function Home() {
                     </div>
 
                     {/* Per Jersey Cost Matrix */}
-                    <div className="p-3.5 rounded-2xl bg-white border border-[#E8E4DE] mb-5 space-y-2">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-[#52525B]">With Tag Rate:</span>
+                    <div className="p-3.5 rounded-2xl bg-white border border-[#E8E4DE] mb-4 space-y-1.5 text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[#52525B]">With Tag:</span>
                         <span className="font-bold text-[#E4572E]">
                           ₹{plan.rateWithTag.toFixed(2)}/pc (~{plan.jerseysWithTag} jerseys)
                         </span>
                       </div>
-                      <div className="flex justify-between items-center text-xs">
+                      <div className="flex justify-between items-center">
                         <span className="text-[#52525B]">Without Tag:</span>
                         <span className="font-bold text-[#171717]">
                           ₹{plan.rateWithoutTag.toFixed(2)}/pc (~{plan.jerseysWithoutTag} jerseys)
@@ -1220,7 +1536,7 @@ export default function Home() {
                     </div>
 
                     {/* Order Portal Badge */}
-                    <div className="mb-5">
+                    <div className="mb-4">
                       {plan.hasOrderPortalAccess ? (
                         <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold flex items-center gap-1.5">
                           <CheckCircle size={14} className="text-emerald-600 flex-shrink-0" />
@@ -1228,15 +1544,15 @@ export default function Home() {
                         </div>
                       ) : (
                         <div className="p-2.5 rounded-xl bg-neutral-100 border border-neutral-200 text-neutral-600 text-[11px] font-medium flex items-center gap-1.5">
-                          <span>Studio Only (Order Portal not included)</span>
+                          <span>Studio Only (Order Portal optional)</span>
                         </div>
                       )}
                     </div>
 
                     {/* Feature bullet list */}
-                    <ul className="space-y-2.5 mb-6 text-xs text-[#52525B]">
+                    <ul className="space-y-2 mb-6 text-xs text-[#52525B]">
                       {plan.features.map((f, i) => (
-                        <li key={i} className="flex items-start gap-2">
+                        <li key={i} className="flex items-start gap-1.5">
                           <Check size={14} className="text-[#E4572E] mt-0.5 flex-shrink-0" />
                           <span>{f}</span>
                         </li>
@@ -1244,25 +1560,120 @@ export default function Home() {
                     </ul>
                   </div>
 
-                  <Link
-                    to="/contact"
+                  <a
+                    href="#demo"
                     className={cn(
-                      'w-full py-3 rounded-xl font-bold text-center text-xs sm:text-sm transition-all block',
+                      'w-full py-2.5 rounded-xl font-bold text-center text-xs transition-all block cursor-pointer',
                       plan.isPopular
                         ? 'bg-[#E4572E] hover:bg-[#D4431B] text-white shadow-brand'
                         : 'bg-white hover:bg-neutral-100 text-[#171717] border border-[#E8E4DE]'
                     )}
                   >
-                    Select {plan.name}
-                  </Link>
+                    Choose {plan.name}
+                  </a>
                 </div>
               ))}
             </div>
           )}
 
+          {/* ── INTERACTIVE MONTHLY COST & SAVINGS ESTIMATOR ── */}
+          <div className="mt-14 bg-[#FAF9F6] rounded-3xl p-6 sm:p-10 border border-[#E8E4DE] shadow-xs">
+            <div className="max-w-2xl mb-8">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#E4572E] bg-[#E4572E]/10 px-3 py-1 rounded-full border border-[#E4572E]/20">
+                Interactive Cost Estimator
+              </span>
+              <h3 className="text-2xl font-black text-[#171717] mt-2 mb-2">
+                Estimate Your Monthly Jersey Production Cost
+              </h3>
+              <p className="text-xs sm:text-sm text-[#52525B]">
+                Adjust your expected monthly jersey volume to preview your usage costs and see which plan fits your production best.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+              <div className="lg:col-span-7 space-y-6">
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-bold text-[#171717]">Expected Monthly Jerseys:</span>
+                    <span className="text-2xl font-black text-[#E4572E] font-mono">
+                      {calcMonthlyJerseys.toLocaleString()} Jerseys / month
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="50"
+                    max="5000"
+                    step="50"
+                    value={calcMonthlyJerseys}
+                    onChange={(e) => setCalcMonthlyJerseys(Number(e.target.value))}
+                    className="w-full h-3 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-[#E4572E]"
+                  />
+                  <div className="flex justify-between text-[11px] text-[#71717A] mt-1.5 font-mono">
+                    <span>50 pcs</span>
+                    <span>1,000 pcs</span>
+                    <span>2,500 pcs</span>
+                    <span>5,000+ pcs</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 pt-2">
+                  <span className="text-xs font-bold text-[#171717]">Tag Preference:</span>
+                  <div className="inline-flex p-1 rounded-xl bg-white border border-[#E8E4DE]">
+                    <button
+                      onClick={() => setCalcWithTag(true)}
+                      className={cn(
+                        'px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer',
+                        calcWithTag ? 'bg-[#E4572E] text-white shadow-xs' : 'text-[#52525B]'
+                      )}
+                    >
+                      With FiveNest Hem Tag (₹3.50 base)
+                    </button>
+                    <button
+                      onClick={() => setCalcWithTag(false)}
+                      className={cn(
+                        'px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer',
+                        !calcWithTag ? 'bg-[#171717] text-white shadow-xs' : 'text-[#52525B]'
+                      )}
+                    >
+                      Without Tag (₹5.50 standard)
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="lg:col-span-5 bg-white rounded-2xl p-6 border border-[#E8E4DE] shadow-xs space-y-3.5">
+                <div className="flex justify-between items-center text-xs pb-2 border-b border-[#E8E4DE]">
+                  <span className="font-bold text-[#171717] uppercase">ESTIMATED PRODUCTION SUMMARY</span>
+                  <span className="text-xs text-[#E4572E] font-bold">Transparent Math</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[#52525B]">Recommended Plan:</span>
+                  <span className="font-bold text-[#171717]">{recommendedPlan?.name || 'Instant Payment'}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[#52525B]">Effective Per-Piece Rate:</span>
+                  <span className="font-bold text-[#E4572E]">
+                    ₹{calcWithTag ? (recommendedPlan?.rateWithTag || 3.50).toFixed(2) : (recommendedPlan?.rateWithoutTag || 5.50).toFixed(2)}/pc
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[#52525B]">Front, Sleeve &amp; Collar Panels:</span>
+                  <span className="font-bold text-emerald-700">100% Free (₹0.00)</span>
+                </div>
+                <div className="pt-2 border-t border-[#E8E4DE] flex justify-between items-baseline">
+                  <span className="text-xs font-bold text-[#171717]">Estimated Usage Cost:</span>
+                  <span className="text-2xl font-black text-[#171717]">₹{estimatedExportCost.toLocaleString()}</span>
+                </div>
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs">
+                  <p className="font-bold mb-0.5">Estimated Graphic Labor Saved: ~₹{estimatedMonthlySavings.toLocaleString()}/mo</p>
+                  <p className="text-[11px] text-emerald-700">Saves ~{estimatedHoursSaved} manual Photoshop design hours every month.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* ── 2-STAGE ₹500 FREE TRIAL OFFER BANNER ── */}
           <div className="mt-14 max-w-4xl mx-auto rounded-3xl bg-gradient-to-br from-[#171717] via-[#242321] to-[#121212] p-8 sm:p-10 border border-white/10 text-white shadow-2xl relative overflow-hidden">
-            {/* glowing corner accent */}
             <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-[#E4572E]/30 to-transparent rounded-full blur-3xl pointer-events-none" />
             
             <div className="relative z-10">
@@ -1274,21 +1685,20 @@ export default function Home() {
               </div>
 
               <h3 className="text-2xl sm:text-4xl font-black text-white tracking-tight mb-3">
-                Get up to ₹500 in free production credits
+                Get up to ₹500 in Free Production Credits
               </h3>
               <p className="text-sm sm:text-base text-neutral-300 max-w-2xl leading-relaxed mb-8">
-                Available to eligible new businesses after verification and approval. Valid for 14 days from activation. One offer per business. No automatic charges. Enough to complete several real orders (~166 tagged or 100 untagged jerseys).
+                Available to eligible new sportswear manufacturing businesses after verification. Valid for 14 days from activation. One offer per business. No automatic card charges. Enough to complete several real team orders (~140 tagged jerseys).
               </p>
 
-              {/* Two-Stage Progress Display */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold text-neutral-400">STAGE 1</span>
                     <span className="text-xs font-bold text-neutral-300">₹0</span>
                   </div>
-                  <p className="font-bold text-white text-sm mb-1">Instant Signup</p>
-                  <p className="text-xs text-neutral-400">Explore sample rosters, vector designs, and 3D mockups freely.</p>
+                  <p className="font-bold text-white text-sm mb-1">Instant Studio Access</p>
+                  <p className="text-xs text-neutral-400">Explore vector blueprints, test team rosters, and inspect 3D mockups freely.</p>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30">
@@ -1296,8 +1706,8 @@ export default function Home() {
                     <span className="text-xs font-bold text-emerald-400">STAGE 2</span>
                     <span className="text-base font-extrabold text-emerald-400">+₹100</span>
                   </div>
-                  <p className="font-bold text-white text-sm mb-1">Admin Approves Business</p>
-                  <p className="text-xs text-neutral-300">Verified mobile & basic business details start your 14-day validity.</p>
+                  <p className="font-bold text-white text-sm mb-1">Business Verification</p>
+                  <p className="text-xs text-neutral-300">Verified mobile &amp; basic sportswear business details unlock your first credits.</p>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-[#E4572E]/10 border border-[#E4572E]/30">
@@ -1305,21 +1715,21 @@ export default function Home() {
                     <span className="text-xs font-bold text-[#FF7A50]">STAGE 3</span>
                     <span className="text-base font-extrabold text-[#FF7A50]">+₹400 Extra</span>
                   </div>
-                  <p className="font-bold text-white text-sm mb-1">Genuine Usage Confirmed</p>
-                  <p className="text-xs text-neutral-300">Brief onboarding call or admin review releases the full ₹500 total trial.</p>
+                  <p className="font-bold text-white text-sm mb-1">Live Onboarding Walkthrough</p>
+                  <p className="text-xs text-neutral-300">A brief walkthrough call confirms genuine production and unlocks the full ₹500.</p>
                 </div>
               </div>
 
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-white/10">
                 <div className="flex items-center gap-3 text-xs text-neutral-400">
                   <ShieldCheck size={18} className="text-emerald-400 flex-shrink-0" />
-                  <span>Trial export rate: Standard ₹3.50 with tag / ₹5.50 without tag. Same-order corrections are 100% free.</span>
+                  <span>100% duplicate job refund guarantee: Query raised within 72h generates full wallet refund.</span>
                 </div>
                 <Link
                   to="/production"
-                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-[#E4572E] to-[#EA580C] hover:opacity-95 text-white font-extrabold text-xs sm:text-sm text-center shadow-lg shadow-[#E4572E]/30 transition-all flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-[#E4572E] to-[#EA580C] hover:opacity-95 text-white font-extrabold text-xs sm:text-sm text-center shadow-lg transition-all flex items-center justify-center gap-2"
                 >
-                  <span>Claim Free Trial in Studio</span>
+                  <span>Claim Credits in Studio</span>
                   <ArrowRight size={15} />
                 </Link>
               </div>
@@ -1331,119 +1741,53 @@ export default function Home() {
 
 
       {/* ─────────────────────────────────────────────────────────────────────────────
-          7. TRADITIONAL VS FIVENEST COMPARISON TABLE
+          SECTION 7: CUSTOMER TRUST & PRODUCTION STANDARDS (VERIFIED TECHNICAL PROOF)
       ───────────────────────────────────────────────────────────────────────────── */}
-      <section className="py-24 relative bg-[#F5F3EF] border-t border-[#E8E4DE]">
-        <div className="max-w-4xl mx-auto px-6">
+      <section id="trust" className="py-20 relative bg-[#F5F3EF] border-t border-[#E8E4DE]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
           
-          <div className="text-center mb-14">
-            <span className="badge-pill mb-4 inline-block font-bold">
-              Side-by-Side Comparison
+          <div className="text-center max-w-3xl mx-auto mb-14">
+            <span className="badge-pill mb-3 inline-block font-bold">
+              Engineering Standards
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-[#171717] tracking-tight mb-3">
-              Photoshop vs FiveNest Production OS
+              Built to Stringent Sublimation Quality Standards
             </h2>
-            <p className="text-sm text-[#52525B]">
-              Why over 200+ Indian sportswear manufacturers switched away from legacy graphic software.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-3xl border border-[#E8E4DE] shadow-soft overflow-hidden">
-            <div className="grid grid-cols-3 p-4 sm:p-5 bg-[#FAF9F6] border-b border-[#E8E4DE] text-xs font-bold text-[#52525B]">
-              <span>CAPABILITY</span>
-              <span className="text-neutral-500">MANUAL PHOTOSHOP</span>
-              <span className="text-[#E4572E]">FIVENEST AUTOMATION</span>
-            </div>
-
-            {[
-              { cap: 'Squad Grading Speed', old: '3 to 5 hours / 50 jerseys', fn: '15 seconds automatic' },
-              { cap: 'Name & Number Placement', old: 'Manual typing & aligning each', fn: 'Auto-mapped vector fonts' },
-              { cap: 'Typo & Misprint Risk', old: 'High (human fatigue mistakes)', fn: '0% (Excel/CSV exact match)' },
-              { cap: 'Individual Panel Export', old: 'Manual saving layer by layer (hours)', fn: '1-Click 300 DPI Batch ZIP' },
-              { cap: 'Order & Invoice Tracking', old: 'Scattered WhatsApp & Paper', fn: 'Integrated Factory Portal' },
-              { cap: 'Cost Per Jersey', old: '₹25 - ₹40 designer salary', fn: '₹2.00 - ₹3.50 export fee' },
-            ].map((row, i) => (
-              <div key={i} className="grid grid-cols-3 p-4 sm:p-5 border-b border-[#E8E4DE] last:border-0 text-xs sm:text-sm items-center">
-                <span className="font-bold text-[#171717]">{row.cap}</span>
-                <span className="text-neutral-500">{row.old}</span>
-                <span className="font-bold text-[#E4572E] flex items-center gap-1.5">
-                  <CheckCircle size={15} className="text-emerald-600 flex-shrink-0" />
-                  {row.fn}
-                </span>
-              </div>
-            ))}
-          </div>
-
-        </div>
-      </section>
-
-
-      {/* ─────────────────────────────────────────────────────────────────────────────
-          8. TESTIMONIALS & TRUST PROOF
-      ───────────────────────────────────────────────────────────────────────────── */}
-      <section className="py-24 relative bg-white border-t border-[#E8E4DE]">
-        <div className="max-w-6xl mx-auto px-6">
-          
-          <div className="text-center max-w-2xl mx-auto mb-14">
-            <span className="badge-pill mb-4 inline-block font-bold">
-              Factory Endorsements
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-[#171717] tracking-tight mb-3">
-              Powering India's Top Sublimation Hubs
-            </h2>
-            <p className="text-sm text-[#52525B]">
-              Trusted by sportswear printing facilities across Tirupur, Surat, Ludhiana, Mumbai, Delhi, and Bangalore.
+            <p className="text-sm sm:text-base text-[#52525B]">
+              No inflated statistics. Here is the exact technical architecture that guarantees your print outputs run smoothly.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              {
-                quote: 'During cricket tournament seasons, we used to have 3 designers working overtime until 2 AM. With FiveNest, 1 operator handles 600 jerseys before 6 PM.',
-                author: 'Rajesh Sharma',
-                factory: 'Apex Sports Uniforms, Delhi NCR',
-                volume: '15,000+ Jerseys / Month',
-              },
-              {
-                quote: 'Individual panel exports save our team so much confusion. Every jersey panel is labeled cleanly with player name and size — we drop them straight into Wasatch RIP and print.',
-                author: 'Pravin Patel',
-                factory: 'Surat Sublimation Mills, Gujarat',
-                volume: '30,000+ Meters / Month',
-              },
-              {
-                quote: 'Our clients love the Order Portal. They submit their squad lists directly, and no one argues about misspelled names because it is all verified digitally.',
-                author: 'Senthil Murugan',
-                factory: 'Tirupur Knitwear Export House, Tamil Nadu',
-                volume: '22,000+ Pieces / Month',
-              },
-            ].map((t, i) => (
-              <div key={i} className="p-8 rounded-3xl bg-[#FAF9F6] border border-[#E8E4DE] flex flex-col justify-between">
-                <div>
-                  <div className="flex gap-1 text-amber-500 mb-4">
-                    {Array.from({ length: 5 }).map((_, j) => (
-                      <Star key={j} size={15} className="fill-amber-500" />
-                    ))}
-                  </div>
-                  <p className="text-[#171717] text-sm leading-relaxed mb-6 font-medium italic">
-                    "{t.quote}"
-                  </p>
-                </div>
-                <div className="pt-4 border-t border-[#E8E4DE]">
-                  <p className="text-sm font-bold text-[#171717]">{t.author}</p>
-                  <p className="text-xs text-[#71717A]">{t.factory}</p>
-                  <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full bg-[#E4572E]/10 text-[#E4572E] text-[10px] font-bold">
-                    {t.volume}
-                  </span>
-                </div>
+            <div className="p-6 rounded-2xl bg-white border border-[#E8E4DE] shadow-xs">
+              <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-[#E4572E] flex items-center justify-center font-bold mb-4">
+                <ShieldCheck size={22} />
               </div>
-            ))}
-          </div>
+              <h4 className="text-lg font-bold text-[#171717] mb-2">300 DPI CMYK Lossless Standards</h4>
+              <p className="text-xs sm:text-sm text-[#52525B] leading-relaxed">
+                Rendered using high-resolution 150–300 DPI canvas engines with calibrated CMYK profiles to ensure vibrant, bleed-free dye sublimation transfers.
+              </p>
+            </div>
 
-          {/* Honest Consumer Protection & Endorsement Disclosure */}
-          <div className="mt-8 text-center max-w-2xl mx-auto">
-            <p className="text-[11px] text-[#71717A] leading-relaxed italic">
-              * Representative case studies and quotes compiled from regional sublimation pilot users and factory operator interviews across Tirupur, Surat, and Mumbai. Production throughput times vary based on printer RIP setup, roll paper speed, and fabric handling.
-            </p>
+            <div className="p-6 rounded-2xl bg-white border border-[#E8E4DE] shadow-xs">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold mb-4">
+                <Printer size={22} />
+              </div>
+              <h4 className="text-lg font-bold text-[#171717] mb-2">Universal RIP Software Compatibility</h4>
+              <p className="text-xs sm:text-sm text-[#52525B] leading-relaxed">
+                Directly drag output files into Wasatch SoftRIP, Ergosoft, Onyx, PhotoPrint / Flexi, Mimaki RasterLink, and Epson Edge Print with zero file conversion.
+              </p>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-white border border-[#E8E4DE] shadow-xs">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold mb-4">
+                <Phone size={22} />
+              </div>
+              <h4 className="text-lg font-bold text-[#171717] mb-2">Direct Mumbai Factory Support</h4>
+              <p className="text-xs sm:text-sm text-[#52525B] leading-relaxed">
+                Speak directly with our technical team in Mahim, Mumbai via WhatsApp or phone. Operating Monday to Saturday from 9:00 AM to 8:00 PM IST.
+              </p>
+            </div>
           </div>
 
         </div>
@@ -1451,48 +1795,240 @@ export default function Home() {
 
 
       {/* ─────────────────────────────────────────────────────────────────────────────
-          9. FREQUENTLY ASKED QUESTIONS (FAQ)
+          SECTION 8: LIVE DEMO CONVERSION SECTION ("SEE HOW FIVENEST FITS YOUR WORKFLOW")
       ───────────────────────────────────────────────────────────────────────────── */}
-      <section className="py-24 relative bg-[#F5F3EF] border-t border-[#E8E4DE]">
-        <div className="max-w-4xl mx-auto px-6">
+      <section id="demo" className="py-24 relative bg-white border-t border-[#E8E4DE]">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          
+          <div className="bg-[#FAF9F6] rounded-3xl p-8 sm:p-12 border border-[#E8E4DE] shadow-soft-lg">
+            
+            <div className="text-center max-w-2xl mx-auto mb-10">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#E4572E]/10 text-[#E4572E] text-xs font-bold uppercase mb-3">
+                <Calendar size={14} /> Personalized Walkthrough
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-black text-[#171717] tracking-tight mb-3">
+                See How FiveNest Fits Your Production Workflow
+              </h2>
+              <p className="text-sm sm:text-base text-[#52525B] leading-relaxed">
+                Book a personalized live demonstration with our team. We can test with your own tournament squad roster and garment artwork so you can inspect the output firsthand.
+              </p>
+            </div>
+
+            {/* FORM COMPONENT */}
+            {!formSubmitted ? (
+              <form onSubmit={handleDemoSubmit} className="space-y-4 max-w-xl mx-auto">
+                {formError && (
+                  <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                    <AlertCircle size={15} className="flex-shrink-0" />
+                    <span>{formError}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor={nameInputId} className="block text-xs font-bold text-[#171717] mb-1.5">
+                      Your Name or Business Name *
+                    </label>
+                    <input
+                      id={nameInputId}
+                      type="text"
+                      required
+                      placeholder="e.g. Rajesh Sharma / Apex Sports"
+                      value={demoForm.name}
+                      onChange={(e) => setDemoForm({ ...demoForm, name: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl bg-white border border-[#E8E4DE] text-sm text-[#171717] focus:outline-none focus:border-[#E4572E] focus:ring-1 focus:ring-[#E4572E]"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor={phoneInputId} className="block text-xs font-bold text-[#171717] mb-1.5">
+                      WhatsApp / Mobile Number *
+                    </label>
+                    <input
+                      id={phoneInputId}
+                      type="tel"
+                      required
+                      placeholder="+91 98765 43210"
+                      value={demoForm.phone}
+                      onChange={(e) => setDemoForm({ ...demoForm, phone: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl bg-white border border-[#E8E4DE] text-sm text-[#171717] focus:outline-none focus:border-[#E4572E] focus:ring-1 focus:ring-[#E4572E]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor={businessTypeSelectId} className="block text-xs font-bold text-[#171717] mb-1.5">
+                      Business Type
+                    </label>
+                    <select
+                      id={businessTypeSelectId}
+                      value={demoForm.businessType}
+                      onChange={(e) => setDemoForm({ ...demoForm, businessType: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl bg-white border border-[#E8E4DE] text-sm text-[#171717] focus:outline-none focus:border-[#E4572E]"
+                    >
+                      <option value="Manufacturer">Sportswear Manufacturer</option>
+                      <option value="Sportswear Designer">Sportswear Designer</option>
+                      <option value="Sublimation Print Shop">Sublimation Printing Unit</option>
+                      <option value="Uniform Retailer">Uniform Retailer / Brand</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor={monthlyVolumeSelectId} className="block text-xs font-bold text-[#171717] mb-1.5">
+                      Expected Monthly Volume
+                    </label>
+                    <select
+                      id={monthlyVolumeSelectId}
+                      value={demoForm.monthlyVolume}
+                      onChange={(e) => setDemoForm({ ...demoForm, monthlyVolume: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl bg-white border border-[#E8E4DE] text-sm text-[#171717] focus:outline-none focus:border-[#E4572E]"
+                    >
+                      <option value="Under 200 Jerseys">Under 200 Jerseys / month</option>
+                      <option value="200 - 1,000 Jerseys">200 – 1,000 Jerseys / month</option>
+                      <option value="1,000 - 5,000 Jerseys">1,000 – 5,000 Jerseys / month</option>
+                      <option value="5,000+ Jerseys">5,000+ Jerseys / month</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor={notesTextareaId} className="block text-xs font-bold text-[#171717] mb-1.5">
+                    Specific Requirements or Questions (Optional)
+                  </label>
+                  <textarea
+                    id={notesTextareaId}
+                    rows={2}
+                    placeholder="e.g. We want to test vector sizing on our cricket tournament roster..."
+                    value={demoForm.notes}
+                    onChange={(e) => setDemoForm({ ...demoForm, notes: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#E8E4DE] text-sm text-[#171717] focus:outline-none focus:border-[#E4572E]"
+                  />
+                </div>
+
+                <div className="pt-2 flex flex-col sm:flex-row gap-3 items-center">
+                  <button
+                    type="submit"
+                    disabled={formSubmitting}
+                    className="btn-primary w-full sm:flex-1 py-3.5 text-sm font-bold shadow-brand flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
+                  >
+                    {formSubmitting ? (
+                      <>
+                        <RefreshCw size={16} className="animate-spin" />
+                        <span>Scheduling Demo...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Calendar size={16} />
+                        <span>Schedule Live Walkthrough</span>
+                      </>
+                    )}
+                  </button>
+
+                  <a
+                    href={getWhatsAppDemoUrl()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full sm:w-auto px-5 py-3.5 rounded-xl bg-emerald-600/10 border border-emerald-600/25 text-emerald-800 text-xs font-bold hover:bg-emerald-600/20 transition-all flex items-center justify-center gap-2"
+                  >
+                    <MessageSquare size={16} className="text-emerald-700" />
+                    <span>Instant WhatsApp Booking</span>
+                  </a>
+                </div>
+
+                <p className="text-[11px] text-[#71717A] text-center pt-2">
+                  🔒 We respect your privacy. No spam. Your phone number is used exclusively for demo scheduling.
+                </p>
+              </form>
+            ) : (
+              <div className="text-center py-8 space-y-4 max-w-md mx-auto">
+                <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+                  <CheckCircle size={32} />
+                </div>
+                <h3 className="text-2xl font-black text-[#171717]">Demo Request Received!</h3>
+                <p className="text-sm text-[#52525B]">
+                  Thank you, <strong>{demoForm.name}</strong>. Our technical team based in Mumbai will reach out to you at <strong>{demoForm.phone}</strong> via WhatsApp within 1 business hour.
+                </p>
+                <div className="pt-3 flex justify-center gap-3">
+                  <a
+                    href={getWhatsAppDemoUrl()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-primary px-6 py-3 text-xs sm:text-sm font-bold shadow-brand flex items-center gap-2"
+                  >
+                    <MessageSquare size={16} />
+                    <span>Connect Immediately on WhatsApp</span>
+                  </a>
+                </div>
+              </div>
+            )}
+
+          </div>
+
+        </div>
+      </section>
+
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          SECTION 9: FREQUENTLY ASKED QUESTIONS (FAQ — 10 TARGETED BUYER OBJECTIONS)
+      ───────────────────────────────────────────────────────────────────────────── */}
+      <section id="faq" className="py-20 relative bg-[#F5F3EF] border-t border-[#E8E4DE]">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
           
           <div className="text-center mb-14">
-            <span className="badge-pill mb-4 inline-block font-bold">
-              Factory Questions Answered
+            <span className="badge-pill mb-3 inline-block font-bold">
+              Buyer Questions Answered
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-[#171717] tracking-tight mb-3">
               Frequently Asked Questions
             </h2>
-            <p className="text-sm text-[#52525B]">
-              Everything you need to know about formats, subscriptions, individual exports, and RIP software compatibility.
+            <p className="text-sm sm:text-base text-[#52525B]">
+              Real, verified answers about software compatibility, export formats, subscriptions, and production capabilities.
             </p>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3.5">
             {[
               {
-                q: 'What file formats can I upload and export?',
-                a: 'You can upload master jersey artwork in AI, EPS, SVG vector formats, or 300 DPI transparent PNG. Exports are generated primarily as individual high-resolution panels (Front, Back, Sleeves, Collar) in 300 DPI CMYK TIFF or high-resolution PDF organized in folders by size and player name, ready for immediate printing. (Roll Nesting is also available as an optional studio feature whenever needed).',
+                q: 'What exactly does FiveNest do?',
+                a: 'FiveNest is a complete web-based sportswear production and order management platform. It automates jersey vector scaling across junior to 5XL sizes, auto-places team names and numbers from Excel rosters, generates high-res print-ready individual panels with 10mm seam bleeds, and manages wholesale customer orders, factory job sheets, and GST invoicing.',
               },
               {
-                q: 'Which RIP software is supported?',
-                a: 'FiveNest print files are compatible with every major industrial RIP engine, including Wasatch SoftRIP, Ergosoft, Onyx, PhotoPrint / Flexi, Mimaki RasterLink, Epson Edge Print, and Caldera.',
+                q: 'Who is FiveNest built for?',
+                a: 'FiveNest is built specifically for Indian sportswear manufacturers, sublimation printing units, athletic apparel brands, and jersey graphic designers. Whether you operate a 2-printer shop or a large manufacturing facility with multiple wide-format plotters, FiveNest scales to your volume.',
               },
               {
-                q: 'How does the FiveNest tag discount work?',
-                a: 'When you keep the discreet FiveNest branding tag on the jersey hem or neck label, you unlock our lowest rate of ₹3.50/pc (instant payment) or down to ₹2.00/pc on the Factory subscription plan. If you prefer completely white-label jerseys with zero branding, the standard rate is ₹5.50/pc.',
+                q: 'Is FiveNest suitable for small jersey manufacturing units?',
+                a: 'Yes, absolutely. With our Instant Payment (Pay As You Go QR) option, small shops have zero monthly commitment—you can grade, preview in 3D, and only pay ₹3.50 per jersey when you export files. For growing units, our Starter plan begins at just ₹1,000/month, and 100% of that amount is credited into your export wallet.',
               },
               {
-                q: 'Who gets access to the Order Management Portal?',
-                a: 'The full Order Management Portal (client accounts, job sheets, factory ledgers, GST invoicing, payment links) is included automatically for any plan or wallet balance of ₹5,000 and above.',
+                q: 'How does team roster name, number, and size automation work?',
+                a: 'You simply paste or upload your tournament player list from Excel or CSV. FiveNest automatically generates vector-sharp names and numbers, applies proper arching and outlines, and proportions artwork precisely across every garment size from junior 18 up to 60 (5XL), eliminating manual Photoshop typing mistakes.',
               },
               {
-                q: 'How do subscription wallet credits work?',
-                a: 'When you purchase a subscription (e.g. ₹2,500 or ₹5,000), 100% of that upfront amount is added to your FiveNest export wallet. Each time you generate and download a print-ready jersey file, tokens are deducted at your discounted plan rate.',
+                q: 'Can I preview designs in 2D and 3D before printing?',
+                a: 'Yes. You can inspect exact 2D multi-panel layouts (Front chest, full back, sleeves, collar ribbing) with millimetre bleed lines, as well as an interactive 3D WebGL jersey proof that you can rotate 360° to review seam alignments before printing.',
               },
               {
-                q: 'What if I accidentally export a duplicate job?',
-                a: 'We offer a 100% refund guarantee for duplicate jobs! If you accidentally submit or export the exact same order roster twice, simply raise a query within 72 hours via WhatsApp or email. Upon verification, 100% of the duplicate amount will generate and credit directly back into your FiveNest Wallet balance (not as real cash) for your next jersey export.',
+                q: 'How does production file exporting work, and which RIP software is supported?',
+                a: 'FiveNest exports clean, uncompressed 300 DPI CMYK TIFF or PDF files organized neatly into size-specific folders (e.g. Size_L, Size_XL). Every panel is labeled explicitly with player name, size, and Left/Right sleeve indicators. Output files can be dragged directly into Wasatch SoftRIP, NeoStampa, PhotoPrint / Flexi, Mimaki RasterLink, Epson Edge Print, or Caldera.',
+              },
+              {
+                q: 'Can I manage customer orders, cutting job sheets, and GST billing?',
+                a: 'Yes. The Order Management Portal (included with plans or wallet balances of ₹5,000 and above) lets wholesale customers input squad lists directly, generates printable cutting job sheets with fabric yardage for floor staff, and creates GST-compliant tax invoices with Razorpay payment links.',
+              },
+              {
+                q: 'How do subscription plans, export credits, and wallet tokens work?',
+                a: 'When you purchase a subscription (e.g., ₹2,500 or ₹5,000), 100% of that amount is deposited into your FiveNest export wallet. Each time you export a print-ready jersey, wallet tokens are deducted at your discounted rate (e.g., ₹2.50/pc). Front, sleeve, and collar panels are ALWAYS 100% free; only the variable player back panel is charged.',
+              },
+              {
+                q: 'Does FiveNest require Photoshop, Illustrator, or CorelDraw?',
+                a: 'No installation is required. FiveNest is a 100% web-based SaaS application that runs smoothly inside any modern web browser (Google Chrome, Microsoft Edge, Safari, Firefox) on PC, Mac, or tablet. You can upload artwork designed in Illustrator, Photoshop, or CorelDraw, and FiveNest handles all subsequent sizing, grading, and exporting automatically.',
+              },
+              {
+                q: 'How do I book a live demonstration or test with my own files?',
+                a: 'You can schedule a walkthrough using the live booking form above, or click the WhatsApp button to message our team directly at +91 88792 28710. We will set up a live screen-share demonstration using your own actual jersey artwork and team roster so you can evaluate the output firsthand.',
               },
             ].map((faq, i) => (
               <div
@@ -1501,7 +2037,7 @@ export default function Home() {
               >
                 <button
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  className="w-full p-5 text-left font-bold text-sm sm:text-base text-[#171717] flex justify-between items-center gap-4 cursor-pointer"
+                  className="w-full p-4 sm:p-5 text-left font-bold text-sm sm:text-base text-[#171717] flex justify-between items-center gap-4 cursor-pointer"
                 >
                   <span>{faq.q}</span>
                   <ChevronDown
@@ -1513,7 +2049,7 @@ export default function Home() {
                   />
                 </button>
                 {openFaq === i && (
-                  <div className="px-5 pb-5 pt-1 text-xs sm:text-sm text-[#52525B] leading-relaxed border-t border-[#F5F3EF]">
+                  <div className="px-4 sm:px-5 pb-5 pt-1 text-xs sm:text-sm text-[#52525B] leading-relaxed border-t border-[#F5F3EF]">
                     {faq.a}
                   </div>
                 )}
@@ -1526,46 +2062,27 @@ export default function Home() {
 
 
       {/* ─────────────────────────────────────────────────────────────────────────────
-          10. FINAL CALL TO ACTION
+          SECTION 10: REAL-TIME PRODUCTION OUTPUT MONITOR (LIVE ENGINE TRACKER)
       ───────────────────────────────────────────────────────────────────────────── */}
-      <section className="py-24 relative bg-[#171717] text-white overflow-hidden">
-        <div className="absolute inset-0 dot-pattern opacity-10 pointer-events-none" />
-        <div className="absolute bottom-0 right-0 w-[500px] h-[300px] bg-[#E4572E]/10 blur-3xl rounded-full pointer-events-none" />
-
-        <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-white/10 text-orange-400 border border-white/15 mb-6">
-            <Sparkles size={14} /> Start Automating In Minutes
-          </span>
-          <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight mb-6 leading-tight">
-            Ready to Run Your Jersey Factory <br />
-            <span className="text-[#E4572E]">Without Graphic Bottlenecks?</span>
-          </h2>
-          <p className="text-neutral-400 text-base sm:text-lg mb-10 max-w-2xl mx-auto leading-relaxed">
-            Join hundreds of sportswear printers saving thousands of hours and lakhs of rupees with FiveNest.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link
-              to="/production"
-              className="btn-primary py-4 px-8 text-base shadow-brand flex items-center justify-center gap-2 w-full sm:w-auto"
-            >
-              <span>Launch Production Studio</span>
-              <ArrowRight size={18} />
-            </Link>
-            <Link
-              to="/order-management"
-              className="btn-secondary bg-white/10 border-white/20 text-white hover:bg-white/15 py-4 px-8 text-base w-full sm:w-auto"
-            >
-              <span>Open Order Portal</span>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── LIVE COUNTING AT BOTTOM: TOTAL EXPORT FROM FIVENEST (STARTED TODAY) ─── */}
       <LiveExportCounter />
 
-      {/* Global Footer */}
+      {/* Global Clean Footer */}
       <Footer />
+
+      {/* Mobile Sticky Demo Booking Bar (Non-Obtrusive) */}
+      <div className="sm:hidden fixed bottom-3 left-3 right-3 z-40 bg-white/95 backdrop-blur-md border border-[#E8E4DE] p-2 rounded-2xl shadow-lg flex items-center justify-between gap-2">
+        <div className="pl-2">
+          <p className="text-xs font-black text-[#171717]">Book Live Walkthrough</p>
+          <p className="text-[10px] text-[#71717A]">Free 1-on-1 team demo</p>
+        </div>
+        <a
+          href="#demo"
+          className="px-4 py-2 bg-[#E4572E] text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5"
+        >
+          <Calendar size={13} />
+          <span>Book Demo</span>
+        </a>
+      </div>
 
     </div>
   );
