@@ -27,6 +27,7 @@ export interface TextConfig {
   fontFamily: string;
   fontWeight?: 'normal' | 'bold'; // 'normal' (default, original font thickness) or 'bold'
   maxW: number; // maximum width in inches
+  scaleX?: number; // horizontal width scale multiplier (e.g. 1.10 for stretched name, 0.90 for condensed number)
   caseType?: 'uppercase' | 'normal' | 'original' | 'lowercase';
   effect?: 'none' | 'arch' | 'shadow' | 'outline' | 'gradient';
   text?: string;
@@ -197,8 +198,8 @@ export const defaultDesignConfig: ArtDesignConfig = {
     generatedColor1: '#ffffff',
     generatedColor2: '#ffffff',
     uploadedFileUrl: null,
-    nameConfig: { enabled: false, xPos: 50, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1.8, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    numberConfig: { enabled: false, xPos: 50, yPos: 44, fontSize: 3.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 0.7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 3, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.08 },
+    nameConfig: { enabled: false, xPos: 50, yPos: 20, fontSize: 1.5, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1.8, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 13, scaleX: 1.10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.05 },
+    numberConfig: { enabled: false, xPos: 50, yPos: 44, fontSize: 3.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 0.7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4.5, scaleX: 0.90, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.04 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [2.0, 8.5, 11.0, 13.5, 20.0], horizontal: [7.0, 10.0, 12.0, 27.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 15.0, yPos: 8.5, lockAspectRatio: true },
@@ -212,8 +213,8 @@ export const defaultDesignConfig: ArtDesignConfig = {
     generatedColor1: '#ffffff',
     generatedColor2: '#ffffff',
     uploadedFileUrl: null,
-    nameConfig: { enabled: true, yPos: 24, fontSize: 2.5, color: '#000000', strokeColor: '#ffffff', strokeWidth: 1.8, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 11, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.08 },
-    numberConfig: { enabled: true, yPos: 47, fontSize: 9.0, color: '#000000', strokeColor: '#ffffff', strokeWidth: 0.7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 8.5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.2 },
+    nameConfig: { enabled: true, yPos: 24, fontSize: 2.5, color: '#000000', strokeColor: '#ffffff', strokeWidth: 1.8, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 16, scaleX: 1.10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.10 },
+    numberConfig: { enabled: true, yPos: 47, fontSize: 9.0, color: '#000000', strokeColor: '#ffffff', strokeWidth: 0.7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, scaleX: 0.90, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.06 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0.06 },
     guidelines: { vertical: [2.0, 11.0, 20.0], horizontal: [2.5, 6.0, 8.0, 9.5, 16.5] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
@@ -226,8 +227,8 @@ export const defaultDesignConfig: ArtDesignConfig = {
     generatedColor1: '#ffffff',
     generatedColor2: '#ffffff',
     uploadedFileUrl: null,
-    nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1.8, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 0.7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1.8, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 6.5, scaleX: 1.10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 0.7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4.5, scaleX: 0.90, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.04 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [9.5], horizontal: [8.0] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },
@@ -240,8 +241,8 @@ export const defaultDesignConfig: ArtDesignConfig = {
     generatedColor1: '#ffffff',
     generatedColor2: '#ffffff',
     uploadedFileUrl: null,
-    nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1.8, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 5, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
-    numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 0.7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    nameConfig: { enabled: false, yPos: 40, fontSize: 1.2, color: '#ffffff', strokeColor: '#000000', strokeWidth: 1.8, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 6.5, scaleX: 1.10, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0 },
+    numberConfig: { enabled: false, yPos: 70, fontSize: 3.0, color: '#ffffff', strokeColor: '#000000', strokeWidth: 0.7, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 4.5, scaleX: 0.90, caseType: 'uppercase', effect: 'none', align: 'center', letterSpacing: 0.04 },
     sizeTagConfig: { enabled: true, yPos: 4, fontSize: 26, color: '#ff1744', strokeColor: '#ffffff', strokeWidth: 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none', align: 'left', letterSpacing: 0 },
     guidelines: { vertical: [9.5], horizontal: [8.0] },
     leftChestLogo: { enabled: false, uploadedUrl: null, width: 3.5, height: 3.5, xPos: 13.5, yPos: 7.5, lockAspectRatio: true },

@@ -593,6 +593,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
   const [isPanning, setIsPanning] = useState<boolean>(false);
   const [altKeyPressed, setAltKeyPressed] = useState<boolean>(false);
   const [activeTextLayer, setActiveTextLayer] = useState<'name' | 'number' | null>(null);
+  const [liveTextMetrics, setLiveTextMetrics] = useState<{
+    w: number;
+    h: number;
+    x: number;
+    y: number;
+    layer?: 'name' | 'number' | 'sizeTag';
+  }>({ w: 0, h: 0, x: 0, y: 0, layer: 'name' });
+  const liveMetricsRef = useRef<{ w: number; h: number; x: number; y: number; layer: string }>({ w: 0, h: 0, x: 0, y: 0, layer: '' });
   const [isGradientModalOpen, setIsGradientModalOpen] = useState<boolean>(false);
   const [gradientModalTarget, setGradientModalTarget] = useState<string>('name');
 
@@ -2275,9 +2283,14 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           return;
         }
 
-        // Measure individual characters and compute accurate kerning + letter spacing
+        // Horizontal stretch / condense scale factor:
+        // Default: 1.10 (+10% stretched width) for Name; 0.90 (-10% condensed width) for Number
+        const defaultScaleX = layerKey === 'name' ? 1.10 : layerKey === 'number' ? 0.90 : 1.0;
+        const scaleX = conf.scaleX !== undefined ? conf.scaleX : defaultScaleX;
+
+        // Measure individual characters and compute accurate kerning + letter spacing (incorporating scaleX)
         const chars = Array.from(displayName);
-        const charWidths = chars.map(c => ctx.measureText(c).width);
+        const charWidths = chars.map(c => ctx.measureText(c).width * scaleX);
         const rawTextW = charWidths.reduce((sum, w) => sum + w, 0);
         const spacingPx = (conf.letterSpacing && conf.letterSpacing > 0) ? Math.round(conf.letterSpacing * scale) : 0;
         const totalSpacing = Math.max(0, chars.length - 1) * spacingPx;
@@ -2361,6 +2374,31 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             w: boundsW,
             h: boundsH
           };
+
+          // Synchronize live size & position metrics (in inches) for the active layer
+          const targetPanelFocus = activeTab === 'dual' ? dualActivePanel : activeTab;
+          const currentActive = activeTextLayer || (panel.nameConfig?.enabled ? 'name' : panel.numberConfig?.enabled ? 'number' : 'name');
+          if (panelKey === targetPanelFocus && layerKey === currentActive) {
+            const pxPerInW = width / physicalW;
+            const pxPerInH = height / physicalH;
+            const liveW = Number((boundsW / pxPerInW).toFixed(1));
+            const liveH = Number((boundsH / pxPerInH).toFixed(1));
+            const liveX = Number(((boxX + boundsW / 2) / pxPerInW).toFixed(1));
+            const liveY = Number(((boxY + boundsH / 2) / pxPerInH).toFixed(1));
+
+            if (
+              liveMetricsRef.current.w !== liveW ||
+              liveMetricsRef.current.h !== liveH ||
+              liveMetricsRef.current.x !== liveX ||
+              liveMetricsRef.current.y !== liveY ||
+              liveMetricsRef.current.layer !== layerKey
+            ) {
+              liveMetricsRef.current = { w: liveW, h: liveH, x: liveX, y: liveY, layer: layerKey };
+              setTimeout(() => {
+                setLiveTextMetrics({ w: liveW, h: liveH, x: liveX, y: liveY, layer: layerKey });
+              }, 0);
+            }
+          }
         }
 
         // Calculate text fill style (Solid, Gradient, or Texture Pattern)
@@ -2541,8 +2579,9 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             const angle = charAngles[i];
             ctx.save();
             ctx.rotate(angle);
-            if (fitRatio < 1) {
-              ctx.scale(fitRatio, 1);
+            const effScaleX = fitRatio * scaleX;
+            if (effScaleX !== 1) {
+              ctx.scale(effScaleX, 1);
             }
             renderTextWithStroke(ctx, char, 0, -radius, strokePos, fontSizePx * 1.5);
             ctx.restore();
@@ -2551,35 +2590,47 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         } else {
           // Standard straight text
           const fitRatio = totalTextW > maxLimitPx ? (maxLimitPx / totalTextW) : 1;
+          const effScaleX = fitRatio * scaleX;
+          const effTotalW = totalTextW * fitRatio;
+
           ctx.save();
           ctx.translate(targetX, textY);
-          if (fitRatio < 1) {
-            ctx.scale(fitRatio, 1);
-          }
 
           if (spacingPx <= 0) {
             ctx.textAlign = align;
             ctx.textBaseline = 'middle';
+            if (effScaleX !== 1) {
+              ctx.scale(effScaleX, 1);
+            }
             renderTextWithStroke(ctx, displayName, 0, 0, strokePos, totalTextW);
           } else {
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             let startX = 0;
             if (align === 'center') {
-              startX = -totalTextW / 2;
+              startX = -effTotalW / 2;
             } else if (align === 'right') {
-              startX = -totalTextW;
+              startX = -effTotalW;
             } else {
               startX = 0;
             }
 
             let currX = startX;
+            const effSpacing = spacingPx * fitRatio;
             for (let i = 0; i < chars.length; i++) {
               const char = chars[i];
-              const cw = charWidths[i];
+              const cw = charWidths[i] * fitRatio;
+              const unscaledCw = ctx.measureText(char).width;
               const charCenterX = currX + cw / 2;
-              renderTextWithStroke(ctx, char, charCenterX, 0, strokePos, cw);
-              currX += cw + spacingPx;
+              ctx.save();
+              ctx.translate(charCenterX, 0);
+              if (effScaleX !== 1) {
+                ctx.scale(effScaleX, 1);
+              }
+              renderTextWithStroke(ctx, char, 0, 0, strokePos, unscaledCw);
+              ctx.restore();
+
+              currX += cw + effSpacing;
             }
           }
           ctx.restore();
@@ -2638,10 +2689,16 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ctx.strokeRect(h.x - 4, h.y - 4, 8, 8);
           });
 
-          // Active Layer Name Badge with drag direction hint
-          const labelName = activeTextLayer === 'name' ? 'PLAYER NAME' : 'PLAYER NUMBER';
-          const badgeText = panelKey === 'front' ? `✥ ${labelName} (DRAG 2D)` : `↕ ${labelName} (DRAG VERTICAL)`;
-          ctx.font = 'bold 10px sans-serif';
+          // Active Layer Name Badge with drag direction hint and LIVE SIZE (W, H, X, Y)
+          const labelName = activeTextLayer === 'name' ? 'NAME' : 'NUMBER';
+          const pxPerInW = width / physicalW;
+          const pxPerInH = height / physicalH;
+          const liveWIn = (selectedBox.w / pxPerInW).toFixed(1);
+          const liveHIn = (selectedBox.h / pxPerInH).toFixed(1);
+          const liveXIn = ((selectedBox.x + selectedBox.w / 2) / pxPerInW).toFixed(1);
+          const liveYIn = ((selectedBox.y + selectedBox.h / 2) / pxPerInH).toFixed(1);
+          const badgeText = `✥ ${labelName}  W:${liveWIn}" H:${liveHIn}" | X:${liveXIn}" Y:${liveYIn}"`;
+          ctx.font = 'bold 10px monospace';
           const badgeW = ctx.measureText(badgeText).width + 16;
           ctx.fillStyle = '#00e5ff';
           ctx.fillRect(bx, Math.max(2, by - 22), badgeW, 18);
@@ -5260,6 +5317,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           setGradientModalTarget(targetId);
           setIsGradientModalOpen(true);
         }}
+        liveTextMetrics={liveTextMetrics}
       />
 
       {/* 3. MAIN WORKSPACE: CANVAS + RIGHT DOCKERS */}
@@ -7517,6 +7575,30 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
                 {true && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {/* Live Size & Position Viewer Card */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: '#F0FDF4',
+                      border: '1px solid #BBF7D0',
+                      borderRadius: '8px',
+                      padding: '8px 10px',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10B981', display: 'inline-block', boxShadow: '0 0 6px rgba(16,185,129,0.8)' }} />
+                        <span style={{ fontSize: '10.5px', fontWeight: '800', color: '#166534' }}>LIVE SIZE:</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'monospace', fontWeight: '800', fontSize: '11px', color: '#1E293B' }}>
+                        <span>W: <strong style={{ color: '#0F172A' }}>{(liveTextMetrics?.layer === 'name' ? liveTextMetrics.w : 0).toFixed(1)}"</strong></span>
+                        <span>H: <strong style={{ color: '#0F172A' }}>{(liveTextMetrics?.layer === 'name' ? liveTextMetrics.h : 0).toFixed(1)}"</strong></span>
+                        <span style={{ color: '#CBD5E1' }}>|</span>
+                        <span>X: <strong style={{ color: '#0F172A' }}>{(liveTextMetrics?.layer === 'name' ? liveTextMetrics.x : 0).toFixed(1)}"</strong></span>
+                        <span>Y: <strong style={{ color: '#0F172A' }}>{(liveTextMetrics?.layer === 'name' ? liveTextMetrics.y : 0).toFixed(1)}"</strong></span>
+                      </div>
+                    </div>
+
                     {/* Horizontal Position (X%) - ONLY on Front Panel */}
                     {(activeTab === 'dual' ? dualActivePanel === 'front' : activeTab === 'front') && (
                       <div style={{ background: '#FFF4F0', border: '1px solid #F5C4B2', padding: '8px', borderRadius: '6px' }}>
@@ -7590,6 +7672,29 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           onChange={(e) => updateTextConfig('name', { maxW: parseFloat(e.target.value) || 5 })}
                           style={{ padding: '6px' }}
                         />
+                      </div>
+                    </div>
+
+                    {/* Width Stretch (Horizontal Scale) */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        <span>Width Stretch (Horizontal Scale):</span>
+                        <span style={{ fontWeight: '700', color: '#E4572E' }}>
+                          {Math.round((activePanel.nameConfig.scaleX ?? 1.10) * 100)}% {activePanel.nameConfig.scaleX === 1.10 || activePanel.nameConfig.scaleX === undefined ? '(Default Wide +10%)' : ''}
+                        </span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="70" 
+                        max="150" 
+                        step="5" 
+                        value={Math.round((activePanel.nameConfig.scaleX ?? 1.10) * 100)}
+                        onChange={(e) => updateTextConfig('name', { scaleX: parseInt(e.target.value) / 100 })}
+                      />
+                      <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                        <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '10px' }} onClick={() => updateTextConfig('name', { scaleX: 1.0 })}>Normal (100%)</button>
+                        <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '10px', fontWeight: 'bold', color: '#E4572E' }} onClick={() => updateTextConfig('name', { scaleX: 1.10 })}>Wide (110%)</button>
+                        <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '10px' }} onClick={() => updateTextConfig('name', { scaleX: 1.20 })}>Extra Wide (120%)</button>
                       </div>
                     </div>
 
@@ -8013,6 +8118,30 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
                 {true && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {/* Live Size & Position Viewer Card */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: '#F0FDF4',
+                      border: '1px solid #BBF7D0',
+                      borderRadius: '8px',
+                      padding: '8px 10px',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10B981', display: 'inline-block', boxShadow: '0 0 6px rgba(16,185,129,0.8)' }} />
+                        <span style={{ fontSize: '10.5px', fontWeight: '800', color: '#166534' }}>LIVE SIZE:</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'monospace', fontWeight: '800', fontSize: '11px', color: '#1E293B' }}>
+                        <span>W: <strong style={{ color: '#0F172A' }}>{(liveTextMetrics?.layer === 'number' ? liveTextMetrics.w : 0).toFixed(1)}"</strong></span>
+                        <span>H: <strong style={{ color: '#0F172A' }}>{(liveTextMetrics?.layer === 'number' ? liveTextMetrics.h : 0).toFixed(1)}"</strong></span>
+                        <span style={{ color: '#CBD5E1' }}>|</span>
+                        <span>X: <strong style={{ color: '#0F172A' }}>{(liveTextMetrics?.layer === 'number' ? liveTextMetrics.x : 0).toFixed(1)}"</strong></span>
+                        <span>Y: <strong style={{ color: '#0F172A' }}>{(liveTextMetrics?.layer === 'number' ? liveTextMetrics.y : 0).toFixed(1)}"</strong></span>
+                      </div>
+                    </div>
+
                     {/* Horizontal Position (X%) - ONLY on Front Panel */}
                     {(activeTab === 'dual' ? dualActivePanel === 'front' : activeTab === 'front') && (
                       <div style={{ background: '#FFF4F0', border: '1px solid #F5C4B2', padding: '8px', borderRadius: '6px' }}>
@@ -8086,6 +8215,29 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           onChange={(e) => updateTextConfig('number', { maxW: parseFloat(e.target.value) || 8 })}
                           style={{ padding: '6px' }}
                         />
+                      </div>
+                    </div>
+
+                    {/* Width Condense (Horizontal Scale) */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        <span>Width Condense (Horizontal Scale):</span>
+                        <span style={{ fontWeight: '700', color: '#E4572E' }}>
+                          {Math.round((activePanel.numberConfig.scaleX ?? 0.90) * 100)}% {activePanel.numberConfig.scaleX === 0.90 || activePanel.numberConfig.scaleX === undefined ? '(Default Condensed -10%)' : ''}
+                        </span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="70" 
+                        max="130" 
+                        step="5" 
+                        value={Math.round((activePanel.numberConfig.scaleX ?? 0.90) * 100)}
+                        onChange={(e) => updateTextConfig('number', { scaleX: parseInt(e.target.value) / 100 })}
+                      />
+                      <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                        <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '10px' }} onClick={() => updateTextConfig('number', { scaleX: 0.80 })}>Slim (80%)</button>
+                        <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '10px', fontWeight: 'bold', color: '#E4572E' }} onClick={() => updateTextConfig('number', { scaleX: 0.90 })}>Condensed (90%)</button>
+                        <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '10px' }} onClick={() => updateTextConfig('number', { scaleX: 1.0 })}>Normal (100%)</button>
                       </div>
                     </div>
 

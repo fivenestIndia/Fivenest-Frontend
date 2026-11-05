@@ -675,6 +675,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
     // 4. Draw Player Name
     if (panelConf.nameConfig?.enabled && (activePanel === 'front' || activePanel === 'back')) {
       const nameText = previewName || 'FIVENEST';
+      const nameScaleX = panelConf.nameConfig.scaleX ?? 1.10;
       const fontSizePx = Math.max(12, Math.round((panelConf.nameConfig.fontSize / 30) * canvasH));
       const family = panelConf.nameConfig.fontFamily || 'OldSport02AthleticNcv-E0gj';
       const nameWeight = panelConf.nameConfig.fontWeight === 'bold' ? 'bold ' : '';
@@ -700,7 +701,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
         const curveAmount = Math.max(5, Math.min(100, panelConf.nameConfig.curveAmount ?? 35));
         const radius = Math.max(fontSizePx * 1.5, canvasH * (16 / curveAmount));
         const chars = Array.from(nameText);
-        const charWidths = chars.map(c => ctx.measureText(c).width);
+        const charWidths = chars.map(c => ctx.measureText(c).width * nameScaleX);
         const rawTextW = charWidths.reduce((sum, w) => sum + w, 0);
         const spacingPx = panelConf.nameConfig.letterSpacing ? Math.round(panelConf.nameConfig.letterSpacing * (canvasW / 15)) : 0;
         const totalSpacing = Math.max(0, chars.length - 1) * spacingPx;
@@ -730,7 +731,8 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
           const angle = charAngles[i];
           ctx.save();
           ctx.rotate(angle);
-          if (fitRatio < 1) ctx.scale(fitRatio, 1);
+          const effScaleX = fitRatio * nameScaleX;
+          if (effScaleX !== 1) ctx.scale(effScaleX, 1);
           if (nameStrokePos === 'outside') {
             for (let sIdx = cumNameStrokes.length - 1; sIdx >= 0; sIdx--) {
               const s = cumNameStrokes[sIdx];
@@ -754,31 +756,36 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
         }
         ctx.restore();
       } else {
+        ctx.save();
+        ctx.translate(canvasW / 2, yPos);
+        if (nameScaleX !== 1) ctx.scale(nameScaleX, 1);
         if (nameStrokePos === 'outside') {
           for (let sIdx = cumNameStrokes.length - 1; sIdx >= 0; sIdx--) {
             const s = cumNameStrokes[sIdx];
             ctx.strokeStyle = getStrokeFillStyle(ctx, s, fontSizePx * (nameText.length || 6) * 0.6, fontSizePx, '#000000');
             ctx.lineWidth = s.cumulativePx * 2;
-            ctx.strokeText(nameText, canvasW / 2, yPos);
+            ctx.strokeText(nameText, 0, 0);
           }
           ctx.fillStyle = panelConf.nameConfig.color || '#FFFFFF';
-          ctx.fillText(nameText, canvasW / 2, yPos);
+          ctx.fillText(nameText, 0, 0);
         } else {
           ctx.fillStyle = panelConf.nameConfig.color || '#FFFFFF';
-          ctx.fillText(nameText, canvasW / 2, yPos);
+          ctx.fillText(nameText, 0, 0);
           for (let sIdx = cumNameStrokes.length - 1; sIdx >= 0; sIdx--) {
             const s = cumNameStrokes[sIdx];
             ctx.strokeStyle = getStrokeFillStyle(ctx, s, fontSizePx * (nameText.length || 6) * 0.6, fontSizePx, '#000000');
             ctx.lineWidth = nameStrokePos === 'center' ? s.cumulativePx : s.cumulativePx * 2;
-            ctx.strokeText(nameText, canvasW / 2, yPos);
+            ctx.strokeText(nameText, 0, 0);
           }
         }
+        ctx.restore();
       }
     }
 
     // 5. Draw Player Number
     if (panelConf.numberConfig?.enabled && (activePanel === 'front' || activePanel === 'back')) {
       const numText = previewNumber || '23';
+      const numScaleX = panelConf.numberConfig.scaleX ?? 0.90;
       const fontSizePx = Math.max(16, Math.round((panelConf.numberConfig.fontSize / 30) * canvasH));
       const family = panelConf.numberConfig.fontFamily || 'OldSport02AthleticNcv-E0gj';
       const numWeight = panelConf.numberConfig.fontWeight === 'bold' ? 'bold ' : '';
@@ -800,25 +807,29 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
       ctx.lineCap = 'round';
       const numStrokePos = panelConf.numberConfig.strokePosition || 'outside';
 
+      ctx.save();
+      ctx.translate(canvasW / 2, yPos);
+      if (numScaleX !== 1) ctx.scale(numScaleX, 1);
       if (numStrokePos === 'outside') {
         for (let sIdx = cumNumStrokes.length - 1; sIdx >= 0; sIdx--) {
           const s = cumNumStrokes[sIdx];
           ctx.strokeStyle = getStrokeFillStyle(ctx, s, fontSizePx * (numText.length || 2) * 0.8, fontSizePx, '#000000');
           ctx.lineWidth = s.cumulativePx * 2;
-          ctx.strokeText(numText, canvasW / 2, yPos);
+          ctx.strokeText(numText, 0, 0);
         }
         ctx.fillStyle = panelConf.numberConfig.color || '#FFFFFF';
-        ctx.fillText(numText, canvasW / 2, yPos);
+        ctx.fillText(numText, 0, 0);
       } else {
         ctx.fillStyle = panelConf.numberConfig.color || '#FFFFFF';
-        ctx.fillText(numText, canvasW / 2, yPos);
+        ctx.fillText(numText, 0, 0);
         for (let sIdx = cumNumStrokes.length - 1; sIdx >= 0; sIdx--) {
           const s = cumNumStrokes[sIdx];
           ctx.strokeStyle = getStrokeFillStyle(ctx, s, fontSizePx * (numText.length || 2) * 0.8, fontSizePx, '#000000');
           ctx.lineWidth = numStrokePos === 'center' ? s.cumulativePx : s.cumulativePx * 2;
-          ctx.strokeText(numText, canvasW / 2, yPos);
+          ctx.strokeText(numText, 0, 0);
         }
       }
+      ctx.restore();
     }
 
     // 6. Draw Logos

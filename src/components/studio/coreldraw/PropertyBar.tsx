@@ -8,6 +8,14 @@ import type { CorelTool } from './ToolBox';
 import { getEffectiveStrokes, type PanelConfig, type TextConfig, type StrokeConfig } from '../designer';
 import { loadFontBinaryIntoBrowser, dataUrlToArrayBuffer } from '../../../lib/fontLoader';
 
+export interface TextLiveMetrics {
+  w: number;
+  h: number;
+  x: number;
+  y: number;
+  layer?: 'name' | 'number' | 'sizeTag';
+}
+
 interface PropertyBarProps {
   activeTool: CorelTool;
   activeTab: 'front' | 'back' | 'dual' | 'collar' | 'sleeveLeft' | 'sleeveRight' | 'a4Print' | 'threeD';
@@ -23,6 +31,7 @@ interface PropertyBarProps {
   onSleeveTypeChange?: (type: 'half' | 'full') => void;
   customFonts?: Array<{ name: string; url: string }>;
   onOpenGradientModal?: (targetId: string) => void;
+  liveTextMetrics?: TextLiveMetrics;
 }
 
 export const PropertyBar: React.FC<PropertyBarProps> = ({
@@ -39,7 +48,8 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
   previewSleeveType,
   onSleeveTypeChange,
   customFonts,
-  onOpenGradientModal
+  onOpenGradientModal,
+  liveTextMetrics
 }) => {
   const resolvedLayer: 'name' | 'number' | 'sizeTag' = 
     activeTextLayer || (panel.nameConfig?.enabled ? 'name' : panel.numberConfig?.enabled ? 'number' : 'sizeTag');
@@ -398,6 +408,128 @@ export const PropertyBar: React.FC<PropertyBarProps> = ({
                 </button>
               );
             })}
+          </div>
+
+          {/* Live Size & Position Viewer (W, H, X, Y) */}
+          <div 
+            className="cd-property-group"
+            style={{
+              background: '#FFF8F5',
+              border: '1px solid #F5C4B2',
+              borderRadius: '6px',
+              padding: '2px 8px',
+              gap: '6px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              flexShrink: 0,
+              boxShadow: '0 1px 2px rgba(228,87,46,0.06)'
+            }}
+          >
+            <span style={{ fontSize: '10px', fontWeight: '800', color: '#E4572E', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981', display: 'inline-block', boxShadow: '0 0 6px rgba(16,185,129,0.8)' }} />
+              <span>LIVE SIZE:</span>
+            </span>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              {/* Width */}
+              <div 
+                title="Live Rendered Width in Inches"
+                style={{ display: 'flex', alignItems: 'center', gap: '2px', background: '#FFFFFF', padding: '2px 6px', borderRadius: '4px', border: '1px solid #D8D5CF' }}
+              >
+                <span style={{ fontSize: '10px', fontWeight: '800', color: '#92908A' }}>W:</span>
+                <span style={{ fontSize: '11.5px', fontWeight: '800', fontFamily: 'monospace', color: '#171717' }}>
+                  {(liveTextMetrics?.w || 0).toFixed(1)}"
+                </span>
+              </div>
+
+              {/* Height */}
+              <div 
+                title="Live Rendered Height in Inches"
+                style={{ display: 'flex', alignItems: 'center', gap: '2px', background: '#FFFFFF', padding: '2px 6px', borderRadius: '4px', border: '1px solid #D8D5CF' }}
+              >
+                <span style={{ fontSize: '10px', fontWeight: '800', color: '#92908A' }}>H:</span>
+                <span style={{ fontSize: '11.5px', fontWeight: '800', fontFamily: 'monospace', color: '#171717' }}>
+                  {(liveTextMetrics?.h || 0).toFixed(1)}"
+                </span>
+              </div>
+
+              <span style={{ color: '#D8D5CF', fontSize: '11px' }}>|</span>
+
+              {/* X Axis */}
+              <div 
+                title="Live Horizontal X-Axis Center in Inches from Left"
+                style={{ display: 'flex', alignItems: 'center', gap: '2px', background: '#FFFFFF', padding: '2px 6px', borderRadius: '4px', border: '1px solid #D8D5CF' }}
+              >
+                <span style={{ fontSize: '10px', fontWeight: '800', color: '#92908A' }}>X:</span>
+                <span style={{ fontSize: '11.5px', fontWeight: '800', fontFamily: 'monospace', color: '#171717' }}>
+                  {(liveTextMetrics?.x || 0).toFixed(1)}"
+                </span>
+              </div>
+
+              {/* Y Axis */}
+              <div 
+                title="Live Vertical Y-Axis Center in Inches from Top"
+                style={{ display: 'flex', alignItems: 'center', gap: '2px', background: '#FFFFFF', padding: '2px 6px', borderRadius: '4px', border: '1px solid #D8D5CF' }}
+              >
+                <span style={{ fontSize: '10px', fontWeight: '800', color: '#92908A' }}>Y:</span>
+                <span style={{ fontSize: '11.5px', fontWeight: '800', fontFamily: 'monospace', color: '#171717' }}>
+                  {(liveTextMetrics?.y || 0).toFixed(1)}"
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Width Stretch Control */}
+          <div 
+            className="cd-property-group"
+            style={{
+              background: '#FFFFFF',
+              border: '1px solid #D8D5CF',
+              borderRadius: '6px',
+              padding: '3px 8px',
+              gap: '4px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              flexShrink: 0
+            }}
+            title="Horizontal Width Stretch / Condense (Default: 110% for Name, 90% for Number)"
+          >
+            <span style={{ fontSize: '10.5px', color: '#92908A', fontWeight: '700' }}>W-Stretch:</span>
+            <select
+              value={
+                activeTextConfig.scaleX !== undefined 
+                  ? Math.round(activeTextConfig.scaleX * 100)
+                  : (resolvedLayer === 'name' ? 110 : resolvedLayer === 'number' ? 90 : 100)
+              }
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10) / 100;
+                updateActiveText({ scaleX: val });
+              }}
+              style={{
+                border: '1px solid #D8D5CF',
+                borderRadius: '5px',
+                fontSize: '11px',
+                fontWeight: '700',
+                padding: '2px 4px',
+                outline: 'none',
+                background: '#FFFFFF',
+                color: '#1A1917',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="80">80% (Slim)</option>
+              <option value="85">85% (Condensed)</option>
+              <option value="90">90% (Number Default)</option>
+              <option value="95">95%</option>
+              <option value="100">100% (Normal)</option>
+              <option value="105">105%</option>
+              <option value="110">110% (Name Default)</option>
+              <option value="115">115% (Wide)</option>
+              <option value="120">120% (Extra Wide)</option>
+              <option value="130">130% (Stretched)</option>
+            </select>
           </div>
 
           {/* Font & Size */}
