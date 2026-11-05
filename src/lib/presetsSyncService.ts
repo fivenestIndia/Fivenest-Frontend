@@ -113,7 +113,7 @@ function buildFontVariationPreset(spec: FontVariationPresetSpec): DesignPresetIt
       strokeWidth: spec.nameStrokeWidth ?? 1.5,
       enabled: isBack,
       scaleX: 1.10,
-      maxW: 16.0,
+      maxW: 11.0,
       letterSpacing: 0.10,
     },
     numberConfig: {
@@ -126,7 +126,7 @@ function buildFontVariationPreset(spec: FontVariationPresetSpec): DesignPresetIt
       enabled: isBack ? true : (isFront ? (spec.frontNumberEnabled ?? true) : false),
       fontSize: isBack ? 9.0 : 3.5,
       scaleX: 0.90,
-      maxW: 10.0,
+      maxW: 9.0,
       letterSpacing: 0.06,
     }
   });

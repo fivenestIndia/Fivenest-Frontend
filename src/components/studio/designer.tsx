@@ -1984,7 +1984,7 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     const configKey = textType === 'name' ? 'nameConfig' : textType === 'number' ? 'numberConfig' : 'sizeTagConfig';
     updateActivePanel({
       [configKey]: {
-        ...(activePanel[configKey] || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: textType === 'name' ? 1.8 : textType === 'number' ? 0.7 : 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: 10, caseType: 'uppercase', effect: 'none' }),
+        ...(activePanel[configKey] || { enabled: true, yPos: 4, fontSize: 34, color: '#ff1744', strokeColor: '#000000', strokeWidth: textType === 'name' ? 1.8 : textType === 'number' ? 0.7 : 3, fontFamily: 'OldSport02AthleticNcv-E0gj', maxW: textType === 'name' ? 11 : textType === 'number' ? 9 : 10, caseType: 'uppercase', effect: 'none' }),
         ...fields
       }
     });
@@ -2641,11 +2641,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
       const hideOverlays = metadata?.blankKit ?? false;
       if (!hideOverlays && panel.nameConfig.enabled) {
         const textX = panel.nameConfig.xPos !== undefined ? (panel.nameConfig.xPos / 100) * width : width / 2;
-        drawSingleText(previewName, panel.nameConfig, textX, (panel.nameConfig.yPos / 100) * height, (panel.nameConfig.maxW / 20) * width, 'name');
+        const maxLimitPx = ((panel.nameConfig.maxW ?? 11) / physicalW) * width;
+        drawSingleText(previewName, panel.nameConfig, textX, (panel.nameConfig.yPos / 100) * height, maxLimitPx, 'name');
       }
       if (!hideOverlays && panel.numberConfig.enabled) {
         const textX = panel.numberConfig.xPos !== undefined ? (panel.numberConfig.xPos / 100) * width : width / 2;
-        drawSingleText(previewNumber, panel.numberConfig, textX, (panel.numberConfig.yPos / 100) * height, (panel.numberConfig.maxW / 20) * width, 'number');
+        const maxLimitPx = ((panel.numberConfig.maxW ?? 9) / physicalW) * width;
+        drawSingleText(previewNumber, panel.numberConfig, textX, (panel.numberConfig.yPos / 100) * height, maxLimitPx, 'number');
       }
 
       // Draw interactive Cyan Selection Box with 8 Control Handles around Active Selected Text Layer ONLY on target panel
@@ -7668,8 +7670,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           type="number" 
                           step="0.5" 
                           className="form-input" 
-                          value={activePanel.nameConfig.maxW}
-                          onChange={(e) => updateTextConfig('name', { maxW: parseFloat(e.target.value) || 5 })}
+                          value={activePanel.nameConfig.maxW ?? 11}
+                          onChange={(e) => updateTextConfig('name', { maxW: parseFloat(e.target.value) || 11 })}
                           style={{ padding: '6px' }}
                         />
                       </div>
@@ -8211,8 +8213,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                           type="number" 
                           step="0.5" 
                           className="form-input" 
-                          value={activePanel.numberConfig.maxW}
-                          onChange={(e) => updateTextConfig('number', { maxW: parseFloat(e.target.value) || 8 })}
+                          value={activePanel.numberConfig.maxW ?? 9}
+                          onChange={(e) => updateTextConfig('number', { maxW: parseFloat(e.target.value) || 9 })}
                           style={{ padding: '6px' }}
                         />
                       </div>

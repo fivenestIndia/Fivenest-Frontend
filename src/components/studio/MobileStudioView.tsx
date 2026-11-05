@@ -706,7 +706,7 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
         const spacingPx = panelConf.nameConfig.letterSpacing ? Math.round(panelConf.nameConfig.letterSpacing * (canvasW / 15)) : 0;
         const totalSpacing = Math.max(0, chars.length - 1) * spacingPx;
         const totalTextW = rawTextW + totalSpacing;
-        const maxLimitPx = canvasW * 0.85;
+        const maxLimitPx = ((panelConf.nameConfig.maxW ?? 11) / 22) * canvasW;
         const fitRatio = totalTextW > maxLimitPx ? maxLimitPx / totalTextW : 1;
         const effSpacing = spacingPx * fitRatio;
         const effCharWidths = charWidths.map(w => w * fitRatio);
@@ -756,9 +756,13 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
         }
         ctx.restore();
       } else {
+        const maxLimitPx = ((panelConf.nameConfig.maxW ?? 11) / 22) * canvasW;
+        const rawW = ctx.measureText(nameText).width * nameScaleX;
+        const fitRatio = rawW > maxLimitPx ? maxLimitPx / rawW : 1;
         ctx.save();
         ctx.translate(canvasW / 2, yPos);
-        if (nameScaleX !== 1) ctx.scale(nameScaleX, 1);
+        const effScaleX = fitRatio * nameScaleX;
+        if (effScaleX !== 1) ctx.scale(effScaleX, 1);
         if (nameStrokePos === 'outside') {
           for (let sIdx = cumNameStrokes.length - 1; sIdx >= 0; sIdx--) {
             const s = cumNameStrokes[sIdx];
@@ -807,9 +811,13 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
       ctx.lineCap = 'round';
       const numStrokePos = panelConf.numberConfig.strokePosition || 'outside';
 
+      const numMaxLimitPx = ((panelConf.numberConfig.maxW ?? 9) / 22) * canvasW;
+      const numRawW = ctx.measureText(numText).width * numScaleX;
+      const numFitRatio = numRawW > numMaxLimitPx ? numMaxLimitPx / numRawW : 1;
       ctx.save();
       ctx.translate(canvasW / 2, yPos);
-      if (numScaleX !== 1) ctx.scale(numScaleX, 1);
+      const effNumScaleX = numFitRatio * numScaleX;
+      if (effNumScaleX !== 1) ctx.scale(effNumScaleX, 1);
       if (numStrokePos === 'outside') {
         for (let sIdx = cumNumStrokes.length - 1; sIdx >= 0; sIdx--) {
           const s = cumNumStrokes[sIdx];
