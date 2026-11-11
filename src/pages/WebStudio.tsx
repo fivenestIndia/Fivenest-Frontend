@@ -421,6 +421,7 @@ export default function WebStudio() {
             ref={mobileNestingRef}
             records={records}
             metadata={metadata}
+            onMetadataChange={setMetadata}
             sizeDB={sizeDB}
             designConfig={designConfig}
             currentUser={currentUser}
@@ -841,6 +842,7 @@ export default function WebStudio() {
             <NestingView 
               records={records}
               metadata={metadata}
+              onMetadataChange={setMetadata}
               sizeDB={sizeDB}
               designConfig={designConfig}
               currentUser={currentUser}

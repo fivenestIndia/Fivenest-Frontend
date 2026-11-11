@@ -1,6 +1,5 @@
 // BUILD v20260906-r5 — FiveNest Studio Export Processing Modal
 import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
-import { jsPDF } from 'jspdf';
 import confetti from 'canvas-confetti';
 import { Play, Download, Sliders, Coins, QrCode, CheckCircle, AlertTriangle, Loader2, X, Palette, Award } from 'lucide-react';
 import JSZip from 'jszip';
@@ -469,6 +468,7 @@ interface NestingViewProps {
   onUserChange: (user: { email: string; name: string; balance: number } | null) => void;
   onOpenLogin: () => void;
   onGoToArtwork?: () => void;
+  onMetadataChange?: (metadata: OrderMetadata) => void;
 }
 
 interface PlacedItem {
@@ -488,6 +488,7 @@ interface PlacedItem {
   nameFont?: string;
   numberFont?: string;
   withoutLogoFront?: boolean;
+  isMergedSleeve?: boolean;
 }
 
 interface NestingSheet {
@@ -535,26 +536,13 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
   testMode,
   onUserChange,
   onOpenLogin,
-  onGoToArtwork
+  onGoToArtwork,
+  onMetadataChange
 }, ref) {
   const artworkStatus = checkArtworkUploadStatus(designConfig, metadata);
   const { anyArtworkUploaded, frontHasArtwork, backHasArtwork, sleeveHasArtwork, collarHasArtwork } = artworkStatus;
-  const [enableNesting, setEnableNesting] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('fivenest_pref_enable_nesting');
-      return saved !== null ? JSON.parse(saved) : false; // Default: Individual Panels (ZIP)
-    } catch {
-      return false;
-    }
-  });
-  const [includePreviewPdf, setIncludePreviewPdf] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('fivenest_pref_preview_pdf');
-      return saved !== null ? JSON.parse(saved) : false;
-    } catch {
-      return false;
-    }
-  });
+  const enableNesting = false; // Dedicated to Individual Panels (ZIP) Export format
+  const setEnableNesting = (_val: boolean) => {};
   const [rollW, setRollW] = useState<number>(64);
   const [rollH, setRollH] = useState<number>(100); // Max paper height before page split
   const [itemGap, setItemGap] = useState<number>(0.25);
@@ -899,17 +887,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       }
     }
 
-    // Nesting options persistence
-    const savedEnable = localStorage.getItem('fivenest_pref_enable_nesting');
-    if (savedEnable !== null) {
-      try { setEnableNesting(JSON.parse(savedEnable)); } catch (e) {}
-    } else {
-      setEnableNesting(false);
-    }
-    const savedPreview = localStorage.getItem('fivenest_pref_preview_pdf');
-    if (savedPreview !== null) {
-      try { setIncludePreviewPdf(JSON.parse(savedPreview)); } catch (e) {}
-    }
+    // Options persistence
     const savedRollW = localStorage.getItem('fivenest_pref_roll_w');
     if (savedRollW) {
       try { setRollW(JSON.parse(savedRollW)); } catch (e) {}
@@ -1497,8 +1475,8 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
   const renderPanelGraphic = (item: PlacedItem, scaleDpi: number, isPreview?: boolean): Promise<HTMLCanvasElement> => {
     if (item.panelType === 'sleeve-merged') {
       const singleH = (item.h - 0.2) / 2;
-      const leftItem: PlacedItem = { ...item, panelType: 'sleeve-left', h: singleH };
-      const rightItem: PlacedItem = { ...item, panelType: 'sleeve-right', h: singleH };
+      const leftItem: PlacedItem = { ...item, panelType: 'sleeve-left', h: singleH, isMergedSleeve: true };
+      const rightItem: PlacedItem = { ...item, panelType: 'sleeve-right', h: singleH, isMergedSleeve: true };
       
       return Promise.all([
         renderPanelGraphic(leftItem, scaleDpi, isPreview),
@@ -2152,16 +2130,16 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
           const qtyVal = (typeof item.qty === 'number' && item.qty > 0) ? item.qty : (sizeQty > 0 ? sizeQty : 1);
 
-          // Requirement: Format size watermark without spaces as "40=2", or "40=2 NL" for Without Logo front, and explicit Left/Right for sleeves
+          // Requirement: Format size watermark without spaces as "40=2", or "40=2 NL" for Without Logo front, and explicit Left/Right for separate sleeves (merged sleeves already have direction on the right)
           let sizeQtyText = `${item.size}=${qtyVal}`;
           if (item.panelType === 'front' && item.withoutLogoFront) {
             sizeQtyText = `${item.size}=${qtyVal} NL`;
+          } else if (item.isMergedSleeve || item.panelType === 'sleeve-merged') {
+            sizeQtyText = `${item.size}=${qtyVal}`;
           } else if (item.panelType === 'sleeve-left') {
             sizeQtyText = `${item.size}=${qtyVal} Left`;
           } else if (item.panelType === 'sleeve-right') {
             sizeQtyText = `${item.size}=${qtyVal} Right`;
-          } else if (item.panelType === 'sleeve-merged') {
-            sizeQtyText = `${item.size}=${qtyVal} Left & Right`;
           }
           const templateText = sizeTagConf.text || '{size}';
           const displayText = templateText.includes('{size}')
@@ -2578,33 +2556,11 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
     }, 0);
   };
 
-  // Compile full nesting sheets and save PDF or Individual Panels ZIP
-  const handleExportPDF = async (overrideNesting?: boolean | unknown) => {
-    // Strictly require a boolean; ignore MouseEvent/SyntheticEvent passed by React onClick
-    const isNestingActive = typeof overrideNesting === 'boolean' ? overrideNesting : enableNesting;
-    if (typeof overrideNesting === 'boolean') {
-      setEnableNesting(overrideNesting);
-      try {
-        localStorage.setItem('fivenest_pref_enable_nesting', JSON.stringify(overrideNesting));
-      } catch {}
-    }
-
+  // Compile individual panels ZIP package (Front, Back, Sleeve, Collar, A4)
+  const handleExportPDF = async (_overrideNesting?: boolean | unknown) => {
     if (!anyArtworkUploaded) {
       alert("Artwork file is not detected!\n\nNo uploaded artwork was found in Step 1: Artwork. Please upload an artwork file for at least one panel (Front, Back, or Sleeves) before exporting.");
       return;
-    }
-
-    if (isNestingActive) {
-      let currentSheets = (nestingSheetsRef.current && nestingSheetsRef.current.length > 0)
-        ? nestingSheetsRef.current
-        : (nestingSheets && nestingSheets.length > 0 ? nestingSheets : []);
-      if (currentSheets.length === 0) {
-        currentSheets = runNesting(true);
-      }
-      if (!currentSheets || currentSheets.length === 0) {
-        alert("No nesting sheets could be generated. Please ensure order items have valid sizes.");
-        return;
-      }
     }
 
     const items = getItemsToExport();
@@ -2643,310 +2599,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
         const cleanCust = metadata.customerName.replace(/[\/\\:*?"<>|]/g, "_").trim() || "Unknown";
         const cleanOrder = metadata.orderNum.replace(/[\/\\:*?"<>|]/g, "_").trim() || "01";
 
-        // TEST MODE: EXPORT SINGLE 72 DPI PDF ONLY (NO ZIP / NO FOLDERS)
-        if (testMode) {
-          setExportProgressPct(8);
-          setExportProgress("Generating Test Mode 72 DPI PDF document...");
-
-          const frontOverlaysChecked = (designConfig.front.nameConfig.enabled || designConfig.front.numberConfig.enabled) && !metadata.blankKit;
-          const backOverlaysChecked = (designConfig.back.nameConfig.enabled || designConfig.back.numberConfig.enabled) && !metadata.blankKit;
-          const a4OverlaysChecked = (designConfig.a4Print.nameConfig.enabled || designConfig.a4Print.numberConfig.enabled) && !metadata.blankKit;
-
-          const shouldIndividualExportFront = !!metadata?.individualExportFB || (metadata.manualMode ? false : frontOverlaysChecked);
-          const shouldIndividualExportBack = !!metadata?.individualExportFB || (metadata.manualMode ? false : backOverlaysChecked);
-
-          interface TestPdfPage {
-            item: PlacedItem;
-            label: string;
-          }
-          const testPdfPages: TestPdfPage[] = [];
-
-          // 1. Group / Format Fronts
-          const frontItems = items.filter(it => it.panelType === 'front');
-          const frontSizeMap: Record<string, PlacedItem[]> = {};
-          frontItems.forEach(it => {
-            if (!frontSizeMap[it.size]) frontSizeMap[it.size] = [];
-            frontSizeMap[it.size].push(it);
-          });
-
-          if (shouldIndividualExportFront) {
-            Object.keys(frontSizeMap).sort().forEach(size => {
-              frontSizeMap[size].forEach((it, idx) => {
-                const labelSuffix = it.withoutLogoFront ? ' NL (No Logo)' : ' F';
-                testPdfPages.push({
-                  item: it,
-                  label: `[Front] ${it.size} ${idx + 1}${labelSuffix}`
-                });
-              });
-            });
-          } else {
-            const normalFronts: Record<string, PlacedItem[]> = {};
-            const noLogoFronts: Record<string, PlacedItem[]> = {};
-            Object.keys(frontSizeMap).forEach(size => {
-              frontSizeMap[size].forEach(it => {
-                if (it.withoutLogoFront) {
-                  if (!noLogoFronts[size]) noLogoFronts[size] = [];
-                  noLogoFronts[size].push(it);
-                } else {
-                  if (!normalFronts[size]) normalFronts[size] = [];
-                  normalFronts[size].push(it);
-                }
-              });
-            });
-
-            Object.keys(normalFronts).forEach(size => {
-              const list = normalFronts[size];
-              testPdfPages.push({
-                item: {
-                  ...list[0],
-                  qty: list.length,
-                  withoutLogoFront: false
-                },
-                label: `[Front] ${size}=${list.length} F`
-              });
-            });
-
-            Object.keys(noLogoFronts).forEach(size => {
-              const list = noLogoFronts[size];
-              testPdfPages.push({
-                item: {
-                  ...list[0],
-                  qty: list.length,
-                  withoutLogoFront: true
-                },
-                label: `[Front] ${size}=${list.length} NL (No Logo)`
-              });
-            });
-          }
-
-          // 2. Group / Format Backs
-          const backItems = items.filter(it => it.panelType === 'back');
-          const backSizeMap: Record<string, PlacedItem[]> = {};
-          backItems.forEach(it => {
-            if (!backSizeMap[it.size]) backSizeMap[it.size] = [];
-            backSizeMap[it.size].push(it);
-          });
-
-          if (shouldIndividualExportBack) {
-            Object.keys(backSizeMap).sort().forEach(size => {
-              backSizeMap[size].forEach((it, idx) => {
-                testPdfPages.push({
-                  item: it,
-                  label: `[Back] ${it.size} ${idx + 1} B`
-                });
-              });
-            });
-          } else {
-            Object.keys(backSizeMap).forEach(size => {
-              const list = backSizeMap[size];
-              testPdfPages.push({
-                item: {
-                  ...list[0],
-                  qty: list.length
-                },
-                label: `[Back] ${size}=${list.length} B`
-              });
-            });
-          }
-
-          // 3. Group / Format Sleeves
-          const sleeveItems = items.filter(it => it.panelType.startsWith('sleeve'));
-          const sleeveSizeMap: Record<string, PlacedItem[]> = {};
-          sleeveItems.forEach(it => {
-            const key = `${it.size}-${it.panelType}-${it.sleeveType || ''}`;
-            if (!sleeveSizeMap[key]) sleeveSizeMap[key] = [];
-            sleeveSizeMap[key].push(it);
-          });
-
-          Object.keys(sleeveSizeMap).forEach(key => {
-            const list = sleeveSizeMap[key];
-            const rep = list[0];
-            const qty = list.length;
-            let sleeveCode = 'Left Sleeve';
-            if (rep.panelType === 'sleeve-left') {
-              sleeveCode = rep.sleeveType === 'full' ? 'Full Sleeve Left' : 'Left Sleeve';
-            } else if (rep.panelType === 'sleeve-right') {
-              sleeveCode = rep.sleeveType === 'full' ? 'Full Sleeve Right' : 'Right Sleeve';
-            } else {
-              sleeveCode = rep.sleeveType === 'full' ? 'Full Sleeve Merged' : 'Left & Right Sleeve';
-            }
-
-            testPdfPages.push({
-              item: { ...rep, qty },
-              label: `[Sleeve] ${rep.size}=${qty} ${sleeveCode}`
-            });
-          });
-
-          // 4. Group / Format A4 Prints
-          const a4Items = items.filter(it => it.panelType === 'a4-print');
-          if (a4OverlaysChecked) {
-            a4Items.forEach((it, idx) => {
-              testPdfPages.push({
-                item: it,
-                label: `[A4] ${it.size} ${idx + 1} A4`
-              });
-            });
-          } else {
-            const a4SizeMap: Record<string, PlacedItem[]> = {};
-            a4Items.forEach(it => {
-              if (!a4SizeMap[it.size]) a4SizeMap[it.size] = [];
-              a4SizeMap[it.size].push(it);
-            });
-            Object.keys(a4SizeMap).forEach(size => {
-              const list = a4SizeMap[size];
-              testPdfPages.push({
-                item: list[0],
-                label: `[A4] ${size}=${list.length} A4`
-              });
-            });
-          }
-
-          // 5. Group / Format Collar (Only if collar artwork exists and export is enabled)
-          const collarItems = (cHas && exportCollar) ? items.filter(it => it.panelType === 'collar') : [];
-          if (collarItems.length > 0) {
-            const youthCollars = collarItems.filter(it => isYouthCollarSize(it.size));
-            const adultCollars = collarItems.filter(it => !isYouthCollarSize(it.size));
-            const sW = collarSizes?.small?.w ?? 18;
-            const sH = collarSizes?.small?.h ?? 4.5;
-            const bW = collarSizes?.big?.w ?? 20;
-            const bH = collarSizes?.big?.h ?? 4.5;
-
-            if (youthCollars.length > 0) {
-              testPdfPages.push({
-                item: { ...youthCollars[0], w: sW, h: sH, qty: youthCollars.length },
-                label: `[Collar] Small Collars = ${youthCollars.length} pcs (dimention = ${sW} x ${sH})`
-              });
-            }
-            if (adultCollars.length > 0) {
-              testPdfPages.push({
-                item: { ...adultCollars[0], w: bW, h: bH, qty: adultCollars.length },
-                label: `[Collar] Big Collar = ${adultCollars.length} pcs (dimention = ${bW} x ${bH})`
-              });
-            }
-          }
-
-          if (testPdfPages.length > 0) {
-            const firstPage = testPdfPages[0];
-            const maxItemHeight = testPdfPages.reduce((max, pg) => Math.max(max, pg.item.h), 0);
-            const maxItemHeightPt = (maxItemHeight * 72) + 60;
-            const zipUUnit = maxItemHeightPt > 14400 ? Math.ceil(maxItemHeightPt / 14400) : 1.0;
-
-            const initialItemW = firstPage.item.w * 72;
-            const initialItemH = firstPage.item.h * 72;
-            const initialPageW = (initialItemW + 60) / zipUUnit;
-            const initialPageH = (initialItemH + 70) / zipUUnit;
-
-            const testPdf = new jsPDF({
-              orientation: initialPageW > initialPageH ? 'landscape' : 'portrait',
-              unit: 'pt',
-              format: [ initialPageW, initialPageH ],
-              userUnit: zipUUnit
-            });
-
-            for (let i = 0; i < testPdfPages.length; i++) {
-              const page = testPdfPages[i];
-              const item = page.item;
-              setExportProgressPct(Math.round(10 + ((i / testPdfPages.length) * 85)));
-              setExportProgress(`Rendering 72 DPI Test PDF Page (${i + 1}/${testPdfPages.length}): ${page.label}...`);
-
-              // Page margins & top header layout
-              const paddingSidePt = 40;     // 40pt side padding
-              const paddingTopPt = 20;      // 20pt top page margin
-              const headerBarHPt = 48;      // 48pt top header bar area for file label
-              const gapBelowHeaderPt = 20;  // 20pt gap between header & panel image
-              const paddingBottomPt = 40;  // 40pt bottom page margin
-
-              const itemWPt = item.w * 72;
-              const itemHPt = item.h * 72;
-
-              const pageWPt = (itemWPt + (paddingSidePt * 2)) / zipUUnit;
-              const pageHPt = (itemHPt + paddingTopPt + headerBarHPt + gapBelowHeaderPt + paddingBottomPt) / zipUUnit;
-              const orientation = pageWPt > pageHPt ? 'landscape' : 'portrait';
-
-              if (i > 0) {
-                testPdf.addPage([ pageWPt, pageHPt ], orientation);
-              }
-
-              // 1. Solid white background for full page
-              testPdf.setFillColor(255, 255, 255);
-              testPdf.rect(0, 0, pageWPt, pageHPt, 'F');
-
-              // 2. Draw Clean Header Bar & File Name Label at TOP of Page
-              const fontPt = Math.max(18, Math.round(pageWPt * 0.028));
-              testPdf.setFontSize(fontPt);
-              testPdf.setFont("helvetica", "bold");
-
-              const textStr = page.label;
-              const textWidth = testPdf.getTextWidth(textStr);
-              const pillW = Math.max(textWidth + 40, pageWPt * 0.35);
-              const pillH = fontPt + 16;
-              const pillX = (pageWPt / 2) - (pillW / 2);
-              const pillY = (paddingTopPt + (headerBarHPt - pillH) / 2) / zipUUnit;
-
-              // High-contrast rounded pill box for file label
-              testPdf.setFillColor(248, 249, 254);
-              testPdf.setDrawColor(180, 185, 210);
-              testPdf.setLineWidth(1.5);
-              testPdf.roundedRect(pillX, pillY, pillW, pillH, 6, 6, 'FD');
-
-              // Centered bold text in header pill
-              testPdf.setTextColor(15, 15, 30);
-              testPdf.text(
-                textStr,
-                pageWPt / 2,
-                pillY + (fontPt * 0.78),
-                { align: 'center' }
-              );
-
-              // 3. Render Panel Graphic BELOW Top Header Bar
-              const previewItemCanvas = await renderPanelGraphic(item, 72);
-              const previewImgData = previewItemCanvas.toDataURL('image/jpeg', 0.85);
-
-              const targetXPt = paddingSidePt / zipUUnit;
-              const targetYPt = (paddingTopPt + headerBarHPt + gapBelowHeaderPt) / zipUUnit;
-              const targetWPt = itemWPt / zipUUnit;
-              const targetHPt = itemHPt / zipUUnit;
-
-              testPdf.addImage(
-                previewImgData, 
-                'JPEG', 
-                targetXPt, 
-                targetYPt, 
-                targetWPt, 
-                targetHPt, 
-                undefined, 
-                'FAST'
-              );
-
-              // Immediately release memory and yield to browser
-              previewItemCanvas.width = 0;
-              previewItemCanvas.height = 0;
-              await new Promise(r => setTimeout(r, 0));
-            }
-
-            testPdf.save(`${cleanCust}_${cleanOrder}_72DPI_Test.pdf`);
-          }
-
-          // Auto-log Print Production Export Billing Entry in Invoices & Billing
-          logPrintProductionExportBillingEntry(billedJerseyCount);
-
-          setExportProgressPct(100);
-          setExportProgress("Export complete!");
-          await new Promise(r => setTimeout(r, 1800));
-          setIsExporting(false);
-          setExportProgress("");
-          setExportProgressPct(0);
-
-          confetti({
-            particleCount: 150,
-            spread: 80,
-            origin: { y: 0.5 }
-          });
-          return;
-        }
-
-        if (!isNestingActive) {
-          // EXPORT AS ZIP OF INDIVIDUAL IMAGES (Front, Back, Sleeve, A4 folders)
+        // EXPORT AS ZIP OF INDIVIDUAL IMAGES (Front, Back, Sleeve, A4, Collar folders)
           const frontOverlaysChecked = (designConfig.front.nameConfig.enabled || designConfig.front.numberConfig.enabled) && !metadata.blankKit;
           const backOverlaysChecked = (designConfig.back.nameConfig.enabled || designConfig.back.numberConfig.enabled) && !metadata.blankKit;
           const a4OverlaysChecked = (designConfig.a4Print.nameConfig.enabled || designConfig.a4Print.numberConfig.enabled) && !metadata.blankKit;
@@ -3019,7 +2672,10 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             allFrontItems.forEach((item, index) => {
               const suffix = item.withoutLogoFront ? ' NL (No Logo).jpg' : ' F.jpg';
               renderActions.push({
-                representativeItem: item,
+                representativeItem: {
+                  ...item,
+                  qty: 1
+                },
                 fileName: `${item.size} ${index + 1}${suffix}`,
                 folder: 'Front'
               });
@@ -3076,7 +2732,10 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             });
             allBackItems.forEach((item, index) => {
               renderActions.push({
-                representativeItem: item,
+                representativeItem: {
+                  ...item,
+                  qty: 1
+                },
                 fileName: `${item.size} ${index + 1} B.jpg`,
                 folder: 'Back'
               });
@@ -3121,7 +2780,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               } else if (rep.panelType === 'sleeve-right') {
                 sleeveCode = rep.sleeveType === 'full' ? 'Full Sleeve Right' : 'Right Sleeve';
               } else {
-                sleeveCode = rep.sleeveType === 'full' ? 'Full Sleeve Merged' : 'Left & Right Sleeve';
+                sleeveCode = rep.sleeveType === 'full' ? 'Full Sleeve Merged' : 'Merged Sleeve';
               }
 
               const fileName = `${rep.size} = ${qty} ${sleeveCode}.jpg`;
@@ -3225,164 +2884,14 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           
           const link = document.createElement('a');
           link.href = URL.createObjectURL(content);
-          link.download = `${cleanCust}_${cleanOrder}_Sublimation_Panels.zip`;
+          link.download = testMode 
+            ? `${cleanCust}_${cleanOrder}_72DPI_Test_Panels.zip`
+            : `${cleanCust}_${cleanOrder}_Sublimation_Panels.zip`;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
 
-          // Billing is logged once at end of full export (not here, to avoid duplicates)
-
-          // Now, generate and download a 72 DPI preview PDF alongside only if requested and activeDpi > 72
-          // Bulk order protection: If order is large (> 40 panels), skip building 100+ page PDF in memory to avoid Chrome OOM crash
-          const needPreviewPdf = !testMode && activeDpi > 72 && includePreviewPdf && renderActions.length <= 40;
-          if (!testMode && activeDpi > 72 && includePreviewPdf && renderActions.length > 40) {
-            console.log("Bulk order with " + renderActions.length + " panels: 72 DPI Preview PDF omitted to prevent browser memory exhaustion.");
-          }
-          if (needPreviewPdf && renderActions.length > 0) {
-            setExportProgressPct(90);
-            setExportProgress("Generating preview PDF at 72 DPI...");
-            
-            interface PreviewPage {
-              item: PlacedItem;
-              label: string;
-            }
-            const previewPages: PreviewPage[] = [];
-            const processedItemIds = new Set<string>();
-
-            // 1. Pair Front and Back for each player piece
-            items.forEach(item => {
-              if (item.panelType === 'back') {
-                // Find corresponding front panel for this item (shares the same recordId prefix)
-                const recordPrefix = item.recordId.substring(0, item.recordId.lastIndexOf('-item-') + 6);
-                const frontItem = items.find(fit => fit.panelType === 'front' && fit.recordId.startsWith(recordPrefix));
-                
-                if (frontItem) {
-                  previewPages.push({
-                    item: frontItem,
-                    label: `[Front] ${item.playerName || 'BLANK'} F`
-                  });
-                }
-                previewPages.push({
-                  item: item,
-                  label: `[Back] ${item.playerName || 'BLANK'} B`
-                });
-                processedItemIds.add(item.recordId);
-                if (frontItem) {
-                  processedItemIds.add(frontItem.recordId);
-                }
-              }
-            });
-
-            // 2. Add collar representative preview pages (Youth & Adult)
-            const collarPreviewList = (cHas && exportCollar) ? items.filter(it => it.panelType === 'collar') : [];
-            if (collarPreviewList.length > 0) {
-              const youthCollars = collarPreviewList.filter(it => isYouthCollarSize(it.size));
-              const adultCollars = collarPreviewList.filter(it => !isYouthCollarSize(it.size));
-              const sW = collarSizes?.small?.w ?? 18;
-              const sH = collarSizes?.small?.h ?? 4.5;
-              const bW = collarSizes?.big?.w ?? 20;
-              const bH = collarSizes?.big?.h ?? 4.5;
-
-              if (youthCollars.length > 0) {
-                previewPages.push({
-                  item: { ...youthCollars[0], w: sW, h: sH, qty: youthCollars.length },
-                  label: `[Collar] Small Collars = ${youthCollars.length} pcs (dimention = ${sW} x ${sH})`
-                });
-              }
-              if (adultCollars.length > 0) {
-                previewPages.push({
-                  item: { ...adultCollars[0], w: bW, h: bH, qty: adultCollars.length },
-                  label: `[Collar] Big Collar = ${adultCollars.length} pcs (dimention = ${bW} x ${bH})`
-                });
-              }
-              collarPreviewList.forEach(it => processedItemIds.add(it.recordId));
-            }
-
-            // 3. Add any other items (unpaired fronts, sleeves, A4 prints)
-            items.forEach(item => {
-              if (!processedItemIds.has(item.recordId)) {
-                let label = `[${item.panelType.toUpperCase()}] ${item.size}`;
-                if (item.panelType === 'front') {
-                  label = `[Front] ${item.playerName || 'BLANK'} F`;
-                } else if (item.panelType.startsWith('sleeve')) {
-                  label = `[Sleeve] ${item.size}`;
-                } else if (item.panelType === 'a4-print') {
-                  label = `[A4] ${item.size}`;
-                } else if (item.panelType === 'collar') {
-                  label = `[Collar] ${item.size}`;
-                }
-                previewPages.push({
-                  item,
-                  label
-                });
-              }
-            });
-
-            if (previewPages.length > 0) {
-              const maxItemHeight = previewPages.reduce((max, pg) => Math.max(max, pg.item.h), 0);
-              const maxItemHeightPt = (maxItemHeight * 72) + 30;
-              const zipUUnit = maxItemHeightPt > 14400 ? Math.ceil(maxItemHeightPt / 14400) : 1.0;
-
-              const previewPdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'pt',
-                format: [ (previewPages[0].item.w * 72) / zipUUnit, ((previewPages[0].item.h * 72) + 30) / zipUUnit ],
-                userUnit: zipUUnit
-              });
-
-              for (let i = 0; i < previewPages.length; i++) {
-                const page = previewPages[i];
-                const item = page.item;
-                const pageW = (item.w * 72) / zipUUnit;
-                const pageH = ((item.h * 72) + 30) / zipUUnit;
-
-                if (i > 0) {
-                  previewPdf.addPage([ pageW, pageH ], 'portrait');
-                }
-
-                // Draw solid white background
-                previewPdf.setFillColor(255, 255, 255);
-                previewPdf.rect(0, 0, pageW, pageH, 'F');
-
-                const previewItemCanvas = await renderPanelGraphic(item, 72, true);
-                const previewImgData = previewItemCanvas.toDataURL('image/jpeg', 0.75);
-
-                const targetXPt = 0;
-                const targetYPt = 5;
-                const targetWPt = item.w * 72;
-                const targetHPt = item.h * 72;
-
-                previewPdf.addImage(
-                  previewImgData, 
-                  'JPEG', 
-                  targetXPt / zipUUnit, 
-                  targetYPt / zipUUnit, 
-                  targetWPt / zipUUnit, 
-                  targetHPt / zipUUnit, 
-                  undefined, 
-                  'FAST'
-                );
-
-                // Add centered label below image
-                previewPdf.setFontSize(12);
-                previewPdf.setTextColor(50, 50, 50);
-                previewPdf.text(
-                  page.label,
-                  pageW / 2,
-                  ((item.h * 72) + 20) / zipUUnit,
-                  { align: 'center' }
-                );
-
-                // Release memory immediately
-                previewItemCanvas.width = 0;
-                previewItemCanvas.height = 0;
-                await new Promise(r => setTimeout(r, 0));
-              }
-              previewPdf.save(`${cleanCust}_${cleanOrder}_Preview_72dpi.pdf`);
-            }
-          }
-
-          // Auto-log Print Production Export Billing Entry (Test Mode)
+          // Auto-log Print Production Export Billing Entry in Invoices & Billing
           logPrintProductionExportBillingEntry(billedJerseyCount);
 
           setExportProgressPct(100);
@@ -3397,170 +2906,6 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             spread: 80,
             origin: { y: 0.5 }
           });
-          return;
-        }
-
-        // Standard Nested Roll export
-        let sheetsToExport = (nestingSheetsRef.current && nestingSheetsRef.current.length > 0)
-          ? nestingSheetsRef.current
-          : (nestingSheets && nestingSheets.length > 0 ? nestingSheets : []);
-
-        if (sheetsToExport.length === 0) {
-          sheetsToExport = runNesting(true);
-        }
-
-        if (sheetsToExport.length === 0) {
-          throw new Error("No nesting sheets could be generated. Please make sure order items have valid sizes.");
-        }
-
-        const firstSheet = sheetsToExport[0];
-        // Calculate userUnit scaling factor to bypass PDF 200-inch limit (14400 points)
-        const maxSheetHeight = sheetsToExport.reduce((max, s) => Math.max(max, s?.height || 0), 0) || 50;
-        const firstSheetH = firstSheet?.height || maxSheetHeight || 50;
-        const maxSheetHeightPt = maxSheetHeight * 72;
-        const uUnit = maxSheetHeightPt > 14400 ? Math.ceil(maxSheetHeightPt / 14400) : 1.0;
-
-        const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'pt',
-          format: [ (rollW * 72) / uUnit, (firstSheetH * 72) / uUnit ],
-          userUnit: uUnit
-        });
-
-        // Create the 72 DPI preview PDF if activeDpi is not 72 and requested
-        const needPreviewPdf = !testMode && activeDpi > 72 && includePreviewPdf;
-        let previewPdf: jsPDF | null = null;
-        if (needPreviewPdf) {
-          previewPdf = new jsPDF({
-            orientation: 'portrait',
-            unit: 'pt',
-            format: [ (rollW * 72) / uUnit, (firstSheetH * 72) / uUnit ],
-            userUnit: uUnit
-          });
-        }
-
-        for (let s = 0; s < sheetsToExport.length; s++) {
-          const sheet = sheetsToExport[s];
-          const widthPt = rollW * 72;
-          const heightPt = (sheet?.height || firstSheetH) * 72;
-
-          if (s > 0) {
-            pdf.addPage([ widthPt / uUnit, heightPt / uUnit ], 'portrait');
-            if (needPreviewPdf && previewPdf) {
-              previewPdf.addPage([ widthPt / uUnit, heightPt / uUnit ], 'portrait');
-            }
-          }
-
-          // Directly draw each nested panel onto the PDF document
-          for (let i = 0; i < sheet.items.length; i++) {
-            const item = sheet.items[i];
-            const totalItems = sheetsToExport.reduce((acc, sh) => acc + sh.items.length, 0);
-            const globalIdx = sheetsToExport.slice(0, s).reduce((acc, sh) => acc + sh.items.length, 0) + i;
-            setExportProgressPct(Math.round(15 + ((globalIdx / Math.max(totalItems, 1)) * 68)));
-            setExportProgress(`Rendering panel ${i + 1}/${sheet.items.length} on Sheet ${s + 1} at ${activeDpi} DPI...`);
-
-            // Compute original unrotated dimensions to prevent template stretching
-            const origW = item.rotated ? item.h : item.w;
-            const origH = item.rotated ? item.w : item.h;
-            const unrotatedItem = { ...item, w: origW, h: origH };
-
-            const itemCanvas = await renderPanelGraphic(unrotatedItem, activeDpi);
-            let previewItemCanvas = null;
-            if (needPreviewPdf) {
-              previewItemCanvas = await renderPanelGraphic(unrotatedItem, 72, true);
-            }
-
-            // Handle pre-rotation of the panel if it is rotated in the layout
-            let finalCanvas = itemCanvas;
-            if (item.rotated) {
-              const rotatedCanvas = document.createElement('canvas');
-              rotatedCanvas.width = itemCanvas.height;
-              rotatedCanvas.height = itemCanvas.width;
-              const rCtx = rotatedCanvas.getContext('2d');
-              if (rCtx) {
-                rCtx.save();
-                rCtx.translate(rotatedCanvas.width / 2, rotatedCanvas.height / 2);
-                rCtx.rotate(Math.PI / 2);
-                rCtx.drawImage(itemCanvas, -itemCanvas.width / 2, -itemCanvas.height / 2);
-                rCtx.restore();
-                finalCanvas = rotatedCanvas;
-              }
-            }
-
-            let finalPreviewCanvas = previewItemCanvas;
-            if (needPreviewPdf && item.rotated && previewItemCanvas) {
-              const rotatedCanvas = document.createElement('canvas');
-              rotatedCanvas.width = previewItemCanvas.height;
-              rotatedCanvas.height = previewItemCanvas.width;
-              const rCtx = rotatedCanvas.getContext('2d');
-              if (rCtx) {
-                rCtx.save();
-                rCtx.translate(rotatedCanvas.width / 2, rotatedCanvas.height / 2);
-                rCtx.rotate(Math.PI / 2);
-                rCtx.drawImage(previewItemCanvas, -previewItemCanvas.width / 2, -previewItemCanvas.height / 2);
-                rCtx.restore();
-                finalPreviewCanvas = rotatedCanvas;
-              }
-            }
-
-            const imgData = finalCanvas.toDataURL('image/jpeg', 0.85);
-
-            const targetXPt = item.x * 72;
-            const targetYPt = item.y * 72;
-            const targetWPt = item.w * 72;
-            const targetHPt = item.h * 72;
-
-            pdf.addImage(imgData, 'JPEG', targetXPt / uUnit, targetYPt / uUnit, targetWPt / uUnit, targetHPt / uUnit, undefined, 'FAST');
-
-            if (needPreviewPdf && finalPreviewCanvas && previewPdf) {
-              const previewImgData = finalPreviewCanvas.toDataURL('image/jpeg', 0.75);
-              previewPdf.addImage(previewImgData, 'JPEG', targetXPt / uUnit, targetYPt / uUnit, targetWPt / uUnit, targetHPt / uUnit, undefined, 'FAST');
-            }
-
-            // Immediately release canvas GPU memory
-            itemCanvas.width = 0;
-            itemCanvas.height = 0;
-            if (previewItemCanvas) {
-              previewItemCanvas.width = 0;
-              previewItemCanvas.height = 0;
-            }
-            if (finalCanvas !== itemCanvas) {
-              finalCanvas.width = 0;
-              finalCanvas.height = 0;
-            }
-            if (finalPreviewCanvas && finalPreviewCanvas !== previewItemCanvas) {
-              finalPreviewCanvas.width = 0;
-              finalPreviewCanvas.height = 0;
-            }
-
-            // Yield control to main thread so browser repaints progress text and doesn't freeze
-            await new Promise(r => setTimeout(r, 0));
-          }
-        }
-
-        setExportProgressPct(97);
-        setExportProgress("Saving PDF document...");
-        pdf.save(`${cleanCust}_${cleanOrder}_Print_Roll.pdf`);
-
-        if (needPreviewPdf && previewPdf) {
-          previewPdf.save(`${cleanCust}_${cleanOrder}_Preview_72dpi.pdf`);
-        }
-
-        // Auto-log Print Production Export Billing Entry in Invoices & Billing
-        logPrintProductionExportBillingEntry(billedJerseyCount);
-
-        setExportProgressPct(100);
-        setExportProgress("Export complete!");
-        await new Promise(r => setTimeout(r, 1800));
-        setIsExporting(false);
-        setExportProgress("");
-        setExportProgressPct(0);
-
-        confetti({
-          particleCount: 150,
-          spread: 80,
-          origin: { y: 0.5 }
-        });
       } catch (err) {
         console.error("Export process failed:", err);
         alert(`Export failed: ${(err as Error).message}\n\nPlease check the developer console for detailed logs.`);
@@ -3614,7 +2959,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
   };
 
   useImperativeHandle(ref, () => ({
-    exportRollPDF: () => handleExportPDF(true),
+    exportRollPDF: () => handleExportPDF(false),
     exportPanelsZip: () => handleExportPDF(false),
     calculateCost,
     executePaymentWithWallet,
@@ -3781,201 +3126,29 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       {/* Main Dual Configuration Container (Mode Selection + Export Bar) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '20px', alignItems: 'start' }}>
         
-        {/* Left Column: Mode Selector & Roll Options */}
+        {/* Left Column: Output Package Format & Options */}
         <div style={{ background: '#FFFFFF', border: '1px solid #E8E4DE', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', color: '#111827' }}>
-              <Sliders size={16} style={{ color: '#E4572E' }} /> Production Packaging Mode
+              <Download size={16} style={{ color: '#E4572E' }} /> Individual Panels (ZIP)
             </h3>
-            <span style={{ fontSize: '11px', fontWeight: '700', color: '#6B7280' }}>Select Workflow</span>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: '#059669', background: '#ECFDF5', padding: '3px 8px', borderRadius: '6px' }}>
+              Standard Production Format
+            </span>
           </div>
 
-          {/* Segmented Mode Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-            
-            {/* Mode 1: Individual Panels (ZIP) */}
-            <div 
-              onClick={() => {
-                setEnableNesting(false);
-                localStorage.setItem('fivenest_pref_enable_nesting', JSON.stringify(false));
-              }}
-              style={{
-                padding: '12px 14px',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                background: !enableNesting ? '#FFF0EB' : '#FAF8F5',
-                border: !enableNesting ? '1.5px solid #E4572E' : '1px solid #E8E4DE',
-                boxShadow: !enableNesting ? '0 2px 8px rgba(228, 87, 46, 0.12)' : 'none',
-                transition: 'all 0.2s ease',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '6px'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '20px' }}>📦</span>
-                <span style={{ 
-                  width: '14px', 
-                  height: '14px', 
-                  borderRadius: '50%', 
-                  border: !enableNesting ? '4px solid #E4572E' : '2px solid #D1D5DB', 
-                  background: !enableNesting ? '#FFFFFF' : 'transparent' 
-                }}></span>
-              </div>
-              <div style={{ fontSize: '13px', fontWeight: '800', color: !enableNesting ? '#E4572E' : '#111827' }}>
-                Individual (ZIP)
-              </div>
-              <div style={{ fontSize: '10px', color: '#6B7280', lineHeight: '1.3' }}>
-                Separated panel files sorted into Front, Back, and Sleeves.
-              </div>
+          <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '10px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ fontSize: '11px', fontWeight: '800', color: '#111827' }}>
+              📁 ZIP Output Folder Structure
+            </div>
+            <div style={{ fontSize: '11px', color: '#4B5563', lineHeight: '1.4' }}>
+              • <strong>Front/</strong> &amp; <strong>Back/</strong>: Jersey body panels<br/>
+              • <strong>Sleeve/</strong>: Sleeves + Collars (omitted if sleeve &amp; collar data not found)<br/>
+              • <strong>A4/</strong>: Standalone prints (if enabled)
             </div>
 
-            {/* Mode 2: Roll Nesting (PDF) */}
-            <div 
-              onClick={() => {
-                setEnableNesting(true);
-                localStorage.setItem('fivenest_pref_enable_nesting', JSON.stringify(true));
-              }}
-              style={{
-                padding: '12px 14px',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                background: enableNesting ? '#FFF0EB' : '#FAF8F5',
-                border: enableNesting ? '1.5px solid #E4572E' : '1px solid #E8E4DE',
-                boxShadow: enableNesting ? '0 2px 8px rgba(228, 87, 46, 0.12)' : 'none',
-                transition: 'all 0.2s ease',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '6px'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '20px' }}>🗺️</span>
-                <span style={{ 
-                  width: '14px', 
-                  height: '14px', 
-                  borderRadius: '50%', 
-                  border: enableNesting ? '4px solid #E4572E' : '2px solid #D1D5DB', 
-                  background: enableNesting ? '#FFFFFF' : 'transparent' 
-                }}></span>
-              </div>
-              <div style={{ fontSize: '13px', fontWeight: '800', color: enableNesting ? '#E4572E' : '#111827' }}>
-                Roll Nesting (PDF)
-              </div>
-              <div style={{ fontSize: '10px', color: '#6B7280', lineHeight: '1.3' }}>
-                Continuous tightly-packed canvas for direct RIP roll printing.
-              </div>
-            </div>
-
-          </div>
-
-          {/* Roll Nesting Specific Sub-controls */}
-          {enableNesting && (
-            <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '10px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontSize: '10px', color: '#6B7280', fontWeight: '600' }}>Roll W (in):</label>
-                  <input 
-                    type="number" 
-                    className="form-input" 
-                    style={{ padding: '6px 8px', fontSize: '12px', borderRadius: '6px', background: '#FFFFFF', border: '1px solid #D1D5DB', color: '#111827' }}
-                    value={rollW} 
-                    onChange={(e) => {
-                      const w = parseFloat(e.target.value) || 64;
-                      setRollW(w);
-                      localStorage.setItem('fivenest_pref_roll_w', JSON.stringify(w));
-                    }} 
-                  />
-                </div>
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontSize: '10px', color: '#6B7280', fontWeight: '600' }}>Max H (in):</label>
-                  <input 
-                    type="number" 
-                    className="form-input" 
-                    style={{ padding: '6px 8px', fontSize: '12px', borderRadius: '6px', background: '#FFFFFF', border: '1px solid #D1D5DB', color: '#111827' }}
-                    value={rollH} 
-                    onChange={(e) => {
-                      const h = parseFloat(e.target.value) || 100;
-                      setRollH(h);
-                      localStorage.setItem('fivenest_pref_roll_h', JSON.stringify(h));
-                    }} 
-                  />
-                </div>
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontSize: '10px', color: '#6B7280', fontWeight: '600' }}>Gap (in):</label>
-                  <input 
-                    type="number" 
-                    step="0.05" 
-                    className="form-input" 
-                    style={{ padding: '6px 8px', fontSize: '12px', borderRadius: '6px', background: '#FFFFFF', border: '1px solid #D1D5DB', color: '#111827' }}
-                    value={itemGap} 
-                    onChange={(e) => {
-                      const g = parseFloat(e.target.value) || 0.25;
-                      setItemGap(g);
-                      localStorage.setItem('fivenest_pref_item_gap', JSON.stringify(g));
-                    }} 
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', color: '#374151' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={tightestFit} 
-                    onChange={(e) => {
-                      setTightestFit(e.target.checked);
-                      localStorage.setItem('fivenest_pref_tightest_fit', JSON.stringify(e.target.checked));
-                    }} 
-                  />
-                  <span>Tightest 2D Fit</span>
-                </label>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', color: '#374151' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={rotateToFit} 
-                    onChange={(e) => {
-                      setRotateToFit(e.target.checked);
-                      localStorage.setItem('fivenest_pref_rotate_to_fit', JSON.stringify(e.target.checked));
-                    }} 
-                  />
-                  <span>Rotate 90° to Fit</span>
-                </label>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', color: '#374151' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={exportCollar} 
-                    onChange={(e) => {
-                      setExportCollar(e.target.checked);
-                      localStorage.setItem('fivenest_pref_export_collar', JSON.stringify(e.target.checked));
-                    }} 
-                  />
-                  <span>Export Collars (2 Sets: Youth &amp; Adult)</span>
-                </label>
-              </div>
-
-              <button 
-                className="btn btn-primary" 
-                onClick={runNesting} 
-                style={{ width: '100%', padding: '8px 14px', fontSize: '11px', fontWeight: '800', borderRadius: '8px', background: 'linear-gradient(135deg, #E4572E 0%, #EA580C 100%)', color: '#FFFFFF', border: 'none', boxShadow: '0 2px 6px rgba(228, 87, 46, 0.25)' }} 
-                disabled={isNesting}
-              >
-                <Play size={14} /> {isNesting ? "Computing Optimal Layout..." : "▶ Re-Calculate Roll Packing"}
-              </button>
-            </div>
-          )}
-
-          {!enableNesting && (
-            <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '10px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ fontSize: '11px', fontWeight: '800', color: '#111827' }}>
-                📁 ZIP Output Folder Structure
-              </div>
-              <div style={{ fontSize: '11px', color: '#4B5563', lineHeight: '1.4' }}>
-                • <strong>Front/</strong> &amp; <strong>Back/</strong>: Jersey body panels<br/>
-                • <strong>Sleeve/</strong>: Sleeves + Collars (omitted if sleeve &amp; collar data not found)<br/>
-                • <strong>A4/</strong>: Standalone prints (if enabled)
-              </div>
-              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', color: '#374151', marginTop: '4px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px', paddingTop: '10px', borderTop: '1px solid #E8E4DE' }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', color: '#374151' }}>
                 <input 
                   type="checkbox" 
                   checked={exportCollar} 
@@ -3983,22 +3156,38 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                     setExportCollar(e.target.checked);
                     localStorage.setItem('fivenest_pref_export_collar', JSON.stringify(e.target.checked));
                   }} 
+                  style={{ accentColor: '#E4572E', cursor: 'pointer' }}
                 />
                 <span>Export Collars (only when collar artwork/styling exists)</span>
               </label>
-              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', color: '#374151' }}>
+
+              <label style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '8px', 
+                cursor: 'pointer', 
+                fontSize: '11px', 
+                fontWeight: '700', 
+                color: metadata.individualExportFB ? '#E4572E' : '#111827',
+                padding: '4px 6px',
+                borderRadius: '6px',
+                background: metadata.individualExportFB ? '#FFF0EB' : 'transparent',
+                transition: 'all 0.15s ease'
+              }}>
                 <input 
                   type="checkbox" 
-                  checked={includePreviewPdf} 
+                  checked={!!metadata.individualExportFB} 
                   onChange={(e) => {
-                    setIncludePreviewPdf(e.target.checked);
-                    localStorage.setItem('fivenest_pref_preview_pdf', JSON.stringify(e.target.checked));
+                    if (onMetadataChange) {
+                      onMetadataChange({ ...metadata, individualExportFB: e.target.checked });
+                    }
                   }} 
+                  style={{ accentColor: '#E4572E', width: '15px', height: '15px', cursor: 'pointer' }}
                 />
-                <span>Also generate 72 DPI Client Proofing PDF</span>
+                <span>Individual Export F&amp;B (Separate 1-pc file for each Front &amp; Back)</span>
               </label>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Right Column: Smart Export Parameters & Download CTA */}
@@ -4241,7 +3430,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                   <Download size={18} style={{ color: getItemsToExport().length > 0 ? '#FFFFFF' : '#9CA3AF' }} /> 
                   {testMode 
                     ? "TEST DOWNLOAD (FREE - 72 DPI)" 
-                    : (enableNesting ? "DOWNLOAD PRINT-READY ROLL (PDF)" : "DOWNLOAD INDIVIDUAL PANELS (ZIP)")}
+                    : "DOWNLOAD INDIVIDUAL PANELS (ZIP)"}
                 </>
               )}
             </button>
