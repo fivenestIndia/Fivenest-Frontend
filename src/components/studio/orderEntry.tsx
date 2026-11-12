@@ -460,12 +460,14 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
       );
       if (shouldAppend) {
         onRecordsChange([...records, ...newRecords]);
+        updateMetadata({ manualMode: true });
         alert(`Appended ${newRecords.length} batch sizing panels to existing roster.`);
         return;
       }
     }
 
     onRecordsChange(newRecords);
+    updateMetadata({ manualMode: true });
     alert(`Generated ${newRecords.length} batch sizing panels from Quick Size Entry.`);
   };
 
@@ -1020,7 +1022,7 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
             <input 
               type="checkbox" 
               checked={!!metadata.individualExportFB} 
-              onChange={() => updateMetadata({ individualExportFB: !metadata.individualExportFB })} 
+              onChange={(e) => updateMetadata({ individualExportFB: e.target.checked })} 
               style={{ accentColor: '#E4572E', cursor: 'pointer' }}
             />
             <span>Individual Export F&B</span>

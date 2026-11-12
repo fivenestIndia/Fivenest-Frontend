@@ -123,7 +123,7 @@ function buildFontVariationPreset(spec: FontVariationPresetSpec): DesignPresetIt
       color: spec.numberColor,
       strokeColor: spec.numberStrokeColor,
       strokeWidth: spec.numberStrokeWidth ?? 0.8,
-      enabled: isBack ? true : (isFront ? (spec.frontNumberEnabled ?? true) : false),
+      enabled: isBack ? true : (isFront ? (spec.frontNumberEnabled ?? false) : false),
       fontSize: isBack ? 9.0 : 3.5,
       scaleX: 0.90,
       maxW: 9.0,

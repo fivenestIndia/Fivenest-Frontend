@@ -2604,8 +2604,35 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           const backOverlaysChecked = (designConfig.back.nameConfig.enabled || designConfig.back.numberConfig.enabled) && !metadata.blankKit;
           const a4OverlaysChecked = (designConfig.a4Print.nameConfig.enabled || designConfig.a4Print.numberConfig.enabled) && !metadata.blankKit;
 
-          const shouldIndividualExportFront = !!metadata?.individualExportFB || (metadata.manualMode ? false : frontOverlaysChecked);
-          const shouldIndividualExportBack = !!metadata?.individualExportFB || (metadata.manualMode ? false : backOverlaysChecked);
+          // Check whether the order contains real personalized player names or numbers
+          const hasRealPlayerNamesOrNumbers = records.some(r => {
+            const n = (r.name || '').trim();
+            const num = (r.number || '').trim();
+            const hasName = n !== '' && n.toUpperCase() !== 'BLANK' && n.toUpperCase() !== 'SLEEVE';
+            const hasNum = num !== '';
+            return hasName || hasNum;
+          });
+
+          // Check if front panel specifically has individual player names or numbers on records
+          const hasFrontPlayerNamesOrNumbers = records.some(r => {
+            const n = (r.name || '').trim();
+            const num = (r.number || '').trim();
+            const hasName = n !== '' && n.toUpperCase() !== 'BLANK' && n.toUpperCase() !== 'SLEEVE' && designConfig.front.nameConfig.enabled;
+            const hasNum = num !== '' && designConfig.front.numberConfig.enabled;
+            return hasName || hasNum;
+          });
+
+          // In Quick Size Entry, blank kit, or when no records have player names/numbers, it's a batch sizing order
+          const isQuickOrBlankOrder = !!metadata.manualMode || !!metadata.blankKit || !hasRealPlayerNamesOrNumbers;
+
+          const isIndividualFBChecked = !!metadata?.individualExportFB;
+
+          // When individualExportFB is ON: export individual 1-pc files for both Front & Back.
+          // When individualExportFB is OFF (older process):
+          // - Quick size entry / blank order: Both Front and Back are grouped by quantity (e.g. "40 = 5 F.jpg", "40 = 5 B.jpg")!
+          // - Real player rosters: Back is individual per player ("40 1 B.jpg"), Front is grouped ("40 = 5 F.jpg") unless front has real player names/numbers on records!
+          const shouldIndividualExportFront = isIndividualFBChecked || (!isQuickOrBlankOrder && hasFrontPlayerNamesOrNumbers);
+          const shouldIndividualExportBack = isIndividualFBChecked || (!isQuickOrBlankOrder && backOverlaysChecked);
 
           // Build list of render actions based on grouping rules
           interface RenderAction {
@@ -2664,20 +2691,17 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
           // Group/Format Fronts
           if (shouldIndividualExportFront) {
-            // Sort front items by size alphabetically to make sequential numbers clean
-            const allFrontItems: PlacedItem[] = [];
             Object.keys(frontSizeMap).sort().forEach(size => {
-              allFrontItems.push(...frontSizeMap[size]);
-            });
-            allFrontItems.forEach((item, index) => {
-              const suffix = item.withoutLogoFront ? ' NL (No Logo).jpg' : ' F.jpg';
-              renderActions.push({
-                representativeItem: {
-                  ...item,
-                  qty: 1
-                },
-                fileName: `${item.size} ${index + 1}${suffix}`,
-                folder: 'Front'
+              frontSizeMap[size].forEach((item, index) => {
+                const suffix = item.withoutLogoFront ? ' NL (No Logo).jpg' : ' F.jpg';
+                renderActions.push({
+                  representativeItem: isIndividualFBChecked ? {
+                    ...item,
+                    qty: 1
+                  } : item,
+                  fileName: `${item.size} ${index + 1}${suffix}`,
+                  folder: 'Front'
+                });
               });
             });
           } else {
@@ -2725,19 +2749,16 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
           // Group/Format Backs
           if (shouldIndividualExportBack) {
-            // Sort back items by size alphabetically to make sequential numbers clean
-            const allBackItems: PlacedItem[] = [];
             Object.keys(backSizeMap).sort().forEach(size => {
-              allBackItems.push(...backSizeMap[size]);
-            });
-            allBackItems.forEach((item, index) => {
-              renderActions.push({
-                representativeItem: {
-                  ...item,
-                  qty: 1
-                },
-                fileName: `${item.size} ${index + 1} B.jpg`,
-                folder: 'Back'
+              backSizeMap[size].forEach((item, index) => {
+                renderActions.push({
+                  representativeItem: isIndividualFBChecked ? {
+                    ...item,
+                    qty: 1
+                  } : item,
+                  fileName: `${item.size} ${index + 1} B.jpg`,
+                  folder: 'Back'
+                });
               });
             });
           } else {
