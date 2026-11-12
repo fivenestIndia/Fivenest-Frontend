@@ -2691,23 +2691,51 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ctx.strokeRect(h.x - 4, h.y - 4, 8, 8);
           });
 
-          // Active Layer Name Badge with drag direction hint and LIVE SIZE (W, H, X, Y)
-          const labelName = activeTextLayer === 'name' ? 'NAME' : 'NUMBER';
+          // Active Layer LIVE SIZE & POSITION (W, H, X, Y) - Minimized with curved corners, no layer text
           const pxPerInW = width / physicalW;
           const pxPerInH = height / physicalH;
           const liveWIn = (selectedBox.w / pxPerInW).toFixed(1);
           const liveHIn = (selectedBox.h / pxPerInH).toFixed(1);
           const liveXIn = ((selectedBox.x + selectedBox.w / 2) / pxPerInW).toFixed(1);
           const liveYIn = ((selectedBox.y + selectedBox.h / 2) / pxPerInH).toFixed(1);
-          const badgeText = `✥ ${labelName}  W:${liveWIn}" H:${liveHIn}" | X:${liveXIn}" Y:${liveYIn}"`;
-          ctx.font = 'bold 10px monospace';
-          const badgeW = ctx.measureText(badgeText).width + 16;
-          ctx.fillStyle = '#00e5ff';
-          ctx.fillRect(bx, Math.max(2, by - 22), badgeW, 18);
-          ctx.fillStyle = '#000000';
+          const badgeText = `W: ${liveWIn}"  H: ${liveHIn}"  |  X: ${liveXIn}"  Y: ${liveYIn}"`;
+          
+          ctx.font = '600 9px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+          const textW = ctx.measureText(badgeText).width;
+          const badgeH = 16;
+          const badgePadX = 6;
+          const badgeW = Math.round(textW + badgePadX * 2);
+          const badgeRadius = 4;
+          const badgeX = bx;
+          const badgeY = by >= 20 ? by - 19 : by + bh + 5;
+
+          // Draw sleek curved badge background with subtle cyan accent border
+          ctx.beginPath();
+          if (typeof (ctx as any).roundRect === 'function') {
+            (ctx as any).roundRect(badgeX, badgeY, badgeW, badgeH, badgeRadius);
+          } else {
+            ctx.moveTo(badgeX + badgeRadius, badgeY);
+            ctx.lineTo(badgeX + badgeW - badgeRadius, badgeY);
+            ctx.arcTo(badgeX + badgeW, badgeY, badgeX + badgeW, badgeY + badgeRadius, badgeRadius);
+            ctx.lineTo(badgeX + badgeW, badgeY + badgeH - badgeRadius);
+            ctx.arcTo(badgeX + badgeW, badgeY + badgeH, badgeX + badgeW - badgeRadius, badgeY + badgeH, badgeRadius);
+            ctx.lineTo(badgeX + badgeRadius, badgeY + badgeH);
+            ctx.arcTo(badgeX, badgeY + badgeH, badgeX, badgeY + badgeH - badgeRadius, badgeRadius);
+            ctx.lineTo(badgeX, badgeY + badgeRadius);
+            ctx.arcTo(badgeX, badgeY, badgeX + badgeRadius, badgeY, badgeRadius);
+            ctx.closePath();
+          }
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.90)';
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(0, 229, 255, 0.7)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          // Render live dimensions & position
+          ctx.fillStyle = '#ffffff';
           ctx.textAlign = 'left';
           ctx.textBaseline = 'middle';
-          ctx.fillText(badgeText, bx + 8, Math.max(11, by - 13));
+          ctx.fillText(badgeText, badgeX + badgePadX, badgeY + badgeH / 2);
 
           ctx.restore();
         }
