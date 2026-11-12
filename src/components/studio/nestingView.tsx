@@ -638,9 +638,10 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
         if (userId) {
           try {
+            const descJerseyCount = records.reduce((acc, r) => acc + (Number(r.qty) || 1), 0) || (metadata.manualGrid ? Object.values(metadata.manualGrid).reduce((acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0) + (Number(v?.half) || 0), 0) : 0);
             const { data: success, error } = await supabase.rpc('deduct_export_credits', {
               amount_to_deduct: paymentCost,
-              export_desc: `Exported ${records.reduce((acc, r) => acc + r.qty, 0)} items (${getItemsToExport().filter(item => item.panelType === 'back').length} back, ${getItemsToExport().filter(item => item.panelType === 'a4-print').length} A4)`
+              export_desc: `Exported ${descJerseyCount} jerseys (${getItemsToExport().filter(item => item.panelType === 'a4-print').length} A4)`
             });
 
             if (!error && success) {
@@ -739,10 +740,11 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             } catch {}
 
             if (userId) {
+              const upiJerseyCount = records.reduce((acc, r) => acc + (Number(r.qty) || 1), 0) || (metadata.manualGrid ? Object.values(metadata.manualGrid).reduce((acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0) + (Number(v?.half) || 0), 0) : 0);
               // Deduct export credits in database
               await supabase.rpc('deduct_export_credits', {
                 amount_to_deduct: paymentCost,
-                export_desc: `Exported ${records.reduce((acc, r) => acc + r.qty, 0)} items (Live UPI: ₹${paymentCost})`
+                export_desc: `Exported ${upiJerseyCount} jerseys (Live UPI: ₹${paymentCost})`
               }).catch(() => {});
 
               const details = await fetchUserWallet(userId);
@@ -2538,22 +2540,34 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
     const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
     if (isOwnerExempt) return 0;
 
-    const items = getItemsToExport();
-    const backHasArtwork = Boolean(
-      designConfig?.back?.uploadedFileUrl || 
-      (designConfig?.back?.backgroundType === 'upload' && designConfig?.back?.uploadedFileUrl) ||
-      designConfig?.back?.backgroundType === 'generate'
-    );
     const userSub = (currentUser as any)?.subscription || getSavedSubscription();
     const activeRate = getUserJerseyRate(userSub, includeWatermarkLogo, isOwnerExempt);
-    return items.reduce((acc, item) => {
-      if (item.panelType === 'back') {
-        return acc + (backHasArtwork ? activeRate : 0);
-      } else if (item.panelType === 'a4-print') {
-        return acc + 0.50;
-      }
-      return acc;
-    }, 0);
+
+    // Calculate total number of jerseys:
+    // In FiveNest, front, sleeve, and collar panels are completely free.
+    // Charges are strictly: (Total Number of Jerseys × activeRate) + (A4 Prints × 0.50)
+    let totalJerseys = 0;
+    const nonSleeveRecords = records.filter(r => r.name?.toUpperCase() !== 'SLEEVE');
+    if (nonSleeveRecords.length > 0) {
+      totalJerseys = nonSleeveRecords.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
+    } else if (records.length > 0) {
+      totalJerseys = records.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
+    } else if (metadata.manualGrid) {
+      totalJerseys = Object.values(metadata.manualGrid).reduce(
+        (acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0) + (Number(v?.half) || 0),
+        0
+      );
+    }
+
+    const items = getItemsToExport();
+    const a4Count = items.filter(i => i.panelType === 'a4-print').length;
+
+    // Fallback: If totalJerseys is 0, fall back to back items count or 0
+    if (totalJerseys === 0) {
+      totalJerseys = items.filter(i => i.panelType === 'back').length;
+    }
+
+    return (totalJerseys * activeRate) + (a4Count * 0.50);
   };
 
   // Compile individual panels ZIP package (Front, Back, Sleeve, Collar, A4)
@@ -2565,12 +2579,25 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
     const items = getItemsToExport();
     const totalPieces = items.length;
-    // Only back panels are billed (one per jersey)
-    const billedJerseyCount = items.filter(i => i.panelType === 'back').length || totalPieces;
     if (totalPieces === 0) {
       alert("Artwork file is not detected!\n\nNo printable panels found. Please upload an artwork file in Step 1: Artwork before exporting.");
       return;
     }
+
+    // Determine total jerseys for accurate billing ledger
+    let totalJerseys = 0;
+    const nonSleeveRecords = records.filter(r => r.name?.toUpperCase() !== 'SLEEVE');
+    if (nonSleeveRecords.length > 0) {
+      totalJerseys = nonSleeveRecords.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
+    } else if (records.length > 0) {
+      totalJerseys = records.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
+    } else if (metadata.manualGrid) {
+      totalJerseys = Object.values(metadata.manualGrid).reduce(
+        (acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0) + (Number(v?.half) || 0),
+        0
+      );
+    }
+    const billedJerseyCount = totalJerseys || items.filter(i => i.panelType === 'back').length || totalPieces;
 
     const calculatedCost = calculateCost();
 
@@ -3667,6 +3694,28 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               const activeSub = (currentUser as any)?.subscription || getSavedSubscription();
               const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
               const activeRate = getUserJerseyRate(activeSub, includeWatermarkLogo, isOwnerExempt);
+
+              let modalJerseys = 0;
+              const nonSleeveRecords = records.filter(r => r.name?.toUpperCase() !== 'SLEEVE');
+              if (nonSleeveRecords.length > 0) {
+                modalJerseys = nonSleeveRecords.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
+              } else if (records.length > 0) {
+                modalJerseys = records.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
+              } else if (metadata.manualGrid) {
+                modalJerseys = Object.values(metadata.manualGrid).reduce(
+                  (acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0) + (Number(v?.half) || 0),
+                  0
+                );
+              }
+
+              const exportItems = getItemsToExport();
+              const a4Count = exportItems.filter(i => i.panelType === 'a4-print').length;
+              if (modalJerseys === 0) {
+                modalJerseys = exportItems.filter(i => i.panelType === 'back').length;
+              }
+
+              const freePanelsCount = exportItems.filter(item => item.panelType !== 'back' && item.panelType !== 'a4-print').length;
+
               return (
                 <>
                   <p style={{ fontSize: '12px', color: '#4B5563', marginBottom: '14px', lineHeight: '1.4' }}>
@@ -3684,22 +3733,24 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                   {/* Pricing Breakdown Card */}
                   <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '10px', padding: '14px 16px', marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                      <span style={{ color: '#6B7280' }}>Player Roster Count:</span>
-                      <span style={{ fontWeight: '700', color: '#111827' }}>{records.reduce((acc, r) => acc + r.qty, 0)} players</span>
+                      <span style={{ color: '#6B7280' }}>Total Jerseys in Order:</span>
+                      <span style={{ fontWeight: '700', color: '#111827' }}>{modalJerseys} jerseys</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                      <span style={{ color: '#6B7280' }}>Charged Back Panels:</span>
+                      <span style={{ color: '#6B7280' }}>Sublimation Export Rate:</span>
                       <span style={{ fontWeight: '700', color: '#111827' }}>
-                        {getItemsToExport().filter(item => item.panelType === 'back').length} pcs (₹{activeRate.toFixed(2)} each)
+                        {modalJerseys} pcs × ₹{activeRate.toFixed(2)} = ₹{(modalJerseys * activeRate).toFixed(2)}
                       </span>
                     </div>
+                    {a4Count > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                        <span style={{ color: '#6B7280' }}>Charged A4 Prints:</span>
+                        <span style={{ fontWeight: '700', color: '#111827' }}>{a4Count} pcs (₹0.50 each) = ₹{(a4Count * 0.50).toFixed(2)}</span>
+                      </div>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                      <span style={{ color: '#6B7280' }}>Charged A4 Prints:</span>
-                      <span style={{ fontWeight: '700', color: '#111827' }}>{getItemsToExport().filter(item => item.panelType === 'a4-print').length} pcs (₹0.50 each)</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                      <span style={{ color: '#6B7280' }}>Free Panels (Front/Sleeve):</span>
-                      <span style={{ fontWeight: '700', color: '#15803D' }}>{getItemsToExport().filter(item => item.panelType !== 'back' && item.panelType !== 'a4-print').length} pcs (₹0.00)</span>
+                      <span style={{ color: '#6B7280' }}>Front, Sleeve & Collar Panels:</span>
+                      <span style={{ fontWeight: '700', color: '#15803D' }}>{freePanelsCount} pcs (100% FREE)</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', borderTop: '1px solid #E8E4DE', paddingTop: '10px', marginTop: '4px' }}>
                       <span style={{ fontWeight: '800', color: '#111827' }}>Total Amount Due:</span>

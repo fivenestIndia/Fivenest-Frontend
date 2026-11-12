@@ -40,6 +40,7 @@ export interface OrderMetadata {
   halfSleeveMerge: boolean;
   individualExportFB?: boolean;
   manualMode: boolean;
+  manualGrid?: { [size: string]: { fb: number; half: number; full: number } };
   whatsapp?: string;
   fileName?: string;
   rate?: number;
@@ -92,18 +93,35 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
     return { initial: fontId.slice(0, 3).toUpperCase(), name: fontId };
   };
 
-  // Manual entry grid quantities (Photoshop plugin style)
-  const [manualGrid, setManualGrid] = useState<{ [size: string]: { fb: number; half: number; full: number } }>({});
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Initialize manual grid values
-  useEffect(() => {
-    const initGrid: typeof manualGrid = {};
+  // Manual entry grid quantities (Photoshop plugin style) - persisted in metadata
+  const [manualGrid, setManualGrid] = useState<{ [size: string]: { fb: number; half: number; full: number } }>(() => {
+    if (metadata.manualGrid && Object.keys(metadata.manualGrid).length > 0) {
+      return metadata.manualGrid;
+    }
+    const initGrid: { [size: string]: { fb: number; half: number; full: number } } = {};
     availableSizes.forEach(size => {
       initGrid[size] = { fb: 0, half: 0, full: 0 };
     });
-    setManualGrid(initGrid);
+    return initGrid;
+  });
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Keep manual grid aligned with available sizes without clearing existing entered quantities
+  useEffect(() => {
+    setManualGrid(prev => {
+      const base = (metadata.manualGrid && Object.keys(metadata.manualGrid).length > 0)
+        ? { ...metadata.manualGrid }
+        : { ...prev };
+      let changed = false;
+      availableSizes.forEach(size => {
+        if (!base[size]) {
+          base[size] = { fb: 0, half: 0, full: 0 };
+          changed = true;
+        }
+      });
+      return changed || Object.keys(prev).length === 0 ? base : prev;
+    });
   }, [availableSizes]);
 
   const updateMetadata = (fields: Partial<OrderMetadata>) => {
@@ -406,40 +424,40 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
   };
 
   // Convert manual quick size entry grid into PlayerRecords
-  const handleGenerateFromGrid = () => {
+  const buildRecordsFromGrid = (grid: { [size: string]: { fb: number; half: number; full: number } }): PlayerRecord[] => {
     const newRecords: PlayerRecord[] = [];
 
-    Object.keys(manualGrid).forEach(size => {
-      const { fb, half, full } = manualGrid[size];
+    Object.keys(grid).forEach(size => {
+      const { fb, half, full } = grid[size] || { fb: 0, half: 0, full: 0 };
       
-      // Full Jersey records (Front + Back + Half Sleeve) - the most common production case
+      // Full Jersey records (Front + Back + Half Sleeve) - standard sublimation kit
       if (fb > 0) {
         newRecords.push({
-          id: `manual-fb-${size}-${Date.now()}`,
+          id: `manual-fb-${size}`,
           name: "BLANK",
           number: "",
           size: size,
           qty: fb,
-          sleeve: 'half' // generates front, back, AND half sleeves together
+          sleeve: 'half'
         });
       }
 
       // Full sleeve jersey records (Front + Back + Full Sleeve)
       if (full > 0) {
         newRecords.push({
-          id: `manual-full-${size}-${Date.now()}`,
+          id: `manual-full-${size}`,
           name: "BLANK",
           number: "",
           size: size,
           qty: full,
-          sleeve: 'full' // generates front, back, AND full sleeves together
+          sleeve: 'full'
         });
       }
 
       // Sleeve-only records (only sleeve panels, no front/back)
       if (half > 0) {
         newRecords.push({
-          id: `manual-half-${size}-${Date.now()}`,
+          id: `manual-half-${size}`,
           name: "SLEEVE",
           number: "",
           size: size,
@@ -449,37 +467,43 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
       }
     });
 
+    return newRecords;
+  };
+
+  // Explicit action button to load or refresh grid into order
+  const handleGenerateFromGrid = () => {
+    const newRecords = buildRecordsFromGrid(manualGrid);
+
     if (newRecords.length === 0) {
       alert("Please enter quantities in the grid first.");
       return;
     }
 
-    if (records.length > 0) {
-      const shouldAppend = window.confirm(
-        `You currently have ${records.length} items in your order roster.\n\nClick "OK" to APPEND the new grid quantities to your roster, or "Cancel" to REPLACE your roster.`
-      );
-      if (shouldAppend) {
-        onRecordsChange([...records, ...newRecords]);
-        updateMetadata({ manualMode: true });
-        alert(`Appended ${newRecords.length} batch sizing panels to existing roster.`);
-        return;
-      }
-    }
-
     onRecordsChange(newRecords);
-    updateMetadata({ manualMode: true });
-    alert(`Generated ${newRecords.length} batch sizing panels from Quick Size Entry.`);
+    updateMetadata({ manualMode: true, manualGrid });
+    const totalPcs = newRecords.reduce((acc, r) => acc + (r.qty || 1), 0);
+    alert(`✓ Successfully loaded ${totalPcs} jerseys into order.`);
   };
 
   const handleManualGridChange = (size: string, type: 'fb' | 'half' | 'full', value: string) => {
-    const val = parseInt(value) || 0;
-    setManualGrid(prev => ({
-      ...prev,
+    const val = Math.max(0, parseInt(value) || 0);
+    const updatedGrid = {
+      ...manualGrid,
       [size]: {
-        ...prev[size],
+        ...manualGrid[size],
         [type]: val
       }
-    }));
+    };
+    setManualGrid(updatedGrid);
+
+    // Auto-sync into records and metadata so Quick Size Entry is ALWAYS in sync with charges & export
+    const newRecords = buildRecordsFromGrid(updatedGrid);
+    onRecordsChange(newRecords);
+    onMetadataChange({
+      ...metadata,
+      manualMode: true,
+      manualGrid: updatedGrid
+    });
   };
 
   const handleClearGrid = () => {
@@ -488,6 +512,11 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
       cleared[size] = { fb: 0, half: 0, full: 0 };
     });
     setManualGrid(cleared);
+    onRecordsChange([]);
+    onMetadataChange({
+      ...metadata,
+      manualGrid: cleared
+    });
   };
 
   // Inline table edit actions
