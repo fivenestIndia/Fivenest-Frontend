@@ -936,128 +936,6 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
           </div>
         )}
 
-        {/* Row 3: Sublimation Panel Rendering Options */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginTop: '14px', paddingTop: '14px', borderTop: '1px solid #E8E4DE' }}>
-          <span style={{ fontSize: '11px', fontWeight: '800', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sublimation:</span>
-          
-          <label style={{ 
-            display: 'inline-flex', 
-            alignItems: 'center', 
-            gap: '6px', 
-            cursor: 'pointer', 
-            fontSize: '12px', 
-            fontWeight: '700', 
-            padding: '4px 10px',
-            borderRadius: '6px',
-            border: metadata.halfSleeveMerge ? '1px solid #E4572E' : '1px solid #E2DED7',
-            background: metadata.halfSleeveMerge ? '#FFF0EB' : '#FFFFFF',
-            color: metadata.halfSleeveMerge ? '#E4572E' : '#4B5563',
-            transition: 'all 0.15s ease'
-          }}>
-            <input 
-              type="checkbox" 
-              checked={metadata.halfSleeveMerge} 
-              onChange={() => updateMetadata({ halfSleeveMerge: !metadata.halfSleeveMerge })} 
-              style={{ accentColor: '#E4572E', cursor: 'pointer' }}
-            />
-            <span>Half-Sleeve Merge</span>
-          </label>
-
-          <label style={{ 
-            display: 'inline-flex', 
-            alignItems: 'center', 
-            gap: '6px', 
-            cursor: 'pointer', 
-            fontSize: '12px', 
-            fontWeight: '700', 
-            padding: '4px 10px',
-            borderRadius: '6px',
-            border: metadata.blankKit ? '1px solid #E4572E' : '1px solid #E2DED7',
-            background: metadata.blankKit ? '#FFF0EB' : '#FFFFFF',
-            color: metadata.blankKit ? '#E4572E' : '#4B5563',
-            transition: 'all 0.15s ease'
-          }}>
-            <input 
-              type="checkbox" 
-              checked={metadata.blankKit} 
-              onChange={() => updateMetadata({ blankKit: !metadata.blankKit })} 
-              style={{ accentColor: '#E4572E', cursor: 'pointer' }}
-            />
-            <span>Blank Kit</span>
-          </label>
-
-          <label style={{ 
-            display: 'inline-flex', 
-            alignItems: 'center', 
-            gap: '6px', 
-            cursor: 'pointer', 
-            fontSize: '12px', 
-            fontWeight: '700', 
-            padding: '4px 10px',
-            borderRadius: '6px',
-            border: metadata.a4BackPrint ? '1px solid #E4572E' : '1px solid #E2DED7',
-            background: metadata.a4BackPrint ? '#FFF0EB' : '#FFFFFF',
-            color: metadata.a4BackPrint ? '#E4572E' : '#4B5563',
-            transition: 'all 0.15s ease'
-          }}>
-            <input 
-              type="checkbox" 
-              checked={metadata.a4BackPrint} 
-              onChange={() => updateMetadata({ a4BackPrint: !metadata.a4BackPrint })} 
-              style={{ accentColor: '#E4572E', cursor: 'pointer' }}
-            />
-            <span>A4 Print (10×11")</span>
-          </label>
-
-          <label style={{ 
-            display: 'inline-flex', 
-            alignItems: 'center', 
-            gap: '6px', 
-            cursor: 'pointer', 
-            fontSize: '12px', 
-            fontWeight: '700', 
-            padding: '4px 10px',
-            borderRadius: '6px',
-            border: metadata.raglanStyle ? '1px solid #E4572E' : '1px solid #E2DED7',
-            background: metadata.raglanStyle ? '#FFF0EB' : '#FFFFFF',
-            color: metadata.raglanStyle ? '#E4572E' : '#4B5563',
-            transition: 'all 0.15s ease'
-          }}>
-            <input 
-              type="checkbox" 
-              checked={metadata.raglanStyle} 
-              onChange={() => updateMetadata({ raglanStyle: !metadata.raglanStyle })} 
-              style={{ accentColor: '#E4572E', cursor: 'pointer' }}
-            />
-            <span>Raglan Style</span>
-          </label>
-
-          <label style={{ 
-            display: 'inline-flex', 
-            alignItems: 'center', 
-            gap: '6px', 
-            cursor: 'pointer', 
-            fontSize: '12px', 
-            fontWeight: '700', 
-            padding: '4px 10px',
-            borderRadius: '6px',
-            border: metadata.individualExportFB ? '1px solid #E4572E' : '1px solid #E2DED7',
-            background: metadata.individualExportFB ? '#FFF0EB' : '#FFFFFF',
-            color: metadata.individualExportFB ? '#E4572E' : '#4B5563',
-            transition: 'all 0.15s ease'
-          }}
-          title="Export single pcs of every front & back individually instead of grouping by quantity"
-          >
-            <input 
-              type="checkbox" 
-              checked={!!metadata.individualExportFB} 
-              onChange={(e) => updateMetadata({ individualExportFB: e.target.checked })} 
-              style={{ accentColor: '#E4572E', cursor: 'pointer' }}
-            />
-            <span>Individual Export F&B</span>
-          </label>
-        </div>
-
         {/* Quick Size Entry: Big Action Button + "How to Use It" Guide */}
         {metadata.manualMode && (
           <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #E8E4DE' }}>
@@ -1173,11 +1051,11 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
                       fontSize: '11px'
                     }}>2</span>
                     <span style={{ fontSize: '12px', fontWeight: '700', color: '#111827' }}>
-                      Select Sublimation Options
+                      Review Quantities &amp; Breakdown
                     </span>
                   </div>
                   <p style={{ margin: 0, fontSize: '11px', color: '#4B5563', lineHeight: 1.5 }}>
-                    Toggle <strong>Half-Sleeve Merge</strong> (merge L+R sleeves), <strong>Blank Kit</strong> (plain jerseys), <strong>A4 Print</strong>, or <strong>Raglan Style</strong> above as needed.
+                    Check your sizes above. Sublimation options (Half-Sleeve Merge, Blank Kit, Raglan, A4) are available in the <strong>Export tab</strong>.
                   </p>
                 </div>
 
