@@ -1,7 +1,11 @@
 // BUILD v20260906-r5 — FiveNest Studio Export Processing Modal
 import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import confetti from 'canvas-confetti';
-import { Play, Download, Sliders, Coins, QrCode, CheckCircle, AlertTriangle, Loader2, X, Palette, Award } from 'lucide-react';
+import { 
+  Play, Download, Sliders, Coins, QrCode, CheckCircle, AlertTriangle, 
+  Loader2, X, Palette, Award, Save, Clock, Trash2, Edit2, CheckSquare, 
+  Square, RefreshCw, FolderCheck, Sparkles, Layers, ArrowRight, Zap, Check, CheckCircle2 
+} from 'lucide-react';
 import JSZip from 'jszip';
 import { supabase, fetchUserWallet } from '../../lib/supabaseClient';
 import { fivenestLabelTagDataUrl } from '../../assets/labelTagBase64';
@@ -19,6 +23,16 @@ import {
   DEFAULT_SPOT_RATE_WITHOUT_TAG 
 } from '../../lib/subscriptionPlans';
 import { deductPromoBalance } from '../../lib/trialManager';
+import { 
+  getLocalPresets, 
+  saveAdvancePreset, 
+  updatePresetName, 
+  deletePresetFromIndexedDB, 
+  MAX_CLOUD_PRESETS, 
+  isPresetValid, 
+  formatTimeRemaining, 
+  type DesignPresetItem 
+} from '../../lib/presetsSyncService';
 
 // ---- Export format utilities ----
 type ExportFormat = 'jpg' | 'png' | 'tiff';
@@ -460,15 +474,17 @@ export const checkArtworkUploadStatus = (
 
 interface NestingViewProps {
   records: PlayerRecord[];
+  onRecordsChange?: (records: PlayerRecord[]) => void;
   metadata: OrderMetadata;
+  onMetadataChange?: (metadata: OrderMetadata) => void;
   sizeDB: SizeDatabase;
   designConfig: ArtDesignConfig;
+  onDesignConfigChange?: (config: ArtDesignConfig) => void;
   currentUser: { email: string; name: string; balance: number } | null;
   testMode: boolean;
   onUserChange: (user: { email: string; name: string; balance: number } | null) => void;
   onOpenLogin: () => void;
   onGoToArtwork?: () => void;
-  onMetadataChange?: (metadata: OrderMetadata) => void;
 }
 
 interface PlacedItem {
@@ -529,15 +545,17 @@ export interface NestingViewHandle {
 
 export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(function NestingView({
   records,
+  onRecordsChange,
   metadata,
+  onMetadataChange,
   sizeDB,
   designConfig,
+  onDesignConfigChange,
   currentUser,
   testMode,
   onUserChange,
   onOpenLogin,
-  onGoToArtwork,
-  onMetadataChange
+  onGoToArtwork
 }, ref) {
   const artworkStatus = checkArtworkUploadStatus(designConfig, metadata);
   const { anyArtworkUploaded, frontHasArtwork, backHasArtwork, sleeveHasArtwork, collarHasArtwork } = artworkStatus;
@@ -851,6 +869,25 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
   const [exportProgressPct, setExportProgressPct] = useState<number>(0);
   const [isExporting, setIsExporting] = useState<boolean>(false);
 
+  // Advance Design Presets & Batch Auto-Export states
+  const [advancePresets, setAdvancePresets] = useState<DesignPresetItem[]>([]);
+  const [loadingPresets, setLoadingPresets] = useState<boolean>(false);
+  const [selectedPresetIds, setSelectedPresetIds] = useState<string[]>([]);
+  const [showSavePresetModal, setShowSavePresetModal] = useState<boolean>(false);
+  const [newPresetNameInput, setNewPresetNameInput] = useState<string>('');
+  const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
+  const [editingPresetName, setEditingPresetName] = useState<string>('');
+  
+  // Continuous Multi-Job Batch Export states
+  const [isBatchExporting, setIsBatchExporting] = useState<boolean>(false);
+  const [showBatchModal, setShowBatchModal] = useState<boolean>(false);
+  const [batchCurrentJobIndex, setBatchCurrentJobIndex] = useState<number>(0);
+  const [batchTotalJobs, setBatchTotalJobs] = useState<number>(0);
+  const [batchCurrentJobName, setBatchCurrentJobName] = useState<string>('');
+  const [batchPanelStatus, setBatchPanelStatus] = useState<string>('');
+  const [batchPanelPct, setBatchPanelPct] = useState<number>(0);
+  const abortBatchRef = useRef<boolean>(false);
+
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // Load custom fonts & nesting preferences on mount
@@ -924,8 +961,139 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
     };
   }, []);
 
+  // Load and sync Advance Design Presets
+  const loadAdvancePresets = async () => {
+    setLoadingPresets(true);
+    try {
+      const all = await getLocalPresets(currentUser?.email);
+      const valid = all.filter(p => isPresetValid(p));
+      valid.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime());
+      setAdvancePresets(valid);
+      setSelectedPresetIds(prev => prev.filter(id => valid.some(p => p.id === id)));
+    } catch (e) {
+      console.error('Error loading advance presets:', e);
+    } finally {
+      setLoadingPresets(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAdvancePresets();
+    const handlePresetsChanged = () => loadAdvancePresets();
+    window.addEventListener('fivenest_presets_updated', handlePresetsChanged);
+    return () => {
+      window.removeEventListener('fivenest_presets_updated', handlePresetsChanged);
+    };
+  }, [currentUser?.email]);
+
+  const handleSaveAdvancePreset = async () => {
+    const defaultName = `${metadata.customerName || 'Job'} - Order #${metadata.orderNum || '01'}`.trim();
+    const finalName = (newPresetNameInput.trim() || defaultName).trim();
+    
+    const currentItems = getItemsToExport();
+    if (currentItems.length === 0 && records.length === 0 && (!metadata.manualGrid || Object.keys(metadata.manualGrid).length === 0)) {
+      alert("Cannot save preset: No artwork or order data found in current job. Please add artwork or roster data first.");
+      return;
+    }
+
+    try {
+      let userId = (currentUser as any)?.id;
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData?.user?.id) userId = authData.user.id;
+      } catch {}
+
+      const res = await saveAdvancePreset({
+        name: finalName,
+        config: designConfig,
+        records,
+        metadata,
+        userEmail: currentUser?.email,
+        userId
+      });
+
+      if (res.success && res.preset) {
+        setShowSavePresetModal(false);
+        setNewPresetNameInput('');
+        await loadAdvancePresets();
+        setSelectedPresetIds(prev => [...prev.filter(id => id !== res.preset!.id), res.preset!.id]);
+        alert(`✅ Advance Design Preset "${finalName}" saved successfully!\n\nIncludes complete job data: Artwork configuration, CSV roster, and Order details (Stored up to 10 presets, valid for 3 days).`);
+      } else {
+        alert(`Failed to save preset: ${res.error || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      alert(`Error saving preset: ${err?.message || err}`);
+    }
+  };
+
+  const handleRenamePreset = async (presetId: string) => {
+    const newName = editingPresetName.trim();
+    if (!newName) {
+      setEditingPresetId(null);
+      return;
+    }
+    let userId = (currentUser as any)?.id;
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      if (authData?.user?.id) userId = authData.user.id;
+    } catch {}
+
+    const ok = await updatePresetName(presetId, newName, currentUser?.email, userId);
+    if (ok) {
+      setAdvancePresets(prev => prev.map(p => p.id === presetId ? { ...p, name: newName, updatedAt: new Date().toISOString() } : p));
+    }
+    setEditingPresetId(null);
+  };
+
+  const handleDeletePreset = async (presetId: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete preset "${name}"?`)) return;
+    await deletePresetFromIndexedDB(presetId);
+    setSelectedPresetIds(prev => prev.filter(id => id !== presetId));
+    await loadAdvancePresets();
+  };
+
+  const handleLoadPresetIntoStudio = (preset: DesignPresetItem) => {
+    if (!confirm(`Load preset "${preset.name}" into current Studio session?\n\nThis will load the design configuration, roster records (${preset.records?.length || 0} rows), and order details.`)) {
+      return;
+    }
+
+    if (preset.config && onDesignConfigChange) {
+      onDesignConfigChange(JSON.parse(JSON.stringify(preset.config)));
+    }
+    if (preset.records && onRecordsChange) {
+      onRecordsChange(JSON.parse(JSON.stringify(preset.records)));
+    }
+    if (preset.metadata && onMetadataChange) {
+      onMetadataChange(JSON.parse(JSON.stringify(preset.metadata)));
+    }
+
+    alert(`✅ Preset "${preset.name}" loaded into Studio workspace!`);
+  };
+
+  const handleToggleSelectPreset = (id: string) => {
+    setSelectedPresetIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllPresets = () => {
+    if (selectedPresetIds.length === advancePresets.length) {
+      setSelectedPresetIds([]);
+    } else {
+      setSelectedPresetIds(advancePresets.map(p => p.id));
+    }
+  };
+
   // Helper to compile the list of all panel pieces to export on the fly with Selective Panel Filtering
-  const getItemsToExport = (): PlacedItem[] => {
+  const getItemsToExport = (
+    overrideConfig?: ArtDesignConfig,
+    overrideRecords?: PlayerRecord[],
+    overrideMeta?: OrderMetadata
+  ): PlacedItem[] => {
+    const activeCfg = overrideConfig || designConfig;
+    const activeRecords = overrideRecords || records;
+    const activeMetadata = overrideMeta || metadata;
+
     const { 
       frontHasArtwork: fHas, 
       backHasArtwork: bHas, 
@@ -933,7 +1101,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       a4HasArtwork: a4Has, 
       collarHasArtwork: cHas,
       anyArtworkUploaded: hasArt 
-    } = checkArtworkUploadStatus(designConfig, metadata);
+    } = checkArtworkUploadStatus(activeCfg, activeMetadata);
 
     // STRICT VALIDATION: If NO artwork image is uploaded in ANY panel, export 0 panels
     if (!hasArt) {
@@ -942,7 +1110,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
     const items: PlacedItem[] = [];
 
-    records.forEach((player, idx) => {
+    activeRecords.forEach((player, idx) => {
       const sizeConf = sizeDB[player.size] || sizeDB["40"] || Object.values(sizeDB)[0];
       if (!sizeConf) return;
       const isSleeveOnly = player.name.toUpperCase() === 'SLEEVE';
@@ -999,14 +1167,14 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           let sleeveW = 0;
           let sleeveH = 0;
           if (effectiveSleeveType === 'full') {
-            sleeveW = metadata.raglanStyle ? (sizeConf.rFull?.w || sizeConf.full?.w || 14) : (sizeConf.full?.w || 14);
-            sleeveH = metadata.raglanStyle ? (sizeConf.rFull?.h || sizeConf.full?.h || 18) : (sizeConf.full?.h || 18);
+            sleeveW = activeMetadata.raglanStyle ? (sizeConf.rFull?.w || sizeConf.full?.w || 14) : (sizeConf.full?.w || 14);
+            sleeveH = activeMetadata.raglanStyle ? (sizeConf.rFull?.h || sizeConf.full?.h || 18) : (sizeConf.full?.h || 18);
           } else {
-            sleeveW = metadata.raglanStyle ? (sizeConf.rHalf?.w || sizeConf.half?.w || 14) : (sizeConf.half?.w || 7);
-            sleeveH = metadata.raglanStyle ? (sizeConf.rHalf?.h || sizeConf.half?.h || 7) : (sizeConf.half?.h || 7);
+            sleeveW = activeMetadata.raglanStyle ? (sizeConf.rHalf?.w || sizeConf.half?.w || 14) : (sizeConf.half?.w || 7);
+            sleeveH = activeMetadata.raglanStyle ? (sizeConf.rHalf?.h || sizeConf.half?.h || 7) : (sizeConf.half?.h || 7);
           }
 
-          if (metadata.halfSleeveMerge && effectiveSleeveType === 'half' && !metadata.raglanStyle) {
+          if (activeMetadata.halfSleeveMerge && effectiveSleeveType === 'half' && !activeMetadata.raglanStyle) {
             items.push({
               recordId: itemIndex,
               playerName: player.name,
@@ -1019,7 +1187,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               y: 0,
               rotated: false,
               sleeveType: effectiveSleeveType,
-              isRaglan: metadata.raglanStyle
+              isRaglan: activeMetadata.raglanStyle
             });
           } else {
             items.push({
@@ -1034,7 +1202,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               y: 0,
               rotated: false,
               sleeveType: effectiveSleeveType,
-              isRaglan: metadata.raglanStyle
+              isRaglan: activeMetadata.raglanStyle
             });
             items.push({
               recordId: itemIndex,
@@ -1048,13 +1216,13 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               y: 0,
               rotated: false,
               sleeveType: effectiveSleeveType,
-              isRaglan: metadata.raglanStyle
+              isRaglan: activeMetadata.raglanStyle
             });
           }
         }
 
         // Standalone A4 chest/print panel (10x11 in)
-        const includeA4 = metadata.a4BackPrint && a4Has && !isSleeveOnly;
+        const includeA4 = activeMetadata.a4BackPrint && a4Has && !isSleeveOnly;
         if (includeA4) {
           items.push({
             recordId: itemIndex,
@@ -1474,15 +1642,26 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
   }, [nestingSheets, activeSheetIndex, rollW]);
 
   // High-Resolution Sublimation Rendering in Browser Canvas
-  const renderPanelGraphic = (item: PlacedItem, scaleDpi: number, isPreview?: boolean): Promise<HTMLCanvasElement> => {
+  const renderPanelGraphic = (
+    item: PlacedItem, 
+    scaleDpi: number, 
+    isPreview?: boolean,
+    overrideConfig?: ArtDesignConfig,
+    overrideRecords?: PlayerRecord[],
+    overrideMeta?: OrderMetadata
+  ): Promise<HTMLCanvasElement> => {
+    const activeConfig = overrideConfig || designConfig;
+    const activeRecords = overrideRecords || records;
+    const activeMeta = overrideMeta || metadata;
+
     if (item.panelType === 'sleeve-merged') {
       const singleH = (item.h - 0.2) / 2;
       const leftItem: PlacedItem = { ...item, panelType: 'sleeve-left', h: singleH, isMergedSleeve: true };
       const rightItem: PlacedItem = { ...item, panelType: 'sleeve-right', h: singleH, isMergedSleeve: true };
       
       return Promise.all([
-        renderPanelGraphic(leftItem, scaleDpi, isPreview),
-        renderPanelGraphic(rightItem, scaleDpi, isPreview)
+        renderPanelGraphic(leftItem, scaleDpi, isPreview, overrideConfig, overrideRecords, overrideMeta),
+        renderPanelGraphic(rightItem, scaleDpi, isPreview, overrideConfig, overrideRecords, overrideMeta)
       ]).then(([leftCanvas, rightCanvas]) => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d')!;
@@ -1509,7 +1688,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
         canvas.height = heightPx;
         const ctx = canvas.getContext('2d')!;
 
-        const collarConf = designConfig?.collar || {
+        const collarConf = activeConfig?.collar || {
           physicalWidth: 18,
           physicalHeight: 4.5,
           backgroundType: 'generate',
@@ -1665,7 +1844,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           resolve(canvas);
         };
 
-        const collarUploadUrl = collarConf.uploadedFileUrl || designConfig?.trim?.collar?.uploadedUrl;
+        const collarUploadUrl = collarConf.uploadedFileUrl || activeConfig?.trim?.collar?.uploadedUrl;
         if (collarConf.backgroundType === 'upload' && collarUploadUrl) {
           getCachedImage(collarUploadUrl).then(img => {
             renderCollarContent(img || undefined);
@@ -1697,7 +1876,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       else {
         panelTypeKey = 'sleeveLeft';
       }
-      const conf = designConfig[panelTypeKey] || designConfig.front;
+      const conf = activeConfig[panelTypeKey] || activeConfig.front;
 
       // Reference Size 40 base dimensions (inches) for perfect grading normalization across Size 18-60
       const refW = (item.panelType === 'front' || item.panelType === 'back') ? 22 : item.panelType.startsWith('sleeve') ? 20 : 10;
@@ -1751,7 +1930,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             ctx.textAlign = 'right';
             ctx.textBaseline = 'top';
 
-            const record = records.find(r => item.recordId.startsWith(r.id));
+            const record = activeRecords.find(r => item.recordId.startsWith(r.id));
             const sleeveStyle = record?.sleeve || 'none';
             if (sleeveStyle !== 'none') {
               const isRaglan = item.isRaglan || false;
@@ -2047,7 +2226,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       };
 
       const drawOverlays = () => {
-        const hideOverlays = metadata.blankKit;
+        const hideOverlays = activeMeta.blankKit;
         const isNameEnabled = conf.nameConfig.enabled;
         const isNumEnabled = conf.numberConfig.enabled;
 
@@ -2119,14 +2298,14 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           let sizeQty = 0;
           if (item.panelType === 'front') {
             if (item.withoutLogoFront) {
-              const matchingRecords = records.filter(r => (r.size || '').trim() === (item.size || '').trim() && r.withoutLogoFront);
+              const matchingRecords = activeRecords.filter(r => (r.size || '').trim() === (item.size || '').trim() && r.withoutLogoFront);
               sizeQty = matchingRecords.reduce((acc, r) => acc + (r.qty || 1), 0);
             } else {
-              const matchingRecords = records.filter(r => (r.size || '').trim() === (item.size || '').trim() && !r.withoutLogoFront);
+              const matchingRecords = activeRecords.filter(r => (r.size || '').trim() === (item.size || '').trim() && !r.withoutLogoFront);
               sizeQty = matchingRecords.reduce((acc, r) => acc + (r.qty || 1), 0);
             }
           } else {
-            const matchingRecords = records.filter(r => (r.size || '').trim() === (item.size || '').trim());
+            const matchingRecords = activeRecords.filter(r => (r.size || '').trim() === (item.size || '').trim());
             sizeQty = matchingRecords.reduce((acc, r) => acc + (r.qty || 1), 0);
           }
 
@@ -2227,7 +2406,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       let isUploadBg = conf.backgroundType === 'upload';
 
       if (item.panelType === 'front' && item.withoutLogoFront) {
-        const noLogoUrl = metadata?.frontWithoutLogoUrl || (designConfig?.front as any)?.uploadedFileNoLogoUrl;
+        const noLogoUrl = activeMeta?.frontWithoutLogoUrl || (activeConfig?.front as any)?.uploadedFileNoLogoUrl;
         if (noLogoUrl) {
           bgUrl = noLogoUrl;
           isUploadBg = true;
@@ -2235,8 +2414,8 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       }
 
       if (item.panelType.startsWith('sleeve')) {
-        const leftConf = designConfig?.sleeveLeft;
-        const rightConf = designConfig?.sleeveRight;
+        const leftConf = activeConfig?.sleeveLeft;
+        const rightConf = activeConfig?.sleeveRight;
         const activeSleeve = (item.panelType === 'sleeve-right' && (rightConf?.uploadedFileUrl || rightConf?.uploadedFileFullUrl || rightConf?.uploadedFileHalfUrl))
           ? rightConf
           : leftConf;
@@ -2296,9 +2475,9 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           );
         }
 
-        if ((item.panelType === 'sleeve-left' || item.panelType === 'sleeve-right') && designConfig?.trim?.sleeveStripe?.enabled === true && designConfig?.trim?.sleeveStripe?.uploadedUrl) {
+        if ((item.panelType === 'sleeve-left' || item.panelType === 'sleeve-right') && activeConfig?.trim?.sleeveStripe?.enabled === true && activeConfig?.trim?.sleeveStripe?.uploadedUrl) {
           promises.push(
-            getCachedImage(designConfig.trim.sleeveStripe.uploadedUrl).then(img => { if (img) images.sleeveStripe = img; })
+            getCachedImage(activeConfig.trim.sleeveStripe.uploadedUrl).then(img => { if (img) images.sleeveStripe = img; })
           );
         }
 
@@ -2398,7 +2577,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
         // ── SLEEVE STRIPE AT BOTTOM (Height: 2.0 inches fixed, Width: fits sleeve panel) ──
         if (item.panelType === 'sleeve-left' || item.panelType === 'sleeve-right') {
-          const stripeConf = designConfig?.trim?.sleeveStripe;
+          const stripeConf = activeConfig?.trim?.sleeveStripe;
           if (stripeConf && stripeConf.enabled === true && (stripeConf.color || stripeConf.uploadedUrl || stripeConf.gradientStops)) {
             // Exactly 2.0 inches fixed height across ALL sizes 18 to 60!
             const stripeHInches = stripeConf.height || 2.0;
@@ -2493,37 +2672,38 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
     });
   };
 
-  const logPrintProductionExportBillingEntry = (backPanelCount: number) => {
+  const logPrintProductionExportBillingEntry = (backPanelCount: number, overrideMeta?: OrderMetadata) => {
+    const activeMeta = overrideMeta || metadata;
     try {
       const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
       const userSub = (currentUser as any)?.subscription || getSavedSubscription();
       const activeRate = getUserJerseyRate(userSub, includeWatermarkLogo, isOwnerExempt);
-      const cleanCust = metadata?.customerName?.trim() || "Deep Textile";
-      const cleanFile = metadata?.fileName?.trim() 
-        ? metadata.fileName.trim() 
-        : (metadata?.customerName?.trim() 
-            ? `${metadata.customerName.trim()} - ${backPanelCount} jersey data` 
+      const cleanCust = activeMeta?.customerName?.trim() || "Deep Textile";
+      const cleanFile = activeMeta?.fileName?.trim() 
+        ? activeMeta.fileName.trim() 
+        : (activeMeta?.customerName?.trim() 
+            ? `${activeMeta.customerName.trim()} - ${backPanelCount} jersey data` 
             : `Blue Dragon XI (${backPanelCount} Jerseys)`);
 
       const entry = recordBillingExport({
         customerName: cleanCust,
         fileName: cleanFile,
-        whatsapp: metadata?.whatsapp?.trim() || "",
+        whatsapp: activeMeta?.whatsapp?.trim() || "",
         qty: backPanelCount > 0 ? backPanelCount : 1,
         rate: activeRate,
-        designCharges: metadata?.designCharges !== undefined ? metadata.designCharges : 0,
+        designCharges: activeMeta?.designCharges !== undefined ? activeMeta.designCharges : 0,
         status: "Pending"
       }, currentUser?.email);
 
       // Record export event for live counter on main page & admin dashboard
       try {
-        const items = getItemsToExport();
+        const items = getItemsToExport(undefined, undefined, activeMeta);
         const actualFileCount = items.length > 0 ? items.length : Math.max(1, backPanelCount * 4);
         recordExportEvent({
           fileCount: actualFileCount,
           jerseyCount: backPanelCount > 0 ? backPanelCount : 1,
           customerName: cleanCust,
-          orderNum: metadata?.orderNum || '01',
+          orderNum: activeMeta?.orderNum || '01',
           exportType: exportFormat || 'jpg',
           userEmail: currentUser?.email || 'guest'
         }).catch(err => console.warn("Live export tracker warning:", err));
@@ -2537,9 +2717,12 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
     }
   };
 
-  const calculateCost = () => {
+  const calculateCost = (overrideRecords?: PlayerRecord[], overrideMeta?: OrderMetadata) => {
     const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
     if (isOwnerExempt) return 0;
+
+    const activeRecs = overrideRecords || records;
+    const activeMeta = overrideMeta || metadata;
 
     const userSub = (currentUser as any)?.subscription || getSavedSubscription();
     const activeRate = getUserJerseyRate(userSub, includeWatermarkLogo, isOwnerExempt);
@@ -2548,27 +2731,484 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
     // In FiveNest, front, sleeve, and collar panels are completely free.
     // Charges are strictly: (Total Number of Jerseys × activeRate) + (A4 Prints × 0.50)
     let totalJerseys = 0;
-    const nonSleeveRecords = records.filter(r => r.name?.toUpperCase() !== 'SLEEVE');
+    const nonSleeveRecords = activeRecs.filter(r => r.name?.toUpperCase() !== 'SLEEVE');
     if (nonSleeveRecords.length > 0) {
       totalJerseys = nonSleeveRecords.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
-    } else if (records.length > 0) {
-      totalJerseys = records.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
-    } else if (metadata.manualGrid) {
-      totalJerseys = Object.values(metadata.manualGrid).reduce(
+    } else if (activeRecs.length > 0) {
+      totalJerseys = activeRecs.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
+    } else if (activeMeta.manualGrid) {
+      totalJerseys = Object.values(activeMeta.manualGrid).reduce(
         (acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0) + (Number(v?.half) || 0),
         0
       );
     }
 
-    const items = getItemsToExport();
+    const items = getItemsToExport(undefined, activeRecs, activeMeta);
     const a4Count = items.filter(i => i.panelType === 'a4-print').length;
 
-    // Fallback: If totalJerseys is 0, fall back to back items count or 0
     if (totalJerseys === 0) {
       totalJerseys = items.filter(i => i.panelType === 'back').length;
     }
 
     return (totalJerseys * activeRate) + (a4Count * 0.50);
+  };
+
+  // Reusable multi-job / single-job export engine
+  const executeExportJobPackage = async (
+    jobConfig: ArtDesignConfig,
+    jobRecords: PlayerRecord[],
+    jobMeta: OrderMetadata,
+    jobName: string,
+    onProgress?: (statusText: string, progressPct: number) => void
+  ): Promise<boolean> => {
+    setIsExporting(true);
+    setExportProgressPct(0);
+    const setStatus = (txt: string, pct?: number) => {
+      setExportProgress(txt);
+      if (pct !== undefined) setExportProgressPct(pct);
+      if (onProgress) onProgress(txt, pct !== undefined ? pct : 0);
+    };
+
+    setStatus("Initializing high-resolution rendering...", 0);
+
+    try {
+      if (document.fonts) {
+        await document.fonts.ready;
+      }
+
+      const { 
+        frontHasArtwork: fHas, 
+        backHasArtwork: bHas, 
+        sleeveHasArtwork: sHas, 
+        a4HasArtwork: a4Has, 
+        collarHasArtwork: cHas 
+      } = checkArtworkUploadStatus(jobConfig, jobMeta);
+
+      const items = getItemsToExport(jobConfig, jobRecords, jobMeta);
+      const totalPieces = items.length;
+      if (totalPieces === 0) {
+        throw new Error(`No printable panels found for "${jobName}". Please verify that artwork is uploaded.`);
+      }
+
+      // Determine total jerseys for accurate billing ledger
+      let totalJerseys = 0;
+      const nonSleeveRecords = jobRecords.filter(r => r.name?.toUpperCase() !== 'SLEEVE');
+      if (nonSleeveRecords.length > 0) {
+        totalJerseys = nonSleeveRecords.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
+      } else if (jobRecords.length > 0) {
+        totalJerseys = jobRecords.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
+      } else if (jobMeta.manualGrid) {
+        totalJerseys = Object.values(jobMeta.manualGrid).reduce(
+          (acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0) + (Number(v?.half) || 0),
+          0
+        );
+      }
+      const billedJerseyCount = totalJerseys || items.filter(i => i.panelType === 'back').length || totalPieces;
+
+      let activeDpi = testMode ? 72 : dpi;
+      const cleanCust = (jobMeta.customerName || jobName || "Job").replace(/[\/\\:*?"<>|]/g, "_").trim() || "Unknown";
+      const cleanOrder = (jobMeta.orderNum || "01").replace(/[\/\\:*?"<>|]/g, "_").trim() || "01";
+
+      const frontOverlaysChecked = (jobConfig.front.nameConfig.enabled || jobConfig.front.numberConfig.enabled) && !jobMeta.blankKit;
+      const backOverlaysChecked = (jobConfig.back.nameConfig.enabled || jobConfig.back.numberConfig.enabled) && !jobMeta.blankKit;
+      const a4OverlaysChecked = (jobConfig.a4Print.nameConfig.enabled || jobConfig.a4Print.numberConfig.enabled) && !jobMeta.blankKit;
+
+      const hasRealPlayerNamesOrNumbers = jobRecords.some(r => {
+        const n = (r.name || '').trim();
+        const num = (r.number || '').trim();
+        const hasName = n !== '' && n.toUpperCase() !== 'BLANK' && n.toUpperCase() !== 'SLEEVE';
+        const hasNum = num !== '';
+        return hasName || hasNum;
+      });
+
+      const hasFrontPlayerNamesOrNumbers = jobRecords.some(r => {
+        const n = (r.name || '').trim();
+        const num = (r.number || '').trim();
+        const hasName = n !== '' && n.toUpperCase() !== 'BLANK' && n.toUpperCase() !== 'SLEEVE' && jobConfig.front.nameConfig.enabled;
+        const hasNum = num !== '' && jobConfig.front.numberConfig.enabled;
+        return hasName || hasNum;
+      });
+
+      const isQuickOrBlankOrder = !!jobMeta.manualMode || !!jobMeta.blankKit || !hasRealPlayerNamesOrNumbers;
+      const isIndividualFBChecked = !!jobMeta?.individualExportFB;
+
+      const shouldIndividualExportFront = isIndividualFBChecked || (!isQuickOrBlankOrder && hasFrontPlayerNamesOrNumbers);
+      const shouldIndividualExportBack = isIndividualFBChecked || (!isQuickOrBlankOrder && backOverlaysChecked);
+
+      interface RenderAction {
+        representativeItem: PlacedItem;
+        fileName: string;
+        folder: 'Front' | 'Back' | 'Sleeve' | 'A4' | 'Collar' | '';
+      }
+
+      const renderActions: RenderAction[] = [];
+      const frontSizeMap: Record<string, PlacedItem[]> = {};
+      const backSizeMap: Record<string, PlacedItem[]> = {};
+      const sleeveSizeMap: Record<string, PlacedItem[]> = {};
+      const a4SizeMap: Record<string, PlacedItem[]> = {};
+      const collarItems: PlacedItem[] = [];
+
+      items.forEach(item => {
+        if (item.panelType === 'front') {
+          if (!frontSizeMap[item.size]) frontSizeMap[item.size] = [];
+          frontSizeMap[item.size].push(item);
+        } else if (item.panelType === 'back') {
+          if (!backSizeMap[item.size]) backSizeMap[item.size] = [];
+          backSizeMap[item.size].push(item);
+        } else if (item.panelType === 'a4-print') {
+          if (a4OverlaysChecked) {
+            const safeName = (item.playerName || 'BLANK').replace(/[\/\\:*?"<>|]/g, "_").trim();
+            const safeNum = (item.playerNum || '').replace(/[\/\\:*?"<>|]/g, "_").trim();
+            const suffix = safeNum ? `_${safeNum}` : '';
+            renderActions.push({
+              representativeItem: item,
+              fileName: `${item.size}_${safeName}${suffix}_A4.jpg`,
+              folder: 'A4'
+            });
+          } else {
+            if (!a4SizeMap[item.size]) a4SizeMap[item.size] = [];
+            a4SizeMap[item.size].push(item);
+          }
+        } else if (item.panelType.startsWith('sleeve')) {
+          const key = `${item.size}-${item.panelType}-${item.sleeveType || ''}`;
+          if (!sleeveSizeMap[key]) sleeveSizeMap[key] = [];
+          sleeveSizeMap[key].push(item);
+        } else if (item.panelType === 'collar') {
+          collarItems.push(item);
+        } else {
+          const safeName = (item.playerName || 'BLANK').replace(/[\/\\:*?"<>|]/g, "_").trim();
+          const safeNum = (item.playerNum || '').replace(/[\/\\:*?"<>|]/g, "_").trim();
+          const suffix = safeNum ? `_${safeNum}` : '';
+          renderActions.push({
+            representativeItem: item,
+            fileName: `${item.panelType}_${item.size}_${safeName}${suffix}.jpg`,
+            folder: ''
+          });
+        }
+      });
+
+      // Group/Format Fronts
+      if (shouldIndividualExportFront) {
+        Object.keys(frontSizeMap).sort().forEach(size => {
+          frontSizeMap[size].forEach((item, index) => {
+            const suffix = item.withoutLogoFront ? ' NL (No Logo).jpg' : ' F.jpg';
+            renderActions.push({
+              representativeItem: isIndividualFBChecked ? {
+                ...item,
+                qty: 1
+              } : item,
+              fileName: `${item.size} ${index + 1}${suffix}`,
+              folder: 'Front'
+            });
+          });
+        });
+      } else {
+        const normalFronts: Record<string, PlacedItem[]> = {};
+        const noLogoFronts: Record<string, PlacedItem[]> = {};
+        Object.keys(frontSizeMap).forEach(size => {
+          frontSizeMap[size].forEach(it => {
+            if (it.withoutLogoFront) {
+              if (!noLogoFronts[size]) noLogoFronts[size] = [];
+              noLogoFronts[size].push(it);
+            } else {
+              if (!normalFronts[size]) normalFronts[size] = [];
+              normalFronts[size].push(it);
+            }
+          });
+        });
+
+        Object.keys(normalFronts).forEach(size => {
+          const list = normalFronts[size];
+          renderActions.push({
+            representativeItem: {
+              ...list[0],
+              qty: list.length,
+              withoutLogoFront: false
+            },
+            fileName: `${size} = ${list.length} F.jpg`,
+            folder: 'Front'
+          });
+        });
+
+        Object.keys(noLogoFronts).forEach(size => {
+          const list = noLogoFronts[size];
+          renderActions.push({
+            representativeItem: {
+              ...list[0],
+              qty: list.length,
+              withoutLogoFront: true
+            },
+            fileName: `${size} = ${list.length} NL (No Logo).jpg`,
+            folder: 'Front'
+          });
+        });
+      }
+
+      // Group/Format Backs
+      if (shouldIndividualExportBack) {
+        Object.keys(backSizeMap).sort().forEach(size => {
+          backSizeMap[size].forEach((item, index) => {
+            renderActions.push({
+              representativeItem: isIndividualFBChecked ? {
+                ...item,
+                qty: 1
+              } : item,
+              fileName: `${item.size} ${index + 1} B.jpg`,
+              folder: 'Back'
+            });
+          });
+        });
+      } else {
+        Object.keys(backSizeMap).forEach(size => {
+          const list = backSizeMap[size];
+          renderActions.push({
+            representativeItem: {
+              ...list[0],
+              qty: list.length
+            },
+            fileName: `${size} = ${list.length} B.jpg`,
+            folder: 'Back'
+          });
+        });
+      }
+
+      // Group A4
+      if (!a4OverlaysChecked) {
+        Object.keys(a4SizeMap).forEach(size => {
+          const list = a4SizeMap[size];
+          renderActions.push({
+            representativeItem: list[0],
+            fileName: `${size} = ${list.length} A4.jpg`,
+            folder: 'A4'
+          });
+        });
+      }
+
+      // Group Sleeves
+      if (sHas) {
+        Object.keys(sleeveSizeMap).forEach(key => {
+          const list = sleeveSizeMap[key];
+          const rep = list[0];
+          const qty = list.length;
+          
+          let sleeveCode = 'Left Sleeve';
+          if (rep.panelType === 'sleeve-left') {
+            sleeveCode = rep.sleeveType === 'full' ? 'Full Sleeve Left' : 'Left Sleeve';
+          } else if (rep.panelType === 'sleeve-right') {
+            sleeveCode = rep.sleeveType === 'full' ? 'Full Sleeve Right' : 'Right Sleeve';
+          } else {
+            sleeveCode = rep.sleeveType === 'full' ? 'Full Sleeve Merged' : 'Merged Sleeve';
+          }
+
+          const fileName = `${rep.size} = ${qty} ${sleeveCode}.jpg`;
+
+          renderActions.push({
+            representativeItem: {
+              ...rep,
+              qty
+            },
+            fileName,
+            folder: 'Sleeve'
+          });
+        });
+      }
+
+      // Collars
+      if (cHas && exportCollar && collarItems.length > 0) {
+        const youthCollars = collarItems.filter(it => isYouthCollarSize(it.size));
+        const adultCollars = collarItems.filter(it => !isYouthCollarSize(it.size));
+        const sW = collarSizes?.small?.w ?? 18;
+        const sH = collarSizes?.small?.h ?? 4.5;
+        const bW = collarSizes?.big?.w ?? 20;
+        const bH = collarSizes?.big?.h ?? 4.5;
+        const collarFolder = sHas ? 'Sleeve' : 'Collar';
+
+        if (youthCollars.length > 0) {
+          const youthQty = youthCollars.length;
+          renderActions.push({
+            representativeItem: {
+              ...youthCollars[0],
+              w: sW,
+              h: sH,
+              qty: youthQty
+            },
+            fileName: `Small Collars = ${youthQty} pcs (dimention = ${sW} x ${sH}).jpg`,
+            folder: collarFolder
+          });
+        }
+
+        if (adultCollars.length > 0) {
+          const adultQty = adultCollars.length;
+          renderActions.push({
+            representativeItem: {
+              ...adultCollars[0],
+              w: bW,
+              h: bH,
+              qty: adultQty
+            },
+            fileName: `Big Collar = ${adultQty} pcs (dimention = ${bW} x ${bH}).jpg`,
+            folder: collarFolder
+          });
+        }
+      }
+
+      const zip = new JSZip();
+      const fileExt = exportFormat === 'png' ? '.png' : exportFormat === 'tiff' ? '.tif' : '.jpg';
+
+      for (let i = 0; i < renderActions.length; i++) {
+        const action = renderActions[i];
+        const outFileName = action.fileName.replace(/\.jpe?g$/i, fileExt);
+        const curPct = Math.round(15 + ((i / renderActions.length) * 65));
+        setStatus(`Rendering ${action.folder || 'other'} panel: ${outFileName} (${i + 1}/${renderActions.length}) at ${activeDpi} DPI...`, curPct);
+
+        const gcYieldMs = (renderActions.length > 25 && i % 3 === 0) ? 50 : 10;
+        await new Promise(r => setTimeout(r, gcYieldMs));
+
+        const itemCanvas = await renderPanelGraphic(action.representativeItem, activeDpi, false, jobConfig, jobRecords, jobMeta);
+        let blob = await getCanvasBlobForFormat(itemCanvas, exportFormat, colorProfile, activeDpi);
+
+        if (exportFormat === 'jpg') {
+          blob = await injectJPDpi(blob, activeDpi);
+        }
+
+        if (action.folder) {
+          zip.folder(action.folder)?.file(outFileName, blob);
+        } else {
+          zip.file(outFileName, blob);
+        }
+
+        itemCanvas.width = 0;
+        itemCanvas.height = 0;
+      }
+
+      setStatus("Compiling ZIP package...", 82);
+      const content = await zip.generateAsync(
+        { type: "blob", compression: "DEFLATE", compressionOptions: { level: 4 } },
+        (meta) => {
+          setStatus(`Compiling ZIP package (${Math.round(meta.percent)}%)...`, Math.round(82 + (meta.percent * 0.12)));
+        }
+      );
+      
+      const cleanFileJob = (jobName || `${cleanCust}_${cleanOrder}`).replace(/[\/\\:*?"<>|]/g, "_").trim();
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(content);
+      link.download = testMode 
+        ? `${cleanFileJob}_72DPI_Test_Panels.zip`
+        : `${cleanFileJob}_Sublimation_Panels.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Auto-log Print Production Export Billing Entry
+      logPrintProductionExportBillingEntry(billedJerseyCount, jobMeta);
+
+      setStatus("Export complete!", 100);
+      await new Promise(r => setTimeout(r, 1200));
+      setIsExporting(false);
+      setExportProgress("");
+      setExportProgressPct(0);
+      return true;
+    } catch (err: any) {
+      console.error("Export process failed:", err);
+      setIsExporting(false);
+      setExportProgress("");
+      setExportProgressPct(0);
+      throw err;
+    }
+  };
+
+  // Continuous Multi-Job Batch Auto-Export Handler
+  const handleRunContinuousBatchExport = async () => {
+    const selectedPresets = advancePresets.filter(p => selectedPresetIds.includes(p.id) && isPresetValid(p));
+    if (selectedPresets.length === 0) {
+      alert("No presets selected! Please check at least one preset to export.");
+      return;
+    }
+
+    const totalJerseysAll = selectedPresets.reduce((acc, p) => acc + (p.totalGarments || p.records?.length || 1), 0);
+    const ratePerJersey = includeWatermarkLogo ? DEFAULT_SPOT_RATE_WITH_TAG : DEFAULT_SPOT_RATE_WITHOUT_TAG;
+    const totalBatchCost = Math.round(totalJerseysAll * ratePerJersey);
+
+    const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
+
+    if (!testMode && !isOwnerExempt && totalBatchCost > 0) {
+      if (!currentUser) {
+        alert("Authentication Required:\n\nPlease sign in before exporting batch jobs.");
+        onOpenLogin();
+        return;
+      }
+      if (currentUser.balance < totalBatchCost) {
+        alert(`Insufficient Wallet Balance:\n\nBatch export of ${selectedPresets.length} jobs (${totalJerseysAll} jerseys) requires ₹${totalBatchCost.toFixed(2)} INR.\nYour current balance is ₹${currentUser.balance.toFixed(2)} INR.\n\nPlease recharge your wallet to proceed.`);
+        setPaymentCost(totalBatchCost);
+        setShowPaymentModal(true);
+        return;
+      }
+    }
+
+    setIsBatchExporting(true);
+    setShowBatchModal(true);
+    setBatchTotalJobs(selectedPresets.length);
+    abortBatchRef.current = false;
+
+    let successfulCount = 0;
+    try {
+      for (let i = 0; i < selectedPresets.length; i++) {
+        if (abortBatchRef.current) {
+          console.warn("Continuous batch export aborted by user.");
+          break;
+        }
+
+        const preset = selectedPresets[i];
+        setBatchCurrentJobIndex(i + 1);
+        setBatchCurrentJobName(preset.name);
+        setBatchPanelStatus(`Preparing Job ${i + 1} of ${selectedPresets.length}: "${preset.name}"...`);
+        setBatchPanelPct(0);
+
+        const jobConfig = preset.config;
+        const jobRecords = preset.records || [];
+        const jobMeta = preset.metadata || {
+          customerName: preset.name,
+          orderNum: `0${i + 1}`,
+          whatsapp: '',
+          raglanStyle: false,
+          halfSleeveMerge: false,
+          a4BackPrint: false,
+          individualExportFB: false,
+          blankKit: false,
+          manualMode: false,
+          manualGrid: {}
+        };
+
+        try {
+          await executeExportJobPackage(
+            jobConfig,
+            jobRecords,
+            jobMeta,
+            preset.name,
+            (status, pct) => {
+              setBatchPanelStatus(status);
+              setBatchPanelPct(pct);
+            }
+          );
+          successfulCount++;
+          if (i < selectedPresets.length - 1 && !abortBatchRef.current) {
+            setBatchPanelStatus(`Finished "${preset.name}". Next job starting in 2 seconds...`);
+            await new Promise(r => setTimeout(r, 2000));
+          }
+        } catch (jobErr: any) {
+          console.error(`Failed to export preset ${preset.name}:`, jobErr);
+          alert(`Error exporting job "${preset.name}": ${jobErr?.message || jobErr}\n\nContinuing with remaining jobs...`);
+        }
+      }
+
+      if (successfulCount > 0) {
+        confetti({ particleCount: 180, spread: 90, origin: { y: 0.5 } });
+      }
+    } finally {
+      setIsBatchExporting(false);
+      setShowBatchModal(false);
+      alert(`🎉 Continuous Batch Export Complete!\n\nSuccessfully exported ${successfulCount} of ${selectedPresets.length} selected jobs.`);
+    }
   };
 
   // Compile individual panels ZIP package (Front, Back, Sleeve, Collar, A4)
@@ -2585,382 +3225,21 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       return;
     }
 
-    // Determine total jerseys for accurate billing ledger
-    let totalJerseys = 0;
-    const nonSleeveRecords = records.filter(r => r.name?.toUpperCase() !== 'SLEEVE');
-    if (nonSleeveRecords.length > 0) {
-      totalJerseys = nonSleeveRecords.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
-    } else if (records.length > 0) {
-      totalJerseys = records.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
-    } else if (metadata.manualGrid) {
-      totalJerseys = Object.values(metadata.manualGrid).reduce(
-        (acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0) + (Number(v?.half) || 0),
-        0
-      );
-    }
-    const billedJerseyCount = totalJerseys || items.filter(i => i.panelType === 'back').length || totalPieces;
-
     const calculatedCost = calculateCost();
+    const cleanCust = metadata.customerName.replace(/[\/\\:*?"<>|]/g, "_").trim() || "Unknown";
+    const cleanOrder = metadata.orderNum.replace(/[\/\\:*?"<>|]/g, "_").trim() || "01";
+    const jobExportName = `${cleanCust}_${cleanOrder}`;
 
     const executeExport = async () => {
-      setIsExporting(true);
-      setExportProgressPct(0);
-      setExportProgress("Initializing high-resolution rendering...");
-
       try {
-        // Wait for custom fonts to load completely
-        if (document.fonts) {
-          await document.fonts.ready;
-        }
-
-        const { 
-          frontHasArtwork: fHas, 
-          backHasArtwork: bHas, 
-          sleeveHasArtwork: sHas, 
-          a4HasArtwork: a4Has, 
-          collarHasArtwork: cHas 
-        } = checkArtworkUploadStatus(designConfig, metadata);
-
-        // Enforce 72 DPI in Test Mode
-        let activeDpi = testMode ? 72 : dpi;
-
-        const cleanCust = metadata.customerName.replace(/[\/\\:*?"<>|]/g, "_").trim() || "Unknown";
-        const cleanOrder = metadata.orderNum.replace(/[\/\\:*?"<>|]/g, "_").trim() || "01";
-
-        // EXPORT AS ZIP OF INDIVIDUAL IMAGES (Front, Back, Sleeve, A4, Collar folders)
-          const frontOverlaysChecked = (designConfig.front.nameConfig.enabled || designConfig.front.numberConfig.enabled) && !metadata.blankKit;
-          const backOverlaysChecked = (designConfig.back.nameConfig.enabled || designConfig.back.numberConfig.enabled) && !metadata.blankKit;
-          const a4OverlaysChecked = (designConfig.a4Print.nameConfig.enabled || designConfig.a4Print.numberConfig.enabled) && !metadata.blankKit;
-
-          // Check whether the order contains real personalized player names or numbers
-          const hasRealPlayerNamesOrNumbers = records.some(r => {
-            const n = (r.name || '').trim();
-            const num = (r.number || '').trim();
-            const hasName = n !== '' && n.toUpperCase() !== 'BLANK' && n.toUpperCase() !== 'SLEEVE';
-            const hasNum = num !== '';
-            return hasName || hasNum;
-          });
-
-          // Check if front panel specifically has individual player names or numbers on records
-          const hasFrontPlayerNamesOrNumbers = records.some(r => {
-            const n = (r.name || '').trim();
-            const num = (r.number || '').trim();
-            const hasName = n !== '' && n.toUpperCase() !== 'BLANK' && n.toUpperCase() !== 'SLEEVE' && designConfig.front.nameConfig.enabled;
-            const hasNum = num !== '' && designConfig.front.numberConfig.enabled;
-            return hasName || hasNum;
-          });
-
-          // In Quick Size Entry, blank kit, or when no records have player names/numbers, it's a batch sizing order
-          const isQuickOrBlankOrder = !!metadata.manualMode || !!metadata.blankKit || !hasRealPlayerNamesOrNumbers;
-
-          const isIndividualFBChecked = !!metadata?.individualExportFB;
-
-          // When individualExportFB is ON: export individual 1-pc files for both Front & Back.
-          // When individualExportFB is OFF (older process):
-          // - Quick size entry / blank order: Both Front and Back are grouped by quantity (e.g. "40 = 5 F.jpg", "40 = 5 B.jpg")!
-          // - Real player rosters: Back is individual per player ("40 1 B.jpg"), Front is grouped ("40 = 5 F.jpg") unless front has real player names/numbers on records!
-          const shouldIndividualExportFront = isIndividualFBChecked || (!isQuickOrBlankOrder && hasFrontPlayerNamesOrNumbers);
-          const shouldIndividualExportBack = isIndividualFBChecked || (!isQuickOrBlankOrder && backOverlaysChecked);
-
-          // Build list of render actions based on grouping rules
-          interface RenderAction {
-            representativeItem: PlacedItem;
-            fileName: string;
-            folder: 'Front' | 'Back' | 'Sleeve' | 'A4' | 'Collar' | '';
-          }
-
-          const renderActions: RenderAction[] = [];
-
-          // Size maps to group panels when overlays are disabled
-          const frontSizeMap: Record<string, PlacedItem[]> = {};
-          const backSizeMap: Record<string, PlacedItem[]> = {};
-          const sleeveSizeMap: Record<string, PlacedItem[]> = {}; // Key: `${size}-${panelType}-${sleeveType}`
-          const a4SizeMap: Record<string, PlacedItem[]> = {};
-          const collarItems: PlacedItem[] = [];
-
-          items.forEach(item => {
-            if (item.panelType === 'front') {
-              if (!frontSizeMap[item.size]) frontSizeMap[item.size] = [];
-              frontSizeMap[item.size].push(item);
-            } else if (item.panelType === 'back') {
-              if (!backSizeMap[item.size]) backSizeMap[item.size] = [];
-              backSizeMap[item.size].push(item);
-            } else if (item.panelType === 'a4-print') {
-              if (a4OverlaysChecked) {
-                const safeName = (item.playerName || 'BLANK').replace(/[\/\\:*?"<>|]/g, "_").trim();
-                const safeNum = (item.playerNum || '').replace(/[\/\\:*?"<>|]/g, "_").trim();
-                const suffix = safeNum ? `_${safeNum}` : '';
-                renderActions.push({
-                  representativeItem: item,
-                  fileName: `${item.size}_${safeName}${suffix}_A4.jpg`,
-                  folder: 'A4'
-                });
-              } else {
-                if (!a4SizeMap[item.size]) a4SizeMap[item.size] = [];
-                a4SizeMap[item.size].push(item);
-              }
-            } else if (item.panelType.startsWith('sleeve')) {
-              const key = `${item.size}-${item.panelType}-${item.sleeveType || ''}`;
-              if (!sleeveSizeMap[key]) sleeveSizeMap[key] = [];
-              sleeveSizeMap[key].push(item);
-            } else if (item.panelType === 'collar') {
-              collarItems.push(item);
-            } else {
-              const safeName = (item.playerName || 'BLANK').replace(/[\/\\:*?"<>|]/g, "_").trim();
-              const safeNum = (item.playerNum || '').replace(/[\/\\:*?"<>|]/g, "_").trim();
-              const suffix = safeNum ? `_${safeNum}` : '';
-              renderActions.push({
-                representativeItem: item,
-                fileName: `${item.panelType}_${item.size}_${safeName}${suffix}.jpg`,
-                folder: ''
-              });
-            }
-          });
-
-          // Group/Format Fronts
-          if (shouldIndividualExportFront) {
-            Object.keys(frontSizeMap).sort().forEach(size => {
-              frontSizeMap[size].forEach((item, index) => {
-                const suffix = item.withoutLogoFront ? ' NL (No Logo).jpg' : ' F.jpg';
-                renderActions.push({
-                  representativeItem: isIndividualFBChecked ? {
-                    ...item,
-                    qty: 1
-                  } : item,
-                  fileName: `${item.size} ${index + 1}${suffix}`,
-                  folder: 'Front'
-                });
-              });
-            });
-          } else {
-            // Group by size AND withoutLogoFront status
-            const normalFronts: Record<string, PlacedItem[]> = {};
-            const noLogoFronts: Record<string, PlacedItem[]> = {};
-            Object.keys(frontSizeMap).forEach(size => {
-              frontSizeMap[size].forEach(it => {
-                if (it.withoutLogoFront) {
-                  if (!noLogoFronts[size]) noLogoFronts[size] = [];
-                  noLogoFronts[size].push(it);
-                } else {
-                  if (!normalFronts[size]) normalFronts[size] = [];
-                  normalFronts[size].push(it);
-                }
-              });
-            });
-
-            Object.keys(normalFronts).forEach(size => {
-              const list = normalFronts[size];
-              renderActions.push({
-                representativeItem: {
-                  ...list[0],
-                  qty: list.length,
-                  withoutLogoFront: false
-                },
-                fileName: `${size} = ${list.length} F.jpg`,
-                folder: 'Front'
-              });
-            });
-
-            Object.keys(noLogoFronts).forEach(size => {
-              const list = noLogoFronts[size];
-              renderActions.push({
-                representativeItem: {
-                  ...list[0],
-                  qty: list.length,
-                  withoutLogoFront: true
-                },
-                fileName: `${size} = ${list.length} NL (No Logo).jpg`,
-                folder: 'Front'
-              });
-            });
-          }
-
-          // Group/Format Backs
-          if (shouldIndividualExportBack) {
-            Object.keys(backSizeMap).sort().forEach(size => {
-              backSizeMap[size].forEach((item, index) => {
-                renderActions.push({
-                  representativeItem: isIndividualFBChecked ? {
-                    ...item,
-                    qty: 1
-                  } : item,
-                  fileName: `${item.size} ${index + 1} B.jpg`,
-                  folder: 'Back'
-                });
-              });
-            });
-          } else {
-            // Group by size
-            Object.keys(backSizeMap).forEach(size => {
-              const list = backSizeMap[size];
-              renderActions.push({
-                representativeItem: {
-                  ...list[0],
-                  qty: list.length
-                },
-                fileName: `${size} = ${list.length} B.jpg`,
-                folder: 'Back'
-              });
-            });
-          }
-
-          // Group A4 chest prints by size (when overlays disabled)
-          if (!a4OverlaysChecked) {
-            Object.keys(a4SizeMap).forEach(size => {
-              const list = a4SizeMap[size];
-              renderActions.push({
-                representativeItem: list[0],
-                fileName: `${size} = ${list.length} A4.jpg`,
-                folder: 'A4'
-              });
-            });
-          }
-
-          // Group Sleeves (Only if sleeve artwork was uploaded/configured)
-          if (sHas) {
-            Object.keys(sleeveSizeMap).forEach(key => {
-              const list = sleeveSizeMap[key];
-              const rep = list[0];
-              const qty = list.length;
-              
-              let sleeveCode = 'Left Sleeve';
-              if (rep.panelType === 'sleeve-left') {
-                sleeveCode = rep.sleeveType === 'full' ? 'Full Sleeve Left' : 'Left Sleeve';
-              } else if (rep.panelType === 'sleeve-right') {
-                sleeveCode = rep.sleeveType === 'full' ? 'Full Sleeve Right' : 'Right Sleeve';
-              } else {
-                sleeveCode = rep.sleeveType === 'full' ? 'Full Sleeve Merged' : 'Merged Sleeve';
-              }
-
-              const fileName = `${rep.size} = ${qty} ${sleeveCode}.jpg`;
-
-              renderActions.push({
-                representativeItem: {
-                  ...rep,
-                  qty
-                },
-                fileName,
-                folder: 'Sleeve'
-              });
-            });
-          }
-
-          // Group Collars into exactly 2 sets (Youth: 18-30 -> Small Collars, Adult: 32-60 -> Big Collar)
-          // ONLY export collars if collar data exists (cHas) AND exportCollar is enabled!
-          if (cHas && exportCollar && collarItems.length > 0) {
-            const youthCollars = collarItems.filter(it => isYouthCollarSize(it.size));
-            const adultCollars = collarItems.filter(it => !isYouthCollarSize(it.size));
-            const sW = collarSizes?.small?.w ?? 18;
-            const sH = collarSizes?.small?.h ?? 4.5;
-            const bW = collarSizes?.big?.w ?? 20;
-            const bH = collarSizes?.big?.h ?? 4.5;
-
-            // If sleeves are present, export into 'Sleeve' folder as accustomed;
-            // if sleeves are not present, export into 'Collar' folder so NO empty Sleeve folder is created!
-            const collarFolder = sHas ? 'Sleeve' : 'Collar';
-
-            if (youthCollars.length > 0) {
-              const youthQty = youthCollars.length;
-              renderActions.push({
-                representativeItem: {
-                  ...youthCollars[0],
-                  w: sW,
-                  h: sH,
-                  qty: youthQty
-                },
-                fileName: `Small Collars = ${youthQty} pcs (dimention = ${sW} x ${sH}).jpg`,
-                folder: collarFolder
-              });
-            }
-
-            if (adultCollars.length > 0) {
-              const adultQty = adultCollars.length;
-              renderActions.push({
-                representativeItem: {
-                  ...adultCollars[0],
-                  w: bW,
-                  h: bH,
-                  qty: adultQty
-                },
-                fileName: `Big Collar = ${adultQty} pcs (dimention = ${bW} x ${bH}).jpg`,
-                folder: collarFolder
-              });
-            }
-          }
-
-          const zip = new JSZip();
-          const fileExt = exportFormat === 'png' ? '.png' : exportFormat === 'tiff' ? '.tif' : '.jpg';
-
-          for (let i = 0; i < renderActions.length; i++) {
-            const action = renderActions[i];
-            // Replace .jpg extension in fileName with selected format extension
-            const outFileName = action.fileName.replace(/\.jpe?g$/i, fileExt);
-            setExportProgressPct(Math.round(15 + ((i / renderActions.length) * 65)));
-            setExportProgress(`Rendering ${action.folder || 'other'} panel: ${outFileName} (${i + 1}/${renderActions.length}) at ${activeDpi} DPI...`);
-
-            // Yield control to main thread so browser repaints progress text and GC frees memory
-            const gcYieldMs = (renderActions.length > 25 && i % 3 === 0) ? 50 : 10;
-            await new Promise(r => setTimeout(r, gcYieldMs));
-
-            const itemCanvas = await renderPanelGraphic(action.representativeItem, activeDpi);
-            let blob = await getCanvasBlobForFormat(itemCanvas, exportFormat, colorProfile, activeDpi);
-
-            // For JPG, inject DPI metadata into EXIF
-            if (exportFormat === 'jpg') {
-              blob = await injectJPDpi(blob, activeDpi);
-            }
-
-            if (action.folder) {
-              zip.folder(action.folder)?.file(outFileName, blob);
-            } else {
-              zip.file(outFileName, blob);
-            }
-
-            // Immediately release GPU canvas memory
-            itemCanvas.width = 0;
-            itemCanvas.height = 0;
-          }
-
-          setExportProgressPct(82);
-          setExportProgress("Compiling ZIP package...");
-          const content = await zip.generateAsync(
-            { type: "blob", compression: "DEFLATE", compressionOptions: { level: 4 } },
-            (metadata) => {
-              setExportProgressPct(Math.round(82 + (metadata.percent * 0.12)));
-              setExportProgress(`Compiling ZIP package (${Math.round(metadata.percent)}%)...`);
-            }
-          );
-          
-          const link = document.createElement('a');
-          link.href = URL.createObjectURL(content);
-          link.download = testMode 
-            ? `${cleanCust}_${cleanOrder}_72DPI_Test_Panels.zip`
-            : `${cleanCust}_${cleanOrder}_Sublimation_Panels.zip`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-
-          // Auto-log Print Production Export Billing Entry in Invoices & Billing
-          logPrintProductionExportBillingEntry(billedJerseyCount);
-
-          setExportProgressPct(100);
-          setExportProgress("Export complete!");
-          await new Promise(r => setTimeout(r, 1800));
-          setIsExporting(false);
-          setExportProgress("");
-          setExportProgressPct(0);
-
-          confetti({
-            particleCount: 150,
-            spread: 80,
-            origin: { y: 0.5 }
-          });
-      } catch (err) {
-        console.error("Export process failed:", err);
-        alert(`Export failed: ${(err as Error).message}\n\nPlease check the developer console for detailed logs.`);
-        setIsExporting(false);
-        setExportProgress("");
-        setExportProgressPct(0);
+        await executeExportJobPackage(designConfig, records, metadata, jobExportName);
+        confetti({
+          particleCount: 150,
+          spread: 80,
+          origin: { y: 0.5 }
+        });
+      } catch (err: any) {
+        alert(`Export failed: ${err?.message || err}`);
       }
     };
 
@@ -3087,89 +3366,522 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           </div>
         </div>
 
-        {/* 4 Clean Stat Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-          
-          {/* Card 1: Printable Panels */}
-          <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '10px', padding: '12px 16px', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <span style={{ fontSize: '11px', fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Printable Panels</span>
-              <span style={{ fontSize: '16px' }}>📦</span>
+        {/* Minimized Metric Bar */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
+          {/* Badge 1: Printable Panels */}
+          <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '8px', padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+              <span style={{ fontSize: '13px' }}>📦</span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '9px', fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1 }}>Panels</div>
+                <div style={{ fontSize: '13px', fontWeight: '800', color: anyArtworkUploaded ? '#111827' : '#DC2626', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {!anyArtworkUploaded ? '0 Panels' : `${getItemsToExport().length} Panels`}
+                </div>
+              </div>
             </div>
-            <div style={{ fontSize: '20px', fontWeight: '900', color: anyArtworkUploaded ? '#111827' : '#DC2626' }}>
-              {!anyArtworkUploaded 
-                ? '0 Panels'
-                : (enableNesting 
-                    ? `${nestingSheets.reduce((acc, sheet) => acc + sheet.items.length, 0)} Panels`
-                    : `${getItemsToExport().length} Panels`)}
-            </div>
-            <div style={{ fontSize: '11px', color: anyArtworkUploaded ? '#6B7280' : '#DC2626', marginTop: '3px', fontWeight: '600' }}>
-              {!anyArtworkUploaded 
-                ? '⚠️ No artwork file detected'
-                : `${records.reduce((acc, r) => acc + r.qty, 0)} Total Garments in Job`}
-            </div>
+            <span style={{ fontSize: '10px', fontWeight: '600', color: '#6B7280', background: '#F0ECE6', padding: '2px 6px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
+              {records.reduce((acc, r) => acc + r.qty, 0)} Pcs
+            </span>
           </div>
 
-          {/* Card 2: Export Resolution */}
-          <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '10px', padding: '12px 16px', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <span style={{ fontSize: '11px', fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profile & Quality</span>
-              <span style={{ fontSize: '16px' }}>⚙️</span>
+          {/* Badge 2: Profile & Quality */}
+          <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '8px', padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '13px' }}>⚙️</span>
+              <div>
+                <div style={{ fontSize: '9px', fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1 }}>Profile & Quality</div>
+                <div style={{ fontSize: '13px', fontWeight: '800', color: '#E4572E', whiteSpace: 'nowrap' }}>
+                  {dpi} DPI • {exportFormat.toUpperCase()}
+                </div>
+              </div>
             </div>
-            <div style={{ fontSize: '20px', fontWeight: '900', color: '#E4572E' }}>
-              {dpi} DPI
-            </div>
-            <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '3px', fontWeight: '500' }}>
-              {exportFormat.toUpperCase()} • {colorProfile.toUpperCase()} Profile
-            </div>
+            <span style={{ fontSize: '10px', fontWeight: '600', color: '#6B7280', background: '#F0ECE6', padding: '2px 6px', borderRadius: '4px' }}>
+              RGB
+            </span>
           </div>
 
-          {/* Card 3: Woven Label Watermark Tag */}
+          {/* Badge 3: Woven Label */}
           <div 
-            style={{ 
-              cursor: 'pointer', 
-              background: '#FAF8F5',
-              borderRadius: '10px', 
-              padding: '12px 16px', 
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-              border: includeWatermarkLogo ? '1.5px solid #86EFAC' : '1.5px solid #FCD34D',
-              transition: 'all 0.15s ease'
-            }}
             onClick={() => {
               const val = !includeWatermarkLogo;
               setIncludeWatermarkLogo(val);
               localStorage.setItem('fivenest_pref_logo_watermark', JSON.stringify(val));
             }}
+            style={{ 
+              background: '#FAF8F5', 
+              border: includeWatermarkLogo ? '1.5px solid #86EFAC' : '1.5px solid #FCD34D', 
+              borderRadius: '8px', 
+              padding: '6px 12px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between', 
+              gap: '8px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            title="Click to toggle woven label rate"
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <span style={{ fontSize: '11px', fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>FiveNest Woven Label</span>
-              <span style={{ fontSize: '14px' }}>{includeWatermarkLogo ? '🏷️' : '🚫'}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '13px' }}>{includeWatermarkLogo ? '🏷️' : '🚫'}</span>
+              <div>
+                <div style={{ fontSize: '9px', fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1 }}>Woven Label</div>
+                <div style={{ fontSize: '13px', fontWeight: '800', color: includeWatermarkLogo ? '#15803D' : '#D97706', whiteSpace: 'nowrap' }}>
+                  {includeWatermarkLogo ? 'ON (₹3/pc)' : 'OFF (₹5/pc)'}
+                </div>
+              </div>
             </div>
-            <div style={{ fontSize: '20px', fontWeight: '900', color: includeWatermarkLogo ? '#15803D' : '#D97706' }}>
-              {includeWatermarkLogo ? 'ON (₹3/pc)' : 'OFF (₹5/pc)'}
-            </div>
-            <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '3px', fontWeight: '500' }}>
-              {includeWatermarkLogo ? 'Discounted Rate Applied' : 'Standard Rate (No Tag)'}
-            </div>
+            <span style={{ fontSize: '9px', fontWeight: '700', color: includeWatermarkLogo ? '#15803D' : '#D97706', background: includeWatermarkLogo ? '#DCFCE7' : '#FEF3C7', padding: '2px 6px', borderRadius: '4px' }}>
+              Toggle
+            </span>
           </div>
 
-          {/* Card 4: Layout Efficiency */}
-          <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '10px', padding: '12px 16px', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <span style={{ fontSize: '11px', fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Layout Strategy</span>
-              <span style={{ fontSize: '16px' }}>🗺️</span>
+          {/* Badge 4: Layout Strategy */}
+          <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '8px', padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '13px' }}>🗺️</span>
+              <div>
+                <div style={{ fontSize: '9px', fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1 }}>Layout Strategy</div>
+                <div style={{ fontSize: '13px', fontWeight: '800', color: '#E4572E', whiteSpace: 'nowrap' }}>
+                  Individual ZIP
+                </div>
+              </div>
             </div>
-            <div style={{ fontSize: '20px', fontWeight: '900', color: '#E4572E' }}>
-              {enableNesting 
-                ? `${nestingSheets[activeSheetIndex]?.efficiency || 0}% Efficiency` 
-                : 'Individual ZIP'}
-            </div>
-            <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '3px', fontWeight: '500' }}>
-              {enableNesting ? `Roll: ${rollW}" × ${Math.round(nestingSheets[activeSheetIndex]?.height || 0)}"` : 'Organized in Subfolders'}
-            </div>
+            <span style={{ fontSize: '10px', fontWeight: '600', color: '#6B7280', background: '#F0ECE6', padding: '2px 6px', borderRadius: '4px' }}>
+              Subfolders
+            </span>
           </div>
-
         </div>
+      </div>
+
+      {/* ── Advance Design Preset & Batch Auto-Export Engine ── */}
+      <div 
+        style={{ 
+          background: '#FFFFFF', 
+          border: '1.5px solid #FCD7C8', 
+          borderRadius: '14px', 
+          padding: '16px 20px', 
+          boxShadow: '0 2px 8px rgba(228,87,46,0.06)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '14px'
+        }}
+      >
+        {/* Header Row: Title + Online Storage Capacity + Action Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#FFF0EB', border: '1px solid #FCD7C8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Sparkles size={16} style={{ color: '#E4572E' }} />
+              </div>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '900', color: '#111827', letterSpacing: '-0.01em' }}>
+                Advance Design Presets
+              </h3>
+            </div>
+
+            {/* Storage Quota Badge: 3 to 10 Presets, Valid for 3 Days */}
+            <div 
+              style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '6px', 
+                padding: '4px 10px', 
+                borderRadius: '9999px', 
+                background: advancePresets.length >= MAX_CLOUD_PRESETS ? '#FEF2F2' : '#EFF6FF', 
+                border: advancePresets.length >= MAX_CLOUD_PRESETS ? '1px solid #FECACA' : '1px solid #BFDBFE',
+                fontSize: '11px',
+                fontWeight: '700',
+                color: advancePresets.length >= MAX_CLOUD_PRESETS ? '#DC2626' : '#1D4ED8'
+              }}
+              title="Cloud & IndexedDB storage limit: Up to 10 presets, each valid for 3 days from creation"
+            >
+              <Clock size={12} />
+              <span>Storage: <strong>{advancePresets.length} / {MAX_CLOUD_PRESETS}</strong> Presets (Valid for 3 Days)</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => {
+                const defaultName = `${metadata.customerName || 'Job'} - Order #${metadata.orderNum || '01'}`.trim();
+                setNewPresetNameInput(defaultName);
+                setShowSavePresetModal(true);
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '7px 14px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, #E4572E 0%, #EA580C 100%)',
+                color: '#FFFFFF',
+                border: 'none',
+                fontSize: '12px',
+                fontWeight: '800',
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(228,87,46,0.3)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <Save size={14} />
+              <span>Save Current Job as Advance Preset</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => loadAdvancePresets()}
+              disabled={loadingPresets}
+              title="Refresh presets from storage"
+              style={{
+                padding: '7px 10px',
+                borderRadius: '8px',
+                background: '#FAF8F5',
+                border: '1px solid #E8E4DE',
+                color: '#6B7280',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <RefreshCw size={14} className={loadingPresets ? 'animate-spin' : ''} />
+            </button>
+          </div>
+        </div>
+
+        {/* Multi-Select Continuous Batch Auto-Export Action Bar */}
+        {advancePresets.length > 0 && (
+          <div 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between', 
+              flexWrap: 'wrap', 
+              gap: '10px', 
+              padding: '10px 14px', 
+              borderRadius: '10px', 
+              background: selectedPresetIds.length > 0 ? '#FFF7ED' : '#FAF8F5', 
+              border: selectedPresetIds.length > 0 ? '1.5px solid #FDBA74' : '1px solid #E8E4DE',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={handleSelectAllPresets}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  color: '#374151',
+                  padding: 0
+                }}
+              >
+                {selectedPresetIds.length === advancePresets.length ? (
+                  <CheckSquare size={16} style={{ color: '#E4572E' }} />
+                ) : (
+                  <Square size={16} style={{ color: '#9CA3AF' }} />
+                )}
+                <span>Select All ({selectedPresetIds.length}/{advancePresets.length})</span>
+              </button>
+
+              {selectedPresetIds.length > 0 && (
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#C2410C' }}>
+                  • {selectedPresetIds.length} preset{selectedPresetIds.length > 1 ? 's' : ''} queued for batch export
+                </span>
+              )}
+            </div>
+
+            {selectedPresetIds.length > 0 && (
+              <button
+                type="button"
+                onClick={handleRunContinuousBatchExport}
+                disabled={isBatchExporting}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '9px 18px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  boxShadow: '0 3px 8px rgba(5,150,105,0.3)',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <Zap size={15} />
+                <span>Run Continuous Batch Export ({selectedPresetIds.length} Jobs) ▶</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Preset Cards List */}
+        {advancePresets.length === 0 ? (
+          <div 
+            style={{ 
+              padding: '24px 16px', 
+              borderRadius: '10px', 
+              background: '#FAF8F5', 
+              border: '1px dashed #D1D5DB', 
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <FolderCheck size={26} style={{ color: '#9CA3AF' }} />
+            <div style={{ fontSize: '13px', fontWeight: '700', color: '#374151' }}>
+              No Advance Presets Saved Yet
+            </div>
+            <div style={{ fontSize: '11px', color: '#6B7280', maxWidth: '520px', lineHeight: 1.5 }}>
+              Click <strong>"Save Current Job as Advance Preset"</strong> above to store this complete job (artwork configs across all panels, CSV roster records, and order details) into online storage (up to 10 jobs, valid for 3 days). You can then select multiple presets and run continuous auto-exports in one click!
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '12px' }}>
+            {advancePresets.map((preset) => {
+              const isSelected = selectedPresetIds.includes(preset.id);
+              const isEditing = editingPresetId === preset.id;
+              const remainingTime = formatTimeRemaining(preset.expiresAt || '');
+              const totalGarments = preset.totalGarments 
+                || (preset.records ? preset.records.reduce((acc, r) => acc + (Number(r.qty) || 1), 0) : 0);
+
+              return (
+                <div
+                  key={preset.id}
+                  style={{
+                    background: isSelected ? '#FFFBF8' : '#FAF8F5',
+                    border: isSelected ? '1.5px solid #E4572E' : '1px solid #E8E4DE',
+                    borderRadius: '10px',
+                    padding: '12px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                    boxShadow: isSelected ? '0 2px 8px rgba(228,87,46,0.12)' : '0 1px 2px rgba(0,0,0,0.02)',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {/* Card Header: Checkbox + Job Name + Edit button */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                      <div 
+                        onClick={() => handleToggleSelectPreset(preset.id)}
+                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                      >
+                        {isSelected ? (
+                          <CheckSquare size={17} style={{ color: '#E4572E' }} />
+                        ) : (
+                          <Square size={17} style={{ color: '#9CA3AF' }} />
+                        )}
+                      </div>
+
+                      {isEditing ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
+                          <input
+                            type="text"
+                            value={editingPresetName}
+                            onChange={(e) => setEditingPresetName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleRenamePreset(preset.id);
+                              if (e.key === 'Escape') setEditingPresetId(null);
+                            }}
+                            autoFocus
+                            style={{
+                              flex: 1,
+                              padding: '3px 6px',
+                              borderRadius: '4px',
+                              border: '1px solid #E4572E',
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              outline: 'none'
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRenamePreset(preset.id)}
+                            style={{ padding: '3px', background: '#10B981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                            title="Save name"
+                          >
+                            <Check size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingPresetId(null)}
+                            style={{ padding: '3px', background: '#EF4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                            title="Cancel"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div 
+                          style={{ minWidth: 0, flex: 1, cursor: 'pointer' }}
+                          onClick={() => handleToggleSelectPreset(preset.id)}
+                          title="Click checkbox to select for continuous batch export"
+                        >
+                          <div style={{ fontSize: '13px', fontWeight: '800', color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {preset.name}
+                          </div>
+                          {preset.customerName && (
+                            <div style={{ fontSize: '10px', color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              Client: {preset.customerName}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {!isEditing && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingPresetId(preset.id);
+                          setEditingPresetName(preset.name);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '4px',
+                          cursor: 'pointer',
+                          color: '#6B7280',
+                          borderRadius: '4px'
+                        }}
+                        title="Edit Job Name"
+                      >
+                        <Edit2 size={13} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Card Metadata Badges */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '10px', fontWeight: '700', color: '#111827', background: '#F0ECE6', padding: '2px 6px', borderRadius: '4px' }}>
+                      🎽 {totalGarments} Jerseys
+                    </span>
+                    <span style={{ fontSize: '10px', fontWeight: '600', color: '#6B7280', background: '#F0ECE6', padding: '2px 6px', borderRadius: '4px' }}>
+                      📋 {preset.records?.length || 0} Roster Rows
+                    </span>
+                    <span 
+                      style={{ 
+                        fontSize: '10px', 
+                        fontWeight: '700', 
+                        color: '#B45309', 
+                        background: '#FEF3C7', 
+                        padding: '2px 6px', 
+                        borderRadius: '4px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '3px'
+                      }}
+                      title="Preset expires and automatically removes 3 days after creation"
+                    >
+                      <Clock size={10} />
+                      {remainingTime}
+                    </span>
+                  </div>
+
+                  {/* Card Action Buttons: Load into Studio, Export Solo, Delete */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', borderTop: '1px solid #E8E4DE', paddingTop: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleLoadPresetIntoStudio(preset)}
+                      style={{
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        background: '#FFFFFF',
+                        border: '1px solid #D1D5DB',
+                        color: '#374151',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                      title="Load design, CSV roster, and metadata into active Studio workspace"
+                    >
+                      <FolderCheck size={12} />
+                      <span>Load into Studio</span>
+                    </button>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const jobMeta = preset.metadata || {
+                              customerName: preset.name,
+                              orderNum: '01',
+                              whatsapp: '',
+                              raglanStyle: false,
+                              halfSleeveMerge: false,
+                              a4BackPrint: false,
+                              individualExportFB: false,
+                              blankKit: false,
+                              manualMode: false,
+                              manualGrid: {}
+                            };
+                            await executeExportJobPackage(preset.config, preset.records || [], jobMeta, preset.name);
+                            confetti({ particleCount: 150, spread: 80, origin: { y: 0.5 } });
+                          } catch (err: any) {
+                            alert(`Export failed: ${err?.message || err}`);
+                          }
+                        }}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          background: '#E4572E',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          fontSize: '11px',
+                          fontWeight: '800',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                        title="Export this preset immediately"
+                      >
+                        <Download size={12} />
+                        <span>Export</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePreset(preset.id, preset.name)}
+                        style={{
+                          padding: '4px 6px',
+                          borderRadius: '6px',
+                          background: '#FFFFFF',
+                          border: '1px solid #FECACA',
+                          color: '#DC2626',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        title="Delete Preset"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Main Dual Configuration Container (Mode Selection + Export Bar) */}
@@ -4157,6 +4869,249 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
         onUserUpdate={onUserChange}
         onOpenLogin={onOpenLogin}
       />
+
+      {/* ── Save Advance Design Preset Modal ── */}
+      {showSavePresetModal && (
+        <div 
+          style={{ 
+            position: 'fixed', 
+            inset: 0, 
+            background: 'rgba(0,0,0,0.6)', 
+            backdropFilter: 'blur(4px)',
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            zIndex: 9999,
+            padding: '16px' 
+          }}
+          onClick={() => setShowSavePresetModal(false)}
+        >
+          <div 
+            style={{ 
+              background: '#FFFFFF', 
+              borderRadius: '16px', 
+              maxWidth: '480px', 
+              width: '100%', 
+              padding: '24px', 
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#FFF0EB', border: '1px solid #FCD7C8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Save size={18} style={{ color: '#E4572E' }} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '900', color: '#111827' }}>
+                    Save Advance Design Preset
+                  </h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#6B7280' }}>
+                    Stores complete job data: Artwork + CSV roster + Order details
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowSavePresetModal(false)} 
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '11px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Job / Preset Name (Editable):
+              </label>
+              <input
+                type="text"
+                value={newPresetNameInput}
+                onChange={(e) => setNewPresetNameInput(e.target.value)}
+                placeholder="e.g. Mumbai Indians - Order #104"
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  border: '1.5px solid #D1D5DB',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  outline: 'none',
+                  color: '#111827'
+                }}
+                autoFocus
+              />
+            </div>
+
+            {/* Included Content Summary Box */}
+            <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '10px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px', color: '#4B5563' }}>
+              <div style={{ fontWeight: '800', color: '#111827', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <CheckCircle2 size={13} style={{ color: '#10B981' }} />
+                <span>Package Contents:</span>
+              </div>
+              <div>• <strong>Artwork Config:</strong> Front, Back, Sleeves, Collar &amp; A4 styling</div>
+              <div>• <strong>CSV Roster:</strong> {records.length} player row{records.length !== 1 ? 's' : ''} ({records.reduce((acc, r) => acc + (Number(r.qty) || 1), 0)} jerseys)</div>
+              <div>• <strong>Order Metadata:</strong> Customer ({metadata.customerName || 'None'}), Order #{metadata.orderNum || '01'}, Sizing grid</div>
+              <div style={{ marginTop: '4px', fontSize: '10px', color: '#92400E', background: '#FEF3C7', padding: '4px 8px', borderRadius: '6px' }}>
+                ⏳ <strong>Validity:</strong> Presets remain active in online storage for <strong>3 days</strong> (Capacity: up to 10 presets).
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
+              <button
+                type="button"
+                onClick={() => setShowSavePresetModal(false)}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '8px',
+                  background: '#FAF8F5',
+                  border: '1px solid #E8E4DE',
+                  color: '#4B5563',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAdvancePreset}
+                style={{
+                  flex: 2,
+                  padding: '10px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #E4572E 0%, #EA580C 100%)',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(228,87,46,0.3)'
+                }}
+              >
+                Save Advance Preset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Continuous Multi-Job Batch Export Live Progress Modal ── */}
+      {showBatchModal && (
+        <div 
+          style={{ 
+            position: 'fixed', 
+            inset: 0, 
+            background: 'rgba(0,0,0,0.7)', 
+            backdropFilter: 'blur(6px)',
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            zIndex: 9999,
+            padding: '16px' 
+          }}
+        >
+          <div 
+            style={{ 
+              background: '#FFFFFF', 
+              borderRadius: '16px', 
+              maxWidth: '520px', 
+              width: '100%', 
+              padding: '24px', 
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              textAlign: 'center'
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#EFF6FF', border: '2px solid #BFDBFE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Zap size={24} style={{ color: '#2563EB', animation: 'pulse 1.5s infinite' }} />
+              </div>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: '#111827' }}>
+                Continuous Batch Export in Progress
+              </h3>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: '#E4572E' }}>
+                Exporting Job {batchCurrentJobIndex} of {batchTotalJobs}: "{batchCurrentJobName}"
+              </div>
+            </div>
+
+            {/* Overall Batch Progress Indicator */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '700', color: '#6B7280' }}>
+                <span>Overall Batch Progress</span>
+                <span>Job {batchCurrentJobIndex} / {batchTotalJobs}</span>
+              </div>
+              <div style={{ width: '100%', height: '8px', background: '#F3F4F6', borderRadius: '9999px', overflow: 'hidden' }}>
+                <div 
+                  style={{ 
+                    height: '100%', 
+                    background: 'linear-gradient(90deg, #3B82F6 0%, #10B981 100%)', 
+                    borderRadius: '9999px',
+                    transition: 'width 0.3s ease',
+                    width: `${Math.round(((batchCurrentJobIndex - 1) / Math.max(1, batchTotalJobs)) * 100 + (batchPanelPct / Math.max(1, batchTotalJobs)))}%`
+                  }} 
+                />
+              </div>
+            </div>
+
+            {/* Current Job Rendering Status Box */}
+            <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '10px', padding: '14px', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '800', color: '#111827' }}>
+                <span>Current Job Status</span>
+                <span>{batchPanelPct}%</span>
+              </div>
+              <div style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '9999px', overflow: 'hidden' }}>
+                <div 
+                  style={{ 
+                    height: '100%', 
+                    background: '#E4572E', 
+                    borderRadius: '9999px',
+                    transition: 'width 0.2s ease',
+                    width: `${batchPanelPct}%`
+                  }} 
+                />
+              </div>
+              <div style={{ fontSize: '11px', color: '#4B5563', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {batchPanelStatus || 'Rendering panels...'}
+              </div>
+            </div>
+
+            <div style={{ fontSize: '11px', color: '#6B7280', lineHeight: 1.5 }}>
+              🔒 <strong>Automatic Sequential Downloads:</strong> Please do not close or refresh this tab while the continuous export is active. Each job's ZIP file downloads automatically one by one.
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm("Stop continuous batch export? Any jobs already exported will be preserved in your downloads.")) {
+                  abortBatchRef.current = true;
+                  setShowBatchModal(false);
+                  setIsBatchExporting(false);
+                }
+              }}
+              style={{
+                padding: '9px 16px',
+                borderRadius: '8px',
+                background: '#FEF2F2',
+                border: '1px solid #FECACA',
+                color: '#DC2626',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                marginTop: '4px'
+              }}
+            >
+              Cancel / Stop Batch Export
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 });

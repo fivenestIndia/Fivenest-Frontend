@@ -420,10 +420,12 @@ export default function WebStudio() {
           <NestingView
             ref={mobileNestingRef}
             records={records}
+            onRecordsChange={setRecords}
             metadata={metadata}
             onMetadataChange={setMetadata}
             sizeDB={sizeDB}
             designConfig={designConfig}
+            onDesignConfigChange={setDesignConfig}
             currentUser={currentUser}
             testMode={testMode}
             onUserChange={setCurrentUser}
@@ -841,10 +843,12 @@ export default function WebStudio() {
           {activeTab === 'nesting' && (
             <NestingView 
               records={records}
+              onRecordsChange={setRecords}
               metadata={metadata}
               onMetadataChange={setMetadata}
               sizeDB={sizeDB}
               designConfig={designConfig}
+              onDesignConfigChange={setDesignConfig}
               currentUser={currentUser}
               testMode={testMode}
               onUserChange={setCurrentUser}

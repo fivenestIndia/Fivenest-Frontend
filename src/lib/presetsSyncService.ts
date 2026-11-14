@@ -10,20 +10,25 @@ import { supabase } from './supabaseClient';
 import { getActiveUserContext } from './orderSyncService';
 import type { ArtDesignConfig } from '../components/studio/defaultDesignConfig';
 import { defaultDesignConfig } from '../components/studio/defaultDesignConfig';
+import type { PlayerRecord, OrderMetadata } from '../components/studio/orderEntry';
 
 export interface DesignPresetItem {
   id: string;
   name: string;
-  category: 'factory' | 'custom';
+  category: 'factory' | 'custom' | 'advance';
   description?: string;
   config: ArtDesignConfig;
+  records?: PlayerRecord[];        // Job details / CSV roster data
+  metadata?: OrderMetadata;        // Job metadata & sizing grid
+  totalGarments?: number;          // Total jersey count
+  customerName?: string;           // Customer / Team Name
   isFontVariationOnly?: boolean;
   createdAt?: string;
   updatedAt?: string;
   expiresAt?: string; // Auto-vanish after 3 days
 }
 
-export const MAX_CLOUD_PRESETS = 3;
+export const MAX_CLOUD_PRESETS = 10;
 export const PRESET_VALIDITY_DAYS = 3;
 export const PRESET_VALIDITY_MS = PRESET_VALIDITY_DAYS * 24 * 60 * 60 * 1000; // 3 days (72 hours)
 
@@ -372,6 +377,107 @@ async function saveMultipleToIndexedDB(presets: DesignPresetItem[]): Promise<voi
     const store = transaction.objectStore(IDB_STORE);
     presets.forEach(p => store.put(p));
   } catch (e) {}
+}
+
+/**
+ * Save an Advance Design Preset (contains complete job: artwork config, CSV roster records, and metadata)
+ * Valid for 3 days, online cloud & IndexedDB capacity up to 10 presets.
+ */
+export async function saveAdvancePreset(item: {
+  name: string;
+  config: ArtDesignConfig;
+  records: PlayerRecord[];
+  metadata: OrderMetadata;
+  userEmail?: string | null;
+  userId?: string | null;
+}): Promise<{ success: boolean; preset?: DesignPresetItem; error?: string }> {
+  try {
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + PRESET_VALIDITY_MS).toISOString();
+    const totalGarments = item.records.filter(r => r.name?.toUpperCase() !== 'SLEEVE').reduce((acc, r) => acc + (Number(r.qty) || 1), 0)
+      || item.records.reduce((acc, r) => acc + (Number(r.qty) || 1), 0)
+      || (item.metadata.manualGrid ? Object.values(item.metadata.manualGrid).reduce((acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0) + (Number(v?.half) || 0), 0) : 0);
+
+    const newPreset: DesignPresetItem = {
+      id: `advance_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      name: item.name.trim() || `${item.metadata.customerName || 'Job'} - Order #${item.metadata.orderNum || '01'}`,
+      category: 'advance',
+      description: `Advance Job Preset with ${item.records.length} roster items (${totalGarments} jerseys)`,
+      config: JSON.parse(JSON.stringify(item.config)),
+      records: JSON.parse(JSON.stringify(item.records)),
+      metadata: JSON.parse(JSON.stringify(item.metadata)),
+      totalGarments,
+      customerName: item.metadata.customerName || '',
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      expiresAt
+    };
+
+    // 1. Get existing custom/advance presets from IndexedDB
+    const existing = await getLocalPresets(item.userEmail);
+    const valid = existing.filter(p => isPresetValid(p));
+
+    // If at capacity (10), drop oldest custom/advance preset
+    let updated: DesignPresetItem[];
+    if (valid.length >= MAX_CLOUD_PRESETS) {
+      updated = [...valid.slice(-(MAX_CLOUD_PRESETS - 1)), newPreset];
+    } else {
+      updated = [...valid, newPreset];
+    }
+
+    // 2. Persist to IndexedDB
+    await savePresetToIndexedDB(newPreset);
+
+    // 3. Sync to Cloud
+    savePresetsToCloud(updated, item.userEmail, item.userId).catch(() => {});
+
+    return { success: true, preset: newPreset };
+  } catch (err: any) {
+    console.error('Failed to save advance preset:', err);
+    return { success: false, error: err?.message || 'Failed to save preset' };
+  }
+}
+
+/**
+ * Rename/edit job name of a preset in IndexedDB & Cloud
+ */
+export async function updatePresetName(
+  presetId: string, 
+  newName: string, 
+  userEmail?: string | null, 
+  userId?: string | null
+): Promise<boolean> {
+  try {
+    const db = await openIndexedDB();
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    const store = tx.objectStore(IDB_STORE);
+    const getReq = store.get(presetId);
+
+    const item: DesignPresetItem = await new Promise((resolve, reject) => {
+      getReq.onsuccess = () => resolve(getReq.result);
+      getReq.onerror = () => reject(getReq.error);
+    });
+
+    if (!item) return false;
+
+    item.name = newName.trim();
+    item.updatedAt = new Date().toISOString();
+    store.put(item);
+
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+
+    // Also update cloud sync
+    const all = await getLocalPresets(userEmail);
+    savePresetsToCloud(all, userEmail, userId).catch(() => {});
+
+    return true;
+  } catch (e) {
+    console.error('Failed to update preset name:', e);
+    return false;
+  }
 }
 
 // ─── 3. CLOUD SYNC ENGINE (Supabase & MongoDB) ───────────────────────────────
