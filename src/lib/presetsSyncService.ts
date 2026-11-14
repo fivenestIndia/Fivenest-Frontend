@@ -395,8 +395,8 @@ export async function saveAdvancePreset(item: {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + PRESET_VALIDITY_MS).toISOString();
     const totalGarments = item.records.filter(r => r.name?.toUpperCase() !== 'SLEEVE').reduce((acc, r) => acc + (Number(r.qty) || 1), 0)
-      || item.records.reduce((acc, r) => acc + (Number(r.qty) || 1), 0)
-      || (item.metadata.manualGrid ? Object.values(item.metadata.manualGrid).reduce((acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0) + (Number(v?.half) || 0), 0) : 0);
+      || (item.metadata.manualGrid ? Object.values(item.metadata.manualGrid).reduce((acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0), 0) : 0)
+      || item.records.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
 
     const newPreset: DesignPresetItem = {
       id: `advance_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,

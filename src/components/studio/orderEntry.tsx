@@ -335,7 +335,7 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
       let qtyVal = 1;
       if (qtyKey && row[qtyKey] !== undefined) {
         const parsed = parseInt(String(row[qtyKey]).trim(), 10);
-        if (!isNaN(parsed) && parsed >= 1 && parsed <= 10) {
+        if (!isNaN(parsed) && parsed >= 1) {
           qtyVal = parsed;
         }
       }

@@ -2739,25 +2739,31 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
     // Calculate total number of jerseys:
     // In FiveNest, front, sleeve, and collar panels are completely free.
-    // Charges are strictly: (Total Number of Jerseys × activeRate) + (A4 Prints × 0.50)
+    // Charges are strictly on typed jersey quantity: (Total Typed Jerseys × activeRate) + (A4 Prints × 0.50)
     let totalJerseys = 0;
+    const gridValues = activeMeta.manualGrid ? Object.values(activeMeta.manualGrid) : [];
+    const gridJerseyCount = gridValues.reduce(
+      (acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0),
+      0
+    );
     const nonSleeveRecords = activeRecs.filter(r => r.name?.toUpperCase() !== 'SLEEVE');
-    if (nonSleeveRecords.length > 0) {
-      totalJerseys = nonSleeveRecords.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
-    } else if (activeRecs.length > 0) {
-      totalJerseys = activeRecs.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
-    } else if (activeMeta.manualGrid) {
-      totalJerseys = Object.values(activeMeta.manualGrid).reduce(
-        (acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0) + (Number(v?.half) || 0),
-        0
-      );
+    const recordsJerseyCount = nonSleeveRecords.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
+
+    if (activeMeta.manualMode && gridJerseyCount > 0) {
+      totalJerseys = gridJerseyCount;
+    } else if (recordsJerseyCount > 0) {
+      totalJerseys = recordsJerseyCount;
+    } else if (gridJerseyCount > 0) {
+      totalJerseys = gridJerseyCount;
     }
 
     const items = getItemsToExport(undefined, activeRecs, activeMeta);
     const a4Count = items.filter(i => i.panelType === 'a4-print').length;
 
     if (totalJerseys === 0) {
-      totalJerseys = items.filter(i => i.panelType === 'back').length;
+      const backCount = items.filter(i => i.panelType === 'back').length;
+      const frontCount = items.filter(i => i.panelType === 'front').length;
+      totalJerseys = backCount > 0 ? backCount : frontCount;
     }
 
     return (totalJerseys * activeRate) + (a4Count * 0.50);
@@ -2800,20 +2806,30 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
         throw new Error(`No printable panels found for "${jobName}". Please verify that artwork is uploaded.`);
       }
 
-      // Determine total jerseys for accurate billing ledger
+      // Determine total jerseys for accurate billing ledger based on typed quantity
       let totalJerseys = 0;
+      const gridValues = jobMeta.manualGrid ? Object.values(jobMeta.manualGrid) : [];
+      const gridJerseyCount = gridValues.reduce(
+        (acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0),
+        0
+      );
       const nonSleeveRecords = jobRecords.filter(r => r.name?.toUpperCase() !== 'SLEEVE');
-      if (nonSleeveRecords.length > 0) {
-        totalJerseys = nonSleeveRecords.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
-      } else if (jobRecords.length > 0) {
-        totalJerseys = jobRecords.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
-      } else if (jobMeta.manualGrid) {
-        totalJerseys = Object.values(jobMeta.manualGrid).reduce(
-          (acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0) + (Number(v?.half) || 0),
-          0
-        );
+      const recordsJerseyCount = nonSleeveRecords.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
+
+      if (jobMeta.manualMode && gridJerseyCount > 0) {
+        totalJerseys = gridJerseyCount;
+      } else if (recordsJerseyCount > 0) {
+        totalJerseys = recordsJerseyCount;
+      } else if (gridJerseyCount > 0) {
+        totalJerseys = gridJerseyCount;
       }
-      const billedJerseyCount = totalJerseys || items.filter(i => i.panelType === 'back').length || totalPieces;
+
+      if (totalJerseys === 0) {
+        const backCount = items.filter(i => i.panelType === 'back').length;
+        const frontCount = items.filter(i => i.panelType === 'front').length;
+        totalJerseys = backCount > 0 ? backCount : frontCount;
+      }
+      const billedJerseyCount = totalJerseys > 0 ? totalJerseys : 1;
 
       let activeDpi = testMode ? 72 : dpi;
       const cleanCust = (jobMeta.customerName || jobName || "Job").replace(/[\/\\:*?"<>|]/g, "_").trim() || "Unknown";
@@ -3597,9 +3613,9 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           </div>
 
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '10px'
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px'
           }}>
             {/* 1. Half-Sleeve Merge */}
             <button
@@ -3607,44 +3623,46 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               onClick={() => toggleSublimationOption('halfSleeveMerge')}
               style={{
                 display: 'flex',
-                flexDirection: 'column',
+                alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '10px 12px',
-                minHeight: '66px',
-                borderRadius: '9px',
-                border: metadata.halfSleeveMerge ? '2px solid #E4572E' : '1.5px solid #E2DED7',
+                padding: '7px 12px',
+                minHeight: '38px',
+                borderRadius: '8px',
+                border: metadata.halfSleeveMerge ? '1.5px solid #E4572E' : '1px solid #E2DED7',
                 background: metadata.halfSleeveMerge ? '#FFF5F2' : '#FFFFFF',
                 cursor: 'pointer',
                 textAlign: 'left',
                 transition: 'all 0.15s ease',
-                boxShadow: metadata.halfSleeveMerge ? '0 2px 6px rgba(228,87,46,0.12)' : '0 1px 2px rgba(0,0,0,0.02)'
+                boxShadow: metadata.halfSleeveMerge ? '0 1px 4px rgba(228,87,46,0.1)' : '0 1px 2px rgba(0,0,0,0.02)',
+                gap: '10px'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0 }}>
                   {metadata.halfSleeveMerge ? (
-                    <CheckSquare size={16} style={{ color: '#E4572E', flexShrink: 0 }} />
+                    <CheckSquare size={15} style={{ color: '#E4572E', flexShrink: 0 }} />
                   ) : (
-                    <Square size={16} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+                    <Square size={15} style={{ color: '#9CA3AF', flexShrink: 0 }} />
                   )}
-                  <span style={{ fontSize: '12.5px', fontWeight: '800', color: metadata.halfSleeveMerge ? '#E4572E' : '#1F2937' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '800', color: metadata.halfSleeveMerge ? '#E4572E' : '#1F2937' }}>
                     Half-Sleeve Merge
                   </span>
                 </div>
-                <span style={{
-                  fontSize: '9px',
-                  fontWeight: '800',
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  background: metadata.halfSleeveMerge ? '#E4572E' : '#F3F4F6',
-                  color: metadata.halfSleeveMerge ? '#FFFFFF' : '#6B7280'
-                }}>
-                  {metadata.halfSleeveMerge ? 'ACTIVE' : 'OFF'}
+                <span style={{ fontSize: '10.5px', color: metadata.halfSleeveMerge ? '#9A3412' : '#6B7280' }}>
+                  • Merge L+R sleeves into 1 file piece (removes Left/Right tag)
                 </span>
               </div>
-              <div style={{ fontSize: '10.5px', color: metadata.halfSleeveMerge ? '#9A3412' : '#6B7280', lineHeight: 1.3, paddingLeft: '23px' }}>
-                Merge L+R sleeves into 1 file piece (removes Left/Right tag)
-              </div>
+              <span style={{
+                fontSize: '9px',
+                fontWeight: '800',
+                padding: '2px 7px',
+                borderRadius: '4px',
+                background: metadata.halfSleeveMerge ? '#E4572E' : '#F3F4F6',
+                color: metadata.halfSleeveMerge ? '#FFFFFF' : '#6B7280',
+                flexShrink: 0
+              }}>
+                {metadata.halfSleeveMerge ? 'ACTIVE' : 'OFF'}
+              </span>
             </button>
 
             {/* 2. Blank Kit */}
@@ -3653,44 +3671,46 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               onClick={() => toggleSublimationOption('blankKit')}
               style={{
                 display: 'flex',
-                flexDirection: 'column',
+                alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '10px 12px',
-                minHeight: '66px',
-                borderRadius: '9px',
-                border: metadata.blankKit ? '2px solid #E4572E' : '1.5px solid #E2DED7',
+                padding: '7px 12px',
+                minHeight: '38px',
+                borderRadius: '8px',
+                border: metadata.blankKit ? '1.5px solid #E4572E' : '1px solid #E2DED7',
                 background: metadata.blankKit ? '#FFF5F2' : '#FFFFFF',
                 cursor: 'pointer',
                 textAlign: 'left',
                 transition: 'all 0.15s ease',
-                boxShadow: metadata.blankKit ? '0 2px 6px rgba(228,87,46,0.12)' : '0 1px 2px rgba(0,0,0,0.02)'
+                boxShadow: metadata.blankKit ? '0 1px 4px rgba(228,87,46,0.1)' : '0 1px 2px rgba(0,0,0,0.02)',
+                gap: '10px'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0 }}>
                   {metadata.blankKit ? (
-                    <CheckSquare size={16} style={{ color: '#E4572E', flexShrink: 0 }} />
+                    <CheckSquare size={15} style={{ color: '#E4572E', flexShrink: 0 }} />
                   ) : (
-                    <Square size={16} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+                    <Square size={15} style={{ color: '#9CA3AF', flexShrink: 0 }} />
                   )}
-                  <span style={{ fontSize: '12.5px', fontWeight: '800', color: metadata.blankKit ? '#E4572E' : '#1F2937' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '800', color: metadata.blankKit ? '#E4572E' : '#1F2937' }}>
                     Blank Kit
                   </span>
                 </div>
-                <span style={{
-                  fontSize: '9px',
-                  fontWeight: '800',
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  background: metadata.blankKit ? '#E4572E' : '#F3F4F6',
-                  color: metadata.blankKit ? '#FFFFFF' : '#6B7280'
-                }}>
-                  {metadata.blankKit ? 'ACTIVE' : 'OFF'}
+                <span style={{ fontSize: '10.5px', color: metadata.blankKit ? '#9A3412' : '#6B7280' }}>
+                  • Plain jerseys • Hides names &amp; numbers on all prints
                 </span>
               </div>
-              <div style={{ fontSize: '10.5px', color: metadata.blankKit ? '#9A3412' : '#6B7280', lineHeight: 1.3, paddingLeft: '23px' }}>
-                Plain jerseys • Hides names &amp; numbers on all prints
-              </div>
+              <span style={{
+                fontSize: '9px',
+                fontWeight: '800',
+                padding: '2px 7px',
+                borderRadius: '4px',
+                background: metadata.blankKit ? '#E4572E' : '#F3F4F6',
+                color: metadata.blankKit ? '#FFFFFF' : '#6B7280',
+                flexShrink: 0
+              }}>
+                {metadata.blankKit ? 'ACTIVE' : 'OFF'}
+              </span>
             </button>
 
             {/* 3. A4 Print (10×11") */}
@@ -3699,44 +3719,46 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               onClick={() => toggleSublimationOption('a4BackPrint')}
               style={{
                 display: 'flex',
-                flexDirection: 'column',
+                alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '10px 12px',
-                minHeight: '66px',
-                borderRadius: '9px',
-                border: metadata.a4BackPrint ? '2px solid #E4572E' : '1.5px solid #E2DED7',
+                padding: '7px 12px',
+                minHeight: '38px',
+                borderRadius: '8px',
+                border: metadata.a4BackPrint ? '1.5px solid #E4572E' : '1px solid #E2DED7',
                 background: metadata.a4BackPrint ? '#FFF5F2' : '#FFFFFF',
                 cursor: 'pointer',
                 textAlign: 'left',
                 transition: 'all 0.15s ease',
-                boxShadow: metadata.a4BackPrint ? '0 2px 6px rgba(228,87,46,0.12)' : '0 1px 2px rgba(0,0,0,0.02)'
+                boxShadow: metadata.a4BackPrint ? '0 1px 4px rgba(228,87,46,0.1)' : '0 1px 2px rgba(0,0,0,0.02)',
+                gap: '10px'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0 }}>
                   {metadata.a4BackPrint ? (
-                    <CheckSquare size={16} style={{ color: '#E4572E', flexShrink: 0 }} />
+                    <CheckSquare size={15} style={{ color: '#E4572E', flexShrink: 0 }} />
                   ) : (
-                    <Square size={16} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+                    <Square size={15} style={{ color: '#9CA3AF', flexShrink: 0 }} />
                   )}
-                  <span style={{ fontSize: '12.5px', fontWeight: '800', color: metadata.a4BackPrint ? '#E4572E' : '#1F2937' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '800', color: metadata.a4BackPrint ? '#E4572E' : '#1F2937' }}>
                     A4 Print (10×11")
                   </span>
                 </div>
-                <span style={{
-                  fontSize: '9px',
-                  fontWeight: '800',
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  background: metadata.a4BackPrint ? '#E4572E' : '#F3F4F6',
-                  color: metadata.a4BackPrint ? '#FFFFFF' : '#6B7280'
-                }}>
-                  {metadata.a4BackPrint ? 'ACTIVE' : 'OFF'}
+                <span style={{ fontSize: '10.5px', color: metadata.a4BackPrint ? '#9A3412' : '#6B7280' }}>
+                  • Exports standalone A4 graphics folder for chest/print
                 </span>
               </div>
-              <div style={{ fontSize: '10.5px', color: metadata.a4BackPrint ? '#9A3412' : '#6B7280', lineHeight: 1.3, paddingLeft: '23px' }}>
-                Exports standalone A4 graphics folder for chest/print
-              </div>
+              <span style={{
+                fontSize: '9px',
+                fontWeight: '800',
+                padding: '2px 7px',
+                borderRadius: '4px',
+                background: metadata.a4BackPrint ? '#E4572E' : '#F3F4F6',
+                color: metadata.a4BackPrint ? '#FFFFFF' : '#6B7280',
+                flexShrink: 0
+              }}>
+                {metadata.a4BackPrint ? 'ACTIVE' : 'OFF'}
+              </span>
             </button>
 
             {/* 4. Raglan Style */}
@@ -3745,44 +3767,46 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               onClick={() => toggleSublimationOption('raglanStyle')}
               style={{
                 display: 'flex',
-                flexDirection: 'column',
+                alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '10px 12px',
-                minHeight: '66px',
-                borderRadius: '9px',
-                border: metadata.raglanStyle ? '2px solid #E4572E' : '1.5px solid #E2DED7',
+                padding: '7px 12px',
+                minHeight: '38px',
+                borderRadius: '8px',
+                border: metadata.raglanStyle ? '1.5px solid #E4572E' : '1px solid #E2DED7',
                 background: metadata.raglanStyle ? '#FFF5F2' : '#FFFFFF',
                 cursor: 'pointer',
                 textAlign: 'left',
                 transition: 'all 0.15s ease',
-                boxShadow: metadata.raglanStyle ? '0 2px 6px rgba(228,87,46,0.12)' : '0 1px 2px rgba(0,0,0,0.02)'
+                boxShadow: metadata.raglanStyle ? '0 1px 4px rgba(228,87,46,0.1)' : '0 1px 2px rgba(0,0,0,0.02)',
+                gap: '10px'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0 }}>
                   {metadata.raglanStyle ? (
-                    <CheckSquare size={16} style={{ color: '#E4572E', flexShrink: 0 }} />
+                    <CheckSquare size={15} style={{ color: '#E4572E', flexShrink: 0 }} />
                   ) : (
-                    <Square size={16} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+                    <Square size={15} style={{ color: '#9CA3AF', flexShrink: 0 }} />
                   )}
-                  <span style={{ fontSize: '12.5px', fontWeight: '800', color: metadata.raglanStyle ? '#E4572E' : '#1F2937' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '800', color: metadata.raglanStyle ? '#E4572E' : '#1F2937' }}>
                     Raglan Style
                   </span>
                 </div>
-                <span style={{
-                  fontSize: '9px',
-                  fontWeight: '800',
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  background: metadata.raglanStyle ? '#E4572E' : '#F3F4F6',
-                  color: metadata.raglanStyle ? '#FFFFFF' : '#6B7280'
-                }}>
-                  {metadata.raglanStyle ? 'ACTIVE' : 'OFF'}
+                <span style={{ fontSize: '10.5px', color: metadata.raglanStyle ? '#9A3412' : '#6B7280' }}>
+                  • Applies raglan sleeve shoulder pattern dimensions
                 </span>
               </div>
-              <div style={{ fontSize: '10.5px', color: metadata.raglanStyle ? '#9A3412' : '#6B7280', lineHeight: 1.3, paddingLeft: '23px' }}>
-                Applies raglan sleeve shoulder pattern dimensions
-              </div>
+              <span style={{
+                fontSize: '9px',
+                fontWeight: '800',
+                padding: '2px 7px',
+                borderRadius: '4px',
+                background: metadata.raglanStyle ? '#E4572E' : '#F3F4F6',
+                color: metadata.raglanStyle ? '#FFFFFF' : '#6B7280',
+                flexShrink: 0
+              }}>
+                {metadata.raglanStyle ? 'ACTIVE' : 'OFF'}
+              </span>
             </button>
 
             {/* 5. Individual Export F&B */}
@@ -3791,94 +3815,46 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               onClick={() => toggleSublimationOption('individualExportFB')}
               style={{
                 display: 'flex',
-                flexDirection: 'column',
+                alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '10px 12px',
-                minHeight: '66px',
-                borderRadius: '9px',
-                border: metadata.individualExportFB ? '2px solid #E4572E' : '1.5px solid #E2DED7',
+                padding: '7px 12px',
+                minHeight: '38px',
+                borderRadius: '8px',
+                border: metadata.individualExportFB ? '1.5px solid #E4572E' : '1px solid #E2DED7',
                 background: metadata.individualExportFB ? '#FFF5F2' : '#FFFFFF',
                 cursor: 'pointer',
                 textAlign: 'left',
                 transition: 'all 0.15s ease',
-                boxShadow: metadata.individualExportFB ? '0 2px 6px rgba(228,87,46,0.12)' : '0 1px 2px rgba(0,0,0,0.02)'
+                boxShadow: metadata.individualExportFB ? '0 1px 4px rgba(228,87,46,0.1)' : '0 1px 2px rgba(0,0,0,0.02)',
+                gap: '10px'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0 }}>
                   {metadata.individualExportFB ? (
-                    <CheckSquare size={16} style={{ color: '#E4572E', flexShrink: 0 }} />
+                    <CheckSquare size={15} style={{ color: '#E4572E', flexShrink: 0 }} />
                   ) : (
-                    <Square size={16} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+                    <Square size={15} style={{ color: '#9CA3AF', flexShrink: 0 }} />
                   )}
-                  <span style={{ fontSize: '12.5px', fontWeight: '800', color: metadata.individualExportFB ? '#E4572E' : '#1F2937' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '800', color: metadata.individualExportFB ? '#E4572E' : '#1F2937' }}>
                     Individual Export F&amp;B
                   </span>
                 </div>
-                <span style={{
-                  fontSize: '9px',
-                  fontWeight: '800',
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  background: metadata.individualExportFB ? '#E4572E' : '#F3F4F6',
-                  color: metadata.individualExportFB ? '#FFFFFF' : '#6B7280'
-                }}>
-                  {metadata.individualExportFB ? 'ACTIVE' : 'OFF'}
+                <span style={{ fontSize: '10.5px', color: metadata.individualExportFB ? '#9A3412' : '#6B7280' }}>
+                  • Separate 1-pc file for each Front &amp; Back (charged strictly by typed jersey quantity)
                 </span>
               </div>
-              <div style={{ fontSize: '10.5px', color: metadata.individualExportFB ? '#9A3412' : '#6B7280', lineHeight: 1.3, paddingLeft: '23px' }}>
-                Separate 1-pc file for each Front &amp; Back (no grouping)
-              </div>
-            </button>
-
-            {/* 6. Export Collars */}
-            <button
-              type="button"
-              onClick={() => {
-                const newVal = !exportCollar;
-                setExportCollar(newVal);
-                localStorage.setItem('fivenest_pref_export_collar', JSON.stringify(newVal));
-              }}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                padding: '10px 12px',
-                minHeight: '66px',
-                borderRadius: '9px',
-                border: exportCollar ? '2px solid #E4572E' : '1.5px solid #E2DED7',
-                background: exportCollar ? '#FFF5F2' : '#FFFFFF',
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'all 0.15s ease',
-                boxShadow: exportCollar ? '0 2px 6px rgba(228,87,46,0.12)' : '0 1px 2px rgba(0,0,0,0.02)'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                  {exportCollar ? (
-                    <CheckSquare size={16} style={{ color: '#E4572E', flexShrink: 0 }} />
-                  ) : (
-                    <Square size={16} style={{ color: '#9CA3AF', flexShrink: 0 }} />
-                  )}
-                  <span style={{ fontSize: '12.5px', fontWeight: '800', color: exportCollar ? '#E4572E' : '#1F2937' }}>
-                    Export Collars
-                  </span>
-                </div>
-                <span style={{
-                  fontSize: '9px',
-                  fontWeight: '800',
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  background: exportCollar ? '#E4572E' : '#F3F4F6',
-                  color: exportCollar ? '#FFFFFF' : '#6B7280'
-                }}>
-                  {exportCollar ? 'ACTIVE' : 'OFF'}
-                </span>
-              </div>
-              <div style={{ fontSize: '10.5px', color: exportCollar ? '#9A3412' : '#6B7280', lineHeight: 1.3, paddingLeft: '23px' }}>
-                Generate collar panels (Small &amp; Big sets) when artwork exists
-              </div>
+              <span style={{
+                fontSize: '9px',
+                fontWeight: '800',
+                padding: '2px 7px',
+                borderRadius: '4px',
+                background: metadata.individualExportFB ? '#E4572E' : '#F3F4F6',
+                color: metadata.individualExportFB ? '#FFFFFF' : '#6B7280',
+                flexShrink: 0
+              }}>
+                {metadata.individualExportFB ? 'ACTIVE' : 'OFF'}
+              </span>
             </button>
           </div>
         </div>
@@ -4564,22 +4540,28 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               const activeRate = getUserJerseyRate(activeSub, includeWatermarkLogo, isOwnerExempt);
 
               let modalJerseys = 0;
+              const gridValues = metadata.manualGrid ? Object.values(metadata.manualGrid) : [];
+              const gridJerseyCount = gridValues.reduce(
+                (acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0),
+                0
+              );
               const nonSleeveRecords = records.filter(r => r.name?.toUpperCase() !== 'SLEEVE');
-              if (nonSleeveRecords.length > 0) {
-                modalJerseys = nonSleeveRecords.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
-              } else if (records.length > 0) {
-                modalJerseys = records.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
-              } else if (metadata.manualGrid) {
-                modalJerseys = Object.values(metadata.manualGrid).reduce(
-                  (acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0) + (Number(v?.half) || 0),
-                  0
-                );
+              const recordsJerseyCount = nonSleeveRecords.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
+
+              if (metadata.manualMode && gridJerseyCount > 0) {
+                modalJerseys = gridJerseyCount;
+              } else if (recordsJerseyCount > 0) {
+                modalJerseys = recordsJerseyCount;
+              } else if (gridJerseyCount > 0) {
+                modalJerseys = gridJerseyCount;
               }
 
               const exportItems = getItemsToExport();
               const a4Count = exportItems.filter(i => i.panelType === 'a4-print').length;
               if (modalJerseys === 0) {
-                modalJerseys = exportItems.filter(i => i.panelType === 'back').length;
+                const backCount = exportItems.filter(i => i.panelType === 'back').length;
+                const frontCount = exportItems.filter(i => i.panelType === 'front').length;
+                modalJerseys = backCount > 0 ? backCount : frontCount;
               }
 
               const freePanelsCount = exportItems.filter(item => item.panelType !== 'back' && item.panelType !== 'a4-print').length;
