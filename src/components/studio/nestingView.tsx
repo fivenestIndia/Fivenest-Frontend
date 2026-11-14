@@ -2132,11 +2132,12 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
           const qtyVal = (typeof item.qty === 'number' && item.qty > 0) ? item.qty : (sizeQty > 0 ? sizeQty : 1);
 
-          // Requirement: Format size watermark without spaces as "40=2", or "40=2 NL" for Without Logo front, and explicit Left/Right for separate sleeves (merged sleeves already have direction on the right)
+          // Requirement: Format size watermark without spaces as "40=2", or "40=2 NL" for Without Logo front.
+          // For merged sleeves AND full sleeves (sleeveType === 'full'), direction is already placed on the right side of the canvas (FULL LEFT SLEEVE / FULL RIGHT SLEEVE), so do NOT add Left or Right tag next to quantity!
           let sizeQtyText = `${item.size}=${qtyVal}`;
           if (item.panelType === 'front' && item.withoutLogoFront) {
             sizeQtyText = `${item.size}=${qtyVal} NL`;
-          } else if (item.isMergedSleeve || item.panelType === 'sleeve-merged') {
+          } else if (item.isMergedSleeve || item.panelType === 'sleeve-merged' || item.sleeveType === 'full') {
             sizeQtyText = `${item.size}=${qtyVal}`;
           } else if (item.panelType === 'sleeve-left') {
             sizeQtyText = `${item.size}=${qtyVal} Left`;
