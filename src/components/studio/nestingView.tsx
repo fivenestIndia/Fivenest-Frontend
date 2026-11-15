@@ -3601,262 +3601,162 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
         </div>
 
-        {/* Sublimation Production Options Grid (The 6 Bigger Buttons) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '4px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
-            <span style={{ fontSize: '12px', fontWeight: '800', color: '#111827', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Zap size={14} style={{ color: '#E4572E' }} /> Sublimation Production Options:
-            </span>
-            <span style={{ fontSize: '10px', fontWeight: '700', color: '#E4572E' }}>
-              Click button to toggle ON / OFF
-            </span>
-          </div>
+        {/* Sublimation Production Options Horizontal Bar (Space-Minimized) */}
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          flexWrap: 'wrap', 
+          gap: '8px', 
+          paddingTop: '6px'
+        }}>
+          <span style={{ fontSize: '11px', fontWeight: '800', color: '#4B5563', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'inline-flex', alignItems: 'center', gap: '5px', marginRight: '2px' }}>
+            <Zap size={13} style={{ color: '#E4572E' }} /> Sublimation:
+          </span>
 
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '6px'
-          }}>
-            {/* 1. Half-Sleeve Merge */}
-            <button
-              type="button"
-              onClick={() => toggleSublimationOption('halfSleeveMerge')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '7px 12px',
-                minHeight: '38px',
-                borderRadius: '8px',
-                border: metadata.halfSleeveMerge ? '1.5px solid #E4572E' : '1px solid #E2DED7',
-                background: metadata.halfSleeveMerge ? '#FFF5F2' : '#FFFFFF',
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'all 0.15s ease',
-                boxShadow: metadata.halfSleeveMerge ? '0 1px 4px rgba(228,87,46,0.1)' : '0 1px 2px rgba(0,0,0,0.02)',
-                gap: '10px'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0 }}>
-                  {metadata.halfSleeveMerge ? (
-                    <CheckSquare size={15} style={{ color: '#E4572E', flexShrink: 0 }} />
-                  ) : (
-                    <Square size={15} style={{ color: '#9CA3AF', flexShrink: 0 }} />
-                  )}
-                  <span style={{ fontSize: '12px', fontWeight: '800', color: metadata.halfSleeveMerge ? '#E4572E' : '#1F2937' }}>
-                    Half-Sleeve Merge
-                  </span>
-                </div>
-                <span style={{ fontSize: '10.5px', color: metadata.halfSleeveMerge ? '#9A3412' : '#6B7280' }}>
-                  • Merge L+R sleeves into 1 file piece (removes Left/Right tag)
-                </span>
-              </div>
-              <span style={{
-                fontSize: '9px',
-                fontWeight: '800',
-                padding: '2px 7px',
-                borderRadius: '4px',
-                background: metadata.halfSleeveMerge ? '#E4572E' : '#F3F4F6',
-                color: metadata.halfSleeveMerge ? '#FFFFFF' : '#6B7280',
-                flexShrink: 0
-              }}>
-                {metadata.halfSleeveMerge ? 'ACTIVE' : 'OFF'}
-              </span>
-            </button>
+          {/* 1. Half-Sleeve Merge */}
+          <button
+            type="button"
+            onClick={() => toggleSublimationOption('halfSleeveMerge')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 11px',
+              borderRadius: '7px',
+              border: metadata.halfSleeveMerge ? '1.5px solid #E4572E' : '1px solid #D1D5DB',
+              background: metadata.halfSleeveMerge ? '#FFF5F2' : '#FFFFFF',
+              color: metadata.halfSleeveMerge ? '#E4572E' : '#374151',
+              cursor: 'pointer',
+              fontSize: '11.5px',
+              fontWeight: '700',
+              transition: 'all 0.15s ease',
+              boxShadow: metadata.halfSleeveMerge ? '0 1px 3px rgba(228,87,46,0.15)' : 'none'
+            }}
+            title="Merge L+R sleeves into 1 file piece (removes Left/Right tag)"
+          >
+            {metadata.halfSleeveMerge ? (
+              <CheckSquare size={14} style={{ color: '#E4572E', flexShrink: 0 }} />
+            ) : (
+              <Square size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+            )}
+            <span>Half-Sleeve Merge</span>
+          </button>
 
-            {/* 2. Blank Kit */}
-            <button
-              type="button"
-              onClick={() => toggleSublimationOption('blankKit')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '7px 12px',
-                minHeight: '38px',
-                borderRadius: '8px',
-                border: metadata.blankKit ? '1.5px solid #E4572E' : '1px solid #E2DED7',
-                background: metadata.blankKit ? '#FFF5F2' : '#FFFFFF',
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'all 0.15s ease',
-                boxShadow: metadata.blankKit ? '0 1px 4px rgba(228,87,46,0.1)' : '0 1px 2px rgba(0,0,0,0.02)',
-                gap: '10px'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0 }}>
-                  {metadata.blankKit ? (
-                    <CheckSquare size={15} style={{ color: '#E4572E', flexShrink: 0 }} />
-                  ) : (
-                    <Square size={15} style={{ color: '#9CA3AF', flexShrink: 0 }} />
-                  )}
-                  <span style={{ fontSize: '12px', fontWeight: '800', color: metadata.blankKit ? '#E4572E' : '#1F2937' }}>
-                    Blank Kit
-                  </span>
-                </div>
-                <span style={{ fontSize: '10.5px', color: metadata.blankKit ? '#9A3412' : '#6B7280' }}>
-                  • Plain jerseys • Hides names &amp; numbers on all prints
-                </span>
-              </div>
-              <span style={{
-                fontSize: '9px',
-                fontWeight: '800',
-                padding: '2px 7px',
-                borderRadius: '4px',
-                background: metadata.blankKit ? '#E4572E' : '#F3F4F6',
-                color: metadata.blankKit ? '#FFFFFF' : '#6B7280',
-                flexShrink: 0
-              }}>
-                {metadata.blankKit ? 'ACTIVE' : 'OFF'}
-              </span>
-            </button>
+          {/* 2. Blank Kit */}
+          <button
+            type="button"
+            onClick={() => toggleSublimationOption('blankKit')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 11px',
+              borderRadius: '7px',
+              border: metadata.blankKit ? '1.5px solid #E4572E' : '1px solid #D1D5DB',
+              background: metadata.blankKit ? '#FFF5F2' : '#FFFFFF',
+              color: metadata.blankKit ? '#E4572E' : '#374151',
+              cursor: 'pointer',
+              fontSize: '11.5px',
+              fontWeight: '700',
+              transition: 'all 0.15s ease',
+              boxShadow: metadata.blankKit ? '0 1px 3px rgba(228,87,46,0.15)' : 'none'
+            }}
+            title="Plain jerseys • Hides names &amp; numbers on all prints"
+          >
+            {metadata.blankKit ? (
+              <CheckSquare size={14} style={{ color: '#E4572E', flexShrink: 0 }} />
+            ) : (
+              <Square size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+            )}
+            <span>Blank Kit</span>
+          </button>
 
-            {/* 3. A4 Print (10×11") */}
-            <button
-              type="button"
-              onClick={() => toggleSublimationOption('a4BackPrint')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '7px 12px',
-                minHeight: '38px',
-                borderRadius: '8px',
-                border: metadata.a4BackPrint ? '1.5px solid #E4572E' : '1px solid #E2DED7',
-                background: metadata.a4BackPrint ? '#FFF5F2' : '#FFFFFF',
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'all 0.15s ease',
-                boxShadow: metadata.a4BackPrint ? '0 1px 4px rgba(228,87,46,0.1)' : '0 1px 2px rgba(0,0,0,0.02)',
-                gap: '10px'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0 }}>
-                  {metadata.a4BackPrint ? (
-                    <CheckSquare size={15} style={{ color: '#E4572E', flexShrink: 0 }} />
-                  ) : (
-                    <Square size={15} style={{ color: '#9CA3AF', flexShrink: 0 }} />
-                  )}
-                  <span style={{ fontSize: '12px', fontWeight: '800', color: metadata.a4BackPrint ? '#E4572E' : '#1F2937' }}>
-                    A4 Print (10×11")
-                  </span>
-                </div>
-                <span style={{ fontSize: '10.5px', color: metadata.a4BackPrint ? '#9A3412' : '#6B7280' }}>
-                  • Exports standalone A4 graphics folder for chest/print
-                </span>
-              </div>
-              <span style={{
-                fontSize: '9px',
-                fontWeight: '800',
-                padding: '2px 7px',
-                borderRadius: '4px',
-                background: metadata.a4BackPrint ? '#E4572E' : '#F3F4F6',
-                color: metadata.a4BackPrint ? '#FFFFFF' : '#6B7280',
-                flexShrink: 0
-              }}>
-                {metadata.a4BackPrint ? 'ACTIVE' : 'OFF'}
-              </span>
-            </button>
+          {/* 3. A4 Print (10×11") */}
+          <button
+            type="button"
+            onClick={() => toggleSublimationOption('a4BackPrint')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 11px',
+              borderRadius: '7px',
+              border: metadata.a4BackPrint ? '1.5px solid #E4572E' : '1px solid #D1D5DB',
+              background: metadata.a4BackPrint ? '#FFF5F2' : '#FFFFFF',
+              color: metadata.a4BackPrint ? '#E4572E' : '#374151',
+              cursor: 'pointer',
+              fontSize: '11.5px',
+              fontWeight: '700',
+              transition: 'all 0.15s ease',
+              boxShadow: metadata.a4BackPrint ? '0 1px 3px rgba(228,87,46,0.15)' : 'none'
+            }}
+            title="Exports standalone A4 graphics folder for chest/print"
+          >
+            {metadata.a4BackPrint ? (
+              <CheckSquare size={14} style={{ color: '#E4572E', flexShrink: 0 }} />
+            ) : (
+              <Square size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+            )}
+            <span>A4 Print (10×11")</span>
+          </button>
 
-            {/* 4. Raglan Style */}
-            <button
-              type="button"
-              onClick={() => toggleSublimationOption('raglanStyle')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '7px 12px',
-                minHeight: '38px',
-                borderRadius: '8px',
-                border: metadata.raglanStyle ? '1.5px solid #E4572E' : '1px solid #E2DED7',
-                background: metadata.raglanStyle ? '#FFF5F2' : '#FFFFFF',
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'all 0.15s ease',
-                boxShadow: metadata.raglanStyle ? '0 1px 4px rgba(228,87,46,0.1)' : '0 1px 2px rgba(0,0,0,0.02)',
-                gap: '10px'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0 }}>
-                  {metadata.raglanStyle ? (
-                    <CheckSquare size={15} style={{ color: '#E4572E', flexShrink: 0 }} />
-                  ) : (
-                    <Square size={15} style={{ color: '#9CA3AF', flexShrink: 0 }} />
-                  )}
-                  <span style={{ fontSize: '12px', fontWeight: '800', color: metadata.raglanStyle ? '#E4572E' : '#1F2937' }}>
-                    Raglan Style
-                  </span>
-                </div>
-                <span style={{ fontSize: '10.5px', color: metadata.raglanStyle ? '#9A3412' : '#6B7280' }}>
-                  • Applies raglan sleeve shoulder pattern dimensions
-                </span>
-              </div>
-              <span style={{
-                fontSize: '9px',
-                fontWeight: '800',
-                padding: '2px 7px',
-                borderRadius: '4px',
-                background: metadata.raglanStyle ? '#E4572E' : '#F3F4F6',
-                color: metadata.raglanStyle ? '#FFFFFF' : '#6B7280',
-                flexShrink: 0
-              }}>
-                {metadata.raglanStyle ? 'ACTIVE' : 'OFF'}
-              </span>
-            </button>
+          {/* 4. Raglan Style */}
+          <button
+            type="button"
+            onClick={() => toggleSublimationOption('raglanStyle')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 11px',
+              borderRadius: '7px',
+              border: metadata.raglanStyle ? '1.5px solid #E4572E' : '1px solid #D1D5DB',
+              background: metadata.raglanStyle ? '#FFF5F2' : '#FFFFFF',
+              color: metadata.raglanStyle ? '#E4572E' : '#374151',
+              cursor: 'pointer',
+              fontSize: '11.5px',
+              fontWeight: '700',
+              transition: 'all 0.15s ease',
+              boxShadow: metadata.raglanStyle ? '0 1px 3px rgba(228,87,46,0.15)' : 'none'
+            }}
+            title="Applies raglan sleeve shoulder pattern dimensions"
+          >
+            {metadata.raglanStyle ? (
+              <CheckSquare size={14} style={{ color: '#E4572E', flexShrink: 0 }} />
+            ) : (
+              <Square size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+            )}
+            <span>Raglan Style</span>
+          </button>
 
-            {/* 5. Individual Export F&B */}
-            <button
-              type="button"
-              onClick={() => toggleSublimationOption('individualExportFB')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '7px 12px',
-                minHeight: '38px',
-                borderRadius: '8px',
-                border: metadata.individualExportFB ? '1.5px solid #E4572E' : '1px solid #E2DED7',
-                background: metadata.individualExportFB ? '#FFF5F2' : '#FFFFFF',
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'all 0.15s ease',
-                boxShadow: metadata.individualExportFB ? '0 1px 4px rgba(228,87,46,0.1)' : '0 1px 2px rgba(0,0,0,0.02)',
-                gap: '10px'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0 }}>
-                  {metadata.individualExportFB ? (
-                    <CheckSquare size={15} style={{ color: '#E4572E', flexShrink: 0 }} />
-                  ) : (
-                    <Square size={15} style={{ color: '#9CA3AF', flexShrink: 0 }} />
-                  )}
-                  <span style={{ fontSize: '12px', fontWeight: '800', color: metadata.individualExportFB ? '#E4572E' : '#1F2937' }}>
-                    Individual Export F&amp;B
-                  </span>
-                </div>
-                <span style={{ fontSize: '10.5px', color: metadata.individualExportFB ? '#9A3412' : '#6B7280' }}>
-                  • Separate 1-pc file for each Front &amp; Back (charged strictly by typed jersey quantity)
-                </span>
-              </div>
-              <span style={{
-                fontSize: '9px',
-                fontWeight: '800',
-                padding: '2px 7px',
-                borderRadius: '4px',
-                background: metadata.individualExportFB ? '#E4572E' : '#F3F4F6',
-                color: metadata.individualExportFB ? '#FFFFFF' : '#6B7280',
-                flexShrink: 0
-              }}>
-                {metadata.individualExportFB ? 'ACTIVE' : 'OFF'}
-              </span>
-            </button>
-          </div>
+          {/* 5. Individual Export F&B */}
+          <button
+            type="button"
+            onClick={() => toggleSublimationOption('individualExportFB')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 11px',
+              borderRadius: '7px',
+              border: metadata.individualExportFB ? '1.5px solid #E4572E' : '1px solid #D1D5DB',
+              background: metadata.individualExportFB ? '#FFF5F2' : '#FFFFFF',
+              color: metadata.individualExportFB ? '#E4572E' : '#374151',
+              cursor: 'pointer',
+              fontSize: '11.5px',
+              fontWeight: '700',
+              transition: 'all 0.15s ease',
+              boxShadow: metadata.individualExportFB ? '0 1px 3px rgba(228,87,46,0.15)' : 'none'
+            }}
+            title="Separate 1-pc file for each Front &amp; Back (charged strictly by typed jersey quantity)"
+          >
+            {metadata.individualExportFB ? (
+              <CheckSquare size={14} style={{ color: '#E4572E', flexShrink: 0 }} />
+            ) : (
+              <Square size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+            )}
+            <span>Individual Export F&amp;B</span>
+          </button>
         </div>
 
       </div>
