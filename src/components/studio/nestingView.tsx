@@ -2160,7 +2160,34 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
           }
         };
 
-        if (textConf.effect === 'arch') {
+        const isVertical = !!textConf.isVertical;
+        const vAlign = textConf.verticalAlign || 'top';
+        const charStep = fontSizePx * 1.08;
+        const vertSpacing = spacingPx;
+        const totalColumnH = (chars.length * charStep) + (Math.max(0, chars.length - 1) * vertSpacing);
+        const maxCharW = Math.max(...chars.map(c => ctx.measureText(c).width), fontSizePx * 0.6);
+
+        if (isVertical) {
+          ctx.save();
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          for (let i = 0; i < chars.length; i++) {
+            const char = chars[i];
+            let charY = textY + (charStep / 2) + i * (charStep + vertSpacing);
+            if (vAlign === 'bottom') {
+              charY = textY - totalColumnH + (charStep / 2) + i * (charStep + vertSpacing);
+            } else if (vAlign === 'center') {
+              charY = textY - (totalColumnH / 2) + (charStep / 2) + i * (charStep + vertSpacing);
+            }
+
+            ctx.save();
+            ctx.translate(targetX, charY);
+            renderTextWithStroke(ctx, char, 0, 0, strokePos, maxCharW);
+            ctx.restore();
+          }
+          ctx.restore();
+        } else if (textConf.effect === 'arch') {
           // Circular arched text bending concave (ends down)
           const curveAmount = Math.max(5, Math.min(100, textConf.curveAmount ?? 35));
           const radius = Math.max(fontSizePx * 1.5, heightPx * (16 / curveAmount));
@@ -2915,17 +2942,19 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
       // Group/Format Fronts
       if (shouldIndividualExportFront) {
+        let frontSeq = 1;
         Object.keys(frontSizeMap).sort().forEach(size => {
-          frontSizeMap[size].forEach((item, index) => {
+          frontSizeMap[size].forEach((item) => {
             const suffix = item.withoutLogoFront ? ' NL (No Logo).jpg' : ' F.jpg';
             renderActions.push({
               representativeItem: isIndividualFBChecked ? {
                 ...item,
                 qty: 1
               } : item,
-              fileName: `${item.size} ${index + 1}${suffix}`,
+              fileName: `${item.size} ${frontSeq}${suffix}`,
               folder: 'Front'
             });
+            frontSeq++;
           });
         });
       } else {
@@ -2970,18 +2999,20 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
         });
       }
 
-      // Group/Format Backs
+      // Group/Format Backs (Continuous sequence numbers across sizes: 22 1 B, 22 2 B, 28 3 B)
       if (shouldIndividualExportBack) {
+        let backSeq = 1;
         Object.keys(backSizeMap).sort().forEach(size => {
-          backSizeMap[size].forEach((item, index) => {
+          backSizeMap[size].forEach((item) => {
             renderActions.push({
               representativeItem: isIndividualFBChecked ? {
                 ...item,
                 qty: 1
               } : item,
-              fileName: `${item.size} ${index + 1} B.jpg`,
+              fileName: `${item.size} ${backSeq} B.jpg`,
               folder: 'Back'
             });
+            backSeq++;
           });
         });
       } else {

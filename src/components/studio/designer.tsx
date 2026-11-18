@@ -2338,12 +2338,31 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         const totalAscent = actualAscent + strokePad;
         const totalDescent = actualDescent + strokePad;
 
+        const isVertical = !!conf.isVertical;
+        const vAlign = conf.verticalAlign || 'top';
+        const charStep = fontSizePx * 1.08;
+        const vertSpacing = spacingPx;
+        const totalColumnH = (chars.length * charStep) + (Math.max(0, chars.length - 1) * vertSpacing);
+        const maxCharW = Math.max(...chars.map(c => ctx.measureText(c).width * scaleX), fontSizePx * 0.6);
+
         let boundsW = Math.min(totalTextW, maxLimitPx) + (strokePad * 2);
         let boundsH = totalAscent + totalDescent;
         let boxX = targetX;
         let boxY = textY - totalAscent;
 
-        if (conf.effect === 'arch') {
+        if (isVertical) {
+          boundsW = maxCharW + (strokePad * 2);
+          boundsH = totalColumnH + (strokePad * 2);
+          boxX = targetX - boundsW / 2;
+          if (vAlign === 'bottom') {
+            boxY = textY - totalColumnH - strokePad;
+          } else if (vAlign === 'center') {
+            boxY = textY - (totalColumnH / 2) - strokePad;
+          } else {
+            // 'top'
+            boxY = textY - strokePad;
+          }
+        } else if (conf.effect === 'arch') {
           const curveAmount = Math.max(5, Math.min(100, conf.curveAmount ?? 35));
           const radius = Math.max(fontSizePx * 1.5, height * (16 / curveAmount));
           const halfSpanAngle = Math.min(Math.PI / 2, (totalTextW / 2) / radius);
@@ -2549,7 +2568,31 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           }
         };
 
-        if (conf.effect === 'arch') {
+        if (isVertical) {
+          // Vertically typed text (stacked characters with top/center/bottom alignment)
+          ctx.save();
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          for (let i = 0; i < chars.length; i++) {
+            const char = chars[i];
+            let charY = textY + (charStep / 2) + i * (charStep + vertSpacing);
+            if (vAlign === 'bottom') {
+              charY = textY - totalColumnH + (charStep / 2) + i * (charStep + vertSpacing);
+            } else if (vAlign === 'center') {
+              charY = textY - (totalColumnH / 2) + (charStep / 2) + i * (charStep + vertSpacing);
+            }
+
+            ctx.save();
+            ctx.translate(targetX, charY);
+            if (scaleX !== 1) {
+              ctx.scale(scaleX, 1);
+            }
+            renderTextWithStroke(ctx, char, 0, 0, strokePos, maxCharW);
+            ctx.restore();
+          }
+          ctx.restore();
+        } else if (conf.effect === 'arch') {
           // Circular arched text bending concave (ends down)
           const curveAmount = Math.max(5, Math.min(100, conf.curveAmount ?? 35));
           const radius = Math.max(fontSizePx * 1.5, height * (16 / curveAmount));
@@ -7629,7 +7672,133 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                       </div>
                     </div>
 
-                    {/* Horizontal Position (X%) - ONLY on Front Panel */}
+                    {/* Vertically Type Feature Toggle (Default: OFF, used rarely) */}
+                    <div style={{
+                      background: activePanel.nameConfig.isVertical ? '#FFF5F2' : '#F9FAFB',
+                      border: activePanel.nameConfig.isVertical ? '1.5px solid #E4572E' : '1px solid #E5E7EB',
+                      borderRadius: '8px',
+                      padding: '7px 10px',
+                      transition: 'all 0.15s ease'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '13px' }}>↕️</span>
+                          <span style={{ fontSize: '11px', fontWeight: '800', color: activePanel.nameConfig.isVertical ? '#E4572E' : '#374151' }}>
+                            Vertically Type
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextState = !activePanel.nameConfig.isVertical;
+                            updateTextConfig('name', { 
+                              isVertical: nextState,
+                              verticalAlign: activePanel.nameConfig.verticalAlign || 'top'
+                            });
+                          }}
+                          style={{
+                            padding: '3px 9px',
+                            fontSize: '10px',
+                            fontWeight: '800',
+                            borderRadius: '5px',
+                            border: 'none',
+                            background: activePanel.nameConfig.isVertical ? '#E4572E' : '#E5E7EB',
+                            color: activePanel.nameConfig.isVertical ? '#FFFFFF' : '#4B5563',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                          title="Toggle vertically typed player name"
+                        >
+                          {activePanel.nameConfig.isVertical ? 'ON' : 'OFF'}
+                        </button>
+                      </div>
+
+                      {/* Options appear ONLY when Vertically Type is ON */}
+                      {activePanel.nameConfig.isVertical && (
+                        <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #FCD7C8', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div>
+                            <div style={{ fontSize: '10px', fontWeight: '700', color: '#6B7280', marginBottom: '4px' }}>
+                              Vertical Alignment:
+                            </div>
+                            <div style={{ display: 'flex', gap: '5px' }}>
+                              <button
+                                type="button"
+                                onClick={() => updateTextConfig('name', { verticalAlign: 'top' })}
+                                style={{
+                                  flex: 1,
+                                  padding: '5px 4px',
+                                  fontSize: '10px',
+                                  fontWeight: '800',
+                                  borderRadius: '5px',
+                                  border: (activePanel.nameConfig.verticalAlign === 'top' || !activePanel.nameConfig.verticalAlign) ? '1.5px solid #E4572E' : '1px solid #D1D5DB',
+                                  background: (activePanel.nameConfig.verticalAlign === 'top' || !activePanel.nameConfig.verticalAlign) ? '#E4572E' : '#FFFFFF',
+                                  color: (activePanel.nameConfig.verticalAlign === 'top' || !activePanel.nameConfig.verticalAlign) ? '#FFFFFF' : '#374151',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ⬆ Top Align
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateTextConfig('name', { verticalAlign: 'center' })}
+                                style={{
+                                  flex: 1,
+                                  padding: '5px 4px',
+                                  fontSize: '10px',
+                                  fontWeight: '800',
+                                  borderRadius: '5px',
+                                  border: activePanel.nameConfig.verticalAlign === 'center' ? '1.5px solid #E4572E' : '1px solid #D1D5DB',
+                                  background: activePanel.nameConfig.verticalAlign === 'center' ? '#E4572E' : '#FFFFFF',
+                                  color: activePanel.nameConfig.verticalAlign === 'center' ? '#FFFFFF' : '#374151',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ↕ Center
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateTextConfig('name', { verticalAlign: 'bottom' })}
+                                style={{
+                                  flex: 1,
+                                  padding: '5px 4px',
+                                  fontSize: '10px',
+                                  fontWeight: '800',
+                                  borderRadius: '5px',
+                                  border: activePanel.nameConfig.verticalAlign === 'bottom' ? '1.5px solid #E4572E' : '1px solid #D1D5DB',
+                                  background: activePanel.nameConfig.verticalAlign === 'bottom' ? '#E4572E' : '#FFFFFF',
+                                  color: activePanel.nameConfig.verticalAlign === 'bottom' ? '#FFFFFF' : '#374151',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ⬇ Bottom Align
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Horizontal Placement X% slider */}
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#6B7280', fontWeight: '700', marginBottom: '3px' }}>
+                              <span>Horizontal Position (X%):</span>
+                              <span style={{ color: '#E4572E', fontWeight: '800' }}>{activePanel.nameConfig.xPos ?? 50}%</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min="10" 
+                              max="90" 
+                              value={activePanel.nameConfig.xPos ?? 50}
+                              onChange={(e) => updateTextConfig('name', { xPos: parseInt(e.target.value) })}
+                            />
+                            <div style={{ display: 'flex', gap: '4px', marginTop: '3px' }}>
+                              <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '9px' }} onClick={() => updateTextConfig('name', { xPos: 25 })}>Left (25%)</button>
+                              <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '9px' }} onClick={() => updateTextConfig('name', { xPos: 50 })}>Center (50%)</button>
+                              <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '2px 4px', fontSize: '9px' }} onClick={() => updateTextConfig('name', { xPos: 75 })}>Right (75%)</button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Horizontal Position (X%) - ONLY on Front Panel (when not in vertical mode) */}
                     {(activeTab === 'dual' ? dualActivePanel === 'front' : activeTab === 'front') && (
                       <div style={{ background: '#FFF4F0', border: '1px solid #F5C4B2', padding: '8px', borderRadius: '6px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#E4572E', fontWeight: '700', marginBottom: '4px' }}>

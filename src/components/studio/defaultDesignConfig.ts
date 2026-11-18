@@ -49,6 +49,8 @@ export interface TextConfig {
   strokes?: StrokeConfig[];
   rotation?: number;
   customText?: string;
+  isVertical?: boolean; // vertical typing orientation (stacked characters)
+  verticalAlign?: 'top' | 'center' | 'bottom'; // top, center, bottom vertical alignment
 }
 
 export interface LogoConfig {

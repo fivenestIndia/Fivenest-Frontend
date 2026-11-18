@@ -697,7 +697,54 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
       ctx.lineCap = 'round';
       const nameStrokePos = panelConf.nameConfig.strokePosition || 'outside';
 
-      if (panelConf.nameConfig.effect === 'arch') {
+      if (panelConf.nameConfig.isVertical) {
+        const vAlign = panelConf.nameConfig.verticalAlign || 'top';
+        const chars = Array.from(nameText);
+        const charStep = fontSizePx * 1.08;
+        const spacingPx = panelConf.nameConfig.letterSpacing ? Math.round(panelConf.nameConfig.letterSpacing * (canvasW / 15)) : 0;
+        const vertSpacing = spacingPx;
+        const totalColumnH = (chars.length * charStep) + (Math.max(0, chars.length - 1) * vertSpacing);
+        const targetX = ((panelConf.nameConfig.xPos ?? 50) / 100) * canvasW;
+
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        for (let i = 0; i < chars.length; i++) {
+          const char = chars[i];
+          let charY = yPos + (charStep / 2) + i * (charStep + vertSpacing);
+          if (vAlign === 'bottom') {
+            charY = yPos - totalColumnH + (charStep / 2) + i * (charStep + vertSpacing);
+          } else if (vAlign === 'center') {
+            charY = yPos - (totalColumnH / 2) + (charStep / 2) + i * (charStep + vertSpacing);
+          }
+
+          ctx.save();
+          ctx.translate(targetX, charY);
+          if (nameScaleX !== 1) ctx.scale(nameScaleX, 1);
+          if (nameStrokePos === 'outside') {
+            for (let sIdx = cumNameStrokes.length - 1; sIdx >= 0; sIdx--) {
+              const s = cumNameStrokes[sIdx];
+              ctx.strokeStyle = getStrokeFillStyle(ctx, s, fontSizePx * 1.5, fontSizePx, '#000000');
+              ctx.lineWidth = s.cumulativePx * 2;
+              ctx.strokeText(char, 0, 0);
+            }
+            ctx.fillStyle = panelConf.nameConfig.color || '#FFFFFF';
+            ctx.fillText(char, 0, 0);
+          } else {
+            ctx.fillStyle = panelConf.nameConfig.color || '#FFFFFF';
+            ctx.fillText(char, 0, 0);
+            for (let sIdx = cumNameStrokes.length - 1; sIdx >= 0; sIdx--) {
+              const s = cumNameStrokes[sIdx];
+              ctx.strokeStyle = getStrokeFillStyle(ctx, s, fontSizePx * 1.5, fontSizePx, '#000000');
+              ctx.lineWidth = nameStrokePos === 'center' ? s.cumulativePx : s.cumulativePx * 2;
+              ctx.strokeText(char, 0, 0);
+            }
+          }
+          ctx.restore();
+        }
+        ctx.restore();
+      } else if (panelConf.nameConfig.effect === 'arch') {
         const curveAmount = Math.max(5, Math.min(100, panelConf.nameConfig.curveAmount ?? 35));
         const radius = Math.max(fontSizePx * 1.5, canvasH * (16 / curveAmount));
         const chars = Array.from(nameText);
