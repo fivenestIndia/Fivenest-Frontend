@@ -51,6 +51,7 @@ export interface TextConfig {
   customText?: string;
   isVertical?: boolean; // vertical typing orientation (stacked characters)
   verticalAlign?: 'top' | 'center' | 'bottom'; // top, center, bottom vertical alignment
+  maxH?: number; // maximum height in inches (for vertically typed text)
 }
 
 export interface LogoConfig {

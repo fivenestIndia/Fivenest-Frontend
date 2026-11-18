@@ -2166,6 +2166,11 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
         const vertSpacing = spacingPx;
         const totalColumnH = (chars.length * charStep) + (Math.max(0, chars.length - 1) * vertSpacing);
         const maxCharW = Math.max(...chars.map(c => ctx.measureText(c).width), fontSizePx * 0.6);
+        const maxLimitHPx = ((textConf.maxH ?? 18) / 30) * heightPx;
+        const vertFitRatio = totalColumnH > maxLimitHPx ? (maxLimitHPx / totalColumnH) : 1;
+        const effCharStep = charStep * vertFitRatio;
+        const effVertSpacing = vertSpacing * vertFitRatio;
+        const effTotalColumnH = totalColumnH * vertFitRatio;
 
         if (isVertical) {
           ctx.save();
@@ -2174,16 +2179,19 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
           for (let i = 0; i < chars.length; i++) {
             const char = chars[i];
-            let charY = textY + (charStep / 2) + i * (charStep + vertSpacing);
+            let charY = textY + (effCharStep / 2) + i * (effCharStep + effVertSpacing);
             if (vAlign === 'bottom') {
-              charY = textY - totalColumnH + (charStep / 2) + i * (charStep + vertSpacing);
+              charY = textY - effTotalColumnH + (effCharStep / 2) + i * (effCharStep + effVertSpacing);
             } else if (vAlign === 'center') {
-              charY = textY - (totalColumnH / 2) + (charStep / 2) + i * (charStep + vertSpacing);
+              charY = textY - (effTotalColumnH / 2) + (effCharStep / 2) + i * (effCharStep + effVertSpacing);
             }
 
             ctx.save();
             ctx.translate(targetX, charY);
-            renderTextWithStroke(ctx, char, 0, 0, strokePos, maxCharW);
+            if (vertFitRatio < 1) {
+              ctx.scale(vertFitRatio, vertFitRatio);
+            }
+            renderTextWithStroke(ctx, char, 0, 0, strokePos, maxCharW * vertFitRatio);
             ctx.restore();
           }
           ctx.restore();

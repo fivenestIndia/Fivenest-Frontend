@@ -2344,6 +2344,11 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         const vertSpacing = spacingPx;
         const totalColumnH = (chars.length * charStep) + (Math.max(0, chars.length - 1) * vertSpacing);
         const maxCharW = Math.max(...chars.map(c => ctx.measureText(c).width * scaleX), fontSizePx * 0.6);
+        const maxLimitHPx = ((conf.maxH ?? 18) / physicalH) * height;
+        const vertFitRatio = totalColumnH > maxLimitHPx ? (maxLimitHPx / totalColumnH) : 1;
+        const effCharStep = charStep * vertFitRatio;
+        const effVertSpacing = vertSpacing * vertFitRatio;
+        const effTotalColumnH = totalColumnH * vertFitRatio;
 
         let boundsW = Math.min(totalTextW, maxLimitPx) + (strokePad * 2);
         let boundsH = totalAscent + totalDescent;
@@ -2351,13 +2356,13 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
         let boxY = textY - totalAscent;
 
         if (isVertical) {
-          boundsW = maxCharW + (strokePad * 2);
-          boundsH = totalColumnH + (strokePad * 2);
+          boundsW = (maxCharW * vertFitRatio) + (strokePad * 2);
+          boundsH = effTotalColumnH + (strokePad * 2);
           boxX = targetX - boundsW / 2;
           if (vAlign === 'bottom') {
-            boxY = textY - totalColumnH - strokePad;
+            boxY = textY - effTotalColumnH - strokePad;
           } else if (vAlign === 'center') {
-            boxY = textY - (totalColumnH / 2) - strokePad;
+            boxY = textY - (effTotalColumnH / 2) - strokePad;
           } else {
             // 'top'
             boxY = textY - strokePad;
@@ -2576,19 +2581,21 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
 
           for (let i = 0; i < chars.length; i++) {
             const char = chars[i];
-            let charY = textY + (charStep / 2) + i * (charStep + vertSpacing);
+            let charY = textY + (effCharStep / 2) + i * (effCharStep + effVertSpacing);
             if (vAlign === 'bottom') {
-              charY = textY - totalColumnH + (charStep / 2) + i * (charStep + vertSpacing);
+              charY = textY - effTotalColumnH + (effCharStep / 2) + i * (effCharStep + effVertSpacing);
             } else if (vAlign === 'center') {
-              charY = textY - (totalColumnH / 2) + (charStep / 2) + i * (charStep + vertSpacing);
+              charY = textY - (effTotalColumnH / 2) + (effCharStep / 2) + i * (effCharStep + effVertSpacing);
             }
 
             ctx.save();
             ctx.translate(targetX, charY);
-            if (scaleX !== 1) {
-              ctx.scale(scaleX, 1);
+            const effScaleX = scaleX * vertFitRatio;
+            const effScaleY = vertFitRatio;
+            if (effScaleX !== 1 || effScaleY !== 1) {
+              ctx.scale(effScaleX, effScaleY);
             }
-            renderTextWithStroke(ctx, char, 0, 0, strokePos, maxCharW);
+            renderTextWithStroke(ctx, char, 0, 0, strokePos, maxCharW * vertFitRatio);
             ctx.restore();
           }
           ctx.restore();
@@ -7775,6 +7782,32 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                             </div>
                           </div>
 
+                          {/* Max Text Height (in) */}
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#6B7280', fontWeight: '700', marginBottom: '3px' }}>
+                              <span>Max Text Height (in):</span>
+                              <span style={{ color: '#E4572E', fontWeight: '800' }}>{activePanel.nameConfig.maxH ?? 18}"</span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                              <input 
+                                type="number" 
+                                step="0.5" 
+                                min="4"
+                                max="28"
+                                className="form-input" 
+                                value={activePanel.nameConfig.maxH ?? 18}
+                                onChange={(e) => updateTextConfig('name', { maxH: parseFloat(e.target.value) || 18 })}
+                                style={{ padding: '3px 6px', fontSize: '11px', width: '75px', fontWeight: '700' }}
+                              />
+                              <div style={{ display: 'flex', gap: '3px', flex: 1 }}>
+                                <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '3px 2px', fontSize: '9px', fontWeight: activePanel.nameConfig.maxH === 14 ? '800' : 'normal' }} onClick={() => updateTextConfig('name', { maxH: 14 })}>14"</button>
+                                <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '3px 2px', fontSize: '9px', fontWeight: activePanel.nameConfig.maxH === 16 ? '800' : 'normal' }} onClick={() => updateTextConfig('name', { maxH: 16 })}>16"</button>
+                                <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '3px 2px', fontSize: '9px', fontWeight: (activePanel.nameConfig.maxH === 18 || activePanel.nameConfig.maxH === undefined) ? '800' : 'normal' }} onClick={() => updateTextConfig('name', { maxH: 18 })}>18"</button>
+                                <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '3px 2px', fontSize: '9px', fontWeight: activePanel.nameConfig.maxH === 22 ? '800' : 'normal' }} onClick={() => updateTextConfig('name', { maxH: 22 })}>22"</button>
+                              </div>
+                            </div>
+                          </div>
+
                           {/* Horizontal Placement X% slider */}
                           <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#6B7280', fontWeight: '700', marginBottom: '3px' }}>
@@ -7862,13 +7895,22 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                         />
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
-                        <label className="form-label" style={{ fontSize: '11px' }}>Max Width (in):</label>
+                        <label className="form-label" style={{ fontSize: '11px' }}>
+                          {activePanel.nameConfig.isVertical ? 'Max Height (in):' : 'Max Width (in):'}
+                        </label>
                         <input 
                           type="number" 
                           step="0.5" 
                           className="form-input" 
-                          value={activePanel.nameConfig.maxW ?? 11}
-                          onChange={(e) => updateTextConfig('name', { maxW: parseFloat(e.target.value) || 11 })}
+                          value={activePanel.nameConfig.isVertical ? (activePanel.nameConfig.maxH ?? 18) : (activePanel.nameConfig.maxW ?? 11)}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            if (activePanel.nameConfig.isVertical) {
+                              updateTextConfig('name', { maxH: val || 18 });
+                            } else {
+                              updateTextConfig('name', { maxW: val || 11 });
+                            }
+                          }}
                           style={{ padding: '6px' }}
                         />
                       </div>

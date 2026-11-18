@@ -705,6 +705,11 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
         const vertSpacing = spacingPx;
         const totalColumnH = (chars.length * charStep) + (Math.max(0, chars.length - 1) * vertSpacing);
         const targetX = ((panelConf.nameConfig.xPos ?? 50) / 100) * canvasW;
+        const maxLimitHPx = ((panelConf.nameConfig.maxH ?? 18) / 30) * canvasH;
+        const vertFitRatio = totalColumnH > maxLimitHPx ? (maxLimitHPx / totalColumnH) : 1;
+        const effCharStep = charStep * vertFitRatio;
+        const effVertSpacing = vertSpacing * vertFitRatio;
+        const effTotalColumnH = totalColumnH * vertFitRatio;
 
         ctx.save();
         ctx.textAlign = 'center';
@@ -712,16 +717,18 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
 
         for (let i = 0; i < chars.length; i++) {
           const char = chars[i];
-          let charY = yPos + (charStep / 2) + i * (charStep + vertSpacing);
+          let charY = yPos + (effCharStep / 2) + i * (effCharStep + effVertSpacing);
           if (vAlign === 'bottom') {
-            charY = yPos - totalColumnH + (charStep / 2) + i * (charStep + vertSpacing);
+            charY = yPos - effTotalColumnH + (effCharStep / 2) + i * (effCharStep + effVertSpacing);
           } else if (vAlign === 'center') {
-            charY = yPos - (totalColumnH / 2) + (charStep / 2) + i * (charStep + vertSpacing);
+            charY = yPos - (effTotalColumnH / 2) + (effCharStep / 2) + i * (effCharStep + effVertSpacing);
           }
 
           ctx.save();
           ctx.translate(targetX, charY);
-          if (nameScaleX !== 1) ctx.scale(nameScaleX, 1);
+          const effScaleX = nameScaleX * vertFitRatio;
+          const effScaleY = vertFitRatio;
+          if (effScaleX !== 1 || effScaleY !== 1) ctx.scale(effScaleX, effScaleY);
           if (nameStrokePos === 'outside') {
             for (let sIdx = cumNameStrokes.length - 1; sIdx >= 0; sIdx--) {
               const s = cumNameStrokes[sIdx];
