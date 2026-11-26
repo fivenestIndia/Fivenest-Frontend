@@ -18,9 +18,7 @@ import { SubscriptionModal } from './SubscriptionModal';
 import { 
   getUserJerseyRate, 
   getSavedSubscription, 
-  isSubscriptionActive,
-  DEFAULT_SPOT_RATE_WITH_TAG, 
-  DEFAULT_SPOT_RATE_WITHOUT_TAG 
+  isSubscriptionActive
 } from '../../lib/subscriptionPlans';
 import { deductPromoBalance } from '../../lib/trialManager';
 import { 
@@ -611,10 +609,26 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
   const nestingSheetsRef = useRef<NestingSheet[]>([]);
   const [isNesting, setIsNesting] = useState<boolean>(false);
 
+  interface PaymentSummaryInfo {
+    mode: 'studio' | 'preset' | 'batch';
+    title?: string;
+    totalJerseys: number;
+    quickSizeCount: number;
+    billableUnits: number;
+    isQuickSizeBilling: boolean;
+    hasMixedModes?: boolean;
+    a4Count: number;
+    freePanelsCount: number;
+    batchJobCount?: number;
+    descLabel: string;
+  }
+
   // Payment states
   const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState<boolean>(false);
   const [paymentCost, setPaymentCost] = useState<number>(0);
+  const [paymentSummary, setPaymentSummary] = useState<PaymentSummaryInfo | null>(null);
+  const pendingPaymentSummaryRef = useRef<PaymentSummaryInfo | null>(null);
   const [pendingExportAction, setPendingExportAction] = useState<(() => Promise<void>) | null>(null);
   const pendingExportActionRef = useRef<(() => Promise<void>) | null>(null);
   const [walletDeducting, setWalletDeducting] = useState<boolean>(false);
@@ -627,6 +641,8 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
     const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
     if (isOwnerExempt) {
       setShowPaymentModal(false);
+      pendingPaymentSummaryRef.current = null;
+      setPaymentSummary(null);
       const action = pendingExportActionRef.current || pendingExportAction;
       if (action) {
         pendingExportActionRef.current = null;
@@ -652,6 +668,14 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
     try {
       const calculatedNewBalance = Math.max(0, Number((currentUser.balance - paymentCost).toFixed(2)));
       let finalBalance = calculatedNewBalance;
+      const activeSummary = pendingPaymentSummaryRef.current || paymentSummary;
+      const exportDescription = activeSummary?.descLabel || (() => {
+        const billing = getBillingMetrics();
+        const descLabel = billing.isQuickSizeBilling
+          ? `${billing.quickSizeCount} quick sizes (${billing.totalJerseys} jerseys)`
+          : `${billing.totalJerseys} jerseys`;
+        return `Exported ${descLabel} (${billing.a4Count} A4)`;
+      })();
 
       // 1. Attempt Supabase sync if possible (non-blocking)
       try {
@@ -665,13 +689,9 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
         if (userId) {
           try {
-            const billing = getBillingMetrics();
-            const descLabel = billing.isQuickSizeBilling
-              ? `${billing.quickSizeCount} quick sizes (${billing.totalJerseys} jerseys)`
-              : `${billing.totalJerseys} jerseys`;
             const { data: success, error } = await supabase.rpc('deduct_export_credits', {
               amount_to_deduct: paymentCost,
-              export_desc: `Exported ${descLabel} (${billing.a4Count} A4)`
+              export_desc: exportDescription
             });
 
             if (!error && success) {
@@ -689,7 +709,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
         // Also record promotional trial balance deduction if active
         if (currentUser?.email) {
-          deductPromoBalance(currentUser.email, paymentCost, `Exported ${records.reduce((acc, r) => acc + r.qty, 0)} items`).catch(() => {});
+          deductPromoBalance(currentUser.email, paymentCost, exportDescription).catch(() => {});
         }
       } catch (syncErr) {
         console.warn("Supabase wallet sync warning:", syncErr);
@@ -714,6 +734,8 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
       // 3. Close the modal
       setShowPaymentModal(false);
+      pendingPaymentSummaryRef.current = null;
+      setPaymentSummary(null);
 
       // 4. Trigger the export action immediately
       const action = pendingExportActionRef.current || pendingExportAction;
@@ -738,6 +760,8 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
     const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
     if (isOwnerExempt || paymentCost <= 0) {
       setShowPaymentModal(false);
+      pendingPaymentSummaryRef.current = null;
+      setPaymentSummary(null);
       const action = pendingExportActionRef.current || pendingExportAction;
       if (action) {
         pendingExportActionRef.current = null;
@@ -755,6 +779,14 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
     }
 
     setUpiLoading(true);
+    const activeSummary = pendingPaymentSummaryRef.current || paymentSummary;
+    const upiDescription = activeSummary?.descLabel || (() => {
+      const billing = getBillingMetrics();
+      const upiDescLabel = billing.isQuickSizeBilling
+        ? `${billing.quickSizeCount} quick sizes (${billing.totalJerseys} jerseys)`
+        : `${billing.totalJerseys} jerseys`;
+      return `Exported ${upiDescLabel}`;
+    })();
 
     try {
       await initiateRazorpayRecharge({
@@ -770,14 +802,10 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             } catch {}
 
             if (userId) {
-              const billing = getBillingMetrics();
-              const upiDescLabel = billing.isQuickSizeBilling
-                ? `${billing.quickSizeCount} quick sizes (${billing.totalJerseys} jerseys)`
-                : `${billing.totalJerseys} jerseys`;
               // Deduct export credits in database
               await supabase.rpc('deduct_export_credits', {
                 amount_to_deduct: paymentCost,
-                export_desc: `Exported ${upiDescLabel} (Live UPI: ₹${paymentCost})`
+                export_desc: `${upiDescription} (Live UPI: ₹${paymentCost})`
               }).catch(() => {});
 
               const details = await fetchUserWallet(userId);
@@ -806,6 +834,8 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
           setUpiLoading(false);
           setShowPaymentModal(false);
+          pendingPaymentSummaryRef.current = null;
+          setPaymentSummary(null);
 
           // Trigger export immediately!
           const action = pendingExportActionRef.current || pendingExportAction;
@@ -3223,7 +3253,107 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
     }
   };
 
-  // Continuous Multi-Job Batch Auto-Export Handler
+  const buildPresetMeta = (preset: DesignPresetItem, index = 0): OrderMetadata => preset.metadata || {
+    customerName: preset.name,
+    orderNum: `0${index + 1}`,
+    whatsapp: '',
+    raglanStyle: false,
+    halfSleeveMerge: false,
+    a4BackPrint: false,
+    individualExportFB: false,
+    blankKit: false,
+    manualMode: false,
+    manualGrid: {}
+  };
+
+  // Shared payment verification & checkout launcher for Studio, Single Preset, and Batch Exports
+  const initiatePaidExport = async (
+    cost: number,
+    executeAction: () => Promise<void>,
+    summary: PaymentSummaryInfo
+  ) => {
+    const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
+
+    if (testMode || cost <= 0 || isOwnerExempt) {
+      await executeAction();
+      return;
+    }
+
+    if (!currentUser) {
+      alert("Authentication Required:\n\nPlease Sign In or Register to export production-ready prints.");
+      onOpenLogin();
+      return;
+    }
+
+    setPaymentCost(cost);
+    setPaymentSummary(summary);
+    pendingPaymentSummaryRef.current = summary;
+    pendingExportActionRef.current = executeAction;
+    setPendingExportAction(() => executeAction);
+
+    // Check freshest balance from database
+    let freshBalance = currentUser.balance;
+    try {
+      let userId = (currentUser as any)?.id;
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData?.user?.id) userId = authData.user.id;
+      } catch {}
+      if (userId) {
+        const details = await fetchUserWallet(userId);
+        if (details && typeof details.balance === 'number') {
+          freshBalance = details.balance;
+          const updated = { ...currentUser, balance: freshBalance };
+          localStorage.setItem('fivenest_active_user', JSON.stringify(updated));
+          onUserChange(updated);
+        }
+      }
+    } catch (e) {}
+
+    setUpiPaymentMethod(freshBalance >= cost ? 'wallet' : 'upi');
+    setShowPaymentModal(true);
+  };
+
+  // Export single Advance Design Preset (always goes through Checkout & token deduction)
+  const handleExportSinglePreset = async (preset: DesignPresetItem) => {
+    const jobRecords = preset.records || [];
+    const jobMeta = buildPresetMeta(preset, 0);
+    const billing = getBillingMetrics(jobRecords, jobMeta, preset.config);
+
+    if (billing.exportItems.length === 0) {
+      alert(`No printable panels found for "${preset.name}". Please verify that artwork is uploaded.`);
+      return;
+    }
+
+    const presetCost = Number(calculateCost(jobRecords, jobMeta, preset.config).toFixed(2));
+    const descCount = billing.isQuickSizeBilling
+      ? `${billing.quickSizeCount} quick sizes (${billing.totalJerseys} jerseys)`
+      : `${billing.totalJerseys} jerseys`;
+    const freePanelsCount = billing.exportItems.filter(item => item.panelType !== 'back' && item.panelType !== 'a4-print').length;
+
+    const executePresetExport = async () => {
+      try {
+        await executeExportJobPackage(preset.config, jobRecords, jobMeta, preset.name);
+        confetti({ particleCount: 150, spread: 80, origin: { y: 0.5 } });
+      } catch (err: any) {
+        alert(`Export failed: ${err?.message || err}`);
+      }
+    };
+
+    await initiatePaidExport(presetCost, executePresetExport, {
+      mode: 'preset',
+      title: preset.name,
+      totalJerseys: billing.totalJerseys,
+      quickSizeCount: billing.quickSizeCount,
+      billableUnits: billing.billableUnits,
+      isQuickSizeBilling: billing.isQuickSizeBilling,
+      a4Count: billing.a4Count,
+      freePanelsCount,
+      descLabel: `Exported preset "${preset.name}" - ${descCount} (${billing.a4Count} A4)`
+    });
+  };
+
+  // Continuous Multi-Job Batch Auto-Export Handler (charges upfront before running queue)
   const handleRunContinuousBatchExport = async () => {
     const selectedPresets = advancePresets.filter(p => selectedPresetIds.includes(p.id) && isPresetValid(p));
     if (selectedPresets.length === 0) {
@@ -3231,91 +3361,106 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       return;
     }
 
-    const totalJerseysAll = selectedPresets.reduce((acc, p) => acc + (p.totalGarments || p.records?.length || 1), 0);
+    let totalJerseysAll = 0;
+    let totalQuickSizesAll = 0;
+    let totalBillableUnitsAll = 0;
+    let totalA4All = 0;
+    let totalFreePanelsAll = 0;
+    let hasQuick = false;
+    let hasNonQuick = false;
+
+    for (let i = 0; i < selectedPresets.length; i++) {
+      const p = selectedPresets[i];
+      const jobMeta = buildPresetMeta(p, i);
+      const jobRecords = p.records || [];
+      const b = getBillingMetrics(jobRecords, jobMeta, p.config);
+      if (b.exportItems.length === 0) {
+        alert(`No printable panels found for "${p.name}". Deselect it or check its artwork before running batch export.`);
+        return;
+      }
+      totalJerseysAll += b.totalJerseys;
+      totalQuickSizesAll += b.quickSizeCount;
+      totalBillableUnitsAll += b.billableUnits;
+      totalA4All += b.a4Count;
+      totalFreePanelsAll += b.exportItems.filter(item => item.panelType !== 'back' && item.panelType !== 'a4-print').length;
+      if (b.isQuickSizeBilling) hasQuick = true;
+      else hasNonQuick = true;
+    }
+
     const totalBatchCost = Number(
-      selectedPresets.reduce((acc, p) => acc + calculateCost(p.records, p.metadata, p.config), 0).toFixed(2)
+      selectedPresets.reduce((acc, p, idx) => acc + calculateCost(p.records || [], buildPresetMeta(p, idx), p.config), 0).toFixed(2)
     );
 
-    const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
+    const executeBatchExport = async () => {
+      setIsBatchExporting(true);
+      setShowBatchModal(true);
+      setBatchTotalJobs(selectedPresets.length);
+      abortBatchRef.current = false;
 
-    if (!testMode && !isOwnerExempt && totalBatchCost > 0) {
-      if (!currentUser) {
-        alert("Authentication Required:\n\nPlease sign in before exporting batch jobs.");
-        onOpenLogin();
-        return;
-      }
-      if (currentUser.balance < totalBatchCost) {
-        alert(`Insufficient Wallet Balance:\n\nBatch export of ${selectedPresets.length} jobs (${totalJerseysAll} jerseys) requires ₹${totalBatchCost.toFixed(2)} INR.\nYour current balance is ₹${currentUser.balance.toFixed(2)} INR.\n\nPlease recharge your wallet to proceed.`);
-        setPaymentCost(totalBatchCost);
-        setShowPaymentModal(true);
-        return;
-      }
-    }
-
-    setIsBatchExporting(true);
-    setShowBatchModal(true);
-    setBatchTotalJobs(selectedPresets.length);
-    abortBatchRef.current = false;
-
-    let successfulCount = 0;
-    try {
-      for (let i = 0; i < selectedPresets.length; i++) {
-        if (abortBatchRef.current) {
-          console.warn("Continuous batch export aborted by user.");
-          break;
-        }
-
-        const preset = selectedPresets[i];
-        setBatchCurrentJobIndex(i + 1);
-        setBatchCurrentJobName(preset.name);
-        setBatchPanelStatus(`Preparing Job ${i + 1} of ${selectedPresets.length}: "${preset.name}"...`);
-        setBatchPanelPct(0);
-
-        const jobConfig = preset.config;
-        const jobRecords = preset.records || [];
-        const jobMeta = preset.metadata || {
-          customerName: preset.name,
-          orderNum: `0${i + 1}`,
-          whatsapp: '',
-          raglanStyle: false,
-          halfSleeveMerge: false,
-          a4BackPrint: false,
-          individualExportFB: false,
-          blankKit: false,
-          manualMode: false,
-          manualGrid: {}
-        };
-
-        try {
-          await executeExportJobPackage(
-            jobConfig,
-            jobRecords,
-            jobMeta,
-            preset.name,
-            (status, pct) => {
-              setBatchPanelStatus(status);
-              setBatchPanelPct(pct);
-            }
-          );
-          successfulCount++;
-          if (i < selectedPresets.length - 1 && !abortBatchRef.current) {
-            setBatchPanelStatus(`Finished "${preset.name}". Next job starting in 2 seconds...`);
-            await new Promise(r => setTimeout(r, 2000));
+      let successfulCount = 0;
+      try {
+        for (let i = 0; i < selectedPresets.length; i++) {
+          if (abortBatchRef.current) {
+            console.warn("Continuous batch export aborted by user.");
+            break;
           }
-        } catch (jobErr: any) {
-          console.error(`Failed to export preset ${preset.name}:`, jobErr);
-          alert(`Error exporting job "${preset.name}": ${jobErr?.message || jobErr}\n\nContinuing with remaining jobs...`);
-        }
-      }
 
-      if (successfulCount > 0) {
-        confetti({ particleCount: 180, spread: 90, origin: { y: 0.5 } });
+          const preset = selectedPresets[i];
+          setBatchCurrentJobIndex(i + 1);
+          setBatchCurrentJobName(preset.name);
+          setBatchPanelStatus(`Preparing Job ${i + 1} of ${selectedPresets.length}: "${preset.name}"...`);
+          setBatchPanelPct(0);
+
+          const jobConfig = preset.config;
+          const jobRecords = preset.records || [];
+          const jobMeta = buildPresetMeta(preset, i);
+
+          try {
+            await executeExportJobPackage(
+              jobConfig,
+              jobRecords,
+              jobMeta,
+              preset.name,
+              (status, pct) => {
+                setBatchPanelStatus(status);
+                setBatchPanelPct(pct);
+              }
+            );
+            successfulCount++;
+            if (i < selectedPresets.length - 1 && !abortBatchRef.current) {
+              setBatchPanelStatus(`Finished "${preset.name}". Next job starting in 2 seconds...`);
+              await new Promise(r => setTimeout(r, 2000));
+            }
+          } catch (jobErr: any) {
+            console.error(`Failed to export preset ${preset.name}:`, jobErr);
+            alert(`Error exporting job "${preset.name}": ${jobErr?.message || jobErr}\n\nContinuing with remaining jobs...`);
+          }
+        }
+
+        if (successfulCount > 0) {
+          confetti({ particleCount: 180, spread: 90, origin: { y: 0.5 } });
+        }
+      } finally {
+        setIsBatchExporting(false);
+        setShowBatchModal(false);
+        alert(`🎉 Continuous Batch Export Complete!\n\nSuccessfully exported ${successfulCount} of ${selectedPresets.length} selected jobs.`);
       }
-    } finally {
-      setIsBatchExporting(false);
-      setShowBatchModal(false);
-      alert(`🎉 Continuous Batch Export Complete!\n\nSuccessfully exported ${successfulCount} of ${selectedPresets.length} selected jobs.`);
-    }
+    };
+
+    const jobNamesPreview = selectedPresets.map(p => p.name).slice(0, 3).join(', ') + (selectedPresets.length > 3 ? ` +${selectedPresets.length - 3} more` : '');
+    await initiatePaidExport(totalBatchCost, executeBatchExport, {
+      mode: 'batch',
+      title: `${selectedPresets.length} Batch Jobs (${jobNamesPreview})`,
+      batchJobCount: selectedPresets.length,
+      totalJerseys: totalJerseysAll,
+      quickSizeCount: totalQuickSizesAll,
+      billableUnits: totalBillableUnitsAll,
+      isQuickSizeBilling: hasQuick && !hasNonQuick,
+      hasMixedModes: hasQuick && hasNonQuick,
+      a4Count: totalA4All,
+      freePanelsCount: totalFreePanelsAll,
+      descLabel: `Batch exported ${selectedPresets.length} jobs (${totalJerseysAll} jerseys, ${totalA4All} A4)`
+    });
   };
 
   // Compile individual panels ZIP package (Front, Back, Sleeve, Collar, A4)
@@ -3325,14 +3470,14 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       return;
     }
 
-    const items = getItemsToExport();
-    const totalPieces = items.length;
+    const billing = getBillingMetrics();
+    const totalPieces = billing.exportItems.length;
     if (totalPieces === 0) {
       alert("Artwork file is not detected!\n\nNo printable panels found. Please upload an artwork file in Step 1: Artwork before exporting.");
       return;
     }
 
-    const calculatedCost = calculateCost();
+    const calculatedCost = Number(calculateCost().toFixed(2));
     const cleanCust = metadata.customerName.replace(/[\/\\:*?"<>|]/g, "_").trim() || "Unknown";
     const cleanOrder = metadata.orderNum.replace(/[\/\\:*?"<>|]/g, "_").trim() || "01";
     const jobExportName = `${cleanCust}_${cleanOrder}`;
@@ -3350,47 +3495,21 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       }
     };
 
-    const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
+    const descCount = billing.isQuickSizeBilling
+      ? `${billing.quickSizeCount} quick sizes (${billing.totalJerseys} jerseys)`
+      : `${billing.totalJerseys} jerseys`;
+    const freePanelsCount = billing.exportItems.filter(item => item.panelType !== 'back' && item.panelType !== 'a4-print').length;
 
-    if (testMode || calculatedCost === 0 || isOwnerExempt) {
-      await executeExport();
-    } else {
-      if (!currentUser) {
-        alert("Authentication Required:\n\nPlease Sign In or Register to export production-ready prints.");
-        onOpenLogin();
-        return;
-      }
-
-      setPaymentCost(calculatedCost);
-      pendingExportActionRef.current = executeExport;
-      setPendingExportAction(() => executeExport);
-
-      // Check freshest balance from database
-      let freshBalance = currentUser.balance;
-      try {
-        let userId = (currentUser as any)?.id;
-        try {
-          const { data: authData } = await supabase.auth.getUser();
-          if (authData?.user?.id) userId = authData.user.id;
-        } catch {}
-        if (userId) {
-          const details = await fetchUserWallet(userId);
-          if (details && typeof details.balance === 'number') {
-            freshBalance = details.balance;
-            const updated = { ...currentUser, balance: freshBalance };
-            localStorage.setItem('fivenest_active_user', JSON.stringify(updated));
-            onUserChange(updated);
-          }
-        }
-      } catch (e) {}
-
-      if (freshBalance >= calculatedCost) {
-        setUpiPaymentMethod('wallet');
-      } else {
-        setUpiPaymentMethod('upi');
-      }
-      setShowPaymentModal(true);
-    }
+    await initiatePaidExport(calculatedCost, executeExport, {
+      mode: 'studio',
+      totalJerseys: billing.totalJerseys,
+      quickSizeCount: billing.quickSizeCount,
+      billableUnits: billing.billableUnits,
+      isQuickSizeBilling: billing.isQuickSizeBilling,
+      a4Count: billing.a4Count,
+      freePanelsCount,
+      descLabel: `Exported ${descCount} (${billing.a4Count} A4)`
+    });
   };
 
   useImperativeHandle(ref, () => ({
@@ -4244,26 +4363,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <button
                         type="button"
-                        onClick={async () => {
-                          try {
-                            const jobMeta = preset.metadata || {
-                              customerName: preset.name,
-                              orderNum: '01',
-                              whatsapp: '',
-                              raglanStyle: false,
-                              halfSleeveMerge: false,
-                              a4BackPrint: false,
-                              individualExportFB: false,
-                              blankKit: false,
-                              manualMode: false,
-                              manualGrid: {}
-                            };
-                            await executeExportJobPackage(preset.config, preset.records || [], jobMeta, preset.name);
-                            confetti({ particleCount: 150, spread: 80, origin: { y: 0.5 } });
-                          } catch (err: any) {
-                            alert(`Export failed: ${err?.message || err}`);
-                          }
-                        }}
+                        onClick={() => handleExportSinglePreset(preset)}
                         style={{
                           padding: '4px 10px',
                           borderRadius: '6px',
@@ -4277,7 +4377,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                           alignItems: 'center',
                           gap: '4px'
                         }}
-                        title="Export this preset immediately"
+                        title="Export this preset with standard token checkout"
                       >
                         <Download size={12} />
                         <span>Export</span>
@@ -4492,6 +4592,8 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                 setExportProgressPct(0);
                 pendingExportActionRef.current = null;
                 setPendingExportAction(null);
+                pendingPaymentSummaryRef.current = null;
+                setPaymentSummary(null);
               }}
               style={{
                 position: 'absolute',
@@ -4511,32 +4613,61 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               <X size={16} />
             </button>
 
-            <h3 style={{ fontSize: '18px', fontWeight: '900', color: '#111827', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <QrCode size={20} style={{ color: '#E4572E' }} /> Sublimation Panel Checkout
+            <h3 style={{ fontSize: '18px', fontWeight: '900', color: '#111827', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <QrCode size={20} style={{ color: '#E4572E' }} />
+              <span>
+                {paymentSummary?.mode === 'batch'
+                  ? 'Batch Preset Checkout'
+                  : paymentSummary?.mode === 'preset'
+                  ? 'Preset Export Checkout'
+                  : 'Sublimation Panel Checkout'}
+              </span>
             </h3>
+
+            {paymentSummary?.title && (
+              <div style={{ fontSize: '11px', fontWeight: '700', color: '#C2410C', background: '#FFF5F2', border: '1px solid #FCD7C8', borderRadius: '6px', padding: '4px 9px', marginBottom: '10px', display: 'inline-block' }}>
+                {paymentSummary.mode === 'batch' ? `📦 ${paymentSummary.title}` : `📁 Preset: ${paymentSummary.title}`}
+              </div>
+            )}
             
             {(() => {
               const activeSub = (currentUser as any)?.subscription || getSavedSubscription();
               const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
               const activeRate = getUserJerseyRate(activeSub, includeWatermarkLogo, isOwnerExempt);
 
+              const activeSummary = paymentSummary || (() => {
+                const m = getBillingMetrics();
+                return {
+                  mode: 'studio' as const,
+                  totalJerseys: m.totalJerseys,
+                  quickSizeCount: m.quickSizeCount,
+                  billableUnits: m.billableUnits,
+                  isQuickSizeBilling: m.isQuickSizeBilling,
+                  hasMixedModes: false,
+                  a4Count: m.a4Count,
+                  freePanelsCount: m.exportItems.filter(item => item.panelType !== 'back' && item.panelType !== 'a4-print').length,
+                  descLabel: ''
+                };
+              })();
+
               const {
+                mode,
+                batchJobCount,
                 isQuickSizeBilling,
+                hasMixedModes,
                 totalJerseys: modalJerseys,
                 quickSizeCount,
                 billableUnits,
                 a4Count,
-                exportItems
-              } = getBillingMetrics();
-
-              const freePanelsCount = exportItems.filter(item => item.panelType !== 'back' && item.panelType !== 'a4-print').length;
+                freePanelsCount
+              } = activeSummary;
 
               return (
                 <>
                   <p style={{ fontSize: '12px', color: '#4B5563', marginBottom: '14px', lineHeight: '1.4' }}>
                     {activeSub && isSubscriptionActive(activeSub) ? (
                       <span style={{ color: '#15803D', fontWeight: '600' }}>
-                        🎉 <strong>{activeSub.planName}</strong> active: Billed at <strong>₹{activeRate.toFixed(2)}/{isQuickSizeBilling ? 'size' : 'pc'}</strong>{isQuickSizeBilling ? ' (Quick Size mode)' : ' for Back panels'}. Front & sleeves are free.
+                        🎉 <strong>{activeSub.planName}</strong> active: Billed at <strong>₹{activeRate.toFixed(2)}/{isQuickSizeBilling ? 'size' : 'pc'}</strong>{isQuickSizeBilling ? ' (Quick Size mode)' : ' for Back panels'}. Front &amp; sleeves are free.
                       </span>
                     ) : (
                       <span>
@@ -4550,16 +4681,28 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
                   {/* Pricing Breakdown Card */}
                   <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '10px', padding: '14px 16px', marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {mode === 'batch' && batchJobCount && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                        <span style={{ color: '#6B7280' }}>Selected Batch Jobs:</span>
+                        <span style={{ fontWeight: '700', color: '#111827' }}>{batchJobCount} jobs</span>
+                      </div>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                      <span style={{ color: '#6B7280' }}>Total Jerseys in Order:</span>
+                      <span style={{ color: '#6B7280' }}>{mode === 'batch' ? 'Total Jerseys Across Jobs:' : 'Total Jerseys in Order:'}</span>
                       <span style={{ fontWeight: '700', color: '#111827' }}>
                         {modalJerseys} jerseys{isQuickSizeBilling ? ` (${quickSizeCount} ${quickSizeCount === 1 ? 'size' : 'sizes'})` : ''}
                       </span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                      <span style={{ color: '#6B7280' }}>{isQuickSizeBilling ? 'Quick Size Export Rate:' : 'Sublimation Export Rate:'}</span>
+                      <span style={{ color: '#6B7280' }}>
+                        {isQuickSizeBilling
+                          ? 'Quick Size Export Rate:'
+                          : hasMixedModes
+                          ? 'Batch Billable Units:'
+                          : 'Sublimation Export Rate:'}
+                      </span>
                       <span style={{ fontWeight: '700', color: '#111827' }}>
-                        {billableUnits} {isQuickSizeBilling ? (billableUnits === 1 ? 'size' : 'sizes') : 'pcs'} × ₹{activeRate.toFixed(2)} = ₹{(billableUnits * activeRate).toFixed(2)}
+                        {billableUnits} {isQuickSizeBilling ? (billableUnits === 1 ? 'size' : 'sizes') : hasMixedModes ? 'units' : 'pcs'} × ₹{activeRate.toFixed(2)} = ₹{(billableUnits * activeRate).toFixed(2)}
                       </span>
                     </div>
                     {a4Count > 0 && (
