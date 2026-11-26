@@ -372,9 +372,10 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({
       return;
     }
 
-    if (fileName) {
-      updateMetadata({ fileName: fileName.replace(/\.[^/.]+$/, "") });
-    }
+    updateMetadata({
+      ...(fileName ? { fileName: fileName.replace(/\.[^/.]+$/, "") } : {}),
+      manualMode: false
+    });
     onRecordsChange(mappedRecords);
     alert(`Successfully imported ${mappedRecords.length} player records from ${fileName}`);
   };

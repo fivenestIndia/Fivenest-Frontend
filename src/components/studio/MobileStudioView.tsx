@@ -330,9 +330,14 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
   const hasCollar = Boolean(designConfig.collar?.uploadedFileUrl || designConfig.trim?.collar?.uploadedUrl);
   const anyArtworkUploaded = hasFront || hasBack || hasSleeve || hasCollar;
 
-  // Cost calculation (default ₹3.50/pc with logo watermark; free for main admin account)
+  // Cost calculation (delegates to NestingView billing engine when mounted, otherwise falls back accurately)
   const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
-  const orderCost = isOwnerExempt ? 0 : Math.max(0, (records.length > 0 ? totalQty : 1) * 3.50);
+  const nonSleeveRecs = records.filter(r => r.name?.toUpperCase() !== 'SLEEVE');
+  const isPureManual = nonSleeveRecs.length > 0 && nonSleeveRecs.every(r => r.id?.startsWith('manual-fb-') || r.id?.startsWith('manual-full-'));
+  const fallbackUnits = (metadata.manualMode || isPureManual)
+    ? new Set(nonSleeveRecs.map(r => r.size).filter(Boolean)).size
+    : (nonSleeveRecs.length > 0 ? nonSleeveRecs.reduce((acc, r) => acc + (r.qty || 1), 0) : 1);
+  const orderCost = isOwnerExempt ? 0 : Math.max(0, nestingRef.current?.calculateCost ? nestingRef.current.calculateCost() : (fallbackUnits * 3.50));
 
   // ── SheetJS Dynamic Loader for Excel Files ──
   const loadXLSX = (): Promise<any> => {

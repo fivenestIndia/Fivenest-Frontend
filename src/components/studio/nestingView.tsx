@@ -665,10 +665,13 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
         if (userId) {
           try {
-            const descJerseyCount = records.reduce((acc, r) => acc + (Number(r.qty) || 1), 0) || (metadata.manualGrid ? Object.values(metadata.manualGrid).reduce((acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0) + (Number(v?.half) || 0), 0) : 0);
+            const billing = getBillingMetrics();
+            const descLabel = billing.isQuickSizeBilling
+              ? `${billing.quickSizeCount} quick sizes (${billing.totalJerseys} jerseys)`
+              : `${billing.totalJerseys} jerseys`;
             const { data: success, error } = await supabase.rpc('deduct_export_credits', {
               amount_to_deduct: paymentCost,
-              export_desc: `Exported ${descJerseyCount} jerseys (${getItemsToExport().filter(item => item.panelType === 'a4-print').length} A4)`
+              export_desc: `Exported ${descLabel} (${billing.a4Count} A4)`
             });
 
             if (!error && success) {
@@ -767,11 +770,14 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
             } catch {}
 
             if (userId) {
-              const upiJerseyCount = records.reduce((acc, r) => acc + (Number(r.qty) || 1), 0) || (metadata.manualGrid ? Object.values(metadata.manualGrid).reduce((acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0) + (Number(v?.half) || 0), 0) : 0);
+              const billing = getBillingMetrics();
+              const upiDescLabel = billing.isQuickSizeBilling
+                ? `${billing.quickSizeCount} quick sizes (${billing.totalJerseys} jerseys)`
+                : `${billing.totalJerseys} jerseys`;
               // Deduct export credits in database
               await supabase.rpc('deduct_export_credits', {
                 amount_to_deduct: paymentCost,
-                export_desc: `Exported ${upiJerseyCount} jerseys (Live UPI: ₹${paymentCost})`
+                export_desc: `Exported ${upiDescLabel} (Live UPI: ₹${paymentCost})`
               }).catch(() => {});
 
               const details = await fetchUserWallet(userId);
@@ -2717,8 +2723,87 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
     });
   };
 
-  const logPrintProductionExportBillingEntry = (backPanelCount: number, overrideMeta?: OrderMetadata) => {
+  const getBillingMetrics = (
+    overrideRecords?: PlayerRecord[],
+    overrideMeta?: OrderMetadata,
+    overrideConfig?: ArtDesignConfig
+  ) => {
+    const activeRecs = overrideRecords || records;
     const activeMeta = overrideMeta || metadata;
+    const activeCfg = overrideConfig || designConfig;
+
+    const gridValues = activeMeta.manualGrid ? Object.values(activeMeta.manualGrid) : [];
+    const gridJerseyCount = gridValues.reduce(
+      (acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0),
+      0
+    );
+    const gridSizeCount = gridValues.filter(
+      (v: any) => (Number(v?.fb) || 0) + (Number(v?.full) || 0) > 0
+    ).length;
+
+    const nonSleeveRecords = activeRecs.filter(r => r.name?.toUpperCase() !== 'SLEEVE');
+    const recordsJerseyCount = nonSleeveRecords.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
+    const recordsSizeCount = new Set(nonSleeveRecords.map(r => r.size).filter(Boolean)).size;
+
+    let totalJerseys = 0;
+    if (activeMeta.manualMode && gridJerseyCount > 0) {
+      totalJerseys = gridJerseyCount;
+    } else if (recordsJerseyCount > 0) {
+      totalJerseys = recordsJerseyCount;
+    } else if (gridJerseyCount > 0) {
+      totalJerseys = gridJerseyCount;
+    }
+
+    const exportItems = getItemsToExport(activeCfg, activeRecs, activeMeta);
+    const a4Count = exportItems.filter(i => i.panelType === 'a4-print').length;
+
+    if (totalJerseys === 0) {
+      const backCount = exportItems.filter(i => i.panelType === 'back').length;
+      const frontCount = exportItems.filter(i => i.panelType === 'front').length;
+      totalJerseys = backCount > 0 ? backCount : frontCount;
+    }
+
+    // Quick Size Entry mode: charge strictly by number of distinct sizes (with Front+Back or Full Sleeve qty > 0)
+    // regardless of total jersey quantity or Individual Export F&B toggle
+    const isPureManualRecords = nonSleeveRecords.length > 0 && nonSleeveRecords.every(
+      r => r.id?.startsWith('manual-fb-') || r.id?.startsWith('manual-full-')
+    );
+    const isQuickSizeBilling = Boolean(activeMeta.manualMode || isPureManualRecords);
+
+    let quickSizeCount = 0;
+    if (isQuickSizeBilling) {
+      if (gridSizeCount > 0) {
+        quickSizeCount = gridSizeCount;
+      } else if (recordsSizeCount > 0) {
+        quickSizeCount = recordsSizeCount;
+      } else {
+        const backSizes = new Set(exportItems.filter(i => i.panelType === 'back').map(i => i.size));
+        const frontSizes = new Set(exportItems.filter(i => i.panelType === 'front').map(i => i.size));
+        quickSizeCount = backSizes.size > 0 ? backSizes.size : frontSizes.size;
+      }
+    }
+
+    const billableUnits = isQuickSizeBilling ? quickSizeCount : totalJerseys;
+
+    return {
+      isQuickSizeBilling,
+      totalJerseys,
+      quickSizeCount,
+      billableUnits,
+      a4Count,
+      exportItems
+    };
+  };
+
+  const logPrintProductionExportBillingEntry = (
+    billedQty: number,
+    overrideMeta?: OrderMetadata,
+    physicalJerseyCount?: number,
+    overrideConfig?: ArtDesignConfig,
+    overrideRecords?: PlayerRecord[]
+  ) => {
+    const activeMeta = overrideMeta || metadata;
+    const physicalCount = physicalJerseyCount ?? billedQty;
     try {
       const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
       const userSub = (currentUser as any)?.subscription || getSavedSubscription();
@@ -2727,14 +2812,14 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       const cleanFile = activeMeta?.fileName?.trim() 
         ? activeMeta.fileName.trim() 
         : (activeMeta?.customerName?.trim() 
-            ? `${activeMeta.customerName.trim()} - ${backPanelCount} jersey data` 
-            : `Blue Dragon XI (${backPanelCount} Jerseys)`);
+            ? `${activeMeta.customerName.trim()} - ${physicalCount} jersey data` 
+            : `Blue Dragon XI (${physicalCount} Jerseys)`);
 
       const entry = recordBillingExport({
         customerName: cleanCust,
         fileName: cleanFile,
         whatsapp: activeMeta?.whatsapp?.trim() || "",
-        qty: backPanelCount > 0 ? backPanelCount : 1,
+        qty: billedQty >= 0 ? billedQty : 0,
         rate: activeRate,
         designCharges: activeMeta?.designCharges !== undefined ? activeMeta.designCharges : 0,
         status: "Pending"
@@ -2742,11 +2827,11 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
       // Record export event for live counter on main page & admin dashboard
       try {
-        const items = getItemsToExport(undefined, undefined, activeMeta);
-        const actualFileCount = items.length > 0 ? items.length : Math.max(1, backPanelCount * 4);
+        const items = getItemsToExport(overrideConfig, overrideRecords, activeMeta);
+        const actualFileCount = items.length > 0 ? items.length : Math.max(1, physicalCount * 4);
         recordExportEvent({
           fileCount: actualFileCount,
-          jerseyCount: backPanelCount > 0 ? backPanelCount : 1,
+          jerseyCount: physicalCount > 0 ? physicalCount : 1,
           customerName: cleanCust,
           orderNum: activeMeta?.orderNum || '01',
           exportType: exportFormat || 'jpg',
@@ -2762,46 +2847,20 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
     }
   };
 
-  const calculateCost = (overrideRecords?: PlayerRecord[], overrideMeta?: OrderMetadata) => {
+  const calculateCost = (
+    overrideRecords?: PlayerRecord[],
+    overrideMeta?: OrderMetadata,
+    overrideConfig?: ArtDesignConfig
+  ) => {
     const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
     if (isOwnerExempt) return 0;
 
-    const activeRecs = overrideRecords || records;
-    const activeMeta = overrideMeta || metadata;
-
     const userSub = (currentUser as any)?.subscription || getSavedSubscription();
     const activeRate = getUserJerseyRate(userSub, includeWatermarkLogo, isOwnerExempt);
+    const { billableUnits, a4Count } = getBillingMetrics(overrideRecords, overrideMeta, overrideConfig);
 
-    // Calculate total number of jerseys:
-    // In FiveNest, front, sleeve, and collar panels are completely free.
-    // Charges are strictly on typed jersey quantity: (Total Typed Jerseys × activeRate) + (A4 Prints × 0.50)
-    let totalJerseys = 0;
-    const gridValues = activeMeta.manualGrid ? Object.values(activeMeta.manualGrid) : [];
-    const gridJerseyCount = gridValues.reduce(
-      (acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0),
-      0
-    );
-    const nonSleeveRecords = activeRecs.filter(r => r.name?.toUpperCase() !== 'SLEEVE');
-    const recordsJerseyCount = nonSleeveRecords.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
-
-    if (activeMeta.manualMode && gridJerseyCount > 0) {
-      totalJerseys = gridJerseyCount;
-    } else if (recordsJerseyCount > 0) {
-      totalJerseys = recordsJerseyCount;
-    } else if (gridJerseyCount > 0) {
-      totalJerseys = gridJerseyCount;
-    }
-
-    const items = getItemsToExport(undefined, activeRecs, activeMeta);
-    const a4Count = items.filter(i => i.panelType === 'a4-print').length;
-
-    if (totalJerseys === 0) {
-      const backCount = items.filter(i => i.panelType === 'back').length;
-      const frontCount = items.filter(i => i.panelType === 'front').length;
-      totalJerseys = backCount > 0 ? backCount : frontCount;
-    }
-
-    return (totalJerseys * activeRate) + (a4Count * 0.50);
+    // Quick Size mode charges (number of active sizes × activeRate); CSV/Player mode charges (total jerseys × activeRate)
+    return (billableUnits * activeRate) + (a4Count * 0.50);
   };
 
   // Reusable multi-job / single-job export engine
@@ -2841,30 +2900,12 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
         throw new Error(`No printable panels found for "${jobName}". Please verify that artwork is uploaded.`);
       }
 
-      // Determine total jerseys for accurate billing ledger based on typed quantity
-      let totalJerseys = 0;
-      const gridValues = jobMeta.manualGrid ? Object.values(jobMeta.manualGrid) : [];
-      const gridJerseyCount = gridValues.reduce(
-        (acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0),
-        0
+      // Determine billable units (number of sizes in Quick Size mode; typed jersey qty in CSV/Player mode)
+      const { billableUnits: billedUnitCount, totalJerseys: physicalJerseyCount } = getBillingMetrics(
+        jobRecords,
+        jobMeta,
+        jobConfig
       );
-      const nonSleeveRecords = jobRecords.filter(r => r.name?.toUpperCase() !== 'SLEEVE');
-      const recordsJerseyCount = nonSleeveRecords.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
-
-      if (jobMeta.manualMode && gridJerseyCount > 0) {
-        totalJerseys = gridJerseyCount;
-      } else if (recordsJerseyCount > 0) {
-        totalJerseys = recordsJerseyCount;
-      } else if (gridJerseyCount > 0) {
-        totalJerseys = gridJerseyCount;
-      }
-
-      if (totalJerseys === 0) {
-        const backCount = items.filter(i => i.panelType === 'back').length;
-        const frontCount = items.filter(i => i.panelType === 'front').length;
-        totalJerseys = backCount > 0 ? backCount : frontCount;
-      }
-      const billedJerseyCount = totalJerseys > 0 ? totalJerseys : 1;
 
       let activeDpi = testMode ? 72 : dpi;
       const cleanCust = (jobMeta.customerName || jobName || "Job").replace(/[\/\\:*?"<>|]/g, "_").trim() || "Unknown";
@@ -3165,7 +3206,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
       document.body.removeChild(link);
 
       // Auto-log Print Production Export Billing Entry
-      logPrintProductionExportBillingEntry(billedJerseyCount, jobMeta);
+      logPrintProductionExportBillingEntry(billedUnitCount, jobMeta, physicalJerseyCount, jobConfig, jobRecords);
 
       setStatus("Export complete!", 100);
       await new Promise(r => setTimeout(r, 1200));
@@ -3191,8 +3232,9 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
     }
 
     const totalJerseysAll = selectedPresets.reduce((acc, p) => acc + (p.totalGarments || p.records?.length || 1), 0);
-    const ratePerJersey = includeWatermarkLogo ? DEFAULT_SPOT_RATE_WITH_TAG : DEFAULT_SPOT_RATE_WITHOUT_TAG;
-    const totalBatchCost = Math.round(totalJerseysAll * ratePerJersey);
+    const totalBatchCost = Number(
+      selectedPresets.reduce((acc, p) => acc + calculateCost(p.records, p.metadata, p.config), 0).toFixed(2)
+    );
 
     const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
 
@@ -3787,7 +3829,7 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               transition: 'all 0.15s ease',
               boxShadow: metadata.individualExportFB ? '0 1px 3px rgba(228,87,46,0.15)' : 'none'
             }}
-            title="Separate 1-pc file for each Front &amp; Back (charged strictly by typed jersey quantity)"
+            title="Separate 1-pc file for each Front &amp; Back (CSV/Player mode charges by jersey qty; Quick Size mode charges by number of sizes)"
           >
             {metadata.individualExportFB ? (
               <CheckSquare size={14} style={{ color: '#E4572E', flexShrink: 0 }} />
@@ -4478,30 +4520,14 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
               const isOwnerExempt = currentUser?.email?.toLowerCase().trim() === 'fivenest.india@gmail.com';
               const activeRate = getUserJerseyRate(activeSub, includeWatermarkLogo, isOwnerExempt);
 
-              let modalJerseys = 0;
-              const gridValues = metadata.manualGrid ? Object.values(metadata.manualGrid) : [];
-              const gridJerseyCount = gridValues.reduce(
-                (acc: number, v: any) => acc + (Number(v?.fb) || 0) + (Number(v?.full) || 0),
-                0
-              );
-              const nonSleeveRecords = records.filter(r => r.name?.toUpperCase() !== 'SLEEVE');
-              const recordsJerseyCount = nonSleeveRecords.reduce((acc, r) => acc + (Number(r.qty) || 1), 0);
-
-              if (metadata.manualMode && gridJerseyCount > 0) {
-                modalJerseys = gridJerseyCount;
-              } else if (recordsJerseyCount > 0) {
-                modalJerseys = recordsJerseyCount;
-              } else if (gridJerseyCount > 0) {
-                modalJerseys = gridJerseyCount;
-              }
-
-              const exportItems = getItemsToExport();
-              const a4Count = exportItems.filter(i => i.panelType === 'a4-print').length;
-              if (modalJerseys === 0) {
-                const backCount = exportItems.filter(i => i.panelType === 'back').length;
-                const frontCount = exportItems.filter(i => i.panelType === 'front').length;
-                modalJerseys = backCount > 0 ? backCount : frontCount;
-              }
+              const {
+                isQuickSizeBilling,
+                totalJerseys: modalJerseys,
+                quickSizeCount,
+                billableUnits,
+                a4Count,
+                exportItems
+              } = getBillingMetrics();
 
               const freePanelsCount = exportItems.filter(item => item.panelType !== 'back' && item.panelType !== 'a4-print').length;
 
@@ -4510,11 +4536,14 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                   <p style={{ fontSize: '12px', color: '#4B5563', marginBottom: '14px', lineHeight: '1.4' }}>
                     {activeSub && isSubscriptionActive(activeSub) ? (
                       <span style={{ color: '#15803D', fontWeight: '600' }}>
-                        🎉 <strong>{activeSub.planName}</strong> active: Billed at <strong>₹{activeRate.toFixed(2)}/pc</strong> for Back panels. Front & sleeves are free.
+                        🎉 <strong>{activeSub.planName}</strong> active: Billed at <strong>₹{activeRate.toFixed(2)}/{isQuickSizeBilling ? 'size' : 'pc'}</strong>{isQuickSizeBilling ? ' (Quick Size mode)' : ' for Back panels'}. Front & sleeves are free.
                       </span>
                     ) : (
                       <span>
-                        Instant payment rendering is billed at <strong>₹3.50/pc</strong> for Back panels with FiveNest label tag (or <strong>₹5.50/pc</strong> standard). Front and sleeve panels are free.
+                        {isQuickSizeBilling
+                          ? <>Quick Size export is billed strictly by <strong>number of sizes × ₹{activeRate.toFixed(2)}</strong> ({includeWatermarkLogo ? 'with FiveNest tag' : 'standard rate'}). Front, sleeve &amp; collar panels are free.</>
+                          : <>Instant payment rendering is billed at <strong>₹3.50/pc</strong> for Back panels with FiveNest label tag (or <strong>₹5.50/pc</strong> standard). Front and sleeve panels are free.</>
+                        }
                       </span>
                     )}
                   </p>
@@ -4523,12 +4552,14 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
                   <div style={{ background: '#FAF8F5', border: '1px solid #E8E4DE', borderRadius: '10px', padding: '14px 16px', marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
                       <span style={{ color: '#6B7280' }}>Total Jerseys in Order:</span>
-                      <span style={{ fontWeight: '700', color: '#111827' }}>{modalJerseys} jerseys</span>
+                      <span style={{ fontWeight: '700', color: '#111827' }}>
+                        {modalJerseys} jerseys{isQuickSizeBilling ? ` (${quickSizeCount} ${quickSizeCount === 1 ? 'size' : 'sizes'})` : ''}
+                      </span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                      <span style={{ color: '#6B7280' }}>Sublimation Export Rate:</span>
+                      <span style={{ color: '#6B7280' }}>{isQuickSizeBilling ? 'Quick Size Export Rate:' : 'Sublimation Export Rate:'}</span>
                       <span style={{ fontWeight: '700', color: '#111827' }}>
-                        {modalJerseys} pcs × ₹{activeRate.toFixed(2)} = ₹{(modalJerseys * activeRate).toFixed(2)}
+                        {billableUnits} {isQuickSizeBilling ? (billableUnits === 1 ? 'size' : 'sizes') : 'pcs'} × ₹{activeRate.toFixed(2)} = ₹{(billableUnits * activeRate).toFixed(2)}
                       </span>
                     </div>
                     {a4Count > 0 && (
