@@ -816,6 +816,28 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
     });
   };
 
+  const panelOutlineConf = designConfig.panelOutline || { enabled: true, color: '#000000', widthPx: 2 };
+
+  const updatePanelOutline = (fields: Partial<{ enabled: boolean; color: string; widthPx: number }>) => {
+    const curr = designConfig.panelOutline || { enabled: true, color: '#000000', widthPx: 2 };
+    onDesignConfigChange({
+      ...designConfig,
+      panelOutline: { ...curr, ...fields }
+    });
+    setPrefTrigger(prev => prev + 1);
+  };
+
+  const handleTogglePanelOutline = () => {
+    const curr = designConfig.panelOutline || { enabled: true, color: '#000000', widthPx: 2 };
+    const nextEnabled = !(curr.enabled ?? true);
+    updatePanelOutline({ enabled: nextEnabled });
+    toast.success(
+      nextEnabled
+        ? `Panel Outline ON (${curr.widthPx ?? 2}px ${curr.color || '#000000'})`
+        : 'Panel Outline OFF'
+    );
+  };
+
   interface DraggingGuideState {
     type: 'vertical' | 'horizontal';
     isNew: boolean;
@@ -3586,12 +3608,6 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           ctx.fillRect(0, 0, width, height);
         }
         
-        if (!is3DPreview) {
-          ctx.strokeStyle = '#1a1a1a';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(0, 0, width, height);
-        }
-        
         drawLogos(ctx);
         drawTexts(ctx);
         drawTechnicalMarks(ctx);
@@ -3671,6 +3687,27 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
             ctx.fillText('2.0" Sleeve Stripe', 6, stripeYPx - 2);
             ctx.restore();
           }
+        }
+      }
+
+      // ── PANEL OUTLINE BORDER (Default ON: 2px Black Stroke on Front, Back & Sleeves) ──
+      const isOutlinePanel = panelKey === 'front' || panelKey === 'back' || panelKey === 'sleeveLeft' || panelKey === 'sleeveRight';
+      if (!is3DPreview && isOutlinePanel) {
+        const outlineCfg = designConfig.panelOutline || { enabled: true, color: '#000000', widthPx: 2 };
+        if (outlineCfg.enabled ?? true) {
+          const lw = Math.max(0.5, Number(outlineCfg.widthPx ?? 2));
+          ctx.save();
+          ctx.strokeStyle = outlineCfg.color || '#000000';
+          ctx.lineWidth = lw;
+          ctx.strokeRect(lw / 2, lw / 2, width - lw, height - lw);
+          ctx.restore();
+        } else {
+          // Subtle hairline canvas artboard edge when Panel Outline is turned OFF
+          ctx.save();
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.12)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(0.5, 0.5, width - 1, height - 1);
+          ctx.restore();
         }
       }
 
@@ -5410,6 +5447,8 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
           onToggleGuidelines={() => setShowGuidelines(prev => !prev)}
           lockGuidelines={lockGuidelines}
           onToggleLockGuidelines={handleToggleLockGuidelines}
+          panelOutlineEnabled={panelOutlineConf.enabled ?? true}
+          onTogglePanelOutline={handleTogglePanelOutline}
           fillColor={toolboxFillColor}
           strokeColor={toolboxStrokeColor}
           onUpdateFillColor={handleToolboxUpdateFillColor}
@@ -7613,6 +7652,115 @@ export const Designer: React.FC<DesignerProps> = ({ designConfig, onDesignConfig
                 >
                   🏷️ Size Tag
                 </button>
+              </div>
+
+              {/* Panel Outline Specification (2px Black Stroke on Front, Back & Sleeves — Default ON) */}
+              <div style={{
+                background: (panelOutlineConf.enabled ?? true) ? '#F8FAFC' : '#F9FAFB',
+                border: (panelOutlineConf.enabled ?? true) ? '1.5px solid #1E293B' : '1px solid #E5E7EB',
+                borderRadius: '8px',
+                padding: '7px 10px',
+                marginBottom: '12px',
+                transition: 'all 0.15s ease'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{
+                      width: '13px',
+                      height: '13px',
+                      borderRadius: '3px',
+                      border: `2px solid ${panelOutlineConf.color || '#000000'}`,
+                      background: '#FFFFFF',
+                      display: 'inline-block',
+                      flexShrink: 0
+                    }} />
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: '800', color: '#111827', lineHeight: 1.15 }}>
+                        Panel Outline (All Panels)
+                      </div>
+                      <div style={{ fontSize: '9.5px', color: '#6B7280', fontWeight: '600' }}>
+                        {(panelOutlineConf.enabled ?? true)
+                          ? `${panelOutlineConf.widthPx ?? 2} px • ${panelOutlineConf.color || '#000000'} on Front, Back & Sleeves`
+                          : 'OFF — no panel cut border'}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleTogglePanelOutline}
+                    style={{
+                      padding: '3px 9px',
+                      fontSize: '10px',
+                      fontWeight: '800',
+                      borderRadius: '5px',
+                      border: 'none',
+                      background: (panelOutlineConf.enabled ?? true) ? '#111827' : '#E5E7EB',
+                      color: (panelOutlineConf.enabled ?? true) ? '#FFFFFF' : '#4B5563',
+                      cursor: 'pointer',
+                      flexShrink: 0
+                    }}
+                  >
+                    {(panelOutlineConf.enabled ?? true) ? 'ON' : 'OFF'}
+                  </button>
+                </div>
+
+                {(panelOutlineConf.enabled ?? true) && (
+                  <div style={{ marginTop: '7px', paddingTop: '7px', borderTop: '1px dashed #CBD5E1', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span style={{ fontSize: '10px', fontWeight: '700', color: '#4B5563' }}>Stroke:</span>
+                      <input
+                        type="number"
+                        min="0.5"
+                        max="10"
+                        step="0.5"
+                        value={panelOutlineConf.widthPx ?? 2}
+                        onChange={(e) => updatePanelOutline({ widthPx: Math.max(0.5, parseFloat(e.target.value) || 2) })}
+                        style={{ width: '44px', padding: '2px 5px', fontSize: '10.5px', fontWeight: '700', borderRadius: '4px', border: '1px solid #D1D5DB', background: '#FFFFFF', color: '#111827' }}
+                      />
+                      <span style={{ fontSize: '10px', color: '#6B7280', fontWeight: '700' }}>px</span>
+                      <div style={{ display: 'flex', gap: '2px', marginLeft: '2px' }}>
+                        {[1, 2, 3].map(px => (
+                          <button
+                            key={px}
+                            type="button"
+                            onClick={() => updatePanelOutline({ widthPx: px })}
+                            style={{
+                              padding: '2px 5px',
+                              fontSize: '9px',
+                              fontWeight: '800',
+                              borderRadius: '4px',
+                              border: (panelOutlineConf.widthPx ?? 2) === px ? '1px solid #E4572E' : '1px solid #D1D5DB',
+                              background: (panelOutlineConf.widthPx ?? 2) === px ? '#FFF5F2' : '#FFFFFF',
+                              color: (panelOutlineConf.widthPx ?? 2) === px ? '#E4572E' : '#374151',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {px}px
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span style={{ fontSize: '10px', fontWeight: '700', color: '#4B5563' }}>Color:</span>
+                      <input
+                        type="color"
+                        value={panelOutlineConf.color || '#000000'}
+                        onChange={(e) => updatePanelOutline({ color: e.target.value })}
+                        style={{ width: '22px', height: '20px', padding: '0', border: '1px solid #D1D5DB', borderRadius: '4px', cursor: 'pointer', background: 'transparent' }}
+                        title="Panel outline stroke color"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => updatePanelOutline({ color: '#000000', widthPx: 2 })}
+                        style={{ padding: '2px 6px', fontSize: '9px', fontWeight: '700', borderRadius: '4px', border: '1px solid #D1D5DB', background: '#FFFFFF', color: '#374151', cursor: 'pointer' }}
+                        title="Reset to 2px Black"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Hotkey Helper Banner */}

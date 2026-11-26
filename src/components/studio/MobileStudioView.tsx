@@ -929,10 +929,19 @@ export const MobileStudioView: React.FC<MobileStudioViewProps> = ({
       drawLogoHelper(panelConf.bottomLeftLogo.uploadedUrl, canvasW * 0.16, canvasH * 0.88, Math.round(canvasW * 0.12));
     }
 
-    // 7. Outline
-    ctx.strokeStyle = '#E4572E';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(0, 0, canvasW, canvasH);
+    // 7. Panel Outline (Default ON: 2px black on Front, Back & Sleeves)
+    const outlineCfg = designConfig.panelOutline || { enabled: true, color: '#000000', widthPx: 2 };
+    const isOutlinePanel = activePanel === 'front' || activePanel === 'back' || activePanel === 'sleeveLeft' || activePanel === 'sleeveRight';
+    if (isOutlinePanel && (outlineCfg.enabled ?? true)) {
+      const lw = Math.max(0.5, Number(outlineCfg.widthPx ?? 2));
+      ctx.strokeStyle = outlineCfg.color || '#000000';
+      ctx.lineWidth = lw;
+      ctx.strokeRect(lw / 2, lw / 2, canvasW - lw, canvasH - lw);
+    } else {
+      ctx.strokeStyle = '#E4572E';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(0, 0, canvasW, canvasH);
+    }
   };
 
   // Re-draw static canvas on changes

@@ -134,6 +134,12 @@ export interface CollarConfig extends PanelConfig {
   stripes?: CollarStripe[];
 }
 
+export interface PanelOutlineConfig {
+  enabled: boolean; // Default: true (2px black cut outline on Front, Back, Sleeves)
+  color: string;    // Default: '#000000'
+  widthPx: number;  // Default: 2
+}
+
 export interface ArtDesignConfig {
   front: PanelConfig;
   back: PanelConfig;
@@ -142,6 +148,7 @@ export interface ArtDesignConfig {
   collar?: CollarConfig;
   a4Print: PanelConfig;
   trim?: TrimConfig;
+  panelOutline?: PanelOutlineConfig;
 }
 
 /**
@@ -293,5 +300,10 @@ export const defaultDesignConfig: ArtDesignConfig = {
     placket: { enabled: true, color: '#9b4dff', uploadedUrl: null },
     sleeveStripe: { enabled: false, color: '#171717', uploadedUrl: null, height: 2.0, fillType: 'solid' },
     buttonColor: '#ffffff'
+  },
+  panelOutline: {
+    enabled: true,
+    color: '#000000',
+    widthPx: 2
   }
 };

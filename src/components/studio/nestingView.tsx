@@ -2748,6 +2748,25 @@ export const NestingView = forwardRef<NestingViewHandle, NestingViewProps>(funct
 
         // Draw overlays
         drawOverlays();
+
+        // Draw Panel Outline border (Default ON: 2px black cut outline on Front, Back & Sleeves)
+        const outlineCfg = activeConfig?.panelOutline || { enabled: true, color: '#000000', widthPx: 2 };
+        const isOutlinePanel =
+          item.panelType === 'front' ||
+          item.panelType === 'back' ||
+          item.panelType === 'sleeve-left' ||
+          item.panelType === 'sleeve-right';
+
+        if (isOutlinePanel && (outlineCfg.enabled ?? true)) {
+          const basePx = Math.max(0.5, Number(outlineCfg.widthPx ?? 2));
+          const lw = Math.max(basePx, Math.round(basePx * (scaleDpi / 96)));
+          ctx.save();
+          ctx.strokeStyle = outlineCfg.color || '#000000';
+          ctx.lineWidth = lw;
+          ctx.strokeRect(lw / 2, lw / 2, widthPx - lw, heightPx - lw);
+          ctx.restore();
+        }
+
         resolve(canvas);
       });
     });
