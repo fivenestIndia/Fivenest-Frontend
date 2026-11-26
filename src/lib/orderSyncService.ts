@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { supabase } from './supabaseClient';
-import type { OrderStore, Customer, ManufacturerOrder, DesignerBill, PrintingOrder, Payment, Quotation, FactoryExpense } from '../hooks/useOrderStore';
+import type { OrderStore, Customer, ManufacturerOrder, DesignerBill, PrintingOrder, PrintingGood, Payment, Quotation, FactoryExpense } from '../hooks/useOrderStore';
 
 async function getAuthToken(): Promise<string | null> {
   try {
@@ -119,6 +119,11 @@ export function mergeOrderStores(local: OrderStore, remote: OrderStore): OrderSt
   (remote.quotations || []).forEach(q => q && q.id && quoMap.set(q.id, q));
   (local.quotations || []).forEach(q => q && q.id && quoMap.set(q.id, q));
 
+  // Merge printing goods
+  const goodsMap = new Map<string, PrintingGood>();
+  (remote.printingGoods || []).forEach(g => g && g.id && goodsMap.set(g.id, g));
+  (local.printingGoods || []).forEach(g => g && g.id && goodsMap.set(g.id, g));
+
   // Counters take max
   const counters = {
     mfg: Math.max(local.counters?.mfg || 0, remote.counters?.mfg || 0),
@@ -135,6 +140,7 @@ export function mergeOrderStores(local: OrderStore, remote: OrderStore): OrderSt
     designerBills: Array.from(dsgMap.values()),
     printingOrders: Array.from(prtMap.values()),
     printingServices: local.printingServices || remote.printingServices,
+    printingGoods: goodsMap.size > 0 ? Array.from(goodsMap.values()) : local.printingGoods,
     payments: Array.from(payMap.values()),
     factoryExpenses: Array.from(expMap.values()),
     quotations: Array.from(quoMap.values()),

@@ -210,6 +210,28 @@ export interface PrintingService {
   customerRates: CustomerRate[];
 }
 
+// ── Printing Good / Custom Catalog Item (e.g. Front = ₹30, Back = ₹30, F&B = ₹60) ──
+export interface PrintingGood {
+  id: string;
+  name: string;
+  price: number;
+  unit: string;
+  category?: string;
+  description?: string;
+  active: boolean;
+  createdAt?: string;
+}
+
+export interface PrintingOrderLineItem {
+  id: string;
+  goodId?: string;
+  name: string;
+  unit?: string;
+  rate: number;
+  qty: number;
+  amount: number;
+}
+
 // ── Printing Order ────────────────────────────────────────────────────────────
 export type PrintingOrderStatus = 'quotation' | 'received' | 'artwork_pending' | 'artwork_approved' | 'queue' | 'printing' | 'quality_check' | 'ready' | 'delivered' | 'cancelled';
 
@@ -225,6 +247,7 @@ export interface PrintingOrder {
   paymentStatus: PaymentStatus;
   quantity: number;
   appliedRate: number;
+  lineItems?: PrintingOrderLineItem[];
   material: string;
   fabric: string;
   color: string;
@@ -374,6 +397,7 @@ export interface OrderStore {
   designerBills: DesignerBill[];
   printingOrders: PrintingOrder[];
   printingServices: PrintingService[];
+  printingGoods?: PrintingGood[];
   payments: Payment[];
   quotations: Quotation[];
   factoryExpenses: FactoryExpense[];
@@ -407,6 +431,10 @@ export type Action =
   | { type: 'ADD_PRINTING_SERVICE'; payload: Omit<PrintingService, 'id'> }
   | { type: 'UPDATE_PRINTING_SERVICE'; payload: PrintingService }
   | { type: 'DELETE_PRINTING_SERVICE'; payload: string }
+  // Printing Goods (Custom Print Parts & Price Catalog)
+  | { type: 'ADD_PRINTING_GOOD'; payload: Omit<PrintingGood, 'id' | 'createdAt'> }
+  | { type: 'UPDATE_PRINTING_GOOD'; payload: PrintingGood }
+  | { type: 'DELETE_PRINTING_GOOD'; payload: string }
   // Printing Orders
   | { type: 'ADD_PRINTING_ORDER'; payload: Omit<PrintingOrder, 'id' | 'orderNumber' | 'createdAt'> }
   | { type: 'UPDATE_PRINTING_ORDER'; payload: PrintingOrder }
@@ -494,6 +522,14 @@ const SEED: OrderStore = {
       slabs: [{ minQty: 1, maxQty: 100, rate: 150 }, { minQty: 101, maxQty: null, rate: 120 }],
       minQuantity: 1, minCharge: 150, rushCharge: 400, setupCharge: 500, gstPct: 12, active: true, customerRates: [],
     },
+  ],
+  printingGoods: [
+    { id: 'good-1', name: 'Front Print', price: 30, unit: 'pc', category: 'Sublimation', description: 'Front chest sublimation print', active: true },
+    { id: 'good-2', name: 'Back Print', price: 30, unit: 'pc', category: 'Sublimation', description: 'Back panel print with Name & Number', active: true },
+    { id: 'good-3', name: 'Front & Back Set', price: 60, unit: 'set', category: 'Sublimation', description: 'Combined Front + Back print set', active: true },
+    { id: 'good-4', name: 'Half Sleeve (Pair)', price: 20, unit: 'pair', category: 'Sublimation', description: 'Left + Right half sleeve sublimation', active: true },
+    { id: 'good-5', name: 'Full Sleeve (Pair)', price: 35, unit: 'pair', category: 'Sublimation', description: 'Left + Right full sleeve sublimation', active: true },
+    { id: 'good-6', name: 'Chest / Pocket Logo', price: 15, unit: 'pc', category: 'DTF', description: 'Small crest / pocket logo transfer', active: true },
   ],
   customers: [],
   manufacturerOrders: [],
@@ -630,6 +666,27 @@ function reducer(state: OrderStore, action: Action): OrderStore {
       break;
     }
 
+    // ── Printing Goods (Custom Catalog) ────────────────────────────────────
+    case 'ADD_PRINTING_GOOD': {
+      const good: PrintingGood = { ...action.payload, id: `good-${uid()}`, createdAt: now() };
+      next = { ...state, printingGoods: [...(state.printingGoods || []), good] };
+      break;
+    }
+    case 'UPDATE_PRINTING_GOOD': {
+      next = {
+        ...state,
+        printingGoods: (state.printingGoods || []).map(g => g.id === action.payload.id ? action.payload : g),
+      };
+      break;
+    }
+    case 'DELETE_PRINTING_GOOD': {
+      next = {
+        ...state,
+        printingGoods: (state.printingGoods || []).filter(g => g.id !== action.payload),
+      };
+      break;
+    }
+
     // ── Printing Orders ────────────────────────────────────────────────────
     case 'ADD_PRINTING_ORDER': {
       const n = state.counters.prt + 1;
@@ -645,7 +702,8 @@ function reducer(state: OrderStore, action: Action): OrderStore {
       break;
     }
     case 'UPDATE_PRINTING_ORDER': {
-      next = { ...state, printingOrders: state.printingOrders.map(o => o.id === action.payload.id ? action.payload : o) };
+      const updated = { ...state, printingOrders: state.printingOrders.map(o => o.id === action.payload.id ? action.payload : o) };
+      next = applyAllocations(updated);
       break;
     }
     case 'DELETE_PRINTING_ORDER': {
@@ -1116,6 +1174,9 @@ export function useOrderStore(userEmail?: string | null) {
           b => !['dsg-1', 'dsg-2'].includes(b.id)
         );
         saved.factoryExpenses = saved.factoryExpenses || [];
+        if (saved.printingGoods === undefined) {
+          saved.printingGoods = SEED.printingGoods;
+        }
         if (!saved.counters) {
           saved.counters = { mfg: 0, dsg: 0, prt: 0, pay: 0, quo: 0, exp: 0 };
         } else if (saved.counters.exp === undefined) {
